@@ -175,6 +175,17 @@ nx dev content --port=4113 --verbose
 basePath : `http://localhost:4113/mfe_content/`
 Port : `4113`
 
+### ticketing-system
+
+Next JS, run:
+
+```sh
+nx dev ticketing-system --port=4114 --verbose
+```
+
+basePath : `http://localhost:4114`
+Port : `4114`
+
 ## NX Command
 
 ### View Nx Graph
