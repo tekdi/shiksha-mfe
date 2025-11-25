@@ -3,7 +3,7 @@
 export const dynamic = "force-dynamic";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useEffect, useState, useRef, Suspense } from "react";
+import React, { useEffect, useState, useRef, Suspense, useMemo } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   Box,
@@ -40,7 +40,12 @@ import {
 } from "@learner/utils/API/services/AttendanceService";
 import { getMyCohortMemberList } from "@learner/utils/API/services/MyClassDetailsService";
 import { ICohort } from "@learner/utils/attendance/interfaces";
-import { shortDateFormat, filterMembersExcludingCurrentUser } from "@learner/utils/attendance/helper";
+import {
+  shortDateFormat,
+  filterMembersExcludingCurrentUser,
+  isDateWithinPastDays,
+  getDayDifferenceFromToday,
+} from "@learner/utils/attendance/helper";
 import { fetchAttendanceDetails } from "@learner/app/attandence/fetchAttendanceDetails";
 import { getContrastTextColor } from "@learner/utils/colorUtils";
 import { useTheme } from "@mui/material/styles";
@@ -56,6 +61,9 @@ import { useTranslation } from "@shared-lib";
 import { useTenant } from "@learner/context/TenantContext";
 import Image from "next/image";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
+import { showToastMessage } from "@learner/components/ToastComponent/Toastify";
+
+const MAX_BACKDATED_MARK_DAYS = 7;
 
 const AttendanceHistoryPageContent = () => {
   const router = useRouter();
@@ -93,6 +101,15 @@ const AttendanceHistoryPageContent = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
+
+  const selectedDateDiffFromToday = useMemo(
+    () => getDayDifferenceFromToday(selectedDate),
+    [selectedDate]
+  );
+  const isSelectedDateWithinAllowedWindow = useMemo(
+    () => isDateWithinPastDays(selectedDate, MAX_BACKDATED_MARK_DAYS),
+    [selectedDate]
+  );
   const [nameUserIdArrayForModal, setNameUserIdArrayForModal] = useState<Array<any>>([]);
   const [attendanceData, setAttendanceData] = useState({
     cohortMemberList: [] as any[],
@@ -559,7 +576,26 @@ const AttendanceHistoryPageContent = () => {
     // Handle month change
   };
 
+  const showHistoryBackDateRestrictionMessage = () => {
+    if (selectedDateDiffFromToday !== null && selectedDateDiffFromToday < 0) {
+      showToastMessage(
+        t("LEARNER_APP.ATTENDANCE.FUTURE_DATE_CANT_MARK") ||
+          "You cannot mark attendance for a future date.",
+        "warning"
+      );
+    } else {
+      showToastMessage(
+        `You can only mark attendance for the last ${MAX_BACKDATED_MARK_DAYS} days.`,
+        "warning"
+      );
+    }
+  };
+
   const handleOpen = async () => {
+    if (!isSelectedDateWithinAllowedWindow) {
+      showHistoryBackDateRestrictionMessage();
+      return;
+    }
     // Ensure attendanceData is up-to-date before opening modal
     // Use nameUserIdArrayForModal (without attendance) to fetch fresh attendance data
     if (nameUserIdArrayForModal.length > 0) {

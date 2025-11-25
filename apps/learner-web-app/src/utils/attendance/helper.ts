@@ -97,3 +97,45 @@ export const filterMembersExcludingCurrentUser = <T extends MemberWithUserIdenti
   });
 };
 
+const normalizeDateInput = (value: Date | string): Date | null => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    const cloned = new Date(value);
+    return isNaN(cloned.getTime()) ? null : cloned;
+  }
+  if (typeof value === "string") {
+    const normalized =
+      /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value;
+    const parsed = new Date(normalized);
+    return isNaN(parsed.getTime()) ? null : parsed;
+  }
+  return null;
+};
+
+const startOfDay = (date: Date): Date => {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+};
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+export const getDayDifferenceFromToday = (value: Date | string): number | null => {
+  const targetDate = normalizeDateInput(value);
+  if (!targetDate) return null;
+  const today = startOfDay(new Date());
+  const target = startOfDay(targetDate);
+  return (today.getTime() - target.getTime()) / DAY_IN_MS;
+};
+
+export const isDateWithinPastDays = (value: Date | string, maxPastDays: number): boolean => {
+  const diff = getDayDifferenceFromToday(value);
+  if (diff === null) return false;
+  return diff >= 0 && diff <= maxPastDays;
+};
+
+export const isTodayDate = (value: Date | string): boolean => {
+  const diff = getDayDifferenceFromToday(value);
+  return diff !== null && diff === 0;
+};
+

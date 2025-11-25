@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { Layout, useTranslation } from "@shared-lib";
 import { useTenant } from "@learner/context/TenantContext";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
+import { getLocalizedText } from "@learner/utils/API/TenantService";
 
 export default function Index() {
   const router = useRouter();
@@ -27,12 +28,45 @@ export default function Index() {
 
   const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
   const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
-  const backgroundColor = contentFilter?.theme?.backgroundColor || "#F5F5F5";
-  const tenantName = contentFilter?.title || tenant?.name || "Learner";
+  const backgroundColor = contentFilter?.backgroundColor || contentFilter?.theme?.backgroundColor || "#F5F5F5";
+  const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#FFFFFF";
+  
+  // Get localized tenant name
+  const tenantNameRaw = contentFilter?.title || tenant?.name || "Learner";
+  const tenantName = typeof tenantNameRaw === "string" ? tenantNameRaw : getLocalizedText(tenantNameRaw, language, "Learner");
+  
   const tenantIcon = contentFilter?.icon || "/logo.png";
   const tenantAlt = `${tenantName} logo`;
-  const description = contentFilter?.description || "";
-  const tagline = contentFilter?.tagline || "";
+  
+  // Get localized descriptions and taglines
+  const description = getLocalizedText(
+    contentFilter?.description || contentFilter?.homePageContent?.description,
+    language,
+    ""
+  );
+  const tagline = getLocalizedText(
+    contentFilter?.tagline || contentFilter?.homePageContent?.tagline,
+    language,
+    ""
+  );
+  
+  // Get localized button texts
+  const chooseLanguageText = getLocalizedText(
+    contentFilter?.homePageContent?.chooseLanguageText,
+    language,
+    t("LEARNER_APP.HOME.CHOOSE_LANGUAGE") || "Choose your language"
+  );
+  const continueButtonText = getLocalizedText(
+    contentFilter?.homePageContent?.continueButtonText,
+    language,
+    t("LEARNER_APP.HOME.CONTINUE") || "Continue to Login"
+  );
+  const getStartedButtonText = getLocalizedText(
+    contentFilter?.homePageContent?.getStartedButtonText,
+    language,
+    t("LEARNER_APP.HOME.LOGIN_LINK") || "Get Started"
+  );
+  
   const isSwadhaarTenant = tenantName.toLowerCase().includes("swadhaar");
   const uiPrimaryColor = primaryColor;
   const uiSecondaryColor = secondaryColor;
@@ -40,65 +74,104 @@ export default function Index() {
   const mutedTextColor = alpha(uiSecondaryColor, 0.55);
 
   const features = useMemo(
-    () => [
-      {
-        icon: "🎓",
-        title:
-          t("LEARNER_APP.HOME.FEATURES.EDUCATION.TITLE") || "Education",
-        description:
-          t("LEARNER_APP.HOME.FEATURES.EDUCATION.DESCRIPTION") ||
-          "Learning solutions for institutions",
-      },
-      {
-        icon: "🌱",
-        title:
-          t("LEARNER_APP.HOME.FEATURES.AGRICULTURE.TITLE") || "Agriculture",
-        description:
-          t("LEARNER_APP.HOME.FEATURES.AGRICULTURE.DESCRIPTION") ||
-          "Farmer capacity building",
-      },
-      {
-        icon: "🏥",
-        title:
-          t("LEARNER_APP.HOME.FEATURES.HEALTHCARE.TITLE") || "Healthcare",
-        description:
-          t("LEARNER_APP.HOME.FEATURES.HEALTHCARE.DESCRIPTION") ||
-          "Professional development",
-      },
-      {
-        icon: "⚡",
-        title:
-          t("LEARNER_APP.HOME.FEATURES.ALL_DOMAINS.TITLE") || "All Domains",
-        description:
-          t("LEARNER_APP.HOME.FEATURES.ALL_DOMAINS.DESCRIPTION") ||
-          "Custom learning solutions",
-      },
-    ],
-    [t]
+    () => {
+      // Use tenant configuration if available, otherwise fall back to default features
+      if (contentFilter?.ourSolutions && contentFilter.ourSolutions.length > 0) {
+        return contentFilter.ourSolutions.map((solution) => ({
+          icon: solution.icon,
+          title: getLocalizedText(
+            solution.title,
+            language,
+            typeof solution.title === "string" ? solution.title : ""
+          ),
+          description: getLocalizedText(
+            solution.description,
+            language,
+            typeof solution.description === "string" ? solution.description : ""
+          ),
+        }));
+      }
+      
+      // Fallback to default features
+      return [
+        {
+          icon: "🎓",
+          title:
+            t("LEARNER_APP.HOME.FEATURES.EDUCATION.TITLE") || "Education",
+          description:
+            t("LEARNER_APP.HOME.FEATURES.EDUCATION.DESCRIPTION") ||
+            "Learning solutions for institutions",
+        },
+        {
+          icon: "🌱",
+          title:
+            t("LEARNER_APP.HOME.FEATURES.AGRICULTURE.TITLE") || "Agriculture",
+          description:
+            t("LEARNER_APP.HOME.FEATURES.AGRICULTURE.DESCRIPTION") ||
+            "Farmer capacity building",
+        },
+        {
+          icon: "🏥",
+          title:
+            t("LEARNER_APP.HOME.FEATURES.HEALTHCARE.TITLE") || "Healthcare",
+          description:
+            t("LEARNER_APP.HOME.FEATURES.HEALTHCARE.DESCRIPTION") ||
+            "Professional development",
+        },
+        {
+          icon: "⚡",
+          title:
+            t("LEARNER_APP.HOME.FEATURES.ALL_DOMAINS.TITLE") || "All Domains",
+          description:
+            t("LEARNER_APP.HOME.FEATURES.ALL_DOMAINS.DESCRIPTION") ||
+            "Custom learning solutions",
+        },
+      ];
+    },
+    [t, contentFilter, language]
   );
 
   const swadhaarHighlights = useMemo(
-    () => [
-      {
-        title: t("LEARNER_APP.HOME.HIGHLIGHTS.BILINGUAL_TITLE") || "Bilingual content",
-        description:
-          t("LEARNER_APP.HOME.HIGHLIGHTS.BILINGUAL_DESC") ||
-          "Switch between English & Hindi any time",
-      },
-      {
-        title: t("LEARNER_APP.HOME.HIGHLIGHTS.CERTIFIED_TITLE") || "Certified programs",
-        description:
-          t("LEARNER_APP.HOME.HIGHLIGHTS.CERTIFIED_DESC") ||
-          "Earn shareable certificates on completion",
-      },
-      {
-        title: t("LEARNER_APP.HOME.HIGHLIGHTS.SELF_PACED_TITLE") || "Self paced",
-        description:
-          t("LEARNER_APP.HOME.HIGHLIGHTS.SELF_PACED_DESC") ||
-          "Learn at a speed that suits your routine",
-      },
-    ],
-    [t]
+    () => {
+      // Use tenant configuration if available
+      if (contentFilter?.homePageContent?.highlights && contentFilter.homePageContent.highlights.length > 0) {
+        return contentFilter.homePageContent.highlights.map((highlight) => ({
+          title: getLocalizedText(
+            highlight.title,
+            language,
+            typeof highlight.title === "string" ? highlight.title : ""
+          ),
+          description: getLocalizedText(
+            highlight.description,
+            language,
+            typeof highlight.description === "string" ? highlight.description : ""
+          ),
+        }));
+      }
+      
+      // Fallback to default highlights
+      return [
+        {
+          title: t("LEARNER_APP.HOME.HIGHLIGHTS.BILINGUAL_TITLE") || "Bilingual content",
+          description:
+            t("LEARNER_APP.HOME.HIGHLIGHTS.BILINGUAL_DESC") ||
+            "Switch between English & Hindi any time",
+        },
+        {
+          title: t("LEARNER_APP.HOME.HIGHLIGHTS.CERTIFIED_TITLE") || "Certified programs",
+          description:
+            t("LEARNER_APP.HOME.HIGHLIGHTS.CERTIFIED_DESC") ||
+            "Earn shareable certificates on completion",
+        },
+        {
+          title: t("LEARNER_APP.HOME.HIGHLIGHTS.SELF_PACED_TITLE") || "Self paced",
+          description:
+            t("LEARNER_APP.HOME.HIGHLIGHTS.SELF_PACED_DESC") ||
+            "Learn at a speed that suits your routine",
+        },
+      ];
+    },
+    [t, contentFilter, language]
   );
 
   const renderLoadingState = (bg: string) => (
@@ -144,6 +217,7 @@ export default function Index() {
       />
     </Box>
   );
+  console.log(buttonTextColor);
 
   const renderSwadhaarHome = () => (
     <Layout onlyHideElements={["footer", "topBar"]} _topAppBar={undefined}>
@@ -270,7 +344,7 @@ export default function Index() {
                   mb: { xs: 1.5, sm: 2 },
                 }}
               >
-                {t("LEARNER_APP.HOME.CHOOSE_LANGUAGE") || "Choose your language"}
+                {chooseLanguageText}
               </Typography>
 
               <SwadhaarLanguageButtons variant="body" />
@@ -284,7 +358,7 @@ export default function Index() {
                   px: { xs: 4, sm: 5 },
                   py: 1.25,
                   backgroundColor: uiPrimaryColor,
-                  color: "#FFFFFF",
+                  color: `${buttonTextColor} !important`,
                   fontWeight: 600,
                   textTransform: "none",
                   boxShadow: `0 8px 18px ${uiPrimaryColor}33`,
@@ -292,10 +366,11 @@ export default function Index() {
                   "&:hover": {
                     backgroundColor: uiPrimaryColor,
                     opacity: 0.9,
+                    color: `${buttonTextColor} !important`,
                   },
                 }}
               >
-                {t("LEARNER_APP.HOME.CONTINUE") || "Continue to Login"}
+                {continueButtonText}
               </Button>
 
               <Grid container spacing={2} sx={{ mt: { xs: 3, sm: 4 } }}>
@@ -597,7 +672,7 @@ export default function Index() {
                           py: 1.5,
                           borderRadius: "50px",
                           backgroundColor: uiPrimaryColor,
-                          color: "#FFFFFF",
+                          color: `${buttonTextColor} !important`,
                           fontWeight: 600,
                           fontSize: { xs: "0.9rem", sm: "1rem" },
                           textTransform: "none",
@@ -609,12 +684,13 @@ export default function Index() {
                             backgroundColor: uiPrimaryColor,
                             opacity: 0.9,
                             transform: "translateY(-2px)",
+                            color: `${buttonTextColor} !important`,
                           },
                           transition: "all 0.3s ease",
                         }}
                         onClick={() => router.push("/login")}
                       >
-                        {t("LEARNER_APP.HOME.LOGIN_LINK") || "Get Started"}
+                        {getStartedButtonText}
                       </Button>
                     </Box>
 
@@ -720,7 +796,11 @@ export default function Index() {
                     fontSize: { xs: "1.5rem", sm: "1.8rem", md: "2rem" },
                   }}
                 >
-                  {t("LEARNER_APP.HOME.OUR_SOLUTIONS_TITLE") || "Our Solutions"}
+                  {getLocalizedText(
+                    contentFilter?.ourSolutionsTitle || contentFilter?.homePageContent?.ourSolutionsTitle,
+                    language,
+                    t("LEARNER_APP.HOME.OUR_SOLUTIONS_TITLE") || "Our Solutions"
+                  )}
                 </Typography>
                 <Typography
                   variant="body1"
@@ -733,14 +813,28 @@ export default function Index() {
                     lineHeight: 1.6,
                   }}
                 >
-                  {t("LEARNER_APP.HOME.OUR_SOLUTIONS_DESC") ||
-                    "Empowering learning and development across multiple domains with our comprehensive platform"}
+                  {getLocalizedText(
+                    contentFilter?.ourSolutionsDescription || contentFilter?.homePageContent?.ourSolutionsDescription,
+                    language,
+                    t("LEARNER_APP.HOME.OUR_SOLUTIONS_DESC") ||
+                    "Empowering learning and development across multiple domains with our comprehensive platform"
+                  )}
                 </Typography>
               </Box>
 
-              <Grid container spacing={3}>
+              <Grid 
+                container 
+                spacing={3}
+                justifyContent={features.length === 1 ? "center" : "flex-start"}
+              >
                 {features.map((feature) => (
-                  <Grid item xs={12} sm={6} md={3} key={feature.title}>
+                  <Grid 
+                    item 
+                    xs={12} 
+                    sm={features.length === 1 ? 6 : 6} 
+                    md={features.length === 1 ? 4 : features.length === 2 ? 6 : features.length === 3 ? 4 : 3} 
+                    key={feature.title}
+                  >
                     <Card
                       sx={{
                         height: "100%",
@@ -762,9 +856,50 @@ export default function Index() {
                             fontSize: { xs: "2.5rem", sm: "3rem" },
                             mb: 2,
                             lineHeight: 1,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minHeight: { xs: "2.5rem", sm: "3rem" },
                           }}
                         >
-                          {feature.icon}
+                          {feature.icon.startsWith("data:") || 
+                           feature.icon.startsWith("http://") || 
+                           feature.icon.startsWith("https://") || 
+                           feature.icon.startsWith("/") ? (
+                            <Box
+                              sx={{
+                                width: { xs: 48, sm: 56 },
+                                height: { xs: 48, sm: 56 },
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                              }}
+                            >
+                              {feature.icon.startsWith("data:") ? (
+                                <img
+                                  src={feature.icon}
+                                  alt={feature.title}
+                                  style={{
+                                    width: "100%",
+                                    height: "100%",
+                                    objectFit: "contain",
+                                  }}
+                                />
+                              ) : (
+                                <Image
+                                  src={feature.icon}
+                                  alt={feature.title}
+                                  width={56}
+                                  height={56}
+                                  style={{
+                                    objectFit: "contain",
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          ) : (
+                            <>{feature.icon}</>
+                          )}
                         </Box>
                         <Typography
                           variant="h6"

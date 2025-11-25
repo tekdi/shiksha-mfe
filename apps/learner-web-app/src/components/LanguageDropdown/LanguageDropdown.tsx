@@ -1,10 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useMemo } from "react";
 import { FormControl, Select, MenuItem, SelectChangeEvent } from "@mui/material";
 import { useTranslation } from "@shared-lib";
-import { LANGUAGE_OPTIONS, LanguageCode } from "@learner/utils/constants/language";
+import { LANGUAGE_OPTIONS, LANGUAGE_LABELS, LanguageCode } from "@learner/utils/constants/language";
 import { alpha } from "@mui/material/styles";
+import { useTenant } from "@learner/context/TenantContext";
 
 interface LanguageDropdownProps {
   primaryColor?: string;
@@ -20,6 +21,31 @@ const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
   minWidth = 150,
 }) => {
   const { language, setLanguage } = useTranslation();
+  const { contentFilter } = useTenant();
+
+  // Filter available languages based on tenant configuration
+  const availableLanguages = useMemo(() => {
+    // If tenant has configured languages, filter by those
+    if (contentFilter?.languages && contentFilter.languages.length > 0) {
+      const tenantLanguageCodes = contentFilter.languages.map((lang) => lang.toLowerCase());
+      return LANGUAGE_OPTIONS.filter((option) =>
+        tenantLanguageCodes.includes(option.value.toLowerCase())
+      );
+    }
+    // Otherwise, return all available languages
+    return LANGUAGE_OPTIONS;
+  }, [contentFilter?.languages]);
+
+  // Ensure current language is valid, if not fallback to first available language
+  const currentLanguage = useMemo(() => {
+    const isValid = availableLanguages.some(
+      (option) => option.value.toLowerCase() === (language || "en").toLowerCase()
+    );
+    if (!isValid && availableLanguages.length > 0) {
+      return availableLanguages[0].value;
+    }
+    return language || "en";
+  }, [language, availableLanguages]);
 
   const handleLanguageChange = (event: SelectChangeEvent<string>) => {
     const newLanguage = event.target.value as LanguageCode;
@@ -49,7 +75,7 @@ const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
       }}
     >
       <Select
-        value={language || "en"}
+        value={currentLanguage}
         onChange={handleLanguageChange}
         sx={{
           color: secondaryColor,
@@ -64,7 +90,7 @@ const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
           },
         }}
       >
-        {LANGUAGE_OPTIONS.map((option) => (
+        {availableLanguages.map((option) => (
           <MenuItem
             key={option.value}
             value={option.value}

@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Box,
   Typography,
@@ -43,7 +43,14 @@ import { getCohortList } from "../../utils/API/services/CohortServices";
 import { getMyCohortMemberList } from "../../utils/API/services/MyClassDetailsService";
 import { getUserDetails } from "../../utils/API/services/ProfileService";
 import { ICohort } from "@learner/utils/attendance/interfaces";
-import { getTodayDate, shortDateFormat, filterMembersExcludingCurrentUser } from "@learner/utils/attendance/helper";
+import {
+  getTodayDate,
+  shortDateFormat,
+  filterMembersExcludingCurrentUser,
+  isDateWithinPastDays,
+  isTodayDate,
+  getDayDifferenceFromToday,
+} from "@learner/utils/attendance/helper";
 import { ATTENDANCE_ENUM } from "@learner/utils/attendance/constants";
 import { getContrastTextColor } from "@learner/utils/colorUtils";
 import ModalComponent from "./components/ModalComponent";
@@ -206,6 +213,8 @@ const DateNumber = styled(Typography)(({ theme }) => ({
   },
 }));
 
+const MAX_BACKDATED_MARK_DAYS = 7;
+
 const SimpleTeacherDashboard = () => {
   const theme = useTheme();
   const { tenant, contentFilter } = useTenant();
@@ -273,6 +282,38 @@ const SimpleTeacherDashboard = () => {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
 
+  const selectedDateDiffFromToday = useMemo(
+    () => getDayDifferenceFromToday(selectedDate),
+    [selectedDate]
+  );
+  const isSelectedDateWithinAllowedWindow = useMemo(
+    () => isDateWithinPastDays(selectedDate, MAX_BACKDATED_MARK_DAYS),
+    [selectedDate]
+  );
+  const isSelectedDateTodayValue = useMemo(
+    () => isTodayDate(selectedDate),
+    [selectedDate]
+  );
+
+  const showBackDateRestrictionMessage = () => {
+    if (selectedDateDiffFromToday !== null && selectedDateDiffFromToday < 0) {
+      showToastMessage(
+        t("LEARNER_APP.ATTENDANCE.FUTURE_DATE_CANT_MARK") ||
+          "You cannot mark attendance for a future date.",
+        "warning"
+      );
+    } else {
+      showToastMessage(
+        `You can only mark attendance for the last ${MAX_BACKDATED_MARK_DAYS} days.`,
+        "warning"
+      );
+    }
+  };
+
+  const showSelfAttendanceRestrictionMessage = () => {
+    showToastMessage("Self attendance can only be marked for today's date.", "warning");
+  };
+
   const today = new Date();
   const currentMonth = today.toLocaleString("default", {
     month: "long",
@@ -319,6 +360,10 @@ const SimpleTeacherDashboard = () => {
   };
 
   const handleRemoteSession = async () => {
+    if (!isSelectedDateWithinAllowedWindow) {
+      showBackDateRestrictionMessage();
+      return;
+    }
     try {
       const teacherApp = JSON.parse(
         localStorage.getItem("teacherApp") ?? "null"
@@ -489,6 +534,15 @@ const SimpleTeacherDashboard = () => {
       handleModalToggle();
     }
   };
+
+  const handleMarkAttendanceClick = () => {
+    if (!isSelectedDateWithinAllowedWindow) {
+      showBackDateRestrictionMessage();
+      return;
+    }
+    handleRemoteSession();
+  };
+
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -734,6 +788,10 @@ const SimpleTeacherDashboard = () => {
   };
 
   const requestLocationPermission = () => {
+    if (!isSelectedDateTodayValue) {
+      showSelfAttendanceRestrictionMessage();
+      return;
+    }
     if (!navigator.geolocation) {
       showToastMessage("Geolocation is not supported by your browser", "error");
       return;
@@ -764,8 +822,20 @@ const SimpleTeacherDashboard = () => {
     );
   };
 
+  const handleSelfAttendanceButtonClick = () => {
+    if (!isSelectedDateTodayValue) {
+      showSelfAttendanceRestrictionMessage();
+      return;
+    }
+    setIsLocationModalOpen(true);
+  };
+
   const handleMarkSelfAttendance = async () => {
     if (!selectedSelfAttendance) return;
+    if (!isTodayDate(selectedDate)) {
+      showSelfAttendanceRestrictionMessage();
+      return;
+    }
 
     try {
       const userId = localStorage.getItem("userId");
@@ -1898,7 +1968,7 @@ const SimpleTeacherDashboard = () => {
                   transition: "all 0.2s",
                 }}
                 disabled={classId === "all"}
-                onClick={handleRemoteSession}
+                onClick={handleMarkAttendanceClick}
               >
                 {currentAttendance === "notMarked" ? t("LEARNER_APP.ATTENDANCE.MARK") : t("LEARNER_APP.ATTENDANCE.MODIFY")}
               </Button>
@@ -2000,9 +2070,7 @@ const SimpleTeacherDashboard = () => {
                   transition: "all 0.2s",
                 }}
                 disabled={classId === "all"}
-                onClick={() => {
-                  setIsLocationModalOpen(true);
-                }}
+                onClick={handleSelfAttendanceButtonClick}
               >
                 {selfAttendanceData?.length > 0 &&
                 (selfAttendanceData[0]?.attendance?.toLowerCase() ===

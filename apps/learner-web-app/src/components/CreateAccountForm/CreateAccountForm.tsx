@@ -20,6 +20,7 @@ import tip from '../../../public/images/Group.png';
 import { useSearchParams } from 'next/navigation';
 import { showToastMessage } from '../ToastComponent/Toastify';
 import { userCheck } from '@learner/utils/API/userService';
+import { useTenant } from '@learner/context/TenantContext';
 
 type Props = {
   username: string;
@@ -48,6 +49,9 @@ const CreateAccountForm = ({
   belowEighteen,
   tenantName,
 }: Props) => {
+  const { contentFilter } = useTenant();
+  const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#000000";
+  const primaryColor = contentFilter?.theme?.primaryColor || "#FFCB05";
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [agree, setAgree] = useState(false);
@@ -352,14 +356,15 @@ const CreateAccountForm = ({
             usernameError !== ''
           }
           sx={{
-            backgroundColor: '#FFCB05',
-            color: 'black',
+            backgroundColor: primaryColor,
+            color: buttonTextColor,
             fontWeight: '600',
             mt: 3,
             textTransform: 'none',
             borderRadius: 999,
             '&:hover': {
-              backgroundColor: '#f2b800',
+              backgroundColor: primaryColor,
+              opacity: 0.9,
             },
           }}
         >

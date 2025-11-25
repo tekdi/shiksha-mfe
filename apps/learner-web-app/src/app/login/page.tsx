@@ -109,7 +109,8 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
   // Get tenant colors
   const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
   const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
-  const backgroundColor = contentFilter?.theme?.backgroundColor || "#F5F5F5";
+  const backgroundColor = contentFilter?.backgroundColor || contentFilter?.theme?.backgroundColor || "#F5F5F5";
+  const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#FFFFFF";
   
   // OTP input refs for individual boxes
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -536,7 +537,6 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
       router.push("/");
     }
   };
-
   // If password login method, show password form
   if (!isOtpLoginMethod) {
   return (
@@ -650,7 +650,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             mt: 3,
             py: { xs: 1.25, sm: 1.5 },
             backgroundColor: primaryColor,
-            color: "#FFFFFF",
+            color: `${buttonTextColor} !important`,
             fontSize: { xs: "14px", sm: "16px" },
             fontWeight: 600,
             textTransform: "none",
@@ -658,6 +658,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             "&:hover": {
               backgroundColor: primaryColor,
               opacity: 0.9,
+              color: `${buttonTextColor} !important`,
             },
           }}
         >
@@ -771,7 +772,6 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               }}
             />
           </Box>
-
           {/* Send OTP Button */}
           <Button
             onClick={handleSendOtp}
@@ -780,7 +780,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             sx={{
               py: { xs: 1.25, sm: 1.5 },
               backgroundColor: primaryColor,
-              color: "#FFFFFF",
+              color: `${buttonTextColor} !important`,
               fontSize: { xs: "14px", sm: "16px" },
               fontWeight: 600,
               textTransform: "none",
@@ -789,10 +789,12 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               "&:hover": {
                 backgroundColor: primaryColor,
                 opacity: 0.9,
+                color: `${buttonTextColor} !important`,
               },
               "&:focus": {
                 backgroundColor: primaryColor,
                 boxShadow: `0 0 0 3px ${primaryColor}33`,
+                color: `${buttonTextColor} !important`,
               },
               "&:disabled": {
                 backgroundColor: backgroundColor,
@@ -803,7 +805,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           >
             {isSendingOtp ? (
               <Box display="flex" alignItems="center" gap={1}>
-                <CircularProgress size={20} sx={{ color: "#FFFFFF" }} />
+                <CircularProgress size={20} sx={{ color: buttonTextColor }} />
                 <span>{t("LEARNER_APP.LOGIN.SENDING") || "Sending..."}</span>
               </Box>
             ) : (
@@ -941,7 +943,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           sx={{
               py: { xs: 1.25, sm: 1.5 },
               backgroundColor: primaryColor,
-              color: "#FFFFFF",
+              color: `${buttonTextColor} !important`,
               fontSize: { xs: "14px", sm: "16px" },
               fontWeight: 600,
               textTransform: "none",
@@ -950,10 +952,12 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             "&:hover": {
                 backgroundColor: primaryColor,
                 opacity: 0.9,
+                color: `${buttonTextColor} !important`,
               },
               "&:focus": {
                 backgroundColor: primaryColor,
                 boxShadow: `0 0 0 3px ${primaryColor}33`,
+                color: `${buttonTextColor} !important`,
               },
               "&:disabled": {
                 backgroundColor: backgroundColor,
@@ -1176,7 +1180,8 @@ const LoginPage = () => {
   // Get tenant colors and logo
   const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
   const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
-  const backgroundColor = contentFilter?.theme?.backgroundColor || "#F5F5F5";
+  const backgroundColor = contentFilter?.backgroundColor || contentFilter?.theme?.backgroundColor || "#F5F5F5";
+  const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#FFFFFF";
   const tenantIcon = contentFilter?.icon || "/logo.png";
   const tenantName = contentFilter?.title || tenant?.name || "Tenant";
   const tenantAlt = `${tenantName} logo`;
