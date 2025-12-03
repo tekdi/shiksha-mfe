@@ -55,7 +55,7 @@ const QuestionSetEditor: React.FC = () => {
       uid: getLocalStoredUserId(),
       channel: tenantConfig?.CHANNEL_ID,
       pdata: {
-        id: "pratham.admin.portal",
+        id: "shiksha.learner.portal",
         ver: "1.0.0",
         pid: "pratham-portal",
       },

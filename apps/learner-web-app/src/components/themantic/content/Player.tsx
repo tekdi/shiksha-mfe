@@ -335,7 +335,9 @@ const PlayerBox = ({
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
             frameBorder="0"
             scrolling="no"
-            sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation"
+            // Allow downloads and popups (needed for player download / open-in-new-window buttons)
+            // Chrome blocks these from sandboxed iframes unless `allow-downloads` / `allow-popups` are set
+            sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation allow-downloads allow-popups"
           />
         </Box>
       )}

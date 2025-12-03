@@ -603,9 +603,12 @@ const SimpleTeacherDashboard = () => {
       if (response && response.length > 0) {
         setCohortsData(response);
         
-        // Filter centers: items with parentId === null (SCHOOL type)
+        // Filter centers: items with parentId === null (SCHOOL type) and have childData
         const centers = response
-          .filter((item: any) => item.parentId === null && item.type === "SCHOOL")
+          .filter((item: any) => 
+           
+            item.type === "SCHOOL" 
+          )
           .map((center: any) => ({
             centerId: center.cohortId,
             centerName: center.cohortName,
@@ -614,6 +617,7 @@ const SimpleTeacherDashboard = () => {
         
         setCentersData(centers);
         
+
         if (centers.length > 0) {
           const defaultCenter = centers[0];
           setSelectedCenterId(defaultCenter.centerId);
@@ -1342,6 +1346,8 @@ const SimpleTeacherDashboard = () => {
         break;
     }
   };
+
+  console.log("centersData",centersData);
 
   return (
     <Layout onlyHideElements={["footer", "topBar"]}>

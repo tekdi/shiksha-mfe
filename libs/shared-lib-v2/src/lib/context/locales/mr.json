@@ -427,6 +427,9 @@
       "OVERALL_ATTENDANCE": "एकूण उपस्थिती",
       "SEARCH_STUDENT": "विद्यार्थी शोधा..",
       "LEARNER_NAME": "शिकणाऱ्याचे नाव"
+    },
+    "CONTENT": {
+      "VIEWING_CONTENT": "सामग्री पाहत आहात"
     }
   },
   "LOGIN_PAGE": {

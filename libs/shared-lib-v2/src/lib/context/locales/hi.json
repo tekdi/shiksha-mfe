@@ -425,6 +425,9 @@
       "OVERALL_ATTENDANCE": "कुल उपस्थिति",
       "SEARCH_STUDENT": "छात्र खोजें..",
       "LEARNER_NAME": "शिक्षार्थी का नाम"
+    },
+    "CONTENT": {
+      "VIEWING_CONTENT": "सामग्री देख रहे हैं"
     }
   },
   "LOGIN_PAGE": {

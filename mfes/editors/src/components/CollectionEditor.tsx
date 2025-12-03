@@ -104,7 +104,7 @@ const CollectionEditor: React.FC = () => {
       uid: getLocalStoredUserId(),
       additionalCategories: [],
       pdata: {
-        id: "pratham.admin.portal",
+        id: "shiksha.learner.portal",
         ver: "1.0.0",
         pid: "pratham-portal",
       },

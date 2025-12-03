@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-inferrable-types */
 import { post, get } from '@shared-lib';
 import { API_ENDPOINTS } from './EndUrls';
 

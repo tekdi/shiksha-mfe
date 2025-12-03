@@ -1,6 +1,7 @@
 import axios from "axios";
+const baseurl = process.env.NEXT_PUBLIC_MIDDLEWARE_URL;
 
-const TENANT_READ_API = "https://interface.tekdinext.com/interface/v1/tenant/read";
+const TENANT_READ_API = `${baseurl}/tenant/read`;
 
 export interface TenantTheme {
   primaryColor: string;
@@ -127,7 +128,7 @@ export const findTenantByDomain = (
   tenants: Tenant[],
   currentDomain?: string
 ): Tenant | null => {
-  // let domain = currentDomain;
+  //  let domain = currentDomain;
   let domain = 'www.oblf.sunbirdsaas.com';
   if (!domain) {
     if (typeof window !== "undefined") {

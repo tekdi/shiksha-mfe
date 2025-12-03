@@ -137,7 +137,7 @@ export const getTelemetryConfig = (): Context => {
     mode: "play",
     partner: [],
     pdata: {
-      id: "pratham.admin.portal",
+      id: "shiksha.learner.portal",
       ver: "1.0.0",
       pid: "admin-portal",
     },

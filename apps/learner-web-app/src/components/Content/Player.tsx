@@ -315,6 +315,35 @@ const PlayerBox = ({
     if (checkAuth() || userIdLocalstorageName) {
       setPlay(true);
     }
+
+    // Global download interceptor for media files
+    const originalOpen = window.open;
+    window.open = function(url?: string | URL, target?: string, features?: string) {
+      if (url && typeof url === 'string' && url.match(/\.(mp4|mp3|wav|webm|pdf|epub|avi|mov)(\?|$)/i)) {
+        // This is a media file - force download via API
+        const encodedUrl = encodeURIComponent(url);
+        const filename = url.split('/').pop()?.split('?')[0] || 'download';
+        const apiUrl = `/api/download?url=${encodedUrl}&filename=${encodeURIComponent(filename)}`;
+        
+        const link = document.createElement('a');
+        link.href = apiUrl;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          document.body.removeChild(link);
+        }, 100);
+        
+        return null;
+      }
+      return originalOpen.call(this, url, target, features);
+    };
+
+    return () => {
+      window.open = originalOpen;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handlePlay = () => {
@@ -407,7 +436,9 @@ const PlayerBox = ({
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
             frameBorder="0"
             scrolling="no"
-            sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation"
+            // Allow downloads and popups (needed for player download / open-in-new-window buttons)
+            // Chrome blocks these from sandboxed iframes unless `allow-downloads` / `allow-popups` are set
+            sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation allow-downloads allow-popups"
           />
         </Box>
       )}

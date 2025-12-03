@@ -468,6 +468,9 @@
       "OVERALL_ATTENDANCE": "Overall attendance",
       "SEARCH_STUDENT": "Search student..",
       "LEARNER_NAME": "Learner Name"
+    },
+    "CONTENT": {
+      "VIEWING_CONTENT": "Viewing content"
     }
   },
   "LOGIN_PAGE": {

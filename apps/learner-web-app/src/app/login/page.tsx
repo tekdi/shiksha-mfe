@@ -1245,7 +1245,7 @@ const LoginPage = () => {
         const userRole = userResponse?.tenantData?.[0]?.roleName;
 
         // Handle Learner role - redirect to learner dashboard
-        if (userRole === "Learner") {
+        if (userRole === "Learner"  || userRole === "Teacher") {
           localStorage.setItem("userId", userResponse?.userId);
           localStorage.setItem(
             "templtateId",

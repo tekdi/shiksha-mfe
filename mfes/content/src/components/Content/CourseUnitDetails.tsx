@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 "use client";
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -302,8 +303,11 @@ export default function Details(props: DetailsProps) {
                   resultHierarchy ?? {}
                 );
                 console.log("course_track", course_track);
+                // Only issue certificate if ALL courses are completed (status === "completed")
+                // Previously checked course_track?.completed === 1 which incorrectly issued
+                // certificates when only 1 course was completed out of many
                 if (
-                  course_track?.completed === 1 &&
+                  course_track?.status === "completed" &&
                   ["enrolled", "completed"].includes(data?.result?.status) &&
                   props?._config?.userIdLocalstorageName !== "did"
                 ) {
