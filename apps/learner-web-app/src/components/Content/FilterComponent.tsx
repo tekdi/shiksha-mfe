@@ -76,34 +76,52 @@ if (typeof window !== 'undefined') {
   };
 
   // Filter out invalid terms from filterFramework before passing to FilterForm
+  // This preserves associations for cascading filters (works generically for any framework)
   const cleanedFilterFramework = useMemo(() => {
     if (!filterFramework?.framework?.categories) return filterFramework;
     
     const cleanedCategories = filterFramework.framework.categories.map((category: any) => {
       const originalTerms = category.terms || [];
-      const filteredTerms = originalTerms.filter((term: any) => {
-        const hasTemplate = term.code?.includes('{{') || 
-                            term.name?.includes('{{') || 
-                            term.code?.includes('}}') || 
-                            term.name?.includes('}}');
-        
-        const isLive = term.status === 'Live' || term.status === undefined || term.status === null;
-        const hasValidName = term.name && term.name.trim() !== '';
-        const hasValidCode = term.code && term.code.trim() !== '';
-        
-        const isValid = !hasTemplate && isLive && hasValidName && hasValidCode;
-        
-        if (!isValid) {
-          console.log(`🚫 FilterComponent - Filtering out term: "${term.name}" ("${term.code}") - Template: ${hasTemplate}, Live: ${isLive}, ValidName: ${hasValidName}, ValidCode: ${hasValidCode}`);
-        }
-        
-        return isValid;
-      });
+      const filteredTerms = originalTerms
+        .filter((term: any) => {
+          const hasTemplate = term.code?.includes('{{') || 
+                              term.name?.includes('{{') || 
+                              term.code?.includes('}}') || 
+                              term.name?.includes('}}');
+          
+          const isLive = term.status === 'Live' || term.status === undefined || term.status === null;
+          const hasValidName = term.name && term.name.trim() !== '';
+          const hasValidCode = term.code && term.code.trim() !== '';
+          
+          const isValid = !hasTemplate && isLive && hasValidName && hasValidCode;
+          
+          if (!isValid) {
+            console.log(`🚫 FilterComponent - Filtering out term: "${term.name}" ("${term.code}") - Template: ${hasTemplate}, Live: ${isLive}, ValidName: ${hasValidName}, ValidCode: ${hasValidCode}`);
+          }
+          
+          return isValid;
+        })
+        .map((term: any) => {
+          // Preserve the entire term object including associations for cascading filters
+          // This works generically for any category that has associations (e.g., topic->subtopic, subject->topic, etc.)
+          return {
+            ...term,
+            // If term has associations, validate and preserve them
+            associations: term.associations ? term.associations.filter((assoc: any) => {
+              const hasValidAssocName = assoc.name && assoc.name.trim() !== '';
+              const hasValidAssocCode = assoc.code && assoc.code.trim() !== '';
+              const isAssocLive = assoc.status === 'Live' || assoc.status === undefined || assoc.status === null;
+              return hasValidAssocName && hasValidAssocCode && isAssocLive;
+            }) : []
+          };
+        });
       
-      
-      // Special logging for subjects
-      if (category.name?.toLowerCase().includes('subject') || category.code?.toLowerCase().includes('subject')) {
-        console.log(`🎯 SUBJECTS FOUND: ${filteredTerms.length} subjects available:`, filteredTerms.map(t => t.name));
+      // Log categories with associations for debugging (generic, not tenant-specific)
+      const termsWithAssociations = filteredTerms.filter((term: any) => 
+        term.associations && term.associations.length > 0
+      );
+      if (termsWithAssociations.length > 0) {
+        console.log(`🔗 ${category.name || category.code} - ${termsWithAssociations.length} terms with associations found`);
       }
       
       return {
@@ -184,7 +202,6 @@ if (typeof window !== 'undefined') {
         filterFramework={cleanedFilterFramework}
         orginalFormData={filterState?.filters ?? {}}
         staticFilter={staticFilter}
-        showAllOptions={true}
       />
     ),
     [

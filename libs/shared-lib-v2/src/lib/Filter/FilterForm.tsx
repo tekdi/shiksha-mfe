@@ -119,6 +119,10 @@ export function FilterForm({
 
       const categories = data?.framework?.categories ?? [];
       const transformedRenderForm = transformRenderForm(categories);
+      
+      // Mark dependent categories that should be hidden until parent selection
+      markDependentCategories(transformedRenderForm);
+      
       // Fetch static filter content
       const instantFramework =
         _config?.CHANNEL_ID ?? localStorage.getItem("channelId") ?? "";
@@ -218,6 +222,7 @@ export function FilterForm({
           fields={renderForm}
           selectedValues={formData}
           onChange={(code, next) => {
+            console.log(`📝 Filter changed: ${code}`, next);
             const cat: any = renderForm.find(
               (f: { code: string; old_code?: string }) =>
                 f.code === code &&
@@ -225,6 +230,7 @@ export function FilterForm({
             );
             let filterValue = { ...formData, [code]: next };
             if (cat) {
+              console.log(`🔄 Category has associations, updating dependent filters...`);
               const { updatedFilters: dormNewData, updatedFilterValue } =
                 replaceOptionsWithAssoc({
                   filterValue,
@@ -232,6 +238,12 @@ export function FilterForm({
                   onlyFields,
                 });
               filterValue = updatedFilterValue;
+              console.log(`✅ Updated filters:`, dormNewData.map((f: any) => ({
+                name: f.name,
+                code: f.old_code,
+                hidden: f.hideUntilParentSelected,
+                optionsCount: f.options?.length || 0
+              })));
               setRenderForm(dormNewData);
             }
             setFormData(filterValue);
@@ -387,11 +399,18 @@ function replaceOptionsWithAssoc({
   onlyFields: any;
 }) {
   const updatedFilters = JSON.parse(JSON.stringify(filtersFields));
+  
+  // Track which categories are dependent (have associations pointing to them)
+  const dependentCategories = new Set<string>();
+  const categoriesWithActiveSelections = new Set<string>();
 
   for (let i = 0; i < updatedFilters.length; i++) {
     const currentFilter = filtersFields[i];
     const selectedValues = filterValue[currentFilter.code];
+    
     if (Array.isArray(selectedValues) && selectedValues.length > 0) {
+      categoriesWithActiveSelections.add(currentFilter.old_code);
+      
       const newfilterValue = selectedValues.map(
         (item: any) => item?.code ?? item
       );
@@ -422,6 +441,9 @@ function replaceOptionsWithAssoc({
       });
 
       Object.entries(mergedAssociations).forEach(([assocKey, assocOptions]) => {
+        // Mark this category as dependent
+        dependentCategories.add(assocKey);
+        
         const nextFilterIndex = updatedFilters.findIndex(
           (f: any, idx: number) => f.old_code === assocKey && idx > i
         );
@@ -446,10 +468,25 @@ function replaceOptionsWithAssoc({
             return nameA.localeCompare(nameB);
           });
           updatedFilters[nextFilterIndex].options = sortedAssocOptions;
+          // Mark this filter as having a parent with selections and make it visible
+          updatedFilters[nextFilterIndex].hasParentSelection = true;
+          updatedFilters[nextFilterIndex].hideUntilParentSelected = false;
         }
       });
     }
   }
+  
+  // Mark all dependent categories without parent selections as hidden
+  updatedFilters.forEach((filter: any) => {
+    if (dependentCategories.has(filter.old_code) && !filter.hasParentSelection) {
+      filter.hideUntilParentSelected = true;
+      console.log(`🔒 Hiding dependent filter: ${filter.name} (${filter.old_code}) - no parent selection`);
+    } else if (filter.hasParentSelection) {
+      // Ensure dependent categories with parent selections are visible
+      filter.hideUntilParentSelected = false;
+      console.log(`🔓 Showing dependent filter: ${filter.name} (${filter.old_code}) - parent selected`);
+    }
+  });
 
   const sortFields = sortJsonByArray({
     jsonArray: updatedFilters,
@@ -457,6 +494,29 @@ function replaceOptionsWithAssoc({
   });
 
   return { updatedFilters: sortFields, updatedFilterValue: filterValue };
+}
+
+function markDependentCategories(categories: any[]) {
+  // Identify which categories have associations pointing to other categories
+  const dependentCategoryCodes = new Set<string>();
+  
+  categories.forEach((category) => {
+    category.options?.forEach((option: any) => {
+      if (option.associations && Object.keys(option.associations).length > 0) {
+        // This category has associations, mark the associated categories as dependent
+        Object.keys(option.associations).forEach((assocKey) => {
+          dependentCategoryCodes.add(assocKey);
+        });
+      }
+    });
+  });
+  
+  // Mark all dependent categories with hideUntilParentSelected flag
+  categories.forEach((category) => {
+    if (dependentCategoryCodes.has(category.old_code)) {
+      category.hideUntilParentSelected = true;
+    }
+  });
 }
 
 const FilterSection: React.FC<FilterSectionProps> = ({
@@ -517,6 +577,12 @@ const FilterSection: React.FC<FilterSectionProps> = ({
       }}
     >
       {fields?.map((field, idx) => {
+        // Hide dependent fields until parent category has selections
+        if (field.hideUntilParentSelected) {
+          console.log(`⚠️ Hiding filter from UI: ${field.name} (hideUntilParentSelected = true)`);
+          return null;
+        }
+        
         const values = field.options ?? field.range ?? [];
         const code = field.code;
         const selected = selectedValues[code] ?? [];
