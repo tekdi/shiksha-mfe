@@ -104,6 +104,13 @@ export const profileComplitionCheck = async (): Promise<any> => {
       ]);
       console.log("responseForm", responseForm?.schema);
       console.log("userData", userData);
+      
+      // Safety check: if userData or schema is missing, assume profile is incomplete
+      if (!userData || !responseForm?.schema) {
+        console.warn("profileComplitionCheck: userData or schema is missing");
+        return false;
+      }
+      
       if (!isUnderEighteen(userData?.dob)) {
         delete responseForm?.schema.properties.guardian_relation;
         delete responseForm?.schema.properties.guardian_name;

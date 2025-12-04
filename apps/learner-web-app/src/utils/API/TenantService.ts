@@ -129,7 +129,7 @@ export const findTenantByDomain = (
   currentDomain?: string
 ): Tenant | null => {
   //  let domain = currentDomain;
-  let domain = 'www.oblf.sunbirdsaas.com';
+  let domain = 'www.swadhaar.sunbirdsaas.com';
   if (!domain) {
     if (typeof window !== "undefined") {
       domain = window.location.hostname;

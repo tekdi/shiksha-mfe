@@ -163,7 +163,23 @@
       "SURE_LOGOUT": "क्या आप वाकई लॉगआउट करना चाहते हैं?",
       "LOGOUT": "लॉगआउट",
       "OKAY": "ठीक है",
-      "SAVE": "सहेजें"
+      "SAVE": "सहेजें",
+      "MY_CLASSES": "मेरी कक्षाएं",
+      "MANAGEMENT": "प्रबंधन",
+      "MEMBERS": "सदस्य",
+      "USER_DETAILS": "उपयोगकर्ता विवरण",
+      "NO_CENTERS_AVAILABLE": "कोई केंद्र उपलब्ध नहीं",
+      "SELECT_BATCH_TO_VIEW_MEMBERS": "सदस्यों को देखने के लिए एक बैच चुनें",
+      "NO_MEMBERS_FOUND": "कोई सदस्य नहीं मिला",
+      "SELECT_MEMBER_TO_VIEW_DETAILS": "विवरण देखने के लिए एक सदस्य का चयन करें",
+      "USERNAME": "उपयोगकर्ता नाम",
+      "USER_ID": "उपयोगकर्ता आईडी",
+      "STATUS": "स्थिति",
+      "ROLE": "भूमिका",
+      "CREATED_AT": "बनाया गया",
+      "UPDATED_AT": "अपडेट किया गया",
+      "ERROR_FETCHING_MEMBERS": "सदस्यों को लाने में त्रुटि",
+      "LEARNER": "शिक्षार्थी"
     },
     "COURSE": {
       "APPLY_FILTER": "फिल्टर लागू करें",
@@ -213,7 +229,10 @@
       "ABOUT_PRATHAM_TITLE": "Shiksha के बारे में",
       "ABOUT_PRATHAM_DESC": "Shiksha शिक्षा प्रणालियों में अंतर को शिक्षण, कम-लागत, दोहराने योग्य हस्तक्षेपों के साथ भरता है जो आयु स्पेक्ट्रम में फैले होते हैं। प्रत्यक्ष कार्य में, एक Shiksha प्रशिक्षक बच्चों के साथ स्कूल या समुदाय में काम करता है, जबकि साझेदारी मॉडल में Shiksha टीमें राज्य, जिला या शहर स्तर पर सरकारी टीमों के साथ मिलकर कार्यक्रमों को डिज़ाइन और कार्यान्वित करती हैं। सीखने के परिणामों में सुधार के लिए Shiksha का दृष्टिकोण भारत में और विदेशों में एक मॉडल के रूप में कार्य करता है।",
       "OUR_PROGRAMS": "हमारे कार्यक्रम",
-      "SIGN_UP": "साइन अप करें"
+      "SIGN_UP": "साइन अप करें",
+      "CHOOSE_LANGUAGE": "अपनी भाषा चुनें",
+      "CONTINUE": "लॉगिन पर जारी रखें",
+      "APP_NAME": "में आपका स्वागत है"
     },
     "LOGIN": {
       "welcome_title": "Shiksha myLearning में आपका स्वागत है!",
@@ -239,7 +258,15 @@
       "POINT_CAMERA": "कैमरा यहाँ रखें",
       "OR": "या",
       "SEARCH_PLAYSTORE": "\"Shiksha myLearning\" को प्लेस्टोर पर खोजें",
-      "ON_PLAYSTORE": "प्लेस्टोर पर"
+      "ON_PLAYSTORE": "प्लेस्टोर पर",
+      "PHONE_INSTRUCTION": "नमस्ते! जारी रखने के लिए अपने रजिस्टर्ड फ़ोन नंबर से लॉगिन करें।",
+      "PHONE_NUMBER": "फोन नंबर",
+      "SENDING": "भेज रहे हैं...",
+      "SEND_OTP": "OTP भेजें",
+      "OTP_INSTRUCTION": "अपने फोन पर भेजे गए 6 अंकों का OTP दर्ज करें।",
+      "ENTER_OTP": "OTP सत्यापित करें",
+      "RESEND_OTP_DISABLED": "OTP पुनः भेजें (सीमा पूर्ण)",
+      "RESEND_OTP": "OTP पुनः भेजें"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "प्रगति पर",
@@ -427,7 +454,8 @@
       "LEARNER_NAME": "शिक्षार्थी का नाम"
     },
     "CONTENT": {
-      "VIEWING_CONTENT": "सामग्री देख रहे हैं"
+      "VIEWING_CONTENT": "सामग्री देख रहे हैं",
+      "FILTERS": "फ़िल्टर"
     }
   },
   "LOGIN_PAGE": {

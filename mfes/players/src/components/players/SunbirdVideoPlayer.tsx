@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 import React, { useRef, useEffect } from 'react';
 import { getTelemetryEvents } from '../../services/TelemetryService';
 import { handleExitEvent } from '../utils/Helper';
@@ -145,13 +146,18 @@ const SunbirdVideoPlayer = ({
         
         // Try immediately
         if (artifactUrl && playerElement.contentDocument) {
-          cleanupInterceptor = setupDownloadInterceptor(playerElement, artifactUrl);
+          cleanupInterceptor = setupDownloadInterceptor(playerElement, artifactUrl) ?? null;
+        } else {
+          cleanupInterceptor = null;
         }
-        
+
         // Also try after a delay in case content loads asynchronously
         setTimeout(() => {
           if (artifactUrl && playerElement.contentDocument && !cleanupInterceptor) {
-            cleanupInterceptor = setupDownloadInterceptor(playerElement, artifactUrl);
+            const result = setupDownloadInterceptor(playerElement, artifactUrl);
+            if (typeof result === 'function') {
+              cleanupInterceptor = result;
+            }
           }
         }, 500);
 

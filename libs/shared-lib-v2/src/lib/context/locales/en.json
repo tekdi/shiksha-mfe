@@ -195,7 +195,23 @@
       "LOGOUT": "Logout",
       "OK": "OK",
       "OKAY": "Okay",
-      "SAVE": "Save"
+      "SAVE": "Save",
+      "MY_CLASSES": "My Classes",
+      "MANAGEMENT": "Management",
+      "MEMBERS": "Members",
+      "USER_DETAILS": "User Details",
+      "NO_CENTERS_AVAILABLE": "No centers available",
+      "SELECT_BATCH_TO_VIEW_MEMBERS": "Select a batch to view members",
+      "NO_MEMBERS_FOUND": "No members found",
+      "SELECT_MEMBER_TO_VIEW_DETAILS": "Select a member to view details",
+      "USERNAME": "Username",
+      "USER_ID": "User ID",
+      "STATUS": "Status",
+      "ROLE": "Role",
+      "CREATED_AT": "Created At",
+      "UPDATED_AT": "Updated At",
+      "ERROR_FETCHING_MEMBERS": "Error fetching members",
+      "LEARNER": "Learner"
     },
     "COURSE": {
       "COMPLETED_ON": "Completed on",
@@ -247,7 +263,10 @@
       "ABOUT_Shiksha_DESC": "Shiksha addresses gaps in education systems with innovative, low-cost, replicable interventions that span the age spectrum. Working both directly and through government systems, these programs collectively reach millions of children and thousands of school dropouts each year. In “direct” work, a Shiksha instructor works with children either in the school or in the community, whereas the “partnership” model involves Shiksha teams working closely with government teams at the state, district or city level to design and implement programs. Shiksha’s approach to improving learning outcomes continues to serve as a model, both within India and beyond.",
       "OUR_PROGRAMS": "Our Programs",
       "SIGN_UP": "Sign Up",
-      "SIGN_IN": "Sign In"
+      "SIGN_IN": "Sign In",
+      "CHOOSE_LANGUAGE": "Choose your language",
+      "CONTINUE": "Continue to Login",
+      "APP_NAME": "Welcome to"
     },
     "LOGIN": {
       "welcome_title": "Welcome to Shiksha",
@@ -280,7 +299,7 @@
       "SENDING": "Sending...",
       "SEND_OTP": "Send OTP",
       "OTP_INSTRUCTION": "Enter the 6-digit OTP sent to your phone.",
-      "ENTER_OTP": "Enter OTP",
+      "ENTER_OTP": "Verify OTP",
       "RESEND_OTP_DISABLED": "Resend OTP (Limit Reached)",
       "RESEND_OTP": "Resend OTP"
     },
@@ -470,7 +489,8 @@
       "LEARNER_NAME": "Learner Name"
     },
     "CONTENT": {
-      "VIEWING_CONTENT": "Viewing content"
+      "VIEWING_CONTENT": "Viewing content",
+      "FILTERS": "Filters"
     }
   },
   "LOGIN_PAGE": {

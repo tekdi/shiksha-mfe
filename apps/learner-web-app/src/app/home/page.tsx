@@ -207,97 +207,132 @@ export default function Index() {
     return renderLoadingState(backgroundColor);
   }
 
-  const SwadhaarLanguageButtons = ({ variant }: { variant: "header" | "body" }) => (
-    <Box sx={{ width: variant === "body" ? { xs: "100%", sm: "auto" } : "auto" }}>
-      <LanguageDropdown
-        primaryColor={uiPrimaryColor}
-        secondaryColor={uiSecondaryColor}
-        size="small"
-        minWidth={150}
-      />
-    </Box>
-  );
+  const SwadhaarLanguageButtons = ({ variant }: { variant: "header" | "body" }) => {
+    const languages = [
+      { code: "en", label: "ENGLISH" },
+      { code: "hi", label: "हिन्दी" },
+    ];
+
+    if (variant === "header") {
+      return null; // No language buttons in header for Swadhaar
+    }
+
+    return (
+      <Box 
+        sx={{ 
+          display: "flex", 
+          gap: { xs: 1.5, sm: 2 },
+          flexDirection: { xs: "column", sm: "row" },
+        }}
+      >
+        {languages.map((lang) => (
+          <Button
+            key={lang.code}
+            onClick={() => handleLanguageSelect(lang.code)}
+            sx={{
+              px: { xs: 3, sm: 4 },
+              py: 1.5,
+              backgroundColor: language === lang.code ? uiPrimaryColor : "#E0E0E0",
+              color: language === lang.code ? "#FFFFFF" : "#666666",
+              fontSize: { xs: "14px", sm: "16px" },
+              fontWeight: 400,
+              textTransform: "none",
+              borderRadius: "4px",
+              minWidth: { xs: "100%", sm: "120px" },
+              "&:hover": {
+                backgroundColor: language === lang.code ? uiPrimaryColor : "#D0D0D0",
+              },
+            }}
+          >
+            {lang.label}
+          </Button>
+        ))}
+      </Box>
+    );
+  };
   console.log(buttonTextColor);
 
   const renderSwadhaarHome = () => (
     <Layout onlyHideElements={["footer", "topBar"]} _topAppBar={undefined}>
-      <Suspense fallback={renderLoadingState(backgroundColor)}>
-        <Box key={language} sx={{ wordBreak: "break-word", backgroundColor }}>
+      {/* Fixed Header */}
+      <Box
+        sx={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          px: { xs: 2, sm: 3 },
+          py: { xs: 1.5, sm: 2 },
+          zIndex: 1000,
+          backgroundColor: "white",
+        }}
+      >
+        {/* Logo and Brand Name */}
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            gap: { xs: 0.5, sm: 1 },
+          }}
+        >
           <Box
             sx={{
-              px: { xs: 2, md: 4 },
-              pt: { xs: 3, md: 5 },
-              pb: { xs: 3, md: 4 },
-              background: `linear-gradient(180deg, ${backgroundColor} 0%, ${alpha(
-                backgroundColor,
-                0.4
-              )} 100%)`,
+              width: { xs: 28, sm: 32 },
+              height: { xs: 28, sm: 32 },
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
             }}
           >
-            <Box
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: 2,
-              }}
-            >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: "50%",
-                    backgroundColor: "#FFFFFF",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    border: `1px solid ${uiPrimaryColor}30`,
-                    boxShadow: `0 8px 20px ${uiPrimaryColor}25`,
-                    overflow: "hidden",
-                  }}
-                >
-                  {tenantIcon.startsWith("data:") ? (
-                    <img
-                      src={tenantIcon}
-                      alt={tenantAlt}
-                      width={40}
-                      height={40}
-                      style={{ objectFit: "contain" }}
-                    />
-                  ) : (
-                    <Image
-                      src={tenantIcon}
-                      alt={tenantAlt}
-                      width={40}
-                      height={40}
-                      style={{ objectFit: "contain" }}
-                    />
-                  )}
-                </Box>
-                <Typography
-                  sx={{
-                    fontWeight: 600,
-                    fontSize: { xs: "1.1rem", md: "1.4rem" },
-                    color: uiSecondaryColor,
-                  }}
-                >
-                  {tenantName}
-                </Typography>
-              </Box>
-              <SwadhaarLanguageButtons variant="header" />
-            </Box>
+            {tenantIcon.startsWith("data:") ? (
+              <img
+                src={tenantIcon}
+                alt={tenantAlt}
+                width={60}
+                height={60}
+                style={{ objectFit: "contain" }}
+              />
+            ) : (
+              <Image
+                src={tenantIcon}
+                alt={tenantAlt}
+                width={60}
+                height={60}
+                style={{ objectFit: "contain" }}
+              />
+            )}
           </Box>
+          <Typography
+            sx={{
+              fontWeight: 400,
+              marginLeft: { xs: 1, sm: 2 },
+              fontSize: { xs: "16px", sm: "20px" },
+              lineHeight: "28px",
+              color: "#1A1A1A",
+            }}
+          >
+            {tenantName}
+          </Typography>
+        </Box>
+      </Box>
 
+      <Suspense fallback={renderLoadingState(backgroundColor)}>
+        <Box key={language} display="flex" flexDirection="column" sx={{ wordBreak: "break-word" }}>
+
+          {/* Two Column Layout */}
           <Box
             sx={{
               minHeight: "100vh",
               display: "flex",
               flexDirection: { xs: "column", md: "row" },
-              pt: { xs: 4, sm: 6 },
+              pt: { xs: 8, sm: 10 },
             }}
           >
+            {/* Left Column - Content */}
             <Box
               sx={{
                 flex: 1,
@@ -308,38 +343,38 @@ export default function Index() {
                 py: { xs: 2, sm: 4 },
               }}
             >
+              {/* Welcome Title */}
               <Typography
                 sx={{
                   fontWeight: 700,
-                  color: uiSecondaryColor,
+                  color: "#1A1A1A",
                   fontSize: { xs: "1.5rem", sm: "2rem", md: "2.5rem", lg: "3rem" },
                   mb: { xs: 1.5, sm: 2 },
                   mt: { xs: 2, md: 0 },
                 }}
               >
-                {description || `Welcome to ${tenantName}`}
+                {description || t("LEARNER_APP.HOME.WELCOME_TITLE") || `Welcome to ${tenantName}`}
               </Typography>
 
-              {tagline && (
-                <Typography
-                  sx={{
-                    fontWeight: 400,
-                    color: uiSecondaryColor,
-                    opacity: 0.7,
-                    fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem", lg: "1.2rem" },
-                    lineHeight: 1.6,
-                    mb: { xs: 3, sm: 4 },
-                    maxWidth: "500px",
-                  }}
-                >
-                  {tagline}
-                </Typography>
-              )}
-
+              {/* Description */}
               <Typography
                 sx={{
                   fontWeight: 400,
-                  color: uiSecondaryColor,
+                  color: "#666",
+                  fontSize: { xs: "0.9rem", sm: "1rem", md: "1.1rem", lg: "1.2rem" },
+                  lineHeight: 1.6,
+                  mb: { xs: 3, sm: 4 },
+                  maxWidth: "500px",
+                }}
+              >
+                {tagline || t("LEARNER_APP.HOME.MAIN_DESCRIPTION") || "Learn simple, practical finance skills in your language, at your own pace"}
+              </Typography>
+
+              {/* Language Selection Section */}
+              <Typography
+                sx={{
+                  fontWeight: 400,
+                  color: "#1A1A1A",
                   fontSize: { xs: "0.9rem", sm: "1rem" },
                   mb: { xs: 1.5, sm: 2 },
                 }}
@@ -347,90 +382,46 @@ export default function Index() {
                 {chooseLanguageText}
               </Typography>
 
+              {/* Language Buttons */}
               <SwadhaarLanguageButtons variant="body" />
 
-              <Button
-                variant="contained"
-                onClick={() => router.push("/login")}
-                sx={{
-                  mt: { xs: 2, sm: 3 },
-                  borderRadius: "999px",
-                  px: { xs: 4, sm: 5 },
-                  py: 1.25,
-                  backgroundColor: uiPrimaryColor,
-                  color: `${buttonTextColor} !important`,
-                  fontWeight: 600,
-                  textTransform: "none",
-                  boxShadow: `0 8px 18px ${uiPrimaryColor}33`,
-                  width: { xs: "100%", sm: "auto" },
-                  "&:hover": {
-                    backgroundColor: uiPrimaryColor,
-                    opacity: 0.9,
-                    color: `${buttonTextColor} !important`,
-                  },
-                }}
-              >
-                {continueButtonText}
-              </Button>
-
-              <Grid container spacing={2} sx={{ mt: { xs: 3, sm: 4 } }}>
-                {swadhaarHighlights.map((item) => (
-                  <Grid item xs={12} sm={4} key={item.title}>
-                    <Box
-                      sx={{
-                        borderRadius: 3,
-                        border: `1px solid ${alpha(uiPrimaryColor, 0.25)}`,
-                        backgroundColor: alpha(uiPrimaryColor, 0.08),
-                        p: 2,
-                        minHeight: 120,
-                      }}
-                    >
-                      <Typography
-                        sx={{
-                          fontWeight: 600,
-                          color: uiSecondaryColor,
-                          mb: 0.5,
-                          fontSize: "0.95rem",
-                        }}
-                      >
-                        {item.title}
-                      </Typography>
-                      <Typography
-                        sx={{
-                          color: subtleTextColor,
-                          fontSize: "0.85rem",
-                          lineHeight: 1.4,
-                        }}
-                      >
-                        {item.description}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                ))}
-              </Grid>
-
+              {/* Pagination Dots */}
               <Box
                 sx={{
                   display: "flex",
                   gap: 1,
                   alignItems: "center",
-                  mt: { xs: 3, sm: 4 },
+                  mt: { xs: 4, sm: 6 },
                 }}
               >
-                {[0, 1, 2].map((index) => (
-                  <Box
-                    key={`swadhaar-dot-${index}`}
-                    sx={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: "50%",
-                      backgroundColor: index === 0 ? uiPrimaryColor : "#E0E0E0",
-                    }}
-                  />
-                ))}
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: uiPrimaryColor,
+                  }}
+                />
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: "#E0E0E0",
+                  }}
+                />
+                <Box
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    backgroundColor: "#E0E0E0",
+                  }}
+                />
               </Box>
             </Box>
 
+            {/* Right Column - Logo */}
             <Box
               sx={{
                 flex: 1,
@@ -445,8 +436,8 @@ export default function Index() {
                 sx={{
                   width: "100%",
                   height: "80%",
-                  backgroundColor: backgroundColor,
-                  border: `1px solid ${uiSecondaryColor}20`,
+                  backgroundColor: "#F5F5F5",
+                  border: "1px solid #E0E0E0",
                   borderRadius: "8px",
                   display: "flex",
                   alignItems: "center",

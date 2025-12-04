@@ -23,6 +23,8 @@ const FilterComponent: React.FC<{
 }) => {
   const { t } = useTranslation();
   const [filterCount, setFilterCount] = useState<any>();
+  const [pendingFilters, setPendingFilters] = useState<any>(null);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const theme = useTheme();
   const { isColorInverted } = useColorInversion();
   let cleanedUrl = '';
@@ -41,15 +43,22 @@ if (typeof window !== 'undefined') {
   );
 
   useEffect(() => {
-    setFilterCount(
-      Object?.keys(filterState.filters ?? {}).filter((e) => {
-        const filterValue = filterState.filters[e];
-        return (
-          !['limit', ...Object.keys(staticFilter ?? {})].includes(e) &&
-          !(Array.isArray(filterValue) && filterValue.length === 0)
-        );
-      }).length
-    );
+    // Count total number of selected filter items, not just filter categories
+    let totalCount = 0;
+    Object?.keys(filterState.filters ?? {}).forEach((key) => {
+      const filterValue = filterState.filters[key];
+      // Skip limit and static filters
+      if (['limit', ...Object.keys(staticFilter ?? {})].includes(key)) {
+        return;
+      }
+      // Count items in array or 1 for non-array values
+      if (Array.isArray(filterValue)) {
+        totalCount += filterValue.length;
+      } else if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
+        totalCount += 1;
+      }
+    });
+    setFilterCount(totalCount);
   }, [filterState, staticFilter]);
 
   // Store previous filter state for comparison
@@ -112,9 +121,21 @@ if (typeof window !== 'undefined') {
     };
   }, [filterFramework]);
 
+  // Generate a key to force remount when filters are cleared
+  const filterFormKey = useMemo(() => {
+    const hasFilters = Object.keys(filterState?.filters ?? {}).some((key) => {
+      const value = filterState.filters[key];
+      return !['limit', ...Object.keys(staticFilter ?? {})].includes(key) &&
+             (Array.isArray(value) ? value.length > 0 : !!value);
+    });
+    // Return different key when filters change from empty to non-empty or vice versa
+    return hasFilters ? 'has-filters' : 'no-filters';
+  }, [filterState, staticFilter]);
+
   const memoizedFilterForm = useMemo(
     () => (
       <FilterForm
+        key={filterFormKey}
         _config={{
           t: t,
           _filterBody: _config?._filterBody,
@@ -151,61 +172,12 @@ if (typeof window !== 'undefined') {
           },
         }}
         onApply={(newFilterState: any) => {
-          setFilterCount(
-            Object?.keys(newFilterState ?? {}).filter(
-              (e) => e?.toString() != 'limit'
-            ).length
-          );
-          console.log('FilterComponent: onApply', newFilterState);
-
-          // Only log if value changed
-          if (newFilterState?.se_domains && hasChanged('se_domains', newFilterState.se_domains)) {
-            logEvent({
-              action: 'filter-selection-by-domain:' + newFilterState.se_domains.join(','),
-              category: cleanedUrl ,
-              label: 'Selection of domain',
-            });
-          }
-          if (newFilterState?.se_subDomains && hasChanged('se_subDomains', newFilterState.se_subDomains)) {
-            logEvent({
-              action: 'filter-selection-by-category:' + newFilterState.se_subDomains.join(','),
-              category: cleanedUrl,
-              label: 'Selection of category',
-            });
-          }
-          if (newFilterState?.se_subjects && hasChanged('se_subjects', newFilterState.se_subjects)) {
-            logEvent({
-              action: 'filter-selection-by-subject:' + newFilterState.se_subjects.join(','),
-              category: cleanedUrl ,
-              label: 'Selection of subject',
-            });
-          }
-          if (newFilterState?.targetAgeGroup && hasChanged('targetAgeGroup', newFilterState.targetAgeGroup)) {
-            logEvent({
-              action: 'filter-selection-by-age-group:' + newFilterState.targetAgeGroup.join(','),
-              category: cleanedUrl ,
-              label: 'Selection of age group',
-            });
-          }
-          if (newFilterState?.primaryUser && hasChanged('primaryUser', newFilterState.primaryUser)) {
-            logEvent({
-              action: 'filter-selection-by-primary-user:' + newFilterState.primaryUser.join(','),
-              category: cleanedUrl,
-              label: 'Selection of primary user',
-            });
-          }
-          if (newFilterState?.contentLanguage && hasChanged('contentLanguage', newFilterState.contentLanguage)) {
-            logEvent({
-              action: 'filter-selection-by-content-language:' + newFilterState.contentLanguage.join(',').toString(),
-              category: cleanedUrl,
-              label: 'Selection of content language',
-            });
-          }
-
-          // Update previous filter state
-          prevFilterState.current = { ...newFilterState };
-
-          handleFilterChange(newFilterState);
+          console.log('FilterComponent: onApply (staged)', newFilterState);
+          // Stage the filters instead of applying immediately
+          setPendingFilters(newFilterState);
+          // Check if there are changes compared to current applied filters
+          const hasChanges = JSON.stringify(newFilterState) !== JSON.stringify(filterState?.filters ?? {});
+          setHasPendingChanges(hasChanges);
         }}
         onlyFields={onlyFields}
         isOpenColapsed={isOpenColapsed}
@@ -224,6 +196,7 @@ if (typeof window !== 'undefined') {
       filterState,
       _config,
       checkboxStyle,
+      filterFormKey,
     ]
   );
 
@@ -271,24 +244,92 @@ if (typeof window !== 'undefined') {
           {t('LEARNER_APP.COURSE.FILTER_BY')}{' '}
           {filterCount > 0 && `(${filterCount})`}
         </Typography>
-        {filterCount > 0 && (
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="text"
             sx={{
               color: theme.palette.secondary.main,
             }}
+            disabled={!hasPendingChanges}
             onClick={() => {
-              setFilterCount(0);
+              if (pendingFilters) {
+                // Log analytics for applied filters
+                if (pendingFilters?.se_domains && hasChanged('se_domains', pendingFilters.se_domains)) {
+                  logEvent({
+                    action: 'filter-selection-by-domain:' + pendingFilters.se_domains.join(','),
+                    category: cleanedUrl,
+                    label: 'Selection of domain',
+                  });
+                }
+                if (pendingFilters?.se_subDomains && hasChanged('se_subDomains', pendingFilters.se_subDomains)) {
+                  logEvent({
+                    action: 'filter-selection-by-category:' + pendingFilters.se_subDomains.join(','),
+                    category: cleanedUrl,
+                    label: 'Selection of category',
+                  });
+                }
+                if (pendingFilters?.se_subjects && hasChanged('se_subjects', pendingFilters.se_subjects)) {
+                  logEvent({
+                    action: 'filter-selection-by-subject:' + pendingFilters.se_subjects.join(','),
+                    category: cleanedUrl,
+                    label: 'Selection of subject',
+                  });
+                }
+                if (pendingFilters?.targetAgeGroup && hasChanged('targetAgeGroup', pendingFilters.targetAgeGroup)) {
+                  logEvent({
+                    action: 'filter-selection-by-age-group:' + pendingFilters.targetAgeGroup.join(','),
+                    category: cleanedUrl,
+                    label: 'Selection of age group',
+                  });
+                }
+                if (pendingFilters?.primaryUser && hasChanged('primaryUser', pendingFilters.primaryUser)) {
+                  logEvent({
+                    action: 'filter-selection-by-primary-user:' + pendingFilters.primaryUser.join(','),
+                    category: cleanedUrl,
+                    label: 'Selection of primary user',
+                  });
+                }
+                if (pendingFilters?.contentLanguage && hasChanged('contentLanguage', pendingFilters.contentLanguage)) {
+                  logEvent({
+                    action: 'filter-selection-by-content-language:' + pendingFilters.contentLanguage.join(',').toString(),
+                    category: cleanedUrl,
+                    label: 'Selection of content language',
+                  });
+                }
+
+                // Update previous filter state
+                prevFilterState.current = { ...pendingFilters };
+
+                // Apply the filters
+                handleFilterChange(pendingFilters);
+                setHasPendingChanges(false);
+              }
+            }}
+          >
+            {t('LEARNER_APP.COURSE.APPLY_FILTER')}
+          </Button>
+          <Button
+            variant="text"
+            sx={{
+              color: theme.palette.secondary.main,
+            }}
+            disabled={filterCount === 0}
+            onClick={() => {
+              // Clear all filters by passing empty object
               handleFilterChange({});
+              // Reset the previous filter state and pending filters
+              prevFilterState.current = {};
+              setPendingFilters({});
+              setHasPendingChanges(false);
             }}
           >
             {t('LEARNER_APP.COURSE.CLEAR_FILTER')}
           </Button>
-        )}
+        </Box>
       </Box>
       {memoizedFilterForm}
     </Box>
   );
 };
 
-export default React.memo(FilterComponent);
+export default FilterComponent;

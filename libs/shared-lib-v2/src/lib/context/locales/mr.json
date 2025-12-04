@@ -163,7 +163,23 @@
       "SURE_LOGOUT": "तुम्हाला खरंच लॉगआउट करायचे आहे का?",
       "LOGOUT": "लॉगआउट",
       "OKAY": "ठीक आहे",
-      "SAVE": "साठवा"
+      "SAVE": "साठवा",
+      "MY_CLASSES": "माझे वर्ग",
+      "MANAGEMENT": "व्यवस्थापन",
+      "MEMBERS": "सदस्य",
+      "USER_DETAILS": "वापरकर्ता तपशील",
+      "NO_CENTERS_AVAILABLE": "कोणतेही केंद्र उपलब्ध नाही",
+      "SELECT_BATCH_TO_VIEW_MEMBERS": "सदस्य पाहण्यासाठी एक बॅच निवडा",
+      "NO_MEMBERS_FOUND": "कोणतेही सदस्य सापडले नाहीत",
+      "SELECT_MEMBER_TO_VIEW_DETAILS": "तपशील पाहण्यासाठी एक सदस्य निवडा",
+      "USERNAME": "वापरकर्ता नाव",
+      "USER_ID": "वापरकर्ता आयडी",
+      "STATUS": "स्थिती",
+      "ROLE": "भूमिका",
+      "CREATED_AT": "तयार केले",
+      "UPDATED_AT": "अद्यतनित केले",
+      "ERROR_FETCHING_MEMBERS": "सदस्य आणण्यात त्रुटी",
+      "LEARNER": "शिकणारा"
     },
     "COURSE": {
       "COMPLETED_ON": "पूर्ण झाले",
@@ -215,7 +231,9 @@
       "OUR_PROGRAMS": "आमचे कार्यक्रम",
       "SIGN_UP": "साइन अप करा",
       "SIGN_IN": "साइन इन करा",
-      "CHOOSE_LANGUAGE": "तुमची भाषा निवडा"
+      "CHOOSE_LANGUAGE": "तुमची भाषा निवडा",
+      "CONTINUE": "लॉगिन वर सुरू ठेवा",
+      "APP_NAME": "मध्ये तुमचे स्वागत आहे"
     },
     "LOGIN": {
       "welcome_title": "Shiksha myLearning मध्ये तुमचे स्वागत आहे!",
@@ -241,7 +259,15 @@
       "POINT_CAMERA": "कॅमेरा येथे ठेवा",
       "OR": "किंवा",
       "SEARCH_PLAYSTORE": "\"Shiksha myLearning\" प्लेस्टोअरमध्ये शोधा",
-      "ON_PLAYSTORE": "प्लेस्टोअरवर"
+      "ON_PLAYSTORE": "प्लेस्टोअरवर",
+      "PHONE_INSTRUCTION": "नमस्कार! सुरू ठेवण्यासाठी तुमच्या नोंदणीकृत फोन नंबरसह लॉगिन करा।",
+      "PHONE_NUMBER": "फोन नंबर",
+      "SENDING": "पाठवत आहे...",
+      "SEND_OTP": "OTP पाठवा",
+      "OTP_INSTRUCTION": "तुमच्या फोनवर पाठवलेला 6 अंकी OTP प्रविष्ट करा।",
+      "ENTER_OTP": "OTP सत्यापित करा",
+      "RESEND_OTP_DISABLED": "OTP पुन्हा पाठवा (मर्यादा पूर्ण)",
+      "RESEND_OTP": "OTP पुन्हा पाठवा"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "चालू",
@@ -429,7 +455,8 @@
       "LEARNER_NAME": "शिकणाऱ्याचे नाव"
     },
     "CONTENT": {
-      "VIEWING_CONTENT": "सामग्री पाहत आहात"
+      "VIEWING_CONTENT": "सामग्री पाहत आहात",
+      "FILTERS": "फिल्टर्स"
     }
   },
   "LOGIN_PAGE": {

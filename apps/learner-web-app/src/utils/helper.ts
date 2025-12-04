@@ -10,6 +10,10 @@ export const firstLetterInUpperCase = (label: string): string => {
     ?.join(' ');
 };
 const getSelectedValueName = (fields: any, label: any) => {
+  // Safety check: ensure fields is an array
+  if (!fields || !Array.isArray(fields)) {
+    return null;
+  }
   const field = fields.find((f: any) => f.label === label);
   if (field && field.selectedValues && field.selectedValues.length > 0) {
     return field.selectedValues[0]; // Return the first selected value
@@ -18,20 +22,27 @@ const getSelectedValueName = (fields: any, label: any) => {
 };
 export const mapUserData = (userData: any) => {
   console.log(userData, 'userData');
+  
+  // Safety check: if userData is undefined or null, return empty object
+  if (!userData || typeof userData !== 'object') {
+    console.warn('mapUserData: userData is undefined or invalid');
+    return {};
+  }
+  
   try {
     const getSelectedValue = (label: any) =>
       userData.customFields
-        .find((f: any) => f.label === label)
-        ?.selectedValues.map((v: any) => v?.id?.toString()) || '';
+        ?.find((f: any) => f.label === label)
+        ?.selectedValues?.map((v: any) => v?.id?.toString()) || '';
 
     const getSingleSelectedValue = (label: any) =>
       userData.customFields
-        .find((f: any) => f.label === label)
-        ?.selectedValues[0]?.id?.toString() || '';
+        ?.find((f: any) => f.label === label)
+        ?.selectedValues?.[0]?.id?.toString() || '';
 
     const getSingleTextValue = (label: any) =>
-      userData.customFields.find((f: any) => f.label === label)
-        ?.selectedValues[0] || '';
+      userData.customFields?.find((f: any) => f.label === label)
+        ?.selectedValues?.[0] || '';
 
     const result: any = {
       firstName: userData.firstName || '',
@@ -105,7 +116,8 @@ export const mapUserData = (userData: any) => {
 
     return result;
   } catch (error) {
-    console.log(error);
+    console.error('mapUserData error:', error);
+    return {};
   }
 };
 
@@ -116,6 +128,16 @@ export const getMissingFields = (schema: any, userData: any) => {
     const mappedUserData = mapUserData(userData);
     console.log(mappedUserData, 'mappedUserData');
     console.log(schema, 'schema');
+
+    // Safety check: if mappedUserData is undefined or null, return empty schema
+    if (!mappedUserData || typeof mappedUserData !== 'object') {
+      console.warn('getMissingFields: mappedUserData is undefined or invalid');
+      return {
+        type: schema?.type || 'object',
+        properties: {},
+        required: [],
+      };
+    }
 
     const isEmpty = (value: any) => {
       return (

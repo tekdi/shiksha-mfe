@@ -282,6 +282,10 @@ const DashboardPage = () => {
       router.push("/attandence");
       return;
     }
+    if (tab === "myClasses") {
+      router.push("/my-classes");
+      return;
+    }
     setActiveTab(tab);
 
     // Update URL with tab parameter
@@ -437,6 +441,7 @@ const DashboardPage = () => {
           <Tab label={t("LEARNER_APP.COMMON.CONTENT")} value="content" />
           {showGroups && <Tab label={t("LEARNER_APP.COMMON.GROUPS")} value="groups" />}
           {showAttendance && <Tab label={t("LEARNER_APP.COMMON.ATTENDANCE")} value="attendance" />}
+          {showAttendance && <Tab label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"} value="myClasses" />}
         </Tabs>
         <Grid container style={gredientStyle}>
           <Grid item xs={12}>

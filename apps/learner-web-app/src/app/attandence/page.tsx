@@ -39,7 +39,7 @@ import {
   getLearnerAttendanceStatus,
 } from "../../utils/API/services/AttendanceService";
 import { ShowSelfAttendance } from "../../../app.config";
-import { getCohortList } from "../../utils/API/services/CohortServices";
+import { getCohortList, getCohortDetails } from "../../utils/API/services/CohortServices";
 import { getMyCohortMemberList } from "../../utils/API/services/MyClassDetailsService";
 import { getUserDetails } from "../../utils/API/services/ProfileService";
 import { ICohort } from "@learner/utils/attendance/interfaces";
@@ -602,32 +602,68 @@ const SimpleTeacherDashboard = () => {
       await getUserDetails(userId, true);
       if (response && response.length > 0) {
         setCohortsData(response);
-        
-        // Filter centers: items with parentId === null (SCHOOL type) and have childData
-        const centers = response
-          .filter((item: any) => 
-           
-            item.type === "SCHOOL" 
-          )
-          .map((center: any) => ({
-            centerId: center.cohortId,
-            centerName: center.cohortName,
-            childData: center.childData || [],
-          }));
-        
-        setCentersData(centers);
-        
 
-        if (centers.length > 0) {
-          const defaultCenter = centers[0];
+        // Extract unique parent IDs from the cohorts
+        const uniqueParentIds = [...new Set(
+          response
+            .filter((item: any) => item.parentId && item.type === "COHORT")
+            .map((item: any) => item.parentId)
+        )];
+        
+        console.log("Unique parent IDs:", uniqueParentIds);
+        
+        // Fetch hierarchy data for each unique parent ID
+        const centersWithHierarchy = await Promise.all(
+          uniqueParentIds.map(async (parentId: any) => {
+            try {
+              // Call cohortHierarchy API with the parent ID
+              const hierarchyData = await getCohortDetails(parentId, {
+                children: "true",
+                customField: "true",
+              });
+              
+              console.log(`Hierarchy data for ${parentId}:`, hierarchyData);
+              
+              // The API returns an array, get the first item
+              const centerData = Array.isArray(hierarchyData) ? hierarchyData[0] : hierarchyData;
+              
+              return {
+                centerId: centerData?.cohortId || parentId,
+                centerName: centerData?.cohortName || centerData?.name || "Unknown Center",
+                childData: centerData?.childData || [],
+                hierarchyData: centerData,
+              };
+            } catch (error) {
+              console.error(`Error fetching hierarchy for ${parentId}:`, error);
+              return null;
+            }
+          })
+        );
+        
+        // Filter out null values (failed requests)
+        const validCenters = centersWithHierarchy.filter((center) => center !== null);
+        
+        setCentersData(validCenters);
+        
+        if (validCenters.length > 0) {
+          const defaultCenter = validCenters[0];
           setSelectedCenterId(defaultCenter.centerId);
 
-          // Extract batches from childData
-          const batches = defaultCenter.childData.map((batch: any) => ({
-            batchId: batch.cohortId,
-            batchName: batch.name,
-            parentId: batch.parentId,
-          }));
+          // Batches/classes should come ONLY from myCohorts response
+          const batches = response
+            .filter(
+              (item: any) =>
+                item.type === "COHORT" &&
+                item.parentId === defaultCenter.centerId &&
+                item.cohortStatus === "active"
+            )
+            .map((item: any) => ({
+              batchId: item.cohortId,
+              batchName: item.cohortName,
+              parentId: item.parentId,
+            }));
+
+          console.log("Batches for default center (from myCohorts):", batches);
           setBatchesData(batches);
 
           // Set default batch if available
@@ -637,14 +673,45 @@ const SimpleTeacherDashboard = () => {
             setClassId("");
           }
         } else {
-          // If no centers, check if there are direct cohorts (batches without parent)
+          // If no hierarchy data, use direct cohorts from response
           const directCohorts = response.filter(
-            (item: any) => item.type === "COHORT" && item.parentId !== null
+            (item: any) => item.type === "COHORT"
           );
           if (directCohorts.length > 0) {
-            setClassId(directCohorts[0].cohortId);
-          } else {
-            setClassId("");
+            // Group cohorts by parentId
+            const cohortsByParent: any = {};
+            directCohorts.forEach((cohort: any) => {
+              if (!cohortsByParent[cohort.parentId]) {
+                cohortsByParent[cohort.parentId] = [];
+              }
+              cohortsByParent[cohort.parentId].push(cohort);
+            });
+            
+            // Create centers from parent IDs
+            const fallbackCenters = Object.keys(cohortsByParent).map((parentId) => ({
+              centerId: parentId,
+              centerName: `Center ${parentId.substring(0, 8)}`,
+              childData: cohortsByParent[parentId],
+              hierarchyData: null,
+            }));
+            
+            setCentersData(fallbackCenters);
+            
+            if (fallbackCenters.length > 0) {
+              const defaultCenter = fallbackCenters[0];
+              setSelectedCenterId(defaultCenter.centerId);
+              
+              const batches = defaultCenter.childData.map((batch: any) => ({
+                batchId: batch.cohortId,
+                batchName: batch.cohortName,
+                parentId: batch.parentId,
+              }));
+              setBatchesData(batches);
+              
+              if (batches.length > 0) {
+                setClassId(batches[0].batchId);
+              }
+            }
           }
         }
       }
@@ -659,22 +726,28 @@ const SimpleTeacherDashboard = () => {
     const centerId = event.target.value;
     setSelectedCenterId(centerId);
 
-    const selectedCenter = centersData.find(
-      (center) => center.centerId === centerId
-    );
-    if (selectedCenter) {
-      const batches = selectedCenter.childData.map((batch: any) => ({
-        batchId: batch.cohortId,
-        batchName: batch.name,
-        parentId: batch.parentId,
+    // Batches/classes should come ONLY from myCohorts response
+    const batches = cohortsData
+      .filter(
+        (item: any) =>
+          item.type === "COHORT" &&
+          item.parentId === centerId &&
+          item.cohortStatus === "active"
+      )
+      .map((item: any) => ({
+        batchId: item.cohortId,
+        batchName: item.cohortName,
+        parentId: item.parentId,
       }));
-      setBatchesData(batches);
 
-      if (batches.length > 0) {
-        setClassId(batches[0].batchId);
-      } else {
-        setClassId("");
-      }
+    console.log("Batches for selected center (from myCohorts):", batches);
+
+    setBatchesData(batches);
+
+    if (batches.length > 0) {
+      setClassId(batches[0].batchId);
+    } else {
+      setClassId("");
     }
   };
 
@@ -1342,6 +1415,9 @@ const SimpleTeacherDashboard = () => {
       case "groups":
         router.push("/dashboard?tab=2");
         break;
+      case "myClasses":
+        router.push("/my-classes");
+        break;
       default:
         break;
     }
@@ -1526,12 +1602,13 @@ const SimpleTeacherDashboard = () => {
             <Tab label={t("LEARNER_APP.COMMON.CONTENT")} value="content" />
             <Tab label={t("LEARNER_APP.COMMON.GROUPS")} value="groups" />
             <Tab label={t("LEARNER_APP.COMMON.ATTENDANCE")} value="attendance" />
+            <Tab label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"} value="myClasses" />
           </Tabs>
           <Grid container style={gredientStyle}>
           <Grid item xs={12}>
             <DashboardContainer backgroundColor={backgroundColor}>
               <MainContent>
-        <ContentWrapper>
+                <ContentWrapper>
           <Box>
             <Box
               display={"flex"}
@@ -2305,8 +2382,13 @@ const SimpleTeacherDashboard = () => {
               </Grid>
             )}
           </Box>
-        </ContentWrapper>
-      </MainContent>
+                </ContentWrapper>
+              </MainContent>
+            </DashboardContainer>
+          </Grid>
+        </Grid>
+      </Box>
+      </Box>
       {open && (
         <MarkBulkAttendance
           open={open}
@@ -2538,11 +2620,6 @@ const SimpleTeacherDashboard = () => {
           </Box>
         </ModalComponent>
       )}
-            </DashboardContainer>
-          </Grid>
-        </Grid>
-      </Box>
-      </Box>
       <ProfileMenu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}
