@@ -3,10 +3,10 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable @typescript-eslint/no-empty-function */
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, Suspense } from "react";
 import Layout from "@learner/components/Layout";
 import Image from "next/image";
-import { Tabs, Tab, Typography, Box, Grid, Button, IconButton } from "@mui/material";
+import { Tabs, Tab, Typography, Box, Grid, Button, IconButton, CircularProgress } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { checkAuth } from "@shared-lib-v2/utils/AuthService";
@@ -22,7 +22,7 @@ import { useTenant } from "@learner/context/TenantContext";
 import { useTranslation } from "@shared-lib";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
 
-const DashboardPage = () => {
+const DashboardContent = () => {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -552,4 +552,28 @@ const DashboardPage = () => {
     </Layout>
   );
 };
+
+const DashboardPage = () => {
+  return (
+    <Suspense
+      fallback={
+        <Layout onlyHideElements={["footer", "topBar"]}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              minHeight: "100vh",
+            }}
+          >
+            <CircularProgress />
+          </Box>
+        </Layout>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
+  );
+};
+
 export default DashboardPage;
