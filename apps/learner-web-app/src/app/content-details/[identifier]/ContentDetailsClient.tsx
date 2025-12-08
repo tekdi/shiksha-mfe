@@ -78,7 +78,18 @@ const ContentDetailsClient = () => {
               mb: 3,
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 1.5,
+                cursor: "pointer",
+                "&:hover": {
+                  opacity: 0.8,
+                },
+              }}
+              onClick={() => router.push("/dashboard?tab=1")}
+            >
               <Box
                 sx={{
                   width: 48,

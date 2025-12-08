@@ -410,10 +410,14 @@
       "CERTIFICATES_DESCRIPTION": "आपके पूर्ण पाठ्यक्रम और अर्जित प्रमाणपत्र",
       "CERTIFICATE": "प्रमाणपत्र",
       "CERTIFICATES": "प्रमाणपत्र",
-      "GO_TO_COURSES": "पाठ्यक्रम पर जाएं",
+      "GO_TO_COURSES": "जारी रखें",
       "UNTITLED_COURSE": "बिना शीर्षक का पाठ्यक्रम",
       "NO_DESCRIPTION_AVAILABLE": "कोई विवरण उपलब्ध नहीं",
-      "CERTIFICATE_ID_NOT_AVAILABLE": "इस पाठ्यक्रम के लिए प्रमाणपत्र ID उपलब्ध नहीं है"
+      "CERTIFICATE_ID_NOT_AVAILABLE": "इस पाठ्यक्रम के लिए प्रमाणपत्र ID उपलब्ध नहीं है",
+      "NEED_HELP": "मदद चाहिए?",
+      "GET_IN_TOUCH_SUPPORT": "हमारे सहायता अधिकारियों से संपर्क करें",
+      "SUPPORT_PHONE": "+91 8754911609",
+      "SUPPORT_LINK": "https://www.tekdi.net/"
     },
     "ATTENDANCE": {
       "DAY_WISE_ATTENDANCE": "दिन-वार उपस्थिति",

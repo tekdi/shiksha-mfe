@@ -8,7 +8,7 @@ import Layout from "@learner/components/Layout";
 import Image from "next/image";
 import { Tabs, Tab, Typography, Box, Grid, Button, IconButton } from "@mui/material";
 import { alpha } from "@mui/material/styles";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { checkAuth } from "@shared-lib-v2/utils/AuthService";
 import { profileComplitionCheck } from "@learner/utils/API/userService";
 import { getTenantInfo } from "@learner/utils/API/ProgramService";
@@ -25,6 +25,7 @@ import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropd
 const DashboardPage = () => {
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { tenant, contentFilter } = useTenant();
   const { t, language, setLanguage } = useTranslation();
   
@@ -36,7 +37,7 @@ const DashboardPage = () => {
   const tenantName = contentFilter?.title || tenant?.name || "Tenant";
   const tenantAlt = `${tenantName} logo`;
   
-  const [activeTab, setActiveTab] = React.useState("Course");
+  const [activeTab, setActiveTab] = React.useState("content");
   const [filter, setFilter] = useState<Record<string, any>>({});
   const [isLogin, setIsLogin] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -85,19 +86,41 @@ const DashboardPage = () => {
       setStoredConfig(config);
       setFirstName(localStorage.getItem("firstName") || "");
       setUserProgram(localStorage.getItem("userProgram") || "");
+    }
+  }, []);
 
-      // Initialize activeTab from URL parameter
-      const searchParams = new URLSearchParams(window.location.search);
-      const tabParam = searchParams.get("tab");
+  // Watch for URL parameter changes and update active tab
+  useEffect(() => {
+    const updateTabFromURL = () => {
+      // Read from both useSearchParams and window.location for reliability
+      const tabParam = searchParams.get("tab") || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null);
+      
       if (tabParam === "1") {
         setActiveTab("content");
       } else if (tabParam === "2") {
-        setActiveTab("groups");
-      } else {
         setActiveTab("Course");
+      } else if (tabParam === "3") {
+        setActiveTab("groups");
+      } else if (tabParam === "4") {
+        setActiveTab("attendance");
+      } else if (tabParam === "5") {
+        setActiveTab("myClasses");
+      } else if (tabParam === "0" || !tabParam) {
+        // Default to Content tab (first tab) if no tab parameter or tab=0
+        setActiveTab("content");
       }
+    };
+
+    updateTabFromURL();
+
+    // Also listen for popstate events (browser back/forward)
+    if (typeof window !== "undefined") {
+      window.addEventListener("popstate", updateTabFromURL);
+      return () => {
+        window.removeEventListener("popstate", updateTabFromURL);
+      };
     }
-  }, []);
+  }, [searchParams, pathname]);
 
   useEffect(() => {
     // Prevent duplicate API calls in React StrictMode
@@ -290,11 +313,13 @@ const DashboardPage = () => {
 
     // Update URL with tab parameter
     const url = new URL(window.location.href);
-    let tabIndex = 0;
+    let tabIndex = 1; // Default to Content (first tab)
     if (tab === "content") {
       tabIndex = 1;
-    } else if (tab === "groups") {
+    } else if (tab === "Course") {
       tabIndex = 2;
+    } else if (tab === "groups") {
+      tabIndex = 3;
     }
     url.searchParams.set("tab", tabIndex.toString());
     router.replace(url.pathname + url.search);
@@ -337,7 +362,18 @@ const DashboardPage = () => {
               mb: 3,
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 1.5,
+                cursor: "pointer",
+                "&:hover": {
+                  opacity: 0.8,
+                },
+              }}
+              onClick={() => router.push("/dashboard?tab=1")}
+            >
               <Box
                 sx={{
                   width: 48,
@@ -437,8 +473,8 @@ const DashboardPage = () => {
             },
           }}
         >
-          <Tab label={t("LEARNER_APP.COMMON.COURSES")} value="Course" />
           <Tab label={t("LEARNER_APP.COMMON.CONTENT")} value="content" />
+          <Tab label={t("LEARNER_APP.COMMON.COURSES")} value="Course" />
           {showGroups && <Tab label={t("LEARNER_APP.COMMON.GROUPS")} value="groups" />}
           {showAttendance && <Tab label={t("LEARNER_APP.COMMON.ATTENDANCE")} value="attendance" />}
           {showAttendance && <Tab label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"} value="myClasses" />}

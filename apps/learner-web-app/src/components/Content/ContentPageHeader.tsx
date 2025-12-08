@@ -4,6 +4,7 @@ import React from "react";
 import { Box, IconButton, Typography } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { AccountCircleOutlined } from "@mui/icons-material";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
 import { useTenant } from "@learner/context/TenantContext";
@@ -12,6 +13,7 @@ import { useTranslation } from "@shared-lib";
 const ContentPageHeader: React.FC = () => {
   const { tenant, contentFilter } = useTenant();
   const { t } = useTranslation();
+  const router = useRouter();
 
   const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
   const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
@@ -45,7 +47,18 @@ const ContentPageHeader: React.FC = () => {
             gap: 2,
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+          <Box 
+            sx={{ 
+              display: "flex", 
+              alignItems: "center", 
+              gap: 1.5,
+              cursor: "pointer",
+              "&:hover": {
+                opacity: 0.8,
+              },
+            }}
+            onClick={() => router.push("/dashboard?tab=1")}
+          >
             <Box
               sx={{
                 width: 40,

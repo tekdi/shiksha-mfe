@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation";
 import { checkAuth } from "@shared-lib-v2/utils/AuthService";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
-import { AccountCircleOutlined } from "@mui/icons-material";
+import { AccountCircleOutlined, Phone } from "@mui/icons-material";
 import Image from "next/image";
 
 import { baseurl } from "@learner/utils/API/EndUrls";
@@ -51,6 +51,7 @@ const ProfilePage = () => {
   const tenantIcon = contentFilter?.icon || "/logo.png";
   const tenantName = contentFilter?.title || tenant?.name || "Tenant";
   const tenantAlt = `${tenantName} logo`;
+  const isSwadhaarTenant = tenantName.toLowerCase().includes("swadhaar");
   const resolveText = (key: string, fallback: string) => {
     const translated = t(key);
     return translated === key ? fallback : translated;
@@ -332,7 +333,18 @@ const ProfilePage = () => {
               mb: 3,
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 1.5,
+                cursor: "pointer",
+                "&:hover": {
+                  opacity: 0.8,
+                },
+              }}
+              onClick={() => router.push("/dashboard?tab=1")}
+            >
               <Box
                 sx={{
                   width: { xs: 40, sm: 48 },
@@ -362,7 +374,7 @@ const ProfilePage = () => {
                   color: secondaryColor,
                 }}
               >
-                {resolveText("LEARNER_APP.HOME.APP_NAME", tenantName)}
+              {tenantName}
               </Typography>
             </Box>
 
@@ -517,6 +529,102 @@ const ProfilePage = () => {
                   <Typography sx={{ fontWeight: 600, color: secondaryColor }}>
                     {profileInfo.phone || resolveText("LEARNER_APP.PROFILE.NOT_AVAILABLE", "Not available")}
                   </Typography>
+                </Box>
+              </Box>
+
+              {/* Need Help Card */}
+              <Box
+                sx={{
+                  backgroundColor: surfaceColor,
+                  borderRadius: 3,
+                  p: 3,
+                  boxShadow: "0px 20px 60px rgba(0,0,0,0.08)",
+                  border: `1px solid ${alpha(secondaryColor, 0.08)}`,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 2,
+                  mt: 2,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "16px",
+                    backgroundColor: subtleBg,
+                    color: primaryColor,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  <Phone sx={{ fontSize: 28 }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography
+                    sx={{
+                      fontWeight: 600,
+                      color: secondaryColor,
+                      fontSize: 18,
+                      mb: 0.5,
+                    }}
+                  >
+                    {resolveText("LEARNER_APP.PROFILE.NEED_HELP", "Need Help?")}
+                  </Typography>
+                  <Typography
+                    sx={{
+                      fontSize: 14,
+                      color: alpha(secondaryColor, 0.7),
+                      mb: 1,
+                    }}
+                  >
+                    {resolveText(
+                      "LEARNER_APP.PROFILE.GET_IN_TOUCH_SUPPORT",
+                      "Get in touch with our Support Officers"
+                    )}
+                  </Typography>
+                  {isSwadhaarTenant ? (
+                    <Typography
+                      component="a"
+                      href="tel:+918754911609"
+                      sx={{
+                        fontSize: 16,
+                        color: primaryColor,
+                        fontWeight: 500,
+                        textDecoration: "none",
+                        "&:hover": {
+                          textDecoration: "underline",
+                        },
+                      }}
+                    >
+                      {resolveText(
+                        "LEARNER_APP.PROFILE.SUPPORT_PHONE",
+                        "+91 8754911609"
+                      )}
+                    </Typography>
+                  ) : (
+                    <Typography
+                      component="a"
+                      href="https://www.tekdi.net/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        fontSize: 16,
+                        color: primaryColor,
+                        fontWeight: 500,
+                        textDecoration: "none",
+                        "&:hover": {
+                          textDecoration: "underline",
+                        },
+                      }}
+                    >
+                      {resolveText(
+                        "LEARNER_APP.PROFILE.SUPPORT_LINK",
+                        "https://www.tekdi.net/"
+                      )}
+                    </Typography>
+                  )}
                 </Box>
               </Box>
             </Box>

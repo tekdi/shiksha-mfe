@@ -1447,7 +1447,18 @@ const SimpleTeacherDashboard = () => {
               flexWrap: "wrap",
             }}
           >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 1.5,
+                cursor: "pointer",
+                "&:hover": {
+                  opacity: 0.8,
+                },
+              }}
+              onClick={() => router.push("/dashboard?tab=1")}
+            >
               <Box
                 sx={{
                   width: 48,
@@ -1598,8 +1609,8 @@ const SimpleTeacherDashboard = () => {
               },
             }}
           >
-            <Tab label={t("LEARNER_APP.COMMON.COURSES")} value="Course" />
             <Tab label={t("LEARNER_APP.COMMON.CONTENT")} value="content" />
+            <Tab label={t("LEARNER_APP.COMMON.COURSES")} value="Course" />
             <Tab label={t("LEARNER_APP.COMMON.GROUPS")} value="groups" />
             <Tab label={t("LEARNER_APP.COMMON.ATTENDANCE")} value="attendance" />
             <Tab label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"} value="myClasses" />

@@ -128,11 +128,13 @@ export const findTenantByDomain = (
   tenants: Tenant[],
   currentDomain?: string
 ): Tenant | null => {
-  //  let domain = currentDomain;
-  let domain = 'www.krdpr.sunbirdsaas.com';
+  // let domain = currentDomain;
+   let domain = 'swadhaar-learner.sunbirdsaas.com'; // For testing only
+  console.log('[TenantService] Looking up tenant for domain:', domain);
   if (!domain) {
     if (typeof window !== "undefined") {
       domain = window.location.hostname;
+      console.log('[TenantService] Using window.location.hostname:', domain);
     } else {
       return null;
     }
@@ -149,6 +151,16 @@ export const findTenantByDomain = (
   if (tenantKey === "www" && domainParts.length > 1) {
     tenantKey = domainParts[1];
   }
+  
+  // Handle hyphenated domains like "swadhaar-learner" -> extract "swadhaar"
+  // This is for multi-environment tenants (e.g., swadhaar-learner, swadhaar-admin)
+  const originalTenantKey = tenantKey;
+  if (tenantKey.includes("-")) {
+    const hyphenParts = tenantKey.split("-");
+    tenantKey = hyphenParts[0]; // Get the first part before the hyphen
+    console.log(`[TenantService] Extracted tenant key from hyphenated domain: "${originalTenantKey}" -> "${tenantKey}"`);
+  }
+  
   if (!tenantKey) {
     return null;
   }

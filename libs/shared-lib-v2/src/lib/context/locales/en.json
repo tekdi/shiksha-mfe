@@ -445,10 +445,14 @@
       "CERTIFICATES_DESCRIPTION": "Your completed courses and earned certificates",
       "CERTIFICATE": "Certificate",
       "CERTIFICATES": "Certificates",
-      "GO_TO_COURSES": "Go to Courses",
+      "GO_TO_COURSES": "Continue Learning",
       "UNTITLED_COURSE": "Untitled Course",
       "NO_DESCRIPTION_AVAILABLE": "No description available",
-      "CERTIFICATE_ID_NOT_AVAILABLE": "Certificate ID not available for this course"
+      "CERTIFICATE_ID_NOT_AVAILABLE": "Certificate ID not available for this course",
+      "NEED_HELP": "Need Help?",
+      "GET_IN_TOUCH_SUPPORT": "Get in touch with our Support Officers",
+      "SUPPORT_PHONE": "+91 8754911609",
+      "SUPPORT_LINK": "https://www.tekdi.net/"
     },
     "ATTENDANCE": {
       "DAY_WISE_ATTENDANCE": "Day-Wise Attendance",

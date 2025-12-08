@@ -411,10 +411,14 @@
       "CERTIFICATES_DESCRIPTION": "तुमचे पूर्ण झालेले अभ्यासक्रम आणि मिळवलेली प्रमाणपत्रे",
       "CERTIFICATE": "प्रमाणपत्र",
       "CERTIFICATES": "प्रमाणपत्रे",
-      "GO_TO_COURSES": "अभ्यासक्रमांवर जा",
+      "GO_TO_COURSES": "जारी रखा",
       "UNTITLED_COURSE": "शीर्षक नसलेला अभ्यासक्रम",
       "NO_DESCRIPTION_AVAILABLE": "वर्णन उपलब्ध नाही",
-      "CERTIFICATE_ID_NOT_AVAILABLE": "या अभ्यासक्रमासाठी प्रमाणपत्र ID उपलब्ध नाही"
+      "CERTIFICATE_ID_NOT_AVAILABLE": "या अभ्यासक्रमासाठी प्रमाणपत्र ID उपलब्ध नाही",
+      "NEED_HELP": "मदद हवी?",
+      "GET_IN_TOUCH_SUPPORT": "आमच्या समर्थन अधिकाऱ्यांशी संपर्क साधा",
+      "SUPPORT_PHONE": "+91 8754911609",
+      "SUPPORT_LINK": "https://www.tekdi.net/"
     },
     "ATTENDANCE": {
       "DAY_WISE_ATTENDANCE": "दिवस-वार उपस्थिती",
