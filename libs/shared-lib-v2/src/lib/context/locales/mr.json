@@ -267,7 +267,12 @@
       "OTP_INSTRUCTION": "तुमच्या फोनवर पाठवलेला 6 अंकी OTP प्रविष्ट करा।",
       "ENTER_OTP": "OTP सत्यापित करा",
       "RESEND_OTP_DISABLED": "OTP पुन्हा पाठवा (मर्यादा पूर्ण)",
-      "RESEND_OTP": "OTP पुन्हा पाठवा"
+      "RESEND_OTP": "OTP पुन्हा पाठवा",
+      "CHOOSE_MODE": "तुम्ही कसे पुढे जाऊ इच्छिता ते निवडा",
+      "LEARNER_OR_WORKSPACE": "शिकाऊ म्हणून लॉगिन करा किंवा वर्कस्पेस पोर्टलवर जा।",
+      "CONTINUE_LEARNER": "शिकाऊ म्हणून लॉगिन करा",
+      "GO_TO_WORKSPACE": "वर्कस्पेसवर जा",
+      "LOGIN": "लॉगिन"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "चालू",

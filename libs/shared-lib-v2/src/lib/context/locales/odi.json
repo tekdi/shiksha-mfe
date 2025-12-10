@@ -191,7 +191,12 @@
       "POINT_CAMERA": "କ୍ୟାମେରା ଏଠାରେ ରଖନ୍ତୁ",
       "OR": "କିମ୍ବା",
       "SEARCH_PLAYSTORE": "\"Shiksha myLearning\" କୁ ପ୍ଲେସ୍ଟୋର୍ରେ ଖୋଜନ୍ତୁ",
-      "ON_PLAYSTORE": "ପ୍ଲେସ୍ଟୋର୍ରେ"
+      "ON_PLAYSTORE": "ପ୍ଲେସ୍ଟୋର୍ରେ",
+      "CHOOSE_MODE": "ଆପଣ କିପରି ଆଗକୁ ବଢ଼ିବାକୁ ଚାହୁଁଛନ୍ତି ତାହା ବାଛନ୍ତୁ",
+      "LEARNER_OR_WORKSPACE": "ଶିକ୍ଷାର୍ଥୀ ଭାବରେ ଲଗଇନ୍ କରନ୍ତୁ କିମ୍ବା ୱର୍କସ୍ପେସ୍ ପୋର୍ଟାଲ୍‌କୁ ଯାଆନ୍ତୁ।",
+      "CONTINUE_LEARNER": "ଶିକ୍ଷାର୍ଥୀ ଭାବରେ ଲଗଇନ୍ କରନ୍ତୁ",
+      "GO_TO_WORKSPACE": "ୱର୍କସ୍ପେସ୍‌କୁ ଯାଆନ୍ତୁ",
+      "LOGIN": "ଲଗଇନ୍"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "ଚାଲୁଛି",

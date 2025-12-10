@@ -207,8 +207,13 @@
       "POINT_YOUR_PHONE": "உங்கள் தொலைபேசியை சுட்டிக்காட்டவும்",
       "POINT_CAMERA": "கேமராவை இங்கே",
       "OR": "அல்லது",
-      "SEARCH_PLAYSTORE": "Playstore இல் “பிரதம் மைலேர்னிங்” என தேடவும்",
-      "ON_PLAYSTORE": "Playstore இல்"
+      "SEARCH_PLAYSTORE": "Playstore இல் \"பிரதம் மைலேர்னிங்\" என தேடவும்",
+      "ON_PLAYSTORE": "Playstore இல்",
+      "CHOOSE_MODE": "நீங்கள் எவ்வாறு தொடர விரும்புகிறீர்கள் என்பதைத் தேர்ந்தெடுக்கவும்",
+      "LEARNER_OR_WORKSPACE": "கற்றவராக உள்நுழையவும் அல்லது பணியிடம் போர்ட்டலுக்குச் செல்லவும்।",
+      "CONTINUE_LEARNER": "கற்றவராக உள்நுழையவும்",
+      "GO_TO_WORKSPACE": "பணியிடத்திற்குச் செல்லவும்",
+      "LOGIN": "உள்நுழைக"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "நடந்து கொண்டிருக்கிறது",

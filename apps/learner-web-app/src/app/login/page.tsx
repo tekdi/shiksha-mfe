@@ -41,6 +41,7 @@ import {
   ensureAcademicYearForTenant,
   getTenantInfo,
 } from "@learner/utils/API/ProgramService";
+import { alpha } from "@mui/material/styles";
 import { useTenant } from "@learner/context/TenantContext";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
 
@@ -1175,6 +1176,7 @@ const LoginPage = () => {
   const [prefilledUsername, setPrefilledUsername] = useState<string>("");
   const [showLoginForm, setShowLoginForm] = useState<boolean>(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState<boolean>(true);
+  const [entryMode, setEntryMode] = useState<"selection" | "learner">("selection");
   const { tenant, contentFilter } = useTenant();
 
   // Get tenant colors and logo
@@ -1789,21 +1791,164 @@ const LoginPage = () => {
             }}
           >
             {showLoginForm && (
-              <LoginComponent
-                onLogin={handleLogin}
-                onVerifyOtp={handleVerifyOtp}
-                handleForgotPassword={handleForgotPassword}
-                handleAddAccount={handleAddAccount}
-                prefilledUsername={prefilledUsername}
-                onRedirectToLogin={() => {
-                  // Show error message for unregistered user
-                  showToastMessage(
-                    "User not registered. Please contact your administrator to register your account.",
-                    "error"
-                  );
-                  console.log("User not registered - showing error message");
-                }}
-              />
+              <>
+                {entryMode === "selection" ? (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 2,
+                      background: `linear-gradient(180deg, ${alpha(primaryColor, 0.06)} 0%, #ffffff 80%)`,
+                      borderRadius: 3,
+                      boxShadow: "0 14px 30px rgba(0,0,0,0.07)",
+                      border: `1px solid ${alpha(primaryColor, 0.18)}`,
+                      p: { xs: 3, sm: 4 },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        alignSelf: "center",
+                        px: 2,
+                        py: 0.75,
+                        borderRadius: 999,
+                        backgroundColor: alpha(primaryColor, 0.16),
+                        color: primaryColor,
+                        fontSize: "0.8rem",
+                        fontWeight: 800,
+                        letterSpacing: 0.4,
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      {t("LEARNER_APP.LOGIN.CHOOSE_MODE") ||
+                        "Choose how you want to continue"}
+                    </Box>
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 800,
+                        color: secondaryColor,
+                        textAlign: "center",
+                        letterSpacing: 0.2,
+                        mt: 0.5,
+                      }}
+                    >
+                      {t("LEARNER_APP.LOGIN.CHOOSE_MODE") ||
+                        "Choose how you want to continue"}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: alpha(secondaryColor, 0.7),
+                        textAlign: "center",
+                        maxWidth: 420,
+                        mx: "auto",
+                        lineHeight: 1.5,
+                      }}
+                    >
+                      {t("LEARNER_APP.LOGIN.LEARNER_OR_WORKSPACE") ||
+                        "Login as a learner or go to the workspace portal."}
+                    </Typography>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexDirection: { xs: "column", sm: "row" },
+                        gap: 2,
+                        mt: 1,
+                      }}
+                    >
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        onClick={() => setEntryMode("learner")}
+                        sx={{
+                          backgroundColor: primaryColor,
+                          color: buttonTextColor,
+                          fontWeight: 700,
+                          py: 1.2,
+                          borderRadius: 999,
+                          boxShadow: `0 8px 18px ${alpha(primaryColor, 0.25)}`,
+                          "&:hover": { backgroundColor: primaryColor },
+                        }}
+                      >
+                        {t("LEARNER_APP.LOGIN.CONTINUE_LEARNER") || "Login as Learner"}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        onClick={() => {
+                          window.location.href = "https://admin.sunbirdsaas.com/login";
+                        }}
+                        sx={{
+                          borderColor: primaryColor,
+                          color: primaryColor,
+                          fontWeight: 700,
+                          py: 1.2,
+                          borderRadius: 999,
+                          "&:hover": {
+                            borderColor: primaryColor,
+                            backgroundColor: `${primaryColor}10`,
+                          },
+                        }}
+                      >
+                        {t("LEARNER_APP.LOGIN.GO_TO_WORKSPACE") || "Go to Workspace"}
+                      </Button>
+                    </Box>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: { xs: 1.5, sm: 2 },
+                    }}
+                  >
+                    <LoginComponent
+                      onLogin={handleLogin}
+                      onVerifyOtp={handleVerifyOtp}
+                      handleForgotPassword={handleForgotPassword}
+                      handleAddAccount={handleAddAccount}
+                      prefilledUsername={prefilledUsername}
+                      onRedirectToLogin={() => {
+                        // Show error message for unregistered user
+                        showToastMessage(
+                          "User not registered. Please contact your administrator to register your account.",
+                          "error"
+                        );
+                        console.log("User not registered - showing error message");
+                      }}
+                    />
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        alignItems: "center",
+                        mt: { xs: 1, sm: 0.5 },
+                        pt: 1,
+                        borderTop: `1px solid ${alpha(secondaryColor, 0.08)}`,
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: primaryColor,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          textDecoration: "none",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 0.5,
+                          "&:hover": { textDecoration: "underline" },
+                        }}
+                        onClick={() => {
+                          window.location.href = "https://admin.sunbirdsaas.com/login";
+                        }}
+                      >
+                        {t("LEARNER_APP.LOGIN.GO_TO_WORKSPACE") || "Go to Workspace"} →
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+              </>
             )}
           </Box>
 

@@ -266,7 +266,12 @@
       "OTP_INSTRUCTION": "अपने फोन पर भेजे गए 6 अंकों का OTP दर्ज करें।",
       "ENTER_OTP": "OTP सत्यापित करें",
       "RESEND_OTP_DISABLED": "OTP पुनः भेजें (सीमा पूर्ण)",
-      "RESEND_OTP": "OTP पुनः भेजें"
+      "RESEND_OTP": "OTP पुनः भेजें",
+      "CHOOSE_MODE": "चुनें कि आप कैसे जारी रखना चाहते हैं",
+      "LEARNER_OR_WORKSPACE": "एक शिक्षार्थी के रूप में लॉगिन करें या वर्कस्पेस पोर्टल पर जाएं।",
+      "CONTINUE_LEARNER": "शिक्षार्थी के रूप में लॉगिन करें",
+      "GO_TO_WORKSPACE": "वर्कस्पेस पर जाएं",
+      "LOGIN": "लॉगिन"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "प्रगति पर",

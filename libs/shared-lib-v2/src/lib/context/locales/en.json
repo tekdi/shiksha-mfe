@@ -301,7 +301,12 @@
       "OTP_INSTRUCTION": "Enter the 6-digit OTP sent to your phone.",
       "ENTER_OTP": "Verify OTP",
       "RESEND_OTP_DISABLED": "Resend OTP (Limit Reached)",
-      "RESEND_OTP": "Resend OTP"
+      "RESEND_OTP": "Resend OTP",
+      "CHOOSE_MODE": "Choose how you want to continue",
+      "LEARNER_OR_WORKSPACE": "Login as a learner or go to the workspace portal.",
+      "CONTINUE_LEARNER": "Login as Learner",
+      "GO_TO_WORKSPACE": "Go to Workspace",
+      "LOGIN": "Login"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "In Progress",

@@ -191,7 +191,12 @@
       "POINT_CAMERA": "ಕ್ಯಾಮೆರಾವನ್ನು ಇಲ್ಲಿ ಇರಿಸಿ",
       "OR": "ಅಥವಾ",
       "SEARCH_PLAYSTORE": "\"Shiksha myLearning\" ಅನ್ನು ಪ್ಲೇಸ್ಟೋರ್‌ನಲ್ಲಿ ಹುಡುಕಿ",
-      "ON_PLAYSTORE": "ಪ್ಲೇಸ್ಟೋರ್‌ನಲ್ಲಿ"
+      "ON_PLAYSTORE": "ಪ್ಲೇಸ್ಟೋರ್‌ನಲ್ಲಿ",
+      "CHOOSE_MODE": "ನೀವು ಹೇಗೆ ಮುಂದುವರೆಯಲು ಬಯಸುತ್ತೀರಿ ಎಂಬುದನ್ನು ಆಯ್ಕೆಮಾಡಿ",
+      "LEARNER_OR_WORKSPACE": "ಲರ್ನರ್ ಆಗಿ ಲಾಗಿನ್ ಮಾಡಿ ಅಥವಾ ವರ್ಕ್‌ಸ್ಪೇಸ್ ಪೋರ್ಟಲ್‌ಗೆ ಹೋಗಿ।",
+      "CONTINUE_LEARNER": "ಲರ್ನರ್ ಆಗಿ ಲಾಗಿನ್ ಮಾಡಿ",
+      "GO_TO_WORKSPACE": "ವರ್ಕ್‌ಸ್ಪೇಸ್‌ಗೆ ಹೋಗಿ",
+      "LOGIN": "ಲಾಗಿನ್"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "ಪ್ರಗತಿಯಲ್ಲಿ",
