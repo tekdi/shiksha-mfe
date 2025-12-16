@@ -173,17 +173,52 @@ export const userNameExist = async (userData: any): Promise<any> => {
 };
 
 // New function to check user existence using interface API
+// Uses domainTenantId from localStorage (set when tenant is loaded based on domain)
 export const checkUserExistenceWithTenant = async (
-  mobile: string
+  mobile: string,
+  tenantId?: string
 ): Promise<any> => {
   const apiUrl: string = `${process.env.NEXT_PUBLIC_BASE_URL}/user/list`;
 
   try {
-    const response = await post(apiUrl, {
+    // Get domainTenantId from localStorage (set when tenant is loaded based on domain)
+    // This ensures we use the tenantId that matches the current domain
+    let domainTenantId: string | null = null;
+    if (typeof window !== "undefined") {
+      domainTenantId = localStorage.getItem("domainTenantId");
+    }
+    
+    // Use domainTenantId from localStorage (priority), fallback to parameter, then null
+    const tenantIdToUse = domainTenantId || tenantId;
+    
+    if (!tenantIdToUse) {
+      console.error("No tenantId available for user check. Tenant must be loaded first.");
+      throw new Error("Tenant configuration not found. Please refresh the page.");
+    }
+
+    const requestBody: any = {
+      limit: 10,
       filters: {
+        role: "Learner",
         username: mobile,
+        tenantId: tenantIdToUse, // Always include tenantId in filters for tenant isolation
       },
-    });
+      sort: ["firstName", "asc"],
+      offset: 0,
+    };
+
+    // Prepare headers - use domainTenantId to ensure header matches filter
+    // These headers will override the interceptor's headers
+    const headers: Record<string, string> = {
+      tenantid: tenantIdToUse, // lowercase version
+      tenantId: tenantIdToUse, // camelCase version
+    };
+
+    console.log("[checkUserExistenceWithTenant] Using tenantId:", tenantIdToUse, "for mobile:", mobile);
+    console.log("[checkUserExistenceWithTenant] Request body filters.tenantId:", requestBody.filters.tenantId);
+    console.log("[checkUserExistenceWithTenant] Headers tenantId:", headers.tenantId, "tenantid:", headers.tenantid);
+
+    const response = await post(apiUrl, requestBody, headers);
 
     return response?.data;
   } catch (error) {

@@ -164,9 +164,28 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           processedMobile
         );
 
+        // Get domainTenantId - priority: localStorage (set when tenant loaded), then tenant context
+        let domainTenantId: string | null = null;
+        if (typeof window !== "undefined") {
+          domainTenantId = localStorage.getItem("domainTenantId");
+        }
+        if (!domainTenantId) {
+          domainTenantId = tenant?.tenantId || null;
+        }
+        
+        if (!domainTenantId) {
+          console.error("No tenant found for this domain");
+          showToastMessage(
+            "Tenant configuration not found. Please contact administrator.",
+            "error"
+          );
+          return;
+        }
+        
         // First check if user exists with the specific tenant ID
         const userCheckResponse = await checkUserExistenceWithTenant(
-          processedMobile
+          processedMobile,
+          domainTenantId
         );
         console.log("User check response:", userCheckResponse);
 
@@ -188,18 +207,6 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
 
         // Check if user exists and has the specific tenant ID
         const users = userCheckResponse?.result?.getUserDetails || [];
-        
-        // Get tenant ID from the tenant context (domain-based tenant)
-        const domainTenantId = tenant?.tenantId;
-        
-        if (!domainTenantId) {
-          console.error("No tenant found for this domain");
-          showToastMessage(
-            "Tenant configuration not found. Please contact administrator.",
-            "error"
-          );
-          return;
-        }
 
         if (!users || users.length === 0) {
           console.log("No users found for this mobile number");
@@ -1372,7 +1379,7 @@ const LoginPage = () => {
           window.location.href = `${window.location.origin.replace(
             "3003",
             "3002"
-          )}/login`;
+          )}/home`;
           return;
         }
 

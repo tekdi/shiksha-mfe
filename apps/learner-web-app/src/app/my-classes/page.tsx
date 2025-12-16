@@ -623,7 +623,7 @@ const MyClassesPage = () => {
                                               fontSize: { xs: "0.75rem", md: "0.8rem" },
                                             }}
                                           >
-                                            @{member.username}
+                                            @{member.role}
                                           </Typography>
                                         </Box>
                                         {selectedUser?.userId === member.userId && (

@@ -154,7 +154,7 @@ const AttendanceHistoryPageContent = () => {
         const storedUserId = localStorage.getItem("userId");
         
         if (!token) {
-          router.push("/login");
+          router.push("/home");
           return;
         }
 
@@ -1110,6 +1110,18 @@ const AttendanceHistoryPageContent = () => {
                         >
                           Present
                         </Typography>
+                        <Typography
+                          fontSize="12px"
+                          fontWeight={600}
+                          color={pathColor}
+                          sx={{ lineHeight: 1.2, mt: 0.2 }}
+                        >
+                          {presentPercentage >= 75
+                            ? "Good Attendance"
+                            : presentPercentage >= 50
+                            ? "Average Attendance"
+                            : "Low Attendance"}
+                        </Typography>
                       </Box>
                     </Box>
                   )}
@@ -1125,11 +1137,21 @@ const AttendanceHistoryPageContent = () => {
                     fontWeight: "600",
                     fontSize: "14px",
                     borderRadius: "8px",
-                    backgroundColor: primaryColor,
-                    color: getContrastTextColor(primaryColor),
+                    backgroundColor:
+                      attendanceData.presentCount > 0
+                        ? theme.palette.success.main
+                        : primaryColor,
+                    color: getContrastTextColor(
+                      attendanceData.presentCount > 0
+                        ? theme.palette.success.main
+                        : primaryColor
+                    ),
                     boxShadow: `0 4px 12px ${alpha(primaryColor, 0.4)}`,
                     "&:hover": {
-                      backgroundColor: primaryColor,
+                      backgroundColor:
+                        attendanceData.presentCount > 0
+                          ? alpha(theme.palette.success.main, 0.9)
+                          : primaryColor,
                       opacity: 0.9,
                       boxShadow: `0 6px 16px ${alpha(primaryColor, 0.5)}`,
                       transform: "translateY(-1px)",
@@ -1137,7 +1159,9 @@ const AttendanceHistoryPageContent = () => {
                     transition: "all 0.2s",
                   }}
                 >
-                  {t("LEARNER_APP.ATTENDANCE.MARK_ATTENDANCE")}
+                  {attendanceData.presentCount > 0
+                    ? t("LEARNER_APP.ATTENDANCE.MODIFY")
+                    : t("LEARNER_APP.ATTENDANCE.MARK_ATTENDANCE")}
                 </Button>
               </Grid>
             </Grid>
@@ -1200,6 +1224,17 @@ const AttendanceHistoryPageContent = () => {
                   if (dateStr === selectedDateStr) {
                     classes.push("react-calendar__tile--active");
                   }
+                  const attendance = percentageAttendance[dateStr];
+                  const pct = attendance?.present_percentage;
+                  if (pct !== undefined) {
+                    if (pct >= 75) {
+                      classes.push("high-attendance");
+                    } else if (pct >= 50) {
+                      classes.push("medium-attendance");
+                    } else {
+                      classes.push("low-attendance");
+                    }
+                  }
                   return classes.join(" ");
                 }}
               />
@@ -1254,7 +1289,7 @@ const AttendanceHistoryPageContent = () => {
                       color: secondaryColor,
                       px: "16px",
                     }}
-                    placeholder={t("LEARNER_APP.ATTENDANCE.SEARCH_STUDENT")}
+                    placeholder="Search student (Present / Absent)"
                     inputProps={{ "aria-label": "search student" }}
                     onChange={handleSearch}
                     autoFocus={false}
@@ -1380,6 +1415,13 @@ const AttendanceHistoryPageContent = () => {
                         borderBottom: index < displayStudentList.length - 1
                           ? `1px solid ${alpha(primaryColor, 0.1)}`
                           : "none",
+                        opacity: user.attendance ? 1 : 0.6,
+                        borderLeft:
+                          user.attendance?.toLowerCase() === "present"
+                            ? `4px solid ${theme.palette.success.main}`
+                            : user.attendance?.toLowerCase() === "absent"
+                            ? `4px solid ${theme.palette.error.main}`
+                            : "4px solid transparent",
                         "&:hover": {
                           backgroundColor: alpha(primaryColor, 0.08),
                           transform: "translateX(4px)",
@@ -1496,7 +1538,7 @@ const AttendanceHistoryPageContent = () => {
                     color="textSecondary"
                     sx={{ fontSize: "18px", fontWeight: 500, color: alpha(secondaryColor, 0.6) }}
                   >
-                    No students found
+                    Attendance not marked for this date
                   </Typography>
                 </Box>
               )}
@@ -1521,6 +1563,18 @@ const AttendanceHistoryPageContent = () => {
         message={t("COMMON.SURE_LOGOUT")}
         buttonNames={{ primary: t("COMMON.LOGOUT"), secondary: t("COMMON.CANCEL") }}
       />
+
+      <style jsx global>{`
+        .high-attendance {
+          background: rgba(76, 175, 80, 0.08) !important;
+        }
+        .medium-attendance {
+          background: rgba(255, 152, 0, 0.08) !important;
+        }
+        .low-attendance {
+          background: rgba(244, 67, 54, 0.08) !important;
+        }
+      `}</style>
 
       {/* Mark Attendance Modal */}
       {openMarkAttendance && (

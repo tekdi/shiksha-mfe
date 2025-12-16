@@ -48,6 +48,10 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         setTenant(storedTenant);
         const filter = getTenantContentFilter(storedTenant);
         setContentFilter(filter);
+        // Ensure tenantId is stored
+        if (storedTenant.tenantId && typeof window !== "undefined") {
+          localStorage.setItem("domainTenantId", storedTenant.tenantId);
+        }
         setIsLoading(false);
       }
 
@@ -57,6 +61,10 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         setTenant(freshTenant);
         const filter = getTenantContentFilter(freshTenant);
         setContentFilter(filter);
+        // Ensure tenantId is stored (getTenantConfig should have done this, but double-check)
+        if (freshTenant.tenantId && typeof window !== "undefined") {
+          localStorage.setItem("domainTenantId", freshTenant.tenantId);
+        }
       } else if (!storedTenant) {
         setError("No tenant configuration found for this domain");
       }
@@ -70,6 +78,10 @@ export const TenantProvider: React.FC<TenantProviderProps> = ({ children }) => {
         setTenant(storedTenant);
         const filter = getTenantContentFilter(storedTenant);
         setContentFilter(filter);
+        // Ensure tenantId is stored
+        if (storedTenant.tenantId && typeof window !== "undefined") {
+          localStorage.setItem("domainTenantId", storedTenant.tenantId);
+        }
       }
     } finally {
       setIsLoading(false);

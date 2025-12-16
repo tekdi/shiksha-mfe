@@ -128,8 +128,8 @@ export const findTenantByDomain = (
   tenants: Tenant[],
   currentDomain?: string
 ): Tenant | null => {
-// let domain = currentDomain;
-   let domain = 'oblf-learner.sunbirdsaas.com'; // For testing only
+let domain = currentDomain;
+  //  let domain = 'oblf-learner.sunbirdsaas.com'; // For testing only
   console.log('[TenantService] Looking up tenant for domain:', domain);
   if (!domain) {
     if (typeof window !== "undefined") {
@@ -203,6 +203,11 @@ export const getTenantConfig = async (
       // Store tenant config in localStorage for later use
       if (typeof window !== "undefined") {
         localStorage.setItem("tenantConfig", JSON.stringify(tenant));
+        // Store tenantId separately for API calls (domain-based tenant)
+        if (tenant.tenantId) {
+          localStorage.setItem("domainTenantId", tenant.tenantId);
+          console.log("[TenantService] Stored domain tenantId:", tenant.tenantId);
+        }
       }
     }
     

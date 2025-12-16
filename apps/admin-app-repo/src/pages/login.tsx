@@ -439,7 +439,7 @@ const LoginPage = () => {
       ReactGA.event('select-language-login-page', {
         selectedLanguage: newLocale,
       });
-      router.push('/login', undefined, { locale: newLocale });
+      router.push('/home', undefined, { locale: newLocale });
     }
   };
 
@@ -654,7 +654,7 @@ const LoginPage = () => {
                 }}
                 onClick={() => {
                   window.open(
-                    `${process.env.NEXT_PUBLIC_RESET_PASSWORD_URL}?redirectUrl=${window.location.origin}/login`,
+                    `${process.env.NEXT_PUBLIC_RESET_PASSWORD_URL}?redirectUrl=${window.location.origin}/home`,
                     '_self'
                   );
                 }}

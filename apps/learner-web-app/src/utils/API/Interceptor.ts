@@ -36,12 +36,21 @@ instance.interceptors.request.use(
       }
     }
     // Get tenantId from localStorage
+    // Priority: domainTenantId (set when tenant is loaded based on domain) > tenantId > config tenantId
+    const domainTenantId = localStorage.getItem('domainTenantId');
     const tenantIdFromStorage = localStorage.getItem('tenantId');
-    if (tenantIdFromStorage) {
+    
+    if (domainTenantId) {
+      // Use domainTenantId (set when tenant is loaded based on domain) - this is the correct tenant for the current domain
+      config.headers.tenantId = domainTenantId;
+      config.headers.tenantid = domainTenantId; // Also set lowercase version
+    } else if (tenantIdFromStorage) {
       config.headers.tenantId = tenantIdFromStorage;
+      config.headers.tenantid = tenantIdFromStorage; // Also set lowercase version
     } else {
       // Fallback to config tenantId if localStorage doesn't have it
       config.headers.tenantId = tenantId;
+      config.headers.tenantid = tenantId; // Also set lowercase version
     }
     return config;
   },

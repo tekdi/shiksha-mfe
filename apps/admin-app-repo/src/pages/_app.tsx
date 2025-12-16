@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 // import "@/styles/globals.css";
 
 import './../styles/globals.css';
@@ -45,7 +46,7 @@ function App({ Component, pageProps }: AppProps) {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
-    if (!token && router.pathname !== '/login') {
+    if (!token && router.pathname !== '/home') {
       if (router.pathname !== '/logout') router.push('/logout');
     }
     setIsArchived(false);

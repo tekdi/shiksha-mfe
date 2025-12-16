@@ -215,6 +215,19 @@ const DateNumber = styled(Typography)(({ theme }) => ({
 
 const MAX_BACKDATED_MARK_DAYS = 7;
 
+// Haversine distance (meters) to validate geo-fence for self attendance
+const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const R = 6371000; // Earth radius in meters
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
+
 const SimpleTeacherDashboard = () => {
   const theme = useTheme();
   const { tenant, contentFilter } = useTenant();
@@ -357,6 +370,32 @@ const SimpleTeacherDashboard = () => {
       return newData;
     });
     console.log("[handleAttendanceDataUpdate] State update queued");
+  };
+
+  const getSelectedCenterCoordinates = () => {
+    const center = centersData.find((c) => c.centerId === selectedCenterId);
+    const customFields: any[] =
+      center?.hierarchyData?.customField || center?.customField || [];
+    const latitudeField = customFields.find(
+      (field) =>
+        field?.label?.toLowerCase() === "latitude" &&
+        Array.isArray(field?.selectedValues) &&
+        field.selectedValues.length > 0
+    );
+    const longitudeField = customFields.find(
+      (field) =>
+        field?.label?.toLowerCase() === "longitude" &&
+        Array.isArray(field?.selectedValues) &&
+        field.selectedValues.length > 0
+    );
+
+    const lat = parseFloat(latitudeField?.selectedValues?.[0]);
+    const lon = parseFloat(longitudeField?.selectedValues?.[0]);
+
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      return { latitude: lat, longitude: lon };
+    }
+    return null;
   };
 
   const handleRemoteSession = async () => {
@@ -907,6 +946,33 @@ const SimpleTeacherDashboard = () => {
     setIsLocationModalOpen(true);
   };
 
+  const isLocationValid = (
+    locationData: { latitude: number; longitude: number } | null
+  ): { valid: boolean; distance?: number } => {
+    const centerCoords = getSelectedCenterCoordinates();
+    if (!centerCoords || !locationData) {
+      console.log("[SelfAttendance] Missing coords", {
+        centerCoords,
+        locationData,
+      });
+      return { valid: false };
+    }
+    console.log("[SelfAttendance] Geo check", {
+      centerLatitude: centerCoords.latitude,
+      centerLongitude: centerCoords.longitude,
+      userLatitude: locationData.latitude,
+      userLongitude: locationData.longitude,
+    });
+    const distance = getDistanceInMeters(
+      centerCoords.latitude,
+      centerCoords.longitude,
+      locationData.latitude,
+      locationData.longitude
+    );
+    const allowedRadiusMeters = 50; // within 50m of center
+    return { valid: distance <= allowedRadiusMeters, distance };
+  };
+
   const handleMarkSelfAttendance = async () => {
     if (!selectedSelfAttendance) return;
     if (!isTodayDate(selectedDate)) {
@@ -922,6 +988,14 @@ const SimpleTeacherDashboard = () => {
       }
 
       const locationData = await getLocation(true);
+      if (locationData) {
+        console.log("[SelfAttendance] Current location", {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+        });
+      } else {
+        console.log("[SelfAttendance] No location data returned");
+      }
 
       const data: any = {
         userId: userId,
@@ -938,6 +1012,21 @@ const SimpleTeacherDashboard = () => {
       if (locationData) {
         data.latitude = locationData.latitude;
         data.longitude = locationData.longitude;
+        const validationResult = isLocationValid(locationData);
+        data.validLocation = validationResult.valid;
+
+        if (!validationResult.valid) {
+          const distanceMsg =
+            validationResult.distance !== undefined
+              ? `Distance from center: ${validationResult.distance.toFixed(2)}m`
+              : "Distance could not be computed.";
+          showToastMessage(
+            `${distanceMsg} You must be within 50 meters of the center to mark self attendance.`,
+            "warning"
+          );
+          setIsSelfAttendanceModalOpen(false);
+          return;
+        }
       }
       const response = await markAttendance(data);
 
@@ -1900,13 +1989,19 @@ const SimpleTeacherDashboard = () => {
                                 size={20}
                                 thickness={10}
                                 sx={{
-                                  color: secondaryColor,
+                                  color:
+                                    attendancePercentage >= 75
+                                      ? theme.palette.success.main
+                                      : theme.palette.error.main,
                                   position: "absolute",
                                   width: { xs: "16px", sm: "18px", md: "20px" },
                                   height: { xs: "16px", sm: "18px", md: "20px" },
                                   "& .MuiCircularProgress-circle": {
                                     strokeLinecap: "round",
-                                    stroke: secondaryColor,
+                                    stroke:
+                                      attendancePercentage >= 75
+                                        ? theme.palette.success.main
+                                        : theme.palette.error.main,
                                   },
                                 }}
                               />
@@ -2093,7 +2188,22 @@ const SimpleTeacherDashboard = () => {
               alignItems={{ xs: "flex-start", sm: "center" }}
               gap={{ xs: 2, sm: 0 }}
             >
-              <Box display={"flex"} alignItems={"center"} gap={"12px"}>
+              <Box
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  px: 1.5,
+                  py: 0.75,
+                  borderRadius: "999px",
+                  backgroundColor:
+                    selfAttendanceData[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT
+                      ? alpha(theme.palette.success.main, 0.12)
+                      : selfAttendanceData[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT
+                      ? alpha(theme.palette.error.main, 0.12)
+                      : alpha(secondaryColor, 0.08),
+                }}
+              >
                 {selfAttendanceData?.length > 0 ? (
                   <Box display={"flex"} alignItems={"center"}>
                     <Typography
@@ -2153,11 +2263,27 @@ const SimpleTeacherDashboard = () => {
                   fontWeight: "600",
                   fontSize: { xs: "12px", sm: "12px", md: "13px" },
                   borderRadius: { xs: "6px", md: "8px" },
-                  backgroundColor: primaryColor,
-                  color: getContrastTextColor(primaryColor),
+                  backgroundColor:
+                    selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT
+                      ? theme.palette.success.main
+                      : selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT
+                      ? theme.palette.error.main
+                      : primaryColor,
+                  color: getContrastTextColor(
+                    selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT
+                      ? theme.palette.success.main
+                      : selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT
+                      ? theme.palette.error.main
+                      : primaryColor
+                  ),
                   boxShadow: `0 4px 12px ${alpha(primaryColor, 0.4)}`,
                   "&:hover": {
-                    backgroundColor: primaryColor,
+                    backgroundColor:
+                      selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT
+                        ? alpha(theme.palette.success.main, 0.85)
+                        : selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT
+                        ? alpha(theme.palette.error.main, 0.85)
+                        : primaryColor,
                     boxShadow: `0 6px 16px ${alpha(primaryColor, 0.5)}`,
                     transform: "translateY(-1px)",
                   },
@@ -2517,6 +2643,10 @@ const SimpleTeacherDashboard = () => {
                   selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT
                     ? alpha(primaryColor, 0.08)
                     : "transparent",
+                boxShadow:
+                  selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT
+                    ? `0 0 0 2px ${alpha(theme.palette.success.main, 0.4)}`
+                    : "none",
                 cursor: "pointer",
                 transition: "all 0.2s ease",
                 "&:hover": {
@@ -2582,6 +2712,10 @@ const SimpleTeacherDashboard = () => {
                   selectedSelfAttendance === ATTENDANCE_ENUM.ABSENT
                     ? alpha(theme.palette.error.main, 0.08)
                     : "transparent",
+                boxShadow:
+                  selectedSelfAttendance === ATTENDANCE_ENUM.ABSENT
+                    ? `0 0 0 2px ${alpha(theme.palette.error.main, 0.4)}`
+                    : "none",
                 cursor: "pointer",
                 transition: "all 0.2s ease",
                 "&:hover": {

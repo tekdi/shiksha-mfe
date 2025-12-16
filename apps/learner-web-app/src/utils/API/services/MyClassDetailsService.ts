@@ -9,12 +9,14 @@ import { Status } from "@learner/utils/attendance/constants";
 import { post, put } from "../RestClient";
 import { API_ENDPOINTS } from "../EndUrls";
 
+
 const fetchCohortMemberList = async ({
   limit,
   page,
   filters,
 }: CohortMemberList): Promise<any> => {
   const apiUrl: string = API_ENDPOINTS.cohortMemberList;
+
   try {
     const requestBody = {
       limit,
@@ -22,39 +24,47 @@ const fetchCohortMemberList = async ({
       filters,
       sort: ["name", "asc"],
     };
+
     const response = await post(apiUrl, requestBody);
 
     if (response?.status === 200 && response?.data) {
-      if (response.data.data) {
-        return response.data.data;
+      const data = response.data.data || response.data;
+
+      // ⭐ FILTER ROLES (Teacher, Student, Learner) IN BOTH POSSIBLE API FORMATS
+
+      // Case 1: API returns -> data.result.userDetails
+      if (Array.isArray(data?.result?.userDetails)) {
+        data.result.userDetails = data.result.userDetails.filter((user: any) => {
+          const role = user.role?.toLowerCase();
+          return !["teacher", "learner"].includes(role);
+        });
       }
-      return response.data;
+
+      // Case 2: API returns -> data.userDetails directly
+      if (Array.isArray(data?.userDetails)) {
+        data.userDetails = data.userDetails.filter((user: any) => {
+          const role = user.role?.toLowerCase();
+          return !["teacher", "learner"].includes(role);
+        });
+      }
+
+      return data;
     }
 
     throw new Error(`API request failed with status ${response?.status}`);
   } catch (error: any) {
-    if (error?.response) {
-      if (error.response?.status === 404) {
-        return {
-          result: {
-            userDetails: [],
-            totalCount: 0,
-          },
-        };
-      }
-
-      if (error.response?.status === 400) {
-        return {
-          result: {
-            userDetails: [],
-            totalCount: 0,
-          },
-        };
-      }
+    if (error?.response?.status === 404 || error?.response?.status === 400) {
+      return {
+        result: {
+          userDetails: [],
+          totalCount: 0,
+        },
+      };
     }
     throw error;
   }
 };
+
 
 export const getMyUserList = async ({
   limit,

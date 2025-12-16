@@ -90,9 +90,17 @@ export const filterMembersExcludingCurrentUser = <T extends MemberWithUserIdenti
   }
 
   return members.filter((member) => {
+    // Exclude teacher & learner roles
+    const userRole = (member.role || "").toLowerCase();
+    if (userRole === "teacher" || userRole === "learner") {
+      return false;
+    }
+
+    // Exclude current user by ID or username
     const matchesUserId = currentUserId && member.userId === currentUserId;
     const memberUserName = (member.username || member.userName || "").toLowerCase();
     const matchesUserName = currentUserName && memberUserName === currentUserName;
+
     return !matchesUserId && !matchesUserName;
   });
 };

@@ -99,7 +99,7 @@ const EditForgotPassword = () => {
       if (token) {
         setIsAuthenticated(true);
       } else {
-        router.push('/login');
+        router.push('/home');
       }
     }
   }, []);

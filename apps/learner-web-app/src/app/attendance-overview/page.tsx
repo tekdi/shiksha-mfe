@@ -395,7 +395,7 @@ const AttendanceOverviewContent = () => {
     if (typeof window !== "undefined") {
       localStorage.clear();
       sessionStorage.clear();
-      router.push("/login");
+      router.push("/home");
     }
   };
 
