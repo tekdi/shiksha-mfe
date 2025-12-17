@@ -60,29 +60,39 @@ const ContentDetailsClient = () => {
       <Box sx={{ backgroundColor: backgroundColor, minHeight: "100vh" }}>
         <Box
           sx={{
-            px: { xs: 2, md: 4 },
-            py: { xs: 4, md: 6 },
+            px: { xs: 2, sm: 3, md: 4 },
+            py: { xs: 3, md: 5 },
             background: `linear-gradient(180deg, ${backgroundColor} 0%, ${alpha(
               backgroundColor,
               0.25
             )} 100%)`,
           }}
         >
+          {/* Logo + Tenant Name (hidden on mobile) + Language + Profile - All in one line */}
           <Box
             sx={{
               display: "flex",
-              justifyContent: "space-between",
+              justifyContent: "flex-start",
               alignItems: "center",
-              flexWrap: "wrap",
-              gap: 2,
-              mb: 3,
+              gap: { xs: 1, sm: 1.5, md: 2 },
+              flexWrap: "nowrap",
+              mb: { xs: 2, sm: 3 },
+              width: "100%",
             }}
           >
-            <Box 
-              sx={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: 1.5,
+            {/* Logo */}
+            <Box
+              sx={{
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                borderRadius: "50%",
+                backgroundColor: alpha("#FFFFFF", 0.35),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
+                flexShrink: 0,
                 cursor: "pointer",
                 "&:hover": {
                   opacity: 0.8,
@@ -90,66 +100,61 @@ const ContentDetailsClient = () => {
               }}
               onClick={() => router.push("/dashboard?tab=1")}
             >
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: "50%",
-                  backgroundColor: alpha("#FFFFFF", 0.35),
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                }}
-              >
-                <Image
-                  src={tenantIcon}
-                  alt={tenantAlt}
-                  width={48}
-                  height={48}
-                  style={{ objectFit: "contain" }}
-                />
-              </Box>
-              <Typography
-                sx={{
-                  fontWeight: 600,
-                  fontSize: { xs: "18px", sm: "22px" },
-                  lineHeight: 1.3,
-                  color: secondaryColor,
-                }}
-              >
-                {tenantName}
-              </Typography>
+              <Image
+                src={tenantIcon}
+                alt={tenantAlt}
+                width={48}
+                height={48}
+                style={{ objectFit: "contain" }}
+              />
             </Box>
 
-            <Box
+            {/* Tenant Name - Hidden on mobile */}
+            <Typography
               sx={{
-                display: "flex",
-                gap: 1,
-                flexWrap: "wrap",
-                alignItems: "center",
+                fontWeight: 600,
+                fontSize: { xs: "18px", sm: "22px" },
+                lineHeight: 1.3,
+                color: secondaryColor,
+                display: { xs: "none", sm: "block" },
+                flexShrink: 0,
+                cursor: "pointer",
+                "&:hover": {
+                  opacity: 0.8,
+                },
               }}
+              onClick={() => router.push("/dashboard?tab=1")}
             >
+              {tenantName}
+            </Typography>
+
+            {/* Spacer to push language and profile to the right */}
+            <Box sx={{ flex: 1, minWidth: 0 }} />
+
+            {/* Language Dropdown */}
+            <Box sx={{ flexShrink: 0 }}>
               <LanguageDropdown
                 primaryColor={primaryColor}
                 secondaryColor={secondaryColor}
                 size="small"
                 minWidth={150}
               />
-              <IconButton
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-                sx={{
-                  border: `1px solid ${alpha(secondaryColor, 0.2)}`,
-                  color: secondaryColor,
-                  "&:hover": {
-                    backgroundColor: alpha(primaryColor, 0.08),
-                  },
-                }}
-              >
-                <AccountCircleOutlined />
-              </IconButton>
             </Box>
+
+            {/* Profile Icon */}
+            <IconButton
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              sx={{
+                border: `1px solid ${alpha(secondaryColor, 0.2)}`,
+                color: secondaryColor,
+                flexShrink: 0,
+                "&:hover": {
+                  backgroundColor: alpha(primaryColor, 0.08),
+                },
+              }}
+            >
+              <AccountCircleOutlined />
+            </IconButton>
           </Box>
 
           <Typography

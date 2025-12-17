@@ -374,7 +374,8 @@ const App: React.FC<LayoutProps> = ({ children, onlyHideElements, ...props }) =>
           },
         },
         navLinks: defaultNavLinks,
-        _navLinkBox: { gap: 5 },
+        // Push nav links (including Profile icon) to the right side of the header
+        _navLinkBox: { gap: 5, marginLeft: "auto" },
         onLanguageChange,
         ...props?._topAppBar,
       }}

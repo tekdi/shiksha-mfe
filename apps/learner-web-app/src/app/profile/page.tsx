@@ -303,7 +303,7 @@ const ProfilePage = () => {
       <Box
         sx={{
           background: `linear-gradient(180deg, ${backgroundColor} 0%, ${alpha(backgroundColor, 0.3)} 100%)`,
-          py: 4,
+          py: { xs: 2, sm: 3, md: 4 },
           position: "relative",
           overflow: "hidden",
         }}
@@ -321,23 +321,32 @@ const ProfilePage = () => {
           }}
         />
         
-        <Container maxWidth="xl" sx={{ position: "relative", zIndex: 1 }}>
-          {/* Brand + Language Row */}
+        <Container maxWidth="xl" sx={{ position: "relative", zIndex: 1, px: { xs: 2, sm: 3, md: 4 } }}>
+          {/* Logo + Tenant Name (hidden on mobile) + Language + Profile - All in one line */}
           <Box
             sx={{
               display: "flex",
-              justifyContent: "space-between",
+              justifyContent: "flex-start",
               alignItems: "center",
-              gap: 2,
-              flexWrap: "wrap",
-              mb: 3,
+              gap: { xs: 1, sm: 1.5, md: 2 },
+              flexWrap: "nowrap",
+              mb: { xs: 2, sm: 3 },
+              width: "100%",
             }}
           >
-            <Box 
-              sx={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: 1.5,
+            {/* Logo */}
+            <Box
+              sx={{
+                width: { xs: 40, sm: 48 },
+                height: { xs: 40, sm: 48 },
+                borderRadius: "50%",
+                backgroundColor: alpha("#FFFFFF", 0.35),
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
+                flexShrink: 0,
                 cursor: "pointer",
                 "&:hover": {
                   opacity: 0.8,
@@ -345,63 +354,65 @@ const ProfilePage = () => {
               }}
               onClick={() => router.push("/dashboard?tab=1")}
             >
-              <Box
-                sx={{
-                  width: { xs: 40, sm: 48 },
-                  height: { xs: 40, sm: 48 },
-                  borderRadius: "50%",
-                  backgroundColor: alpha("#FFFFFF", 0.35),
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  overflow: "hidden",
-                  boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
-                }}
-              >
-                <Image
-                  src={tenantIcon}
-                  alt={tenantAlt}
-                  width={48}
-                  height={48}
-                  style={{ objectFit: "contain" }}
-                />
-              </Box>
-              <Typography
-                sx={{
-                  fontWeight: 600,
-                  fontSize: { xs: "18px", sm: "22px" },
-                  lineHeight: 1.3,
-                  color: secondaryColor,
-                }}
-              >
-              {tenantName}
-              </Typography>
+              <Image
+                src={tenantIcon}
+                alt={tenantAlt}
+                width={48}
+                height={48}
+                style={{ objectFit: "contain" }}
+              />
             </Box>
 
-            <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+            {/* Tenant Name - Hidden on mobile */}
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: { xs: "18px", sm: "22px" },
+                lineHeight: 1.3,
+                color: secondaryColor,
+                display: { xs: "none", sm: "block" },
+                flexShrink: 0,
+                cursor: "pointer",
+                "&:hover": {
+                  opacity: 0.8,
+                },
+              }}
+              onClick={() => router.push("/dashboard?tab=1")}
+            >
+              {tenantName}
+            </Typography>
+
+            {/* Spacer to push language and profile to the right */}
+            <Box sx={{ flex: 1, minWidth: 0 }} />
+
+            {/* Language Dropdown */}
+            <Box sx={{ flexShrink: 0 }}>
               <LanguageDropdown
                 primaryColor={primaryColor}
                 secondaryColor={secondaryColor}
                 size="small"
                 minWidth={150}
               />
-              <IconButton
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-                sx={{
-                  border: `1px solid ${alpha(secondaryColor, 0.2)}`,
-                  color: secondaryColor,
-                  "&:hover": {
-                    backgroundColor: alpha(primaryColor, 0.08),
-                  },
-                }}
-              >
-                <AccountCircleOutlined />
-              </IconButton>
             </Box>
+
+            {/* Profile Icon */}
+            <IconButton
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              sx={{
+                border: `1px solid ${alpha(secondaryColor, 0.2)}`,
+                color: secondaryColor,
+                flexShrink: 0,
+                "&:hover": {
+                  backgroundColor: alpha(primaryColor, 0.08),
+                },
+              }}
+            >
+              <AccountCircleOutlined />
+            </IconButton>
           </Box>
 
           {/* Back Button */}
-          <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: { xs: 2, sm: 3 } }}>
             <Button
               variant="outlined"
               startIcon={<ArrowBackIcon />}
@@ -411,6 +422,8 @@ const ProfilePage = () => {
                 borderColor: "rgba(31,27,19,0.3)",
                 backgroundColor: "rgba(255,255,255,0.8)",
                 backdropFilter: "blur(10px)",
+                fontSize: { xs: "0.875rem", sm: "1rem" },
+                padding: { xs: "6px 12px", sm: "8px 16px" },
                 "&:hover": {
                   backgroundColor: "rgba(255,255,255,0.9)",
                   borderColor: "rgba(31,27,19,0.5)",
@@ -422,13 +435,13 @@ const ProfilePage = () => {
           </Box>
 
           {/* Profile Header */}
-      <Box sx={{ textAlign: "center", color: secondaryColor, mb: 4 }}>
+      <Box sx={{ textAlign: "center", color: secondaryColor, mb: { xs: 3, sm: 4 }, px: { xs: 1, sm: 0 } }}>
             <Typography
               variant="h2"
               fontWeight={700}
               sx={{ 
-                mb: 2, 
-                fontSize: '24px',
+                mb: { xs: 1.5, sm: 2 }, 
+                fontSize: { xs: '20px', sm: '22px', md: '24px' },
                 color: secondaryColor
               }}
             >
@@ -439,7 +452,8 @@ const ProfilePage = () => {
               sx={{ 
                 opacity: 0.8, 
                 fontWeight: 400,
-                fontSize: '16px'
+                fontSize: { xs: '14px', sm: '15px', md: '16px' },
+                px: { xs: 1, sm: 0 }
               }}
             >
               {resolveText("LEARNER_APP.PROFILE.TRACK_LEARNING_JOURNEY", "Track your learning journey and achievements")}
@@ -449,47 +463,56 @@ const ProfilePage = () => {
       </Box>
 
       {/* Main Content */}
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Grid container spacing={3}>
+      <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 2, sm: 3, md: 4 } }}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           <Grid item xs={12} md={4}>
             <Box
               sx={{
                 backgroundColor: surfaceColor,
-                borderRadius: 3,
-                p: 3,
+                borderRadius: { xs: 2, sm: 3 },
+                p: { xs: 2, sm: 2.5, md: 3 },
                 boxShadow: "0px 20px 60px rgba(0,0,0,0.08)",
                 border: `1px solid ${alpha(secondaryColor, 0.08)}`,
                 display: "flex",
                 flexDirection: "column",
-                gap: 3,
+                gap: { xs: 2, sm: 2.5, md: 3 },
                 height: "100%",
               }}
             >
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: { xs: 1.5, sm: 2 } }}>
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: "16px",
+                    width: { xs: 48, sm: 52, md: 56 },
+                    height: { xs: 48, sm: 52, md: 56 },
+                    borderRadius: { xs: "12px", sm: "14px", md: "16px" },
                     backgroundColor: subtleBg,
                     color: primaryColor,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     fontWeight: 600,
-                    fontSize: "20px",
+                    fontSize: { xs: "18px", sm: "19px", md: "20px" },
+                    flexShrink: 0,
                   }}
                 >
                   {(profileInfo.name || tenantName).charAt(0).toUpperCase()}
                 </Box>
-                <Box>
-                  <Typography sx={{ fontWeight: 600, color: secondaryColor }}>
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography 
+                    sx={{ 
+                      fontWeight: 600, 
+                      color: secondaryColor,
+                      fontSize: { xs: "16px", sm: "17px", md: "18px" },
+                      wordBreak: "break-word"
+                    }}
+                  >
                     {profileInfo.name || tenantName}
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: 14,
+                      fontSize: { xs: 12, sm: 13, md: 14 },
                       color: alpha(secondaryColor, 0.7),
+                      wordBreak: "break-word",
                     }}
                   >
                     {profileInfo.username
@@ -504,9 +527,9 @@ const ProfilePage = () => {
                   sx={{
                     textTransform: "uppercase",
                     letterSpacing: "0.5px",
-                    fontSize: 12,
+                    fontSize: { xs: 11, sm: 12 },
                     color: alpha(secondaryColor, 0.7),
-                    mb: 1,
+                    mb: { xs: 0.75, sm: 1 },
                     fontWeight: 600,
                   }}
                 >
@@ -518,15 +541,20 @@ const ProfilePage = () => {
                 <Box
                   sx={{
                     border: `1px solid ${alpha(secondaryColor, 0.12)}`,
-                    borderRadius: 2,
-                    p: 2,
+                    borderRadius: { xs: 1.5, sm: 2 },
+                    p: { xs: 1.5, sm: 2 },
                     backgroundColor: alpha(backgroundColor, 0.5),
                   }}
                 >
-                  <Typography sx={{ fontSize: 12, color: alpha(secondaryColor, 0.7) }}>
+                  <Typography sx={{ fontSize: { xs: 11, sm: 12 }, color: alpha(secondaryColor, 0.7), mb: 0.5 }}>
                     {resolveText("LEARNER_APP.PROFILE.PHONE_NUMBER", "Phone Number")}
                   </Typography>
-                  <Typography sx={{ fontWeight: 600, color: secondaryColor }}>
+                  <Typography sx={{ 
+                    fontWeight: 600, 
+                    color: secondaryColor,
+                    fontSize: { xs: "14px", sm: "15px", md: "16px" },
+                    wordBreak: "break-word"
+                  }}>
                     {profileInfo.phone || resolveText("LEARNER_APP.PROFILE.NOT_AVAILABLE", "Not available")}
                   </Typography>
                 </Box>
@@ -536,21 +564,21 @@ const ProfilePage = () => {
               <Box
                 sx={{
                   backgroundColor: surfaceColor,
-                  borderRadius: 3,
-                  p: 3,
+                  borderRadius: { xs: 2, sm: 3 },
+                  p: { xs: 2, sm: 2.5, md: 3 },
                   boxShadow: "0px 20px 60px rgba(0,0,0,0.08)",
                   border: `1px solid ${alpha(secondaryColor, 0.08)}`,
                   display: "flex",
-                  alignItems: "center",
-                  gap: 2,
-                  mt: 2,
+                  alignItems: { xs: "flex-start", sm: "center" },
+                  gap: { xs: 1.5, sm: 2 },
+                  mt: { xs: 1.5, sm: 2 },
                 }}
               >
                 <Box
                   sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: "16px",
+                    width: { xs: 48, sm: 52, md: 56 },
+                    height: { xs: 48, sm: 52, md: 56 },
+                    borderRadius: { xs: "12px", sm: "14px", md: "16px" },
                     backgroundColor: subtleBg,
                     color: primaryColor,
                     display: "flex",
@@ -559,24 +587,25 @@ const ProfilePage = () => {
                     flexShrink: 0,
                   }}
                 >
-                  <Phone sx={{ fontSize: 28 }} />
+                  <Phone sx={{ fontSize: { xs: 24, sm: 26, md: 28 } }} />
                 </Box>
-                <Box sx={{ flex: 1 }}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Typography
                     sx={{
                       fontWeight: 600,
                       color: secondaryColor,
-                      fontSize: 18,
-                      mb: 0.5,
+                      fontSize: { xs: 16, sm: 17, md: 18 },
+                      mb: { xs: 0.25, sm: 0.5 },
                     }}
                   >
                     {resolveText("LEARNER_APP.PROFILE.NEED_HELP", "Need Help?")}
                   </Typography>
                   <Typography
                     sx={{
-                      fontSize: 14,
+                      fontSize: { xs: 12, sm: 13, md: 14 },
                       color: alpha(secondaryColor, 0.7),
-                      mb: 1,
+                      mb: { xs: 0.75, sm: 1 },
+                      wordBreak: "break-word",
                     }}
                   >
                     {resolveText(
@@ -589,10 +618,11 @@ const ProfilePage = () => {
                       component="a"
                       href="tel:+918754911609"
                       sx={{
-                        fontSize: 16,
+                        fontSize: { xs: 14, sm: 15, md: 16 },
                         color: primaryColor,
                         fontWeight: 500,
                         textDecoration: "none",
+                        wordBreak: "break-word",
                         "&:hover": {
                           textDecoration: "underline",
                         },
@@ -610,10 +640,11 @@ const ProfilePage = () => {
                       target="_blank"
                       rel="noopener noreferrer"
                       sx={{
-                        fontSize: 16,
+                        fontSize: { xs: 14, sm: 15, md: 16 },
                         color: primaryColor,
                         fontWeight: 500,
                         textDecoration: "none",
+                        wordBreak: "break-word",
                         "&:hover": {
                           textDecoration: "underline",
                         },
@@ -633,7 +664,7 @@ const ProfilePage = () => {
           <Grid item xs={12} md={8}>
             <Paper
               sx={{
-                borderRadius: 3,
+                borderRadius: { xs: 2, sm: 3 },
                 overflow: "hidden",
                 boxShadow: "0px 20px 60px rgba(0,0,0,0.08)",
                 border: `1px solid ${alpha(secondaryColor, 0.08)}`,
@@ -642,50 +673,87 @@ const ProfilePage = () => {
               <Box
                 sx={{
                   backgroundColor: alpha(primaryColor, 0.1),
-                  p: 3,
+                  p: { xs: 2, sm: 2.5, md: 3 },
                   display: "flex",
-                  alignItems: "center",
-                  gap: 2,
+                  alignItems: "flex-start",
+                  gap: { xs: 1.5, sm: 2 },
                 }}
               >
-                <EmojiEventsIcon sx={{ fontSize: 32, color: primaryColor }} />
-                <Box sx={{ flex: 1 }}>
-                  <Typography sx={{ fontWeight: 700, color: secondaryColor }}>
+                <EmojiEventsIcon
+                  sx={{
+                    fontSize: { xs: 28, sm: 30, md: 32 },
+                    color: primaryColor,
+                    flexShrink: 0,
+                    mt: 0.5,
+                  }}
+                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  {/* Title - single line where possible */}
+                  <Typography
+                    sx={{
+                      fontWeight: 700,
+                      color: secondaryColor,
+                      fontSize: { xs: "16px", sm: "17px", md: "18px" },
+                      mb: { xs: 0.5, sm: 0.75 },
+                      whiteSpace: "nowrap",
+                      textOverflow: "ellipsis",
+                      overflow: "hidden",
+                    }}
+                  >
                     {isYouthNet
                       ? t("LEARNER_APP.PROFILE.YOUTHNET_ACHIEVEMENTS")
                       : t("LEARNER_APP.PROFILE.MY_CERTIFICATES")}
                   </Typography>
-                  <Typography sx={{ fontSize: 14, color: alpha(secondaryColor, 0.8) }}>
+
+                  {/* Description directly below the title */}
+                  <Typography
+                    sx={{
+                      fontSize: { xs: 12, sm: 13, md: 14 },
+                      color: alpha(secondaryColor, 0.8),
+                      wordBreak: "break-word",
+                      mb: { xs: 0.75, sm: 1 },
+                    }}
+                  >
                     {resolveText(
                       "LEARNER_APP.PROFILE.CERTIFICATES_DESCRIPTION",
                       "Your completed courses and earned certificates"
                     )}
                   </Typography>
+
+                  {/* Certificate count below description */}
+                  <Chip
+                    label={`${courseData.length} ${
+                      courseData.length === 1
+                        ? t("LEARNER_APP.PROFILE.CERTIFICATE")
+                        : t("LEARNER_APP.PROFILE.CERTIFICATES")
+                    }`}
+                    sx={{
+                      backgroundColor: surfaceColor,
+                      color: primaryColor,
+                      fontWeight: 600,
+                      fontSize: {
+                        xs: "0.75rem",
+                        sm: "0.8125rem",
+                        md: "0.875rem",
+                      },
+                      height: { xs: 28, sm: 32 },
+                    }}
+                  />
                 </Box>
-                <Chip
-                  label={`${courseData.length} ${
-                    courseData.length === 1
-                      ? t("LEARNER_APP.PROFILE.CERTIFICATE")
-                      : t("LEARNER_APP.PROFILE.CERTIFICATES")
-                  }`}
-                  sx={{
-                    backgroundColor: surfaceColor,
-                    color: primaryColor,
-                    fontWeight: 600,
-                  }}
-                />
               </Box>
 
-              <Box sx={{ p: 3, backgroundColor: alpha(backgroundColor, 0.4) }}>
+              <Box sx={{ p: { xs: 2, sm: 2.5, md: 3 }, backgroundColor: alpha(backgroundColor, 0.4) }}>
                 {loading ? (
-                  <Grid container spacing={2}>
+                  <Grid container spacing={{ xs: 1.5, sm: 2 }}>
                     {[1, 2, 3].map((index) => (
                       <Grid item xs={12} sm={6} md={4} key={index}>
-                        <Box sx={{ p: 1 }}>
+                        <Box sx={{ p: { xs: 0.5, sm: 1 } }}>
                           <Skeleton
                             variant="rounded"
-                            height={220}
-                            sx={{ borderRadius: 2 }}
+                            sx={{ 
+                              borderRadius: { xs: 1.5, sm: 2 },
+                              height: { xs: 200, sm: 220 }
+                            }}
                           />
                         </Box>
                       </Grid>
@@ -695,8 +763,8 @@ const ProfilePage = () => {
                   <Box
                     sx={{
                       backgroundColor: surfaceColor,
-                      borderRadius: 3,
-                      p: { xs: 3, md: 4 },
+                      borderRadius: { xs: 2, sm: 3 },
+                      p: { xs: 2.5, sm: 3, md: 4 },
                       border: `1px solid ${alpha(secondaryColor, 0.08)}`,
                       display: "flex",
                       flexDirection: "column",
@@ -709,7 +777,7 @@ const ProfilePage = () => {
                       sx={{
                         display: "flex",
                         justifyContent: "center",
-                        mb: 3,
+                        mb: { xs: 2, sm: 3 },
                       }}
                     >
                       <Image
@@ -717,7 +785,7 @@ const ProfilePage = () => {
                         alt="No Certificates"
                         width={180}
                         height={180}
-                        style={{ objectFit: "contain" }}
+                        style={{ objectFit: "contain", maxWidth: "100%", height: "auto" }}
                       />
                     </Box>
                     <Button
@@ -726,10 +794,11 @@ const ProfilePage = () => {
                       sx={{
                         backgroundColor: primaryColor,
                         color: "#FFFFFF",
-                        px: 4,
-                        py: 1.25,
+                        px: { xs: 3, sm: 4 },
+                        py: { xs: 1, sm: 1.25 },
                         fontWeight: 600,
                         borderRadius: "10px",
+                        fontSize: { xs: "0.875rem", sm: "1rem" },
                         "&:hover": { backgroundColor: alpha(primaryColor, 0.85) },
                       }}
                     >
@@ -737,7 +806,7 @@ const ProfilePage = () => {
                     </Button>
                   </Box>
                 ) : (
-                  <Grid container spacing={2}>
+                  <Grid container spacing={{ xs: 1.5, sm: 2 }}>
                     {courseData.map((cert: any, index: number) => {
                       const hasValidCertificateId =
                         cert.certificateId &&

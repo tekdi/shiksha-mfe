@@ -175,10 +175,42 @@ export const userNameExist = async (userData: any): Promise<any> => {
 // New function to check user existence using interface API
 // Uses domainTenantId from localStorage (set when tenant is loaded based on domain)
 export const checkUserExistenceWithTenant = async (
-  mobile: string,
+  identifier: string,
   tenantId?: string
 ): Promise<any> => {
   const apiUrl: string = `${process.env.NEXT_PUBLIC_BASE_URL}/user/list`;
+
+  // Helper to build request body for different search fields
+  const buildRequestBody = (tenantIdToUse: string, field: "username" | "mobile") => {
+    const filters: any = {
+      role: "Learner",
+      tenantId: tenantIdToUse,
+    };
+    filters[field] = identifier;
+
+    const requestBody: any = {
+      limit: 10,
+      filters,
+      sort: ["firstName", "asc"],
+      offset: 0,
+    };
+
+    console.log("[checkUserExistenceWithTenant] Request filters:", filters);
+    return requestBody;
+  };
+
+  // Helper to detect "user not found" style errors
+  const isNotFoundError = (error: any) => {
+    const status = error?.response?.status;
+    const responseCode = error?.response?.data?.responseCode;
+    const params = error?.response?.data?.params;
+    return (
+      status === 404 ||
+      responseCode === 404 ||
+      params?.status === "failed" ||
+      params?.errmsg === "User does not exist"
+    );
+  };
 
   try {
     // Get domainTenantId from localStorage (set when tenant is loaded based on domain)
@@ -187,25 +219,14 @@ export const checkUserExistenceWithTenant = async (
     if (typeof window !== "undefined") {
       domainTenantId = localStorage.getItem("domainTenantId");
     }
-    
+
     // Use domainTenantId from localStorage (priority), fallback to parameter, then null
     const tenantIdToUse = domainTenantId || tenantId;
-    
+
     if (!tenantIdToUse) {
       console.error("No tenantId available for user check. Tenant must be loaded first.");
       throw new Error("Tenant configuration not found. Please refresh the page.");
     }
-
-    const requestBody: any = {
-      limit: 10,
-      filters: {
-        role: "Learner",
-        username: mobile,
-        tenantId: tenantIdToUse, // Always include tenantId in filters for tenant isolation
-      },
-      sort: ["firstName", "asc"],
-      offset: 0,
-    };
 
     // Prepare headers - use domainTenantId to ensure header matches filter
     // These headers will override the interceptor's headers
@@ -214,13 +235,33 @@ export const checkUserExistenceWithTenant = async (
       tenantId: tenantIdToUse, // camelCase version
     };
 
-    console.log("[checkUserExistenceWithTenant] Using tenantId:", tenantIdToUse, "for mobile:", mobile);
-    console.log("[checkUserExistenceWithTenant] Request body filters.tenantId:", requestBody.filters.tenantId);
+    console.log("[checkUserExistenceWithTenant] Using tenantId:", tenantIdToUse, "for identifier:", identifier);
     console.log("[checkUserExistenceWithTenant] Headers tenantId:", headers.tenantId, "tenantid:", headers.tenantid);
 
-    const response = await post(apiUrl, requestBody, headers);
+    // 1️⃣ First try searching by username
+    try {
+      const requestBody = buildRequestBody(tenantIdToUse, "username");
+      const response = await post(apiUrl, requestBody, headers);
+      return response?.data;
+    } catch (error) {
+      console.warn("[checkUserExistenceWithTenant] Username search failed, checking if we should fallback to mobile", error);
+      if (!isNotFoundError(error)) {
+        // Some other error (network, 500, etc.) – rethrow
+        throw error;
+      }
+      // Otherwise, fall through to mobile search
+    }
 
-    return response?.data;
+    // 2️⃣ Fallback: try searching by mobile field
+    try {
+      console.log("[checkUserExistenceWithTenant] Falling back to mobile search for identifier:", identifier);
+      const requestBody = buildRequestBody(tenantIdToUse, "mobile");
+      const response = await post(apiUrl, requestBody, headers);
+      return response?.data;
+    } catch (error) {
+      console.error("error in checking user existence with tenant via mobile", error);
+      throw error;
+    }
   } catch (error) {
     console.error("error in checking user existence with tenant", error);
     throw error;

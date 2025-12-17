@@ -80,8 +80,8 @@ const GroupsManager: React.FC<GroupsManagerProps> = ({ isLoading = false }) => {
       };
 
       const mimeType =
-        mimeTypeMap[content.type] ||
         content.mimeType ||
+        mimeTypeMap[content.type] ||
         "application/vnd.ekstep.html-archive";
 
       if (CONTENT_DETAILS_TYPES.includes(mimeType)) {

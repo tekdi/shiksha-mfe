@@ -23,6 +23,7 @@ import {
   TextField,
   InputAdornment,
   IconButton,
+  Tooltip,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { Visibility, VisibilityOff, ArrowBack } from "@mui/icons-material";
@@ -216,8 +217,25 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         );
 
         if (userWithTargetTenant) {
-          console.log("User found, sending OTP:", userWithTargetTenant);
-          // User exists, send OTP for login
+          // Check user status - only allow OTP for active users
+          const userStatus = (userWithTargetTenant as any)?.status;
+          if (userStatus && String(userStatus).toLowerCase() !== "active") {
+            console.log("User is not active, skipping OTP:", {
+              mobile: processedMobile,
+              status: userStatus,
+            });
+            showToastMessage(
+              t("LEARNER_APP.LOGIN.USER_ARCHIVED") ||
+                "Your account is not active. Please contact your administrator.",
+              "error"
+            );
+            // Allow user to try a different number
+            setHasCheckedUser(false);
+            return;
+          }
+
+          console.log("Active user found, sending OTP:", userWithTargetTenant);
+          // User exists and is active, send OTP for login
           const response = await sendOTP({
             mobile: processedMobile,
             reason: "login",
@@ -478,23 +496,28 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         )}
 
         {/* Logo */}
-        <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+        <Box sx={{ display: "flex", justifyContent: "center", mb: { xs: 1.5, sm: 2 } }}>
           <Image
             src={tenantIcon}
             width={70}
             height={70}
             alt="tenant-logo"
-            style={{ objectFit: "contain" }}
+            style={{ 
+              objectFit: "contain",
+              width: "clamp(60px, 15vw, 70px)",
+              height: "auto"
+            }}
           />
         </Box>
 
         <Typography
           sx={{
             fontWeight: 700,
-            fontSize: { xs: "1.8rem", sm: "2rem" },
+            fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
             color: secondaryColor,
-            mb: 1,
+            mb: { xs: 0.75, sm: 1 },
             textAlign: "center",
+            lineHeight: { xs: 1.2, sm: 1.3 },
           }}
         >
           {t("LEARNER_APP.LOGIN.LOGIN") || "Welcome Back"}
@@ -503,8 +526,9 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         <Typography
           sx={{
             color: "rgba(0,0,0,0.65)",
-            mb: 4,
+            mb: { xs: 3, sm: 4 },
             textAlign: "center",
+            fontSize: { xs: "0.875rem", sm: "1rem" },
           }}
         >
           {t("LEARNER_APP.LOGIN.LOG_IN_AS_LEARNER_SUBTITLE") || "Log in as a learner"}
@@ -519,6 +543,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           variant="outlined"
           fullWidth
           margin="normal"
+          autoFocus
           sx={{
             mb: 2,
             "& .MuiOutlinedInput-root": {
@@ -583,14 +608,14 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           onClick={handleSubmit}
           fullWidth
           sx={{
-            py: 1.6,
+            py: { xs: 1.4, sm: 1.6 },
             backgroundColor: primaryColor,
             color: `${buttonTextColor} !important`,
             borderRadius: "10px",
             fontWeight: 600,
-            fontSize: "1rem",
+            fontSize: { xs: "0.95rem", sm: "1rem" },
             boxShadow: `0 4px 14px ${alpha(primaryColor, 0.35)}`,
-            mb: 2,
+            mb: { xs: 1.5, sm: 2 },
             textTransform: "none",
             "&:hover": {
               backgroundColor: primaryColor,
@@ -630,23 +655,28 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
       )}
 
       {/* Logo */}
-      <Box sx={{ display: "flex", justifyContent: "center", mb: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "center", mb: { xs: 1.5, sm: 2 } }}>
         <Image
           src={tenantIcon}
           width={70}
           height={70}
           alt="tenant-logo"
-          style={{ objectFit: "contain" }}
+          style={{ 
+            objectFit: "contain",
+            width: "clamp(60px, 15vw, 70px)",
+            height: "auto"
+          }}
         />
       </Box>
 
       <Typography
         sx={{
           fontWeight: 700,
-          fontSize: { xs: "1.8rem", sm: "2rem" },
+          fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
           color: secondaryColor,
-          mb: 1,
+          mb: { xs: 0.75, sm: 1 },
           textAlign: "center",
+          lineHeight: { xs: 1.2, sm: 1.3 },
         }}
       >
         {t("LEARNER_APP.LOGIN.LOGIN") || "Welcome Back"}
@@ -655,8 +685,9 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
       <Typography
         sx={{
           color: "rgba(0,0,0,0.65)",
-          mb: 4,
+          mb: { xs: 3, sm: 4 },
           textAlign: "center",
+          fontSize: { xs: "0.875rem", sm: "1rem" },
         }}
       >
         {t("LEARNER_APP.LOGIN.LOG_IN_AS_LEARNER_SUBTITLE") || "Log in as a learner"}
@@ -668,10 +699,12 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           <Typography
             sx={{
               fontWeight: 400,
-              fontSize: { xs: "14px", sm: "15px", md: "16px" },
+              fontSize: { xs: "13px", sm: "14px", md: "15px", lg: "16px" },
               color: secondaryColor,
-              mb: 3,
+              mb: { xs: 2.5, sm: 3 },
               textAlign: "center",
+              lineHeight: { xs: 1.5, sm: 1.6 },
+              px: { xs: 1, sm: 0 },
             }}
           >
             👋 {t("LEARNER_APP.LOGIN.PHONE_INSTRUCTION") || "Hi there! Log in with your registered phone number to continue."}
@@ -695,6 +728,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             variant="outlined"
             fullWidth
             margin="normal"
+            autoFocus
             inputProps={{
               maxLength: 10,
               pattern: "[0-9]*",
@@ -723,14 +757,14 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             disabled={!formData.username || isSendingOtp || formData.username.length !== 10}
             fullWidth
             sx={{
-              py: 1.6,
+              py: { xs: 1.4, sm: 1.6 },
               backgroundColor: primaryColor,
               color: `${buttonTextColor} !important`,
               borderRadius: "10px",
               fontWeight: 600,
-              fontSize: "1rem",
+              fontSize: { xs: "0.95rem", sm: "1rem" },
               boxShadow: `0 4px 14px ${alpha(primaryColor, 0.35)}`,
-              mb: 2,
+              mb: { xs: 1.5, sm: 2 },
               textTransform: "none",
               "&:hover": {
                 backgroundColor: primaryColor,
@@ -759,10 +793,12 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           <Typography
             sx={{
               fontWeight: 400,
-              fontSize: { xs: "14px", sm: "15px", md: "16px" },
+              fontSize: { xs: "13px", sm: "14px", md: "15px", lg: "16px" },
               color: secondaryColor,
-              mb: 3,
+              mb: { xs: 2.5, sm: 3 },
               textAlign: "center",
+              lineHeight: { xs: 1.5, sm: 1.6 },
+              px: { xs: 1, sm: 0 },
             }}
           >
             {t("LEARNER_APP.LOGIN.OTP_INSTRUCTION") || "Enter the 6-digit OTP sent to your phone."}
@@ -772,9 +808,16 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           <Box
             sx={{
               display: "flex",
-              gap: 1.25,
+              gap: { xs: 0.5, sm: 0.75, md: 1, lg: 1.25 },
               justifyContent: "center",
-              mb: 4,
+              mb: { xs: 3, sm: 4 },
+              flexWrap: "nowrap",
+              overflowX: "auto",
+              px: { xs: 1, sm: 0 },
+              "&::-webkit-scrollbar": {
+                display: "none",
+              },
+              scrollbarWidth: "none",
             }}
           >
             {[0, 1, 2, 3, 4, 5].map((idx) => (
@@ -785,16 +828,32 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                 onChange={(e) => handleOtpChange(idx, e.target.value)}
                 onKeyDown={(e) => handleOtpKeyDown(idx, e)}
                 onPaste={handleOtpPaste}
+                autoFocus={idx === 0}
                 inputProps={{
                   maxLength: 1,
                   inputMode: "numeric",
-                  style: { textAlign: "center", fontSize: 20, fontWeight: 700 },
+                  style: { 
+                    textAlign: "center", 
+                    fontWeight: 700 
+                  },
                 }}
                 sx={{
-                  width: 56,
-                  height: 56,
+                  width: { xs: 42, sm: 48, md: 52, lg: 56 },
+                  minWidth: { xs: 42, sm: 48, md: 52, lg: 56 },
+                  height: { xs: 48, sm: 52, md: 56 },
+                  flexShrink: 0,
                   "& .MuiOutlinedInput-root": {
                     borderRadius: "10px",
+                    height: "100%",
+                    padding: 0,
+                  },
+                  "& .MuiInputBase-input": {
+                    fontSize: { xs: "18px", sm: "20px" },
+                    padding: { xs: "14px 8px", sm: "16px 8px", md: "18px 8px" },
+                    textAlign: "center",
+                    lineHeight: 1.2,
+                    height: "100%",
+                    boxSizing: "border-box",
                   },
                 }}
               />
@@ -806,14 +865,14 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             disabled={formData.otp.length !== 6}
             fullWidth
             sx={{
-              py: 1.6,
+              py: { xs: 1.4, sm: 1.6 },
               backgroundColor: primaryColor,
               color: `${buttonTextColor} !important`,
               borderRadius: "10px",
               fontWeight: 600,
-              fontSize: "1rem",
+              fontSize: { xs: "0.95rem", sm: "1rem" },
               boxShadow: `0 4px 14px ${alpha(primaryColor, 0.35)}`,
-              mb: 2,
+              mb: { xs: 1.5, sm: 2 },
               textTransform: "none",
               "&:hover": {
                 backgroundColor: primaryColor,
@@ -830,29 +889,43 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           </Button>
 
           {/* Resend OTP */}
-          <Box sx={{ display: "flex", justifyContent: "center" }}>
-            <Button
-              onClick={handleResendOtp}
-              disabled={resendTimer > 0 || resendAttempts >= 2}
-              sx={{
-                textTransform: "none",
-                color: resendAttempts >= 2 ? "#999999" : primaryColor,
-                fontSize: "0.875rem",
-                "&:hover": {
-                  backgroundColor: "transparent",
-                  textDecoration: "underline",
-                },
-                "&:disabled": {
-                  color: "#999999",
-                },
-              }}
+          <Box sx={{ display: "flex", justifyContent: "center", mt: { xs: 1, sm: 0 } }}>
+            <Tooltip
+              title={
+                t("LEARNER_APP.LOGIN.RESEND_OTP_HINT") ||
+                "Didn’t receive the code? You can request a new OTP in a few seconds"
+              }
+              arrow
+              placement="top"
+              disableHoverListener={resendAttempts >= 2}
             >
-              {resendAttempts >= 2
-                ? t("LEARNER_APP.LOGIN.RESEND_OTP_DISABLED") || "Resend OTP (Limit Reached)"
-                : resendTimer > 0
-                ? `${t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"} (${Math.floor(resendTimer / 60)}:${String(resendTimer % 60).padStart(2, "0")})`
-                : t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"}
-            </Button>
+              <span>
+                <Button
+                  onClick={handleResendOtp}
+                  disabled={resendTimer > 0 || resendAttempts >= 2}
+                  sx={{
+                    textTransform: "none",
+                    color: resendAttempts >= 2 ? "#999999" : primaryColor,
+                    fontSize: { xs: "0.8rem", sm: "0.875rem" },
+                    "&:hover": {
+                      backgroundColor: "transparent",
+                      textDecoration: "underline",
+                    },
+                    "&:disabled": {
+                      color: "#999999",
+                    },
+                  }}
+                >
+                  {resendAttempts >= 2
+                    ? t("LEARNER_APP.LOGIN.RESEND_OTP_DISABLED") || "Resend OTP (Limit Reached)"
+                    : resendTimer > 0
+                    ? `${t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"} (${Math.floor(
+                        resendTimer / 60
+                      )}:${String(resendTimer % 60).padStart(2, "0")})`
+                    : t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"}
+                </Button>
+              </span>
+            </Tooltip>
           </Box>
         </>
       )}
@@ -971,26 +1044,40 @@ const HomeLeftColumn = ({ features, description, tagline, uiSecondaryColor, t }:
   const hasSolutions = Array.isArray(features) && features.length > 0;
 
   return (
-    <Box
-      sx={{
-        flex: { xs: "none", lg: 1 },
-        px: { xs: 3, sm: 6, md: 10, lg: 16 },
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "center",
-        py: { xs: 4, md: 4 },
-        minHeight: "100vh",
-        zIndex: 2,
-      }}
-    >
+  <Box
+    sx={{
+      flex: { xs: "0 0 auto", lg: 1 },
+      px: { xs: 2, sm: 3, md: 6, lg: 10, xl: 16 },
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: { xs: "flex-start", lg: "center" },
+      py: { xs: 2, sm: 3, md: 4 },
+      minHeight: { xs: "auto", lg: "100%" },
+      width: { xs: "100%", lg: "auto" },
+      maxWidth: { xs: "100%", lg: "none" }, // Prevent overflow on mobile
+      zIndex: 2,
+      pt: { xs: 2, sm: 2 }, // Add top padding on mobile to prevent touching header
+      pb: { xs: 2, sm: 1, md: 4 }, // Add bottom padding on mobile
+      order: { xs: 1, lg: 0 },
+      maxHeight: { xs: "none", lg: "100%" },
+      overflow: { xs: "visible", lg: "auto" },
+      overflowX: "hidden", // Prevent horizontal scroll
+      boxSizing: "border-box", // Include padding in width calculation
+    }}
+  >
       {/* TITLE */}
       {description && (
         <Typography
           sx={{
             fontWeight: 700,
             color: uiSecondaryColor,
-            mb: 2,
-            fontSize: { xs: "2.2rem", md: "3rem" },
+            mb: { xs: 1.5, sm: 2 }, // Increased spacing on mobile
+            fontSize: { xs: "1.75rem", sm: "2.2rem", md: "2.5rem", lg: "3rem" },
+            lineHeight: { xs: 1.2, sm: 1.3 },
+            wordWrap: "break-word", // Prevent text overflow
+            overflowWrap: "break-word", // Prevent text overflow
+            width: "100%",
+            maxWidth: "100%",
           }}
         >
           {description}
@@ -1001,9 +1088,13 @@ const HomeLeftColumn = ({ features, description, tagline, uiSecondaryColor, t }:
         <Typography
           sx={{
             color: "rgba(0,0,0,0.7)",
-            mb: 4,
-            fontSize: "1.1rem",
-            maxWidth: "600px",
+            mb: { xs: 3, sm: 4 }, // Increased spacing on mobile
+            fontSize: { xs: "0.95rem", sm: "1rem", md: "1.1rem" },
+            maxWidth: { xs: "100%", sm: "600px" }, // Full width on mobile
+            lineHeight: { xs: 1.5, sm: 1.6 },
+            wordWrap: "break-word", // Prevent text overflow
+            overflowWrap: "break-word", // Prevent text overflow
+            width: "100%",
           }}
         >
           {tagline}
@@ -1016,35 +1107,48 @@ const HomeLeftColumn = ({ features, description, tagline, uiSecondaryColor, t }:
           <Typography
             sx={{
               fontWeight: 700,
-              mb: 2,
-              fontSize: "1.7rem",
+              mb: { xs: 2, sm: 2 }, // Increased spacing on mobile
+              fontSize: { xs: "1.4rem", sm: "1.5rem", md: "1.7rem" },
               color: uiSecondaryColor,
             }}
           >
             {t("LEARNER_APP.HOME.OUR_SOLUTIONS_TITLE") || "Our Solutions"}
           </Typography>
 
-        <Grid container spacing={2}>
+        <Grid container spacing={{ xs: 2, sm: 2 }} sx={{ width: "100%", maxWidth: "100%", boxSizing: "border-box" }}> {/* Increased spacing on mobile to prevent overlap */}
   {features.map((f: any) => (
-    <Grid item xs={12} sm={6} key={f.title} sx={{ display: "flex" }}>
+    <Grid item xs={12} sm={6} key={f.title} sx={{ display: "flex", width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
       <Card
         sx={{
-          p: 2,
-          borderRadius: "18px",
+          p: { xs: 1.5, sm: 2 },
+          borderRadius: { xs: "12px", sm: "18px" },
           boxShadow: `0 6px 22px ${alpha(uiSecondaryColor, 0.1)}`,
           display: "flex",
           flexDirection: "column",
           flexGrow: 1,         // ⭐ makes all cards equal height
+          width: "100%",
+          maxWidth: "100%",
+          boxSizing: "border-box",
+          overflow: "hidden", // Prevent content overflow
         }}
       >
-        <CardContent sx={{ flexGrow: 1 }}>  {/* ⭐ helps content stretch */}
-          <Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
-            <Image src={f.icon} alt={f.title} width={42} height={42} />
+        <CardContent sx={{ flexGrow: 1, p: { xs: "12px !important", sm: "16px !important" } }}>  {/* ⭐ helps content stretch */}
+          <Box sx={{ display: "flex", gap: { xs: 1.5, sm: 2 }, alignItems: "center" }}>
+            <Image 
+              src={f.icon} 
+              alt={f.title} 
+              width={42} 
+              height={42}
+              style={{ 
+                width: "clamp(36px, 8vw, 42px)",
+                height: "auto"
+              }}
+            />
             <Typography
               sx={{
                 fontWeight: 600,
                 color: uiSecondaryColor,
-                fontSize: { xs: "1rem", md: "1.2rem" },
+                fontSize: { xs: "0.95rem", sm: "1rem", md: "1.2rem" },
               }}
             >
               {f.title}
@@ -1053,9 +1157,10 @@ const HomeLeftColumn = ({ features, description, tagline, uiSecondaryColor, t }:
 
           <Typography
             sx={{
-              mt: 1.2,
+              mt: { xs: 1, sm: 1.2 },
               color: "rgba(0,0,0,0.6)",
-              fontSize: { xs: "1rem", md: "1rem" },
+              fontSize: { xs: "0.875rem", sm: "0.95rem", md: "1rem" },
+              lineHeight: { xs: 1.5, sm: 1.6 },
             }}
           >
             {f.description}
@@ -1102,13 +1207,23 @@ const HomeRightColumn = ({
 }: RightProps) => (
   <Box
     sx={{
-      flex: { xs: "none", lg: 1 },
+      flex: { xs: "0 0 auto", lg: 1 },
       display: "flex",
       justifyContent: "center",
-      alignItems: "center",
-      px: { xs: 2, sm: 4, md: 6, lg: 8 },
-      minHeight: "100vh",
+      alignItems: { xs: "flex-start", sm: "center" }, // Mobile: flex-start, Tablet/Web: center
+      px: { xs: 2, sm: 2, md: 4, lg: 6, xl: 8 },
+      py: { xs: 0, sm: 3, lg: 0 },
+      minHeight: { xs: "auto", sm: "100%" }, // Mobile: auto, Tablet/Web: 100%
+      width: { xs: "100%", lg: "auto" },
+      maxWidth: { xs: "100%", lg: "none" }, // Prevent overflow on mobile
       zIndex: 3,
+      pt: 0,
+      pb: 0,
+      order: { xs: 2, lg: 0 },
+      flexShrink: 0,
+      position: { xs: "relative", lg: "static" },
+      overflowX: "hidden", // Prevent horizontal scroll
+      boxSizing: "border-box", // Include padding in width calculation
     }}
   >
     <Card
@@ -1116,38 +1231,57 @@ const HomeRightColumn = ({
         width: "100%",
         maxWidth: "520px",
         mx: "auto",
-        borderRadius: "26px",
+        borderRadius: { xs: "20px", sm: "26px" },
         background: "#ffffff",
         boxShadow: "0 14px 38px rgba(0,0,0,0.14)",
-        p: { xs: 3, sm: 4 },
+        p: { xs: 2, sm: 3, md: 4 },
 
-        /* FIXED HEIGHT + CENTERED */
-        minHeight: 730,
+        /* RESPONSIVE HEIGHT - mobile card hugs content, restore tablet/desktop */
+        minHeight: { xs: "auto", sm: 600, md: 730 },
         display: "flex",
         flexDirection: "column",
-        justifyContent: "center",
+        justifyContent: { xs: "flex-start", sm: "center" }, // Mobile: flex-start, Web: center
         alignItems: "center",
 
         textAlign: "center",
+        position: "relative",
+        zIndex: 1,
+        mb: 0,
+        mt: 0,
+        boxSizing: "border-box", // Include padding in width calculation
+        overflow: "hidden", // Prevent content overflow
       }}
     >
       {entryMode === "selection" ? (
         <>
-          <Box sx={{ mt: -8, mb: 2 }}>
+          <Box sx={{ mt: { xs: 0, sm: -4, md: -6 }, mb: { xs: 1.5, sm: 2.5 } }}>
             <Image
               src={tenantIcon}
               width={130}
               height={130}
               alt="tenant-logo"
-              style={{ objectFit: "contain" }}
+              style={{ 
+                objectFit: "contain",
+                width: "clamp(80px, 20vw, 130px)",
+                height: "auto"
+              }}
             />
           </Box>
 
-          <Typography sx={{ fontSize: "2rem", fontWeight: 700, mb: 1, color: uiSecondaryColor }}>
+          <Typography sx={{ 
+            fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" }, 
+            fontWeight: 700, 
+            mb: { xs: 0.5, sm: 1 }, 
+            color: uiSecondaryColor 
+          }}>
             {t("LEARNER_APP.LOGIN.LOGIN") || "Welcome Back"}
           </Typography>
 
-          <Typography sx={{ color: "rgba(0,0,0,0.65)", mb: 4 }}>
+          <Typography sx={{ 
+            color: "rgba(0,0,0,0.65)", 
+            mb: { xs: 2, sm: 4 },
+            fontSize: { xs: "0.9rem", sm: "1rem" }
+          }}>
             {t("LEARNER_APP.LOGIN.LEARNER_OR_WORKSPACE") || "Sign in to your Account"}
           </Typography>
 
@@ -1156,12 +1290,12 @@ const HomeRightColumn = ({
             variant="contained"
             sx={{
               backgroundColor: uiPrimaryColor,
-              py: 1.6,
+              py: { xs: 1.4, sm: 1.6 },
               borderRadius: "10px",
               textTransform: "none",
               fontWeight: 600,
-              mb: 2.5,
-              fontSize: "1rem",
+              mb: { xs: 1.5, sm: 2.5 },
+              fontSize: { xs: "0.95rem", sm: "1rem" },
             }}
             onClick={() => setEntryMode("learner")}
           >
@@ -1173,11 +1307,11 @@ const HomeRightColumn = ({
             variant="outlined"
             sx={{
               borderColor: uiPrimaryColor,
-              py: 1.5,
+              py: { xs: 1.3, sm: 1.5 },
               borderRadius: "10px",
               fontWeight: 600,
               textTransform: "none",
-              fontSize: "1rem",
+              fontSize: { xs: "0.95rem", sm: "1rem" },
             }}
             onClick={() =>
               (window.location.href = "https://admin.sunbirdsaas.com/login")
@@ -1226,6 +1360,16 @@ export default function Index() {
     language,
     ""
   );
+
+  const isSwadhaarTenant =
+    typeof tenantName === "string" &&
+    tenantName.toLowerCase().includes("swadhaar");
+
+  const headingDescription = isSwadhaarTenant
+    ? language === "hi"
+      ? "स्वाधार फिनएक्सेस में आपका स्वागत है!"
+      : "Welcome to Swadhaar FinAccess!"
+    : description;
 
   const tagline = getLocalizedText(
     contentFilter?.tagline,
@@ -1304,6 +1448,7 @@ export default function Index() {
             userResponse?.tenantData?.[0]?.templateId
           );
           localStorage.setItem("userIdName", userResponse?.username);
+          localStorage.setItem("mobileNumber", userResponse?.mobile || "");
           localStorage.setItem("firstName", userResponse?.firstName || "");
 
           const tenantId = userResponse?.tenantData?.[0]?.tenantId;
@@ -1509,7 +1654,18 @@ export default function Index() {
 
   return (
     <Layout onlyHideElements={["footer", "topBar"]}>
-      <Box key={language} sx={{ position: "relative", height: "100vh", overflow: "hidden" }}>
+      <Box
+        key={language}
+        sx={{
+          position: "relative",
+          height: { xs: "70vh", lg: "100vh" },
+          minHeight: { xs: "auto", lg: "auto" },
+          overflow: { xs: "visible", lg: "hidden" },
+          overflowX: "hidden", // Prevent horizontal scroll
+          width: "100%",
+          maxWidth: "100vw", // Ensure it doesn't exceed viewport
+        }}
+      >
         {/* Header with logo + tenant name + language selector (config-based) */}
         <Box
           sx={{
@@ -1553,6 +1709,7 @@ export default function Index() {
                 fontWeight: 500,
                 fontSize: { xs: "1rem", sm: "1.2rem" },
                 color: uiSecondaryColor,
+                display: { xs: "none", sm: "block" },
               }}
             >
               {tenantName}
@@ -1586,13 +1743,24 @@ export default function Index() {
           sx={{
             display: "flex",
             flexDirection: { xs: "column", lg: "row" },
-            height: "100vh",
-            overflow: "hidden",
+            // HEADER OFFSET — MOBILE ONLY
+            pt: { xs: "72px", sm: "80px", lg: 0 },
+            // TOP MARGIN — RESTORED FOR WEB
+            mt: { xs: 0, sm: 10 },
+            mb: { xs: 2, sm: 2, lg: 0 },
+            // HEIGHT — NO FORCED HEIGHT ON MOBILE, KEEP WEB
+            height: { xs: "auto", lg: "calc(100vh - 80px)" },
+            minHeight: { xs: "auto", lg: "auto" },
+            pb: { xs: 2, sm: 2, lg: 0 },
+            width: "100%",
+            maxWidth: "100vw", // Prevent horizontal overflow
+            boxSizing: "border-box",
+            overflowX: "hidden", // Prevent horizontal scroll
           }}
         >
           <HomeLeftColumn
             features={features}
-            description={description}
+            description={headingDescription}
             tagline={tagline}
             uiSecondaryColor={uiSecondaryColor}
             t={t}

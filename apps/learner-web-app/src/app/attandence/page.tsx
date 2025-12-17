@@ -1681,21 +1681,50 @@ const SimpleTeacherDashboard = () => {
             </Select> */}
           </Box>
         </Box>
-        <Box sx={{ px: { xs: 2, md: 4 }, pb: { xs: 4, md: 6 } }}>
+        <Box sx={{ 
+          px: { xs: 2, md: 4 }, 
+          pb: { xs: 4, md: 6 },
+          width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
+          boxSizing: "border-box",
+        }}>
           <Tabs
             value="attendance"
             onChange={handleTopTabChange}
             aria-label="Dashboard Tabs"
+            variant="scrollable"
+            scrollButtons="auto"
+            allowScrollButtonsMobile
             sx={{
+              width: "100%",
+              maxWidth: "100%",
               "& .MuiTab-root": {
                 color: secondaryColor,
+                minWidth: { xs: "auto", sm: "auto" },
+                padding: { xs: "12px 16px", sm: "12px 24px" },
+                fontSize: { xs: "0.875rem", sm: "1rem" },
+                textTransform: "none",
+                fontWeight: 500,
                 "&.Mui-selected": {
                   color: primaryColor,
+                  fontWeight: 600,
                 },
               },
               "& .MuiTabs-indicator": {
                 backgroundColor: primaryColor,
               },
+              "& .MuiTabs-scrollButtons": {
+                color: secondaryColor,
+                width: { xs: 40, sm: 48 },
+                "&.Mui-disabled": {
+                  opacity: 0.3,
+                },
+              },
+              "& .MuiTabs-flexContainer": {
+                gap: 0,
+              },
+              overflowX: { xs: "auto", sm: "visible" },
             }}
           >
             <Tab label={t("LEARNER_APP.COMMON.CONTENT")} value="content" />

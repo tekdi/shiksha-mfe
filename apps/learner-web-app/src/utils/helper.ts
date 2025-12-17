@@ -322,6 +322,8 @@ export const SUPPORTED_MIME_TYPES = [
   'application/epub',
   'video/x-youtube',
   'application/vnd.sunbird.questionset',
+  // Support ekstep video content for direct player routing (align with content MFE)
+  'application/vnd.ekstep.video',
 ];
 export const toPascalCase = (name: string | any) => {
   if (typeof name !== 'string') {

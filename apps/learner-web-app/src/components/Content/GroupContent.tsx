@@ -35,6 +35,8 @@ interface GroupContentItem {
   targetMediumIds?: string[];
   targetGradeLevelIds?: string[];
   targetSubjectIds?: string[];
+  mimeType?: string;
+  identifier?: string;
 }
 
 interface GroupContentProps {
@@ -173,6 +175,8 @@ const GroupContent: React.FC<GroupContentProps> = ({
               ? "advanced"
               : "beginner") as "beginner" | "intermediate" | "advanced",
             imageUrl: String(item.posterImage || item.appIcon || ""),
+            mimeType: String(item.mimeType || ""),
+            identifier: String(item.identifier || ""),
             // Framework metadata
             se_boards: Array.isArray(item.se_boards) ? item.se_boards : Array.isArray(item.targetBoardIds) ? item.targetBoardIds : undefined,
             se_mediums: Array.isArray(item.se_mediums) ? item.se_mediums : Array.isArray(item.targetMediumIds) ? item.targetMediumIds : undefined,
@@ -444,6 +448,7 @@ const GroupContent: React.FC<GroupContentProps> = ({
             return (
               <Grid item xs={6} sm={6} md={4} lg={3} xl={2.4} key={item.id}>
                 <CommonCard
+                  minheight="100%"
                   title={item.title}
                   image={item.imageUrl || ""}
                   description={item.description || ""}
@@ -477,8 +482,10 @@ const GroupContent: React.FC<GroupContentProps> = ({
                   onClick={() => handleContentClick(item)}
                   _card={{
                     _contentParentText: {
-                      sx: { height: item.type !== "course" ? "50px" : "60px" },
+                      // Match content cards for consistent title height
+                      sx: { height: "50px" },
                     },
+                    _cardMedia: { sx: { maxHeight: "132px" } },
                     sx: {
                       height: "100%",
                       display: "flex",

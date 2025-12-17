@@ -256,6 +256,13 @@ export const ContentSearch = async ({
     delete cleanedFilters.userId;
     delete cleanedFilters.courseId;
     
+    // Transform filter keys for API compatibility
+    // Map se_subtopics to subtopic (required for Swadhaar tenant and other tenants)
+    if (cleanedFilters.se_subtopics) {
+      cleanedFilters.subtopic = cleanedFilters.se_subtopics;
+      delete cleanedFilters.se_subtopics;
+    }
+    
     // Determine primaryCategory based on type
     // Normalize type to handle variations like "Course", "Courses", etc.
     const normalizedType = type && typeof type === 'string' 

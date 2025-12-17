@@ -221,7 +221,8 @@
       "FILTER_BY": "Filter by",
       "CLEAR_FILTER": "Clear Filter",
       "APPLY_FILTER": "Apply Filter",
-      "DONE": "Done"
+      "DONE": "Done",
+      "LOADING_CONTENT": "Loading your lessons..."
     },
     "EXPLORE": {
       "EXPLORE_ADDITIONAL_COURSES": "Explore Additional Courses"
@@ -302,13 +303,15 @@
       "OTP_INSTRUCTION": "We've sent a 6-digit OTP to your WhatsApp. Enter the code below to continue learning",
       "ENTER_OTP": "Verify OTP",
       "RESEND_OTP_DISABLED": "Resend OTP (Limit Reached)",
+      "RESEND_OTP_HINT": "Didn’t receive the code? You can request a new OTP in a few seconds",
       "RESEND_OTP": "Resend OTP",
       "CHOOSE_MODE": "Choose how you want to continue",
       "LEARNER_OR_WORKSPACE": "Login as a learner or go to the workspace portal.",
       "CONTINUE_LEARNER": "Login as Learner",
       "GO_TO_WORKSPACE": "Go to Workspace",
-      "LOGIN": "Login"
-    },
+      "LOGIN": "Login",
+      "USER_ARCHIVED": "Your account is not active. Please contact your administrator."
+        },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "In Progress",
       "ONGOING_COURSES": "You have {count} Ongoing Courses",

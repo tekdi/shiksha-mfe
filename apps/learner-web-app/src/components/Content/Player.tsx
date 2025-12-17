@@ -303,11 +303,14 @@ const PlayerBox = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [play, setPlay] = useState(false);
 
-  // Determine aspectRatio based on mimeType and mobile mode
+  // Determine aspectRatio based on device type
+  // Mobile: Portrait (9/16), Web/Desktop: Landscape (16/9)
   const getAspectRatio = () => {
-    if (mimeType === "application/vnd.sunbird.questionset" && isMobile) {
+    if (isMobile) {
+      // Mobile devices: Portrait orientation
       return "9/16";
     }
+    // Web/Desktop: Landscape orientation
     return "16/9";
   };
 
