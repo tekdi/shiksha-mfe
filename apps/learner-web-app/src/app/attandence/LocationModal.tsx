@@ -28,7 +28,7 @@ const LocationModal: React.FC<LocationModalProps> = ({
     <Dialog open={isOpen} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Enable Location</DialogTitle>
       <DialogContent>
-        <Typography variant="body2" color="textSecondary">
+        <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
           We need your device location to verify your attendance. Please enable
           location access when prompted.
         </Typography>

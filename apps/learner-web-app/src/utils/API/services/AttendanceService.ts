@@ -12,6 +12,7 @@ import {
   MarkAttendanceParams,
   AllCenterAttendancePercentParam,
   OverallAttendancePercentageProps,
+  UserAttendanceObj,
 } from "@learner/utils/attendance/interfaces";
 
 type MarkAttendanceRequest = MarkAttendanceParams & {
@@ -19,9 +20,12 @@ type MarkAttendanceRequest = MarkAttendanceParams & {
   longitude?: number;
   validLocation?: boolean;
   absentReason?: string;
+  reason?: string;
   lateMark?: boolean;
   scope?: string;
   context?: string;
+  workLocation?: string;
+  comment?: string;
 };
 
 type PostAttendanceListParams = {
@@ -67,12 +71,20 @@ export const bulkAttendance = async ({
 }: BulkAttendanceParams): Promise<any> => {
   const apiUrl: string = API_ENDPOINTS.bulkAttendance;
   try {
-    const response = await post(apiUrl, {
+    // Ensure each userAttendance item has scope if not already present
+    const userAttendanceWithScope: UserAttendanceObj[] = userAttendance.map((item: UserAttendanceObj) => ({
+      ...item,
+      scope: item.scope || "student", // Default to "student" if scope not provided
+    }));
+    
+    const payload: any = {
       attendanceDate,
       contextId,
-      userAttendance,
+      userAttendance: userAttendanceWithScope,
       context: DEFAULT_CONTEXT,
-    });
+    };
+    
+    const response = await post(apiUrl, payload);
     return response?.data;
   } catch (error) {
     console.error("error in marking bulk attendance", error);
@@ -88,9 +100,12 @@ export const markAttendance = async ({
   longitude,
   validLocation,
   absentReason,
+  reason,
   lateMark,
   scope,
   context,
+  workLocation,
+  comment,
 }: MarkAttendanceRequest): Promise<any> => {
   const apiUrl: string = API_ENDPOINTS.attendanceCreate;
   try {
@@ -104,12 +119,23 @@ export const markAttendance = async ({
       longitude,
       validLocation,
       absentReason,
+      reason,
       lateMark,
     };
     
     // Add scope if provided
     if (scope) {
       payload.scope = scope;
+    }
+    
+    // Always include workLocation and comment (even if empty strings)
+    // This ensures they are sent to the API when they have values
+    if (workLocation !== undefined && workLocation !== null) {
+      payload.workLocation = workLocation;
+    }
+    
+    if (comment !== undefined && comment !== null) {
+      payload.comment = comment;
     }
     
     const response = await post(apiUrl, payload);

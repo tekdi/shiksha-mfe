@@ -211,7 +211,13 @@
       "CREATED_AT": "Created At",
       "UPDATED_AT": "Updated At",
       "ERROR_FETCHING_MEMBERS": "Error fetching members",
-      "LEARNER": "Learner"
+      "LEARNER": "Learner",
+      "REMOVE_STUDENT_TOOLTIP": "Remove the student from this class",
+      "REMOVE_STUDENT_CONFIRM": "Do you want to remove this student from this class?",
+      "REMOVE_STUDENT_MEMBERSHIP_NOT_FOUND": "Unable to remove student: membership ID not found.",
+      "REMOVE_STUDENT_SUCCESS": "Student removed from this class successfully.",
+      "REMOVE_STUDENT_FAILED": "Failed to remove student from this class.",
+      "REMOVE_STUDENT_ERROR": "An error occurred while removing the student from this class."
     },
     "COURSE": {
       "COMPLETED_ON": "Completed on",
