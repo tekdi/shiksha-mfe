@@ -741,99 +741,157 @@ const SimpleTeacherDashboard = () => {
 
     try {
       setLoading(true);
-      const response = await getCohortList(userId, {
-        customField: "true",
-        children: "true",
-      });
+      // Read userRole directly from localStorage to avoid race condition with state
+      const currentUserRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : userRole;
+      console.log("[fetchUserCohorts] Fetching cohorts for userId:", userId, "userRole from localStorage:", currentUserRole, "userRole from state:", userRole);
+      
+      // For Supervisor and Staff, we need all data including inactive cohorts to build centers
+      const response = await getCohortList(
+        userId,
+        {
+          customField: "true",
+          children: "true",
+        },
+        true // isCustomFields: true to get all data without filtering
+      );
+      console.log("[fetchUserCohorts] API response:", response);
       await getUserDetails(userId, true);
       if (response && response.length > 0) {
+        console.log("[fetchUserCohorts] Response has data, processing...", response.length, "items");
         setCohortsData(response);
 
-        // Extract unique parent IDs from the cohorts
-        const uniqueParentIds = [...new Set(
-          response
-            .filter((item: any) => item.parentId && item.type === "COHORT")
-            .map((item: any) => item.parentId)
-        )];
-        
-        console.log("Unique parent IDs:", uniqueParentIds);
-        
-        // Fetch hierarchy data for each unique parent ID
-        const centersWithHierarchy = await Promise.all(
-          uniqueParentIds.map(async (parentId: any) => {
-            try {
-              // Call cohortHierarchy API with the parent ID
-              const hierarchyData = await getCohortDetails(parentId, {
-                children: "true",
-                customField: "true",
-              });
-              
-              console.log(`Hierarchy data for ${parentId}:`, hierarchyData);
-              
-              // The API returns an array, get the first item
-              const centerData = Array.isArray(hierarchyData) ? hierarchyData[0] : hierarchyData;
-              
-              return {
-                centerId: centerData?.cohortId || parentId,
-                centerName: centerData?.cohortName || centerData?.name || "Unknown Center",
-                childData: centerData?.childData || [],
-                hierarchyData: centerData,
-              };
-            } catch (error) {
-              console.error(`Error fetching hierarchy for ${parentId}:`, error);
-              return null;
-            }
-          })
-        );
-        
-        // Filter out null values (failed requests)
-        const validCenters = centersWithHierarchy.filter((center) => center !== null);
-        
-        setCentersData(validCenters);
-        
-        if (validCenters.length > 0) {
-          const defaultCenter = validCenters[0];
-          setSelectedCenterId(defaultCenter.centerId);
-
-          // Batches/classes should come ONLY from myCohorts response
-          const batches = response
-            .filter(
-              (item: any) =>
-                item.type === "COHORT" &&
-                item.parentId === defaultCenter.centerId &&
-                item.cohortStatus === "active"
-            )
-            .map((item: any) => {
-              // Extract slot value from cohortMemberCustomField
-              const slotField = item.cohortMemberCustomField?.find(
-                (field: any) => field?.label?.toUpperCase() === "SLOTS"
-              );
-              const slotValue = slotField?.selectedValues?.[0] || "";
-              
-              return {
-                batchId: item.cohortId,
-                batchName: item.cohortName,
-                parentId: item.parentId,
-                slot: slotValue,
-              };
-            });
-
-          console.log("Batches for default center (from myCohorts):", batches);
-          setBatchesData(batches);
-
-          // Set default batch if available
-          if (batches.length > 0) {
-            setClassId(batches[0].batchId);
-          } else {
+        // For Supervisor: Show SCHOOL items directly in center dropdown
+        // For Teacher: Fetch hierarchy to get centers
+        if (currentUserRole === "Supervisor") {
+          console.log("[fetchUserCohorts] Processing for Supervisor role");
+          console.log("[fetchUserCohorts] Full response:", response);
+          
+          // Extract SCHOOL items directly - these are the schools assigned to Supervisor
+          // Filter for type === "SCHOOL" exactly (case-sensitive)
+          const schoolItems = response.filter((item: any) => {
+            const isSchool = item.type === "SCHOOL";
+            console.log(`[fetchUserCohorts] Item: ${item.cohortName}, type: ${item.type}, isSchool: ${isSchool}`);
+            return isSchool;
+          });
+          
+          console.log("[fetchUserCohorts] Supervisor - SCHOOL items found:", schoolItems.length, schoolItems);
+          
+          // Map SCHOOL items directly to centers - NO hierarchy API call
+          const supervisorCenters = schoolItems.map((school: any) => {
+            console.log(`[fetchUserCohorts] Mapping school: ${school.cohortName} (${school.cohortId})`);
+            return {
+              centerId: school.cohortId, // Use school ID as center ID
+              centerName: school.cohortName, // Use school name as center name
+              childData: school.childData || [], // Classes/batches are in childData
+              hierarchyData: school, // Store the full school object
+              parentId: school.parentId, // Keep parentId for reference
+            };
+          });
+          
+          console.log("[fetchUserCohorts] Supervisor centers (schools) - FINAL:", supervisorCenters);
+          setCentersData(supervisorCenters);
+          
+          if (supervisorCenters.length > 0) {
+            const defaultCenter = supervisorCenters[0];
+            setSelectedCenterId(defaultCenter.centerId);
+            // Don't set batches for Supervisor (batch dropdown is hidden)
+            setBatchesData([]);
             setClassId("");
+            console.log("[fetchUserCohorts] Default center set for Supervisor:", defaultCenter.centerName);
+          } else {
+            console.warn("[fetchUserCohorts] No SCHOOL items found for Supervisor!");
           }
         } else {
-          // If no hierarchy data, use direct cohorts from response
-          const directCohorts = response.filter(
-            (item: any) => item.type === "COHORT"
+          // For Teacher and other roles: Fetch hierarchy to get centers
+          // Extract unique parent IDs from the cohorts
+          const uniqueParentIds = [...new Set(
+            response
+              .filter((item: any) => item.parentId && item.type === "COHORT")
+              .map((item: any) => item.parentId)
+          )];
+          
+          console.log("Unique parent IDs:", uniqueParentIds);
+          
+          // Fetch hierarchy data for each unique parent ID
+          const centersWithHierarchy = await Promise.all(
+            uniqueParentIds.map(async (parentId: any) => {
+              try {
+                // Call cohortHierarchy API with the parent ID
+                const hierarchyData = await getCohortDetails(parentId, {
+                  children: "true",
+                  customField: "true",
+                });
+                
+                console.log(`Hierarchy data for ${parentId}:`, hierarchyData);
+                
+                // The API returns an array, get the first item
+                const centerData = Array.isArray(hierarchyData) ? hierarchyData[0] : hierarchyData;
+                
+                return {
+                  centerId: centerData?.cohortId || parentId,
+                  centerName: centerData?.cohortName || centerData?.name || "Unknown Center",
+                  childData: centerData?.childData || [],
+                  hierarchyData: centerData,
+                };
+              } catch (error) {
+                console.error(`Error fetching hierarchy for ${parentId}:`, error);
+                return null;
+              }
+            })
           );
+          
+          // Filter out null values (failed requests)
+          const validCenters = centersWithHierarchy.filter((center) => center !== null);
+          
+          console.log("[fetchUserCohorts] Valid centers found:", validCenters.length, validCenters);
+          setCentersData(validCenters);
+        
+          if (validCenters.length > 0) {
+            const defaultCenter = validCenters[0];
+            setSelectedCenterId(defaultCenter.centerId);
+
+            // Batches/classes should come ONLY from myCohorts response
+            const batches = response
+              .filter(
+                (item: any) =>
+                  item.type === "COHORT" &&
+                  item.parentId === defaultCenter.centerId &&
+                  item.cohortStatus === "active"
+              )
+              .map((item: any) => {
+                // Extract slot value from cohortMemberCustomField
+                const slotField = item.cohortMemberCustomField?.find(
+                  (field: any) => field?.label?.toUpperCase() === "SLOTS"
+                );
+                const slotValue = slotField?.selectedValues?.[0] || "";
+                
+                return {
+                  batchId: item.cohortId,
+                  batchName: item.cohortName,
+                  parentId: item.parentId,
+                  slot: slotValue,
+                };
+              });
+
+            console.log("Batches for default center (from myCohorts):", batches);
+            setBatchesData(batches);
+
+            // Set default batch if available
+            if (batches.length > 0) {
+              setClassId(batches[0].batchId);
+            } else {
+              setClassId("");
+            }
+          } else {
+          console.log("[fetchUserCohorts] No valid centers from hierarchy, trying fallback with direct cohorts");
+          // If no hierarchy data, use direct cohorts/schools from response
+          // For Supervisor: items have type "SCHOOL", for Teacher: items have type "COHORT"
+          const directCohorts = response.filter(
+            (item: any) => item.type === "COHORT" || item.type === "SCHOOL"
+          );
+          console.log("[fetchUserCohorts] Direct cohorts/schools found:", directCohorts.length);
           if (directCohorts.length > 0) {
-            // Group cohorts by parentId
+            // Group cohorts/schools by parentId
             const cohortsByParent: any = {};
             directCohorts.forEach((cohort: any) => {
               if (!cohortsByParent[cohort.parentId]) {
@@ -843,13 +901,34 @@ const SimpleTeacherDashboard = () => {
             });
             
             // Create centers from parent IDs
-            const fallbackCenters = Object.keys(cohortsByParent).map((parentId) => ({
-              centerId: parentId,
-              centerName: `Center ${parentId.substring(0, 8)}`,
-              childData: cohortsByParent[parentId],
-              hierarchyData: null,
-            }));
+            // Try to get center name from first cohort's parentId by fetching hierarchy, or use a generic name
+            const fallbackCenters = await Promise.all(
+              Object.keys(cohortsByParent).map(async (parentId) => {
+                try {
+                  const hierarchyData = await getCohortDetails(parentId, {
+                    children: "true",
+                    customField: "true",
+                  });
+                  const centerData = Array.isArray(hierarchyData) ? hierarchyData[0] : hierarchyData;
+                  return {
+                    centerId: centerData?.cohortId || parentId,
+                    centerName: centerData?.cohortName || centerData?.name || `Center ${parentId.substring(0, 8)}`,
+                    childData: cohortsByParent[parentId],
+                    hierarchyData: centerData,
+                  };
+                } catch (error) {
+                  console.error(`Error fetching hierarchy for fallback center ${parentId}:`, error);
+                  return {
+                    centerId: parentId,
+                    centerName: `Center ${parentId.substring(0, 8)}`,
+                    childData: cohortsByParent[parentId],
+                    hierarchyData: null,
+                  };
+                }
+              })
+            );
             
+            console.log("[fetchUserCohorts] Fallback centers created:", fallbackCenters.length, fallbackCenters);
             setCentersData(fallbackCenters);
             
             if (fallbackCenters.length > 0) {
@@ -877,10 +956,15 @@ const SimpleTeacherDashboard = () => {
               }
             }
           }
-        }
-      }
+        } // End of Teacher else block
+      } // End of outer if (response && response.length > 0)
+    } else {
+      console.warn("[fetchUserCohorts] No response or empty response from API");
+      setCentersData([]);
+    }
     } catch (error) {
-      console.error("Error fetching cohorts:", error);
+      console.error("[fetchUserCohorts] Error fetching cohorts:", error);
+      setCentersData([]);
     } finally {
       setLoading(false);
     }
@@ -1351,7 +1435,7 @@ const SimpleTeacherDashboard = () => {
 
       // Determine lateMark and reason based on slot timing for Teacher role
       let isLate = false;
-      let effectiveAbsentReason = absentReason || "";
+      const effectiveAbsentReason = absentReason || "";
 
       if (userRole === "Teacher" && selectedSelfAttendance) {
         const timing = getSelectedBatchSlotTiming();
@@ -1381,6 +1465,13 @@ const SimpleTeacherDashboard = () => {
         workLocationInMap: workLocation ? workLocationLabelMap[workLocation] : "N/A",
       });
 
+      // Determine absentReason and reason based on attendance type and late status
+      // absentReason: only for absent attendance (not for present)
+      // reason: only "Late" if late, otherwise empty
+      const isPresent = selectedSelfAttendance?.toLowerCase() === "present";
+      const finalAbsentReason = isPresent ? "" : effectiveAbsentReason;
+      const finalReason = isLate ? "Late" : "";
+
       const data: any = {
         userId: userId,
         attendance: selectedSelfAttendance?.toLowerCase(),
@@ -1388,24 +1479,16 @@ const SimpleTeacherDashboard = () => {
         contextId: classId || "5767a18a-323a-4eac-b115-22dabcd9b8ae",
         scope: scope, // Always "self" for both Teacher and Staff
         context: "cohort",
-        // Use `reason` as the primary field; keep absentReason empty to avoid mixing
-        absentReason: "",
-        reason: isLate ? "Late" : effectiveAbsentReason, // Late or user-provided reason
-        workLocation: workLocationLabel || "",
-        comment: comment || "",
-        lateMark: userRole === "Staff" ? true : isLate,
+        absentReason: finalAbsentReason, // Empty for present, absent reason for absent
+        reason: finalReason, // "Late" if late, otherwise empty
+        remark: comment || "",
+        lateMark: (userRole === "Staff" || userRole === "Supervisor") ? true : isLate,
         validLocation: false,
+        metaData: {
+          workLocation: workLocationLabel || "",
+        }
       };
 
-      // Debug logging for Staff/Teacher role - payload before location
-      console.log("[Self Attendance] Payload before location:", {
-        scope: data.scope,
-        workLocation: data.workLocation,
-        comment: data.comment,
-        absentReason: data.absentReason,
-        attendance: data.attendance,
-        userRole,
-      });
 
       // Always include location if available (from getLocation or capturedLocation)
       if (locationData) {
@@ -1439,10 +1522,7 @@ const SimpleTeacherDashboard = () => {
           data.latitude = capturedLocation.latitude;
           data.longitude = capturedLocation.longitude;
           data.validLocation = false;
-          console.log("[SelfAttendance] Using capturedLocation as fallback", {
-            latitude: data.latitude,
-            longitude: data.longitude,
-          });
+         
         } else {
           // Only set to 0 if we truly have no location data
           console.warn("[SelfAttendance] No location data available, setting to 0");
@@ -1455,12 +1535,11 @@ const SimpleTeacherDashboard = () => {
       // Debug logging for Staff/Teacher role - final payload
       console.log("[Self Attendance] Final payload being sent:", JSON.stringify(data, null, 2));
       console.log("[Self Attendance] Payload fields check:", {
-        hasWorkLocation: !!data.workLocation,
-        hasComment: !!data.comment,
-        workLocationValue: data.workLocation,
-        commentValue: data.comment,
-        workLocationLength: data.workLocation?.length || 0,
-        commentLength: data.comment?.length || 0,
+        hasRemark: !!data.remark,
+        hasMetaData: !!data.metaData,
+        remarkValue: data.remark,
+        metaDataValue: data.metaData,
+        workLocationInMetaData: data.metaData?.workLocation,
       });
 
       const response = await markAttendance(data);
@@ -1995,6 +2074,8 @@ const SimpleTeacherDashboard = () => {
   };
 
   console.log("centersData",centersData);
+  console.log("userRole for center dropdown:", userRole, "Should show:", userRole !== "Staff");
+  console.log("centersData types:", centersData.map((c: any) => ({ name: c.centerName, type: c.hierarchyData?.type || "unknown" })));
 
   return (
     <Layout onlyHideElements={["footer", "topBar"]}>
@@ -2271,7 +2352,7 @@ const SimpleTeacherDashboard = () => {
                 >
                   {t("LEARNER_APP.ATTENDANCE.DAY_WISE_ATTENDANCE")}
                 </Typography>
-                {/* Center and Batch Selection - Hidden for Staff role */}
+                {/* Center and Batch Selection - Hidden for Staff, Center only for Supervisor */}
                 {userRole !== "Staff" && (
                   <Box
                     sx={{
@@ -2282,45 +2363,45 @@ const SimpleTeacherDashboard = () => {
                       width: { xs: "100%", md: "auto" },
                     }}
                   >
-                    {/* Center Selection */}
-                    {centersData.length > 0 && (
-                      <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                        <FormControl
-                          fullWidth
-                          size="small"
+                    {/* Center Selection - Visible for Supervisor and non-Staff roles */}
+                    <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                      <FormControl
+                        fullWidth
+                        size="small"
+                        sx={{
+                          minWidth: { xs: "100%", sm: "150px" },
+                          maxWidth: { xs: "100%", md: "200px" },
+                          backgroundColor: "white",
+                          borderRadius: "8px",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                          "& .MuiOutlinedInput-root": {
+                            "&:hover fieldset": {
+                              borderColor: primaryColor,
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: primaryColor,
+                            },
+                          },
+                        }}
+                      >
+                        <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.CENTER")}</InputLabel>
+                        <Select
+                          value={selectedCenterId || ""}
+                          label={t("LEARNER_APP.COMMON.CENTER")}
+                          onChange={handleCenterChange}
+                          disabled={loading || centersData.length === 0}
                           sx={{
-                            minWidth: { xs: "100%", sm: "150px" },
-                            maxWidth: { xs: "100%", md: "200px" },
-                            backgroundColor: "white",
-                            borderRadius: "8px",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                            "& .MuiOutlinedInput-root": {
-                              "&:hover fieldset": {
-                                borderColor: primaryColor,
-                              },
-                              "&.Mui-focused fieldset": {
-                                borderColor: primaryColor,
-                              },
+                            color: secondaryColor,
+                            "& .MuiSelect-select": {
+                              color: secondaryColor,
+                            },
+                            "& .MuiSvgIcon-root": {
+                              color: secondaryColor,
                             },
                           }}
                         >
-                          <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.CENTER")}</InputLabel>
-                          <Select
-                            value={selectedCenterId}
-                            label={t("LEARNER_APP.COMMON.CENTER")}
-                            onChange={handleCenterChange}
-                            disabled={loading}
-                            sx={{
-                              color: secondaryColor,
-                              "& .MuiSelect-select": {
-                                color: secondaryColor,
-                              },
-                              "& .MuiSvgIcon-root": {
-                                color: secondaryColor,
-                              },
-                            }}
-                          >
-                            {centersData.map((center) => (
+                          {centersData.length > 0 ? (
+                            centersData.map((center) => (
                               <MenuItem
                                 key={center.centerId}
                                 value={center.centerId}
@@ -2328,14 +2409,18 @@ const SimpleTeacherDashboard = () => {
                               >
                                 {center.centerName}
                               </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Box>
-                    )}
+                            ))
+                          ) : (
+                            <MenuItem disabled value="">
+                              {loading ? "Loading centers..." : "No centers available"}
+                            </MenuItem>
+                          )}
+                        </Select>
+                      </FormControl>
+                    </Box>
 
-                    {/* Batch Selection */}
-                    {batchesData.length > 0 && (
+                    {/* Batch Selection - Hidden for Supervisor, visible for non-Staff/Supervisor roles */}
+                    {userRole !== "Supervisor" && batchesData.length > 0 && (
                       <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
                         <FormControl
                           fullWidth
@@ -2479,8 +2564,8 @@ const SimpleTeacherDashboard = () => {
                     const attendancePercentage =
                       dateAttendance?.percentage || 0;
 
-                    // For Staff: check self-attendance status for this date
-                    const staffSelfAttendance = userRole === "Staff" 
+                    // For Staff/Supervisor: check self-attendance status for this date
+                    const staffSelfAttendance = (userRole === "Staff" || userRole === "Supervisor")
                       ? staffSelfAttendanceByDate[dayData.dateString] 
                       : null;
                     const isStaffPresent = staffSelfAttendance === "present";
@@ -2634,7 +2719,7 @@ const SimpleTeacherDashboard = () => {
               flexWrap: { xs: "wrap", md: "nowrap" },
             }}
           >
-          {userRole !== "Staff" && (
+          {userRole !== "Staff" && userRole !== "Supervisor" && (
           <Box
             height={"auto"}
             flex={1}
@@ -2911,7 +2996,7 @@ const SimpleTeacherDashboard = () => {
             </Box>
           )}
           </Box>
-          {userRole !== "Staff" && (
+          {userRole !== "Staff" && userRole !== "Supervisor" && (
           <Box
             sx={{
               padding: { xs: "1rem", md: "1.5rem 1.5rem" },
