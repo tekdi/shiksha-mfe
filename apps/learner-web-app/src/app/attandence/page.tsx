@@ -1496,26 +1496,26 @@ const SimpleTeacherDashboard = () => {
         data.longitude = locationData.longitude;
 
         // For Teachers (and other non-Staff/Supervisor roles), enforce 50m validation
-        // if (userRole !== "Staff" && userRole !== "Supervisor") {
-        //   const validationResult = isLocationValid(locationData);
-        //   data.validLocation = validationResult.valid;
+        if (userRole !== "Staff" && userRole !== "Supervisor") {
+          const validationResult = isLocationValid(locationData);
+          data.validLocation = validationResult.valid;
 
-        //   if (!validationResult.valid) {
-        //     const distanceMsg =
-        //       validationResult.distance !== undefined
-        //         ? `Distance from center: ${validationResult.distance.toFixed(2)}m`
-        //         : "Distance could not be computed.";
-        //     showToastMessage(
-        //       `${distanceMsg} You must be within 50 meters of the center to mark self attendance.`,
-        //       "warning"
-        //     );
-        //     setIsSelfAttendanceModalOpen(false);
-        //     return;
-        //   }
-        // } else {
-        //   // For Staff, don't enforce 50m radius and keep validLocation as false (as per payload example)
-        //   data.validLocation = false;
-        // }
+          if (!validationResult.valid) {
+            const distanceMsg =
+              validationResult.distance !== undefined
+                ? `Distance from center: ${validationResult.distance.toFixed(2)}m`
+                : "Distance could not be computed.";
+            showToastMessage(
+              `${distanceMsg} You must be within 50 meters of the center to mark self attendance.`,
+              "warning"
+            );
+            setIsSelfAttendanceModalOpen(false);
+            return;
+          }
+        } else {
+          // For Staff, don't enforce 50m radius and keep validLocation as false (as per payload example)
+          data.validLocation = false;
+        }
       } else {
         // If no location at all, try to use capturedLocation as last resort
         if (capturedLocation && capturedLocation.latitude !== 0 && capturedLocation.longitude !== 0) {
