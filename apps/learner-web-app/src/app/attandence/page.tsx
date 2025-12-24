@@ -1014,7 +1014,7 @@ const SimpleTeacherDashboard = () => {
         data.longitude = locationData.longitude;
         const validationResult = isLocationValid(locationData);
         data.validLocation = validationResult.valid;
-
+console.log('validationResult', !validationResult.valid);
         if (!validationResult.valid) {
           const distanceMsg =
             validationResult.distance !== undefined
@@ -1856,6 +1856,52 @@ const SimpleTeacherDashboard = () => {
                         <Select
                           value={classId}
                           label={t("LEARNER_APP.COMMON.BATCH")}
+                          onChange={handleBatchChange}
+                          disabled={loading || !selectedCenterId}
+                          sx={{
+                            color: secondaryColor,
+                            "& .MuiSelect-select": {
+                              color: secondaryColor,
+                            },
+                            "& .MuiSvgIcon-root": {
+                              color: secondaryColor,
+                            },
+                          }}
+                        >
+                          {batchesData.map((batch) => (
+                            <MenuItem key={batch.batchId} value={batch.batchId} sx={{ color: secondaryColor }}>
+                              {batch.batchName}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  )}
+                   {batchesData.length > 0 && (
+                    <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                      <FormControl
+                        fullWidth
+                        size="small"
+                        sx={{
+                          minWidth: { xs: "100%", sm: "150px" },
+                          maxWidth: { xs: "100%", md: "200px" },
+                          backgroundColor: "white",
+                          borderRadius: "8px",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                          "& .MuiOutlinedInput-root": {
+                            "&:hover fieldset": {
+                              borderColor: primaryColor,
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: primaryColor,
+                            },
+                          },
+                        }}
+                      >
+                        <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.PROGRAM")}</InputLabel>
+                        <Select
+                          value={classId}
+                          label={t("LEARNER_APP.COMMON.PROGRAM")}
                           onChange={handleBatchChange}
                           disabled={loading || !selectedCenterId}
                           sx={{
