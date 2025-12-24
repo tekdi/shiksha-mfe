@@ -75,9 +75,11 @@ const MarkBulkAttendance: React.FC<MarkBulkAttendanceProps> = ({
       presentCount,
       absentCount,
       numberOfCohortMembers,
+      memberListIsArray: Array.isArray(memberList),
+      firstMember: memberList?.[0],
     });
     
-    if (open) {
+    if (open && memberList && memberList.length > 0) {
       const initialRows = (memberList || []).map((member: any) => ({
         ...member,
         attendance: member.attendance ?? "",
@@ -85,8 +87,17 @@ const MarkBulkAttendance: React.FC<MarkBulkAttendanceProps> = ({
       console.log("[MarkBulkAttendance] Setting rows:", {
         rowsCount: initialRows.length,
         sampleRows: initialRows.slice(0, 3),
+        allRows: initialRows,
       });
       setRows(initialRows);
+    } else if (open && (!memberList || memberList.length === 0)) {
+      console.warn("[MarkBulkAttendance] Modal is open but memberList is empty:", {
+        open,
+        memberListLength: memberList?.length || 0,
+        memberList,
+      });
+      // Still set empty rows to avoid undefined errors
+      setRows([]);
     }
   }, [open, memberList, presentCount, absentCount, numberOfCohortMembers]);
 
@@ -122,6 +133,7 @@ const MarkBulkAttendance: React.FC<MarkBulkAttendanceProps> = ({
     const userAttendance = rows.map((row) => ({
       userId: row.userId,
       attendance: row.attendance,
+      scope: "student", // Add scope to each user attendance item
     }));
 
     if (!allMarked) {

@@ -47,6 +47,7 @@ const DashboardContent = () => {
   const [storedConfig, setStoredConfig] = useState({});
   const [firstName, setFirstName] = useState("");
   const [userProgram, setUserProgram] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [dynamicFilterFields, setDynamicFilterFields] = useState<{
     onlyFields: string[];
     isOpenColapsed: string[];
@@ -74,11 +75,6 @@ const DashboardContent = () => {
       window.location.replace("/login");
     }
   }, []);
-  
-  // Don't render content if not authenticated
-  if (typeof window !== "undefined" && !checkAuth()) {
-    return null;
-  }
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -86,32 +82,52 @@ const DashboardContent = () => {
       setStoredConfig(config);
       setFirstName(localStorage.getItem("firstName") || "");
       setUserProgram(localStorage.getItem("userProgram") || "");
+      const role = localStorage.getItem("userRole");
+      setUserRole(role);
+      
+      // If user is Staff or Supervisor, redirect directly to attendance page
+      if (role === "Staff" || role === "Supervisor") {
+        router.push("/attandence");
+      }
     }
-  }, []);
+  }, [router]);
 
   // Watch for URL parameter changes and update active tab
   useEffect(() => {
     const updateTabFromURL = () => {
+      // If user is Staff or Supervisor, redirect directly to attendance page
+      if (userRole === "Staff" || userRole === "Supervisor") {
+        router.push("/attandence");
+        return;
+      }
+
       // Read from both useSearchParams and window.location for reliability
       const tabParam = searchParams.get("tab") || (typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tab") : null);
       
+      // Map tab parameter to tab value, but only if the tab will be rendered
       if (tabParam === "1") {
         setActiveTab("content");
       } else if (tabParam === "2") {
         setActiveTab("Course");
-      } else if (tabParam === "3") {
+      } else if (tabParam === "3" && showGroups) {
         setActiveTab("groups");
-      } else if (tabParam === "4") {
+      } else if (tabParam === "4" && showAttendance) {
         setActiveTab("attendance");
-      } else if (tabParam === "5") {
+      } else if (tabParam === "5" && showAttendance) {
         setActiveTab("myClasses");
       } else if (tabParam === "0" || !tabParam) {
         // Default to Content tab (first tab) if no tab parameter or tab=0
         setActiveTab("content");
+      } else {
+        // If tab param doesn't match any valid tab, default to first available
+        setActiveTab("content");
       }
     };
 
-    updateTabFromURL();
+    // Only update if userRole is loaded (not null)
+    if (userRole !== null) {
+      updateTabFromURL();
+    }
 
     // Also listen for popstate events (browser back/forward)
     if (typeof window !== "undefined") {
@@ -120,7 +136,7 @@ const DashboardContent = () => {
         window.removeEventListener("popstate", updateTabFromURL);
       };
     }
-  }, [searchParams, pathname]);
+  }, [searchParams, pathname, userRole, showGroups, showAttendance, router]);
 
   useEffect(() => {
     // Prevent duplicate API calls in React StrictMode
@@ -301,6 +317,12 @@ const DashboardContent = () => {
   }, []);
 
   const handleTabChange = (tab: string) => {
+    // If user is Staff, redirect directly to attendance page
+    if (userRole === "Staff" || userRole === "Supervisor") {
+      router.push("/attandence");
+      return;
+    }
+
     if (tab === "attendance") {
       router.push("/attandence");
       return;
@@ -338,6 +360,20 @@ const DashboardContent = () => {
     // Redirect to proper logout page which handles API logout and cookie clearing
     router.push("/logout");
   };
+
+  // Don't render content if not authenticated (after all hooks)
+  if (typeof window !== "undefined" && !checkAuth()) {
+    return null;
+  }
+
+  // Show loading state for Staff / Supervisor users while redirecting (after all hooks)
+  if (userRole === "Staff" || userRole === "Supervisor") {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh" }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Layout onlyHideElements={["footer", "topBar"]}>
@@ -470,7 +506,13 @@ const DashboardContent = () => {
           boxSizing: "border-box",
         }}>
         <Tabs
-          value={activeTab}
+          value={(() => {
+            // For Staff/Supervisor, always show attendance tab
+            if (userRole === "Staff" || userRole === "Supervisor") {
+              return showAttendance ? "attendance" : false;
+            }
+            return activeTab;
+          })()}
           onChange={(_event, newValue) => handleTabChange(newValue)}
           aria-label="Dashboard Tabs"
           variant="scrollable"
@@ -497,6 +539,7 @@ const DashboardContent = () => {
             "& .MuiTabs-scrollButtons": {
               color: secondaryColor,
               width: { xs: 40, sm: 48 },
+              display: { xs: "flex", md: "none" },
               "&.Mui-disabled": {
                 opacity: 0.3,
               },
@@ -507,11 +550,33 @@ const DashboardContent = () => {
             overflowX: { xs: "auto", sm: "visible" },
           }}
         >
-          <Tab label={t("LEARNER_APP.COMMON.CONTENT")} value="content" />
-          <Tab label={t("LEARNER_APP.COMMON.COURSES")} value="Course" />
-          {showGroups && <Tab label={t("LEARNER_APP.COMMON.GROUPS")} value="groups" />}
-          {showAttendance && <Tab label={t("LEARNER_APP.COMMON.ATTENDANCE")} value="attendance" />}
-          {showAttendance && <Tab label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"} value="myClasses" />}
+          <Tab
+            label={t("LEARNER_APP.COMMON.CONTENT")}
+            value="content"
+            sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+          />
+          <Tab
+            label={t("LEARNER_APP.COMMON.COURSES")}
+            value="Course"
+              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+          />
+          {showGroups && (
+            <Tab
+              label={t("LEARNER_APP.COMMON.GROUPS")}
+              value="groups"
+                sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+            />
+          )}
+          {showAttendance && (
+            <Tab label={t("LEARNER_APP.COMMON.ATTENDANCE")} value="attendance" />
+          )}
+          {showAttendance && (
+            <Tab
+              label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"}
+              value="myClasses"
+              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+            />
+          )}
         </Tabs>
         <Grid container style={gredientStyle}>
           <Grid item xs={12}>

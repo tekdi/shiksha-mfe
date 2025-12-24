@@ -5,12 +5,14 @@ export interface UserAttendanceObj {
   memberStatus?: string;
   updatedAt?: string | number | Date;
   userName?: string;
+  scope?: string;
 }
 
 export interface BulkAttendanceParams {
   attendanceDate: string;
   contextId: string;
   userAttendance: UserAttendanceObj[];
+  scope?: string;
 }
 
 export interface MarkAttendanceParams {

@@ -1441,7 +1441,7 @@ export default function Index() {
         
         const userRole = userResponse?.tenantData?.[0]?.roleName;
 
-        if (userRole === "Learner" || userRole === "Teacher") {
+        if (userRole === "Learner" || userRole === "Teacher" || userRole === "Staff" || userRole === "Supervisor") {
           localStorage.setItem("userId", userResponse?.userId);
           localStorage.setItem(
             "templtateId",
@@ -1450,6 +1450,7 @@ export default function Index() {
           localStorage.setItem("userIdName", userResponse?.username);
           localStorage.setItem("mobileNumber", userResponse?.mobile || "");
           localStorage.setItem("firstName", userResponse?.firstName || "");
+          localStorage.setItem("userRole", userRole);
 
           const tenantId = userResponse?.tenantData?.[0]?.tenantId;
           const tenantName = userResponse?.tenantData?.[0]?.tenantName;

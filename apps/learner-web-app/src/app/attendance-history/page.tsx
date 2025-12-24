@@ -278,8 +278,8 @@ const AttendanceHistoryPageContent = () => {
       const memberResponse = await getMyCohortMemberList({
         limit: 300,
         page: 0,
-        filters: { cohortId: classId },
-        includeArchived: true,
+        filters: { cohortId: classId, status: ["active"] },
+        includeArchived: false,
       });
       const rawMembers = memberResponse?.result?.userDetails || [];
       const filteredMembers = filterMembersExcludingCurrentUser(rawMembers);
@@ -340,8 +340,8 @@ const AttendanceHistoryPageContent = () => {
       const memberResponse = await getMyCohortMemberList({
         limit: 300,
         page: 0,
-        filters: { cohortId: classId },
-        includeArchived: true,
+        filters: { cohortId: classId, status: ["active"] },
+        includeArchived: false,
       });
       const members = memberResponse?.result?.userDetails || [];
       const filteredMembers = filterMembersExcludingCurrentUser(members);

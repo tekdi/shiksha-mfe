@@ -14,6 +14,7 @@ import {
   styled,
   Chip,
   Avatar,
+  Tooltip,
 } from "@mui/material";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -22,7 +23,13 @@ import { getCohortList, getCohortDetails } from "../../utils/API/services/Cohort
 import { getMyCohortMemberList } from "../../utils/API/services/MyClassDetailsService";
 import { getUserDetails } from "../../utils/API/services/ProfileService";
 import Layout from "@learner/components/Layout";
-import { AccountCircleOutlined, SchoolOutlined, GroupsOutlined, PersonOutlined } from "@mui/icons-material";
+import {
+  AccountCircleOutlined,
+  SchoolOutlined,
+  GroupsOutlined,
+  PersonOutlined,
+  MoreVert,
+} from "@mui/icons-material";
 import ProfileMenu from "../../components/ProfileMenu/ProfileMenu";
 import ConfirmationModal from "../../components/ConfirmationModal/ConfirmationModal";
 import { gredientStyle } from "@learner/utils/style";
@@ -30,6 +37,8 @@ import { useTenant } from "@learner/context/TenantContext";
 import { useTranslation } from "@shared-lib";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
 import { showToastMessage } from "../attandence/toast";
+import { Status } from "@learner/utils/attendance/constants";
+import { updateCohortMemberStatus } from "../../utils/API/services/MyClassDetailsService";
 
 const StyledCard = styled(Card)(({ theme }) => ({
   borderRadius: "16px",
@@ -71,6 +80,8 @@ const MyClassesPage = () => {
   const [loading, setLoading] = useState(false);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const [removeModalOpen, setRemoveModalOpen] = useState(false);
+  const [memberToRemove, setMemberToRemove] = useState<any | null>(null);
   const [firstName, setFirstName] = useState("");
 
   useEffect(() => {
@@ -153,7 +164,10 @@ const MyClassesPage = () => {
     try {
       const limit = 300;
       const page = 0;
-      const filters = { cohortId: batchId };
+      const filters = {
+        cohortId: batchId,
+        status: [Status.ACTIVE, Status.ARCHIVED],
+      };
       const response = await getMyCohortMemberList({
         limit,
         page,
@@ -178,6 +192,93 @@ const MyClassesPage = () => {
 
   const handleUserClick = (user: any) => {
     setSelectedUser(user);
+  };
+
+  // Translation helper with fallback if key is returned as-is
+  const tt = (key: string, fallback: string) => {
+    const txt = t(key);
+    if (!txt) return fallback;
+    return txt.startsWith("LEARNER_APP.") ? fallback : txt;
+  };
+
+  // Open confirmation modal when three dots are clicked
+  const handleRemoveStudentClick = (
+    event: React.MouseEvent,
+    member: any
+  ) => {
+    event.stopPropagation();
+    setMemberToRemove(member);
+    setRemoveModalOpen(true);
+  };
+
+  // Confirm removal: archive member and update list
+  const handleConfirmRemoveStudent = async () => {
+    if (!memberToRemove) return;
+
+    try {
+      const membershipId =
+        memberToRemove.cohortMembershipId ||
+        memberToRemove.membershipId ||
+        memberToRemove.id;
+
+      if (!membershipId) {
+        showToastMessage(
+          t("LEARNER_APP.MY_CLASSES.REMOVE_STUDENT_MEMBERSHIP_NOT_FOUND") ||
+            "Unable to remove student: membership ID not found.",
+          "error"
+        );
+        return;
+      }
+
+      const response = await updateCohortMemberStatus({
+        memberStatus: Status.ARCHIVED,
+        membershipId,
+      });
+
+      if (response?.responseCode === 200 || response?.responseCode === "OK") {
+        setBatchMembers((prev) =>
+          prev.map((m: any) =>
+            m.userId === memberToRemove.userId
+              ? { ...m, status: Status.ARCHIVED, memberStatus: Status.ARCHIVED }
+              : m
+          )
+        );
+        setSelectedUser((prev: any) =>
+          prev?.userId === memberToRemove.userId
+            ? { ...prev, status: Status.ARCHIVED, memberStatus: Status.ARCHIVED }
+            : prev
+        );
+        showToastMessage(
+          tt(
+            "LEARNER_APP.MY_CLASSES.REMOVE_STUDENT_SUCCESS",
+            "Student removed from this class successfully."
+          ),
+          "success"
+        );
+      } else {
+        showToastMessage(
+          response?.params?.errmsg ||
+            response?.params?.err ||
+            tt(
+              "LEARNER_APP.MY_CLASSES.REMOVE_STUDENT_FAILED",
+              "Failed to remove student from this class."
+            ),
+          "error"
+        );
+      }
+    } catch (error) {
+      console.error("Error removing student from class:", error);
+      showToastMessage(
+        tt(
+          "LEARNER_APP.MY_CLASSES.REMOVE_STUDENT_ERROR",
+          "An error occurred while removing the student from this class."
+        ),
+        "error"
+      );
+    } finally {
+      setRemoveModalOpen(false);
+      setMemberToRemove(null);
+    }
   };
 
   const handleProfileClick = () => {
@@ -513,7 +614,16 @@ const MyClassesPage = () => {
                                                     selectedBatchForCenter === batch.cohortId ? 700 : 500,
                                                 }}
                                               >
-                                                {batch.cohortName}
+                                                {(() => {
+                                                  // Extract slot value from cohortMemberCustomField (label: "SLOTS")
+                                                  const slotField = batch.cohortMemberCustomField?.find(
+                                                    (field: any) => field?.label?.toUpperCase() === "SLOTS"
+                                                  );
+                                                  const slotValue = slotField?.selectedValues?.[0] || "";
+                                                  return slotValue
+                                                    ? `${batch.cohortName} (${slotValue})`
+                                                    : batch.cohortName;
+                                                })()}
                                               </Typography>
                                             </Box>
                                           ))}
@@ -655,6 +765,22 @@ const MyClassesPage = () => {
                                             @{member.role}
                                           </Typography>
                                         </Box>
+                                        <Tooltip
+                                          title={tt(
+                                            "LEARNER_APP.MY_CLASSES.REMOVE_STUDENT_TOOLTIP",
+                                            "Remove the student from this class"
+                                          )}
+                                        >
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) =>
+                                              handleRemoveStudentClick(e, member)
+                                            }
+                                            sx={{ ml: 0.5 }}
+                                          >
+                                            <MoreVert fontSize="small" />
+                                          </IconButton>
+                                        </Tooltip>
                                         {selectedUser?.userId === member.userId && (
                                           <Box
                                             sx={{
@@ -981,6 +1107,21 @@ const MyClassesPage = () => {
         handleAction={performLogout}
         message={t("COMMON.SURE_LOGOUT")}
         buttonNames={{ primary: t("COMMON.LOGOUT"), secondary: t("COMMON.CANCEL") }}
+      />
+      <ConfirmationModal
+        modalOpen={removeModalOpen}
+        handleCloseModal={() => setRemoveModalOpen(false)}
+        handleAction={handleConfirmRemoveStudent}
+        message={
+          tt(
+            "LEARNER_APP.MY_CLASSES.REMOVE_STUDENT_CONFIRM",
+            "Do you want to remove this student from this class?"
+          )
+        }
+        buttonNames={{
+          primary: tt("LEARNER_APP.COMMON.YES", "Yes"),
+          secondary: tt("LEARNER_APP.COMMON.CANCEL", "Cancel"),
+        }}
       />
     </Layout>
   );

@@ -21,6 +21,8 @@ import {
   Tabs,
   Tab,
   IconButton,
+  TextField,
+  Chip,
 } from "@mui/material";
 import Link from "next/link";
 import Image from "next/image";
@@ -51,7 +53,7 @@ import {
   isTodayDate,
   getDayDifferenceFromToday,
 } from "@learner/utils/attendance/helper";
-import { ATTENDANCE_ENUM } from "@learner/utils/attendance/constants";
+import { ATTENDANCE_ENUM, Status } from "@learner/utils/attendance/constants";
 import { getContrastTextColor } from "@learner/utils/colorUtils";
 import ModalComponent from "./components/ModalComponent";
 import MarkBulkAttendance from "./components/MarkBulkAttendance";
@@ -215,6 +217,38 @@ const DateNumber = styled(Typography)(({ theme }) => ({
 
 const MAX_BACKDATED_MARK_DAYS = 7;
 
+// Work location options for Staff role
+const workLocationOptions = [
+  { label: "WORK FROM HOME", value: "work_from_home" },
+  { label: "WORK FROM FIELD", value: "work_from_field" },
+  { label: "WORK FROM OFFICE", value: "work_from_office" },
+  { label: "OTHER", value: "other" },
+];
+
+// Mapping from work location value to API label
+const workLocationLabelMap: Record<string, string> = {
+  work_from_home: "Work From Home",
+  work_from_field: "Work From Field",
+  work_from_office: "Work From Office",
+  other: "Other",
+};
+
+// Absent reason options for Teacher and Staff
+const absentReasonOptions = [
+  { label: "PAID_LEAVE_HALF_DAY", value: "Paid leave - Half day" },
+  { label: "PAID_LEAVE_FULL_DAY", value: "Paid leave - Full day" },
+  { label: "UNPAID_LEAVE_HALF_DAY", value: "Unpaid leave - Half day" },
+  { label: "UNPAID_LEAVE_FULL_DAY", value: "Unpaid leave - Full day" },
+  { label: "MENSTRUAL_LEAVE_HALF_DAY", value: "Menstrual leave - Half day" },
+  { label: "MENSTRUAL_LEAVE_FULL_DAY", value: "Menstrual leave - Full day" },
+];
+
+// Attendance comment options for Teacher and Staff (when Present is selected)
+const attendanceCommentOptions = [
+  "sup",
+  "tap",
+];
+
 // Haversine distance (meters) to validate geo-fence for self attendance
 const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const toRad = (value: number) => (value * Math.PI) / 180;
@@ -288,12 +322,21 @@ const SimpleTeacherDashboard = () => {
       percentage: number;
     };
   }>({});
+  // Store self-attendance by date for Staff role (for calendar display)
+  const [staffSelfAttendanceByDate, setStaffSelfAttendanceByDate] = useState<{
+    [date: string]: "present" | "absent" | null;
+  }>({});
   const router = useRouter();
   const pathname = usePathname();
   const { getLocation } = useGeolocation();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [absentReason, setAbsentReason] = useState("");
+  const [workLocation, setWorkLocation] = useState("");
+  const [comment, setComment] = useState("");
+  const [capturedLocation, setCapturedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
 
   const selectedDateDiffFromToday = useMemo(
     () => getDayDifferenceFromToday(selectedDate),
@@ -342,7 +385,7 @@ const SimpleTeacherDashboard = () => {
     setIsRemoteCohort(false);
   };
 
-  const handleAttendanceDataUpdate = (data: any) => {
+  const handleAttendanceDataUpdate = (data: any, onComplete?: () => void) => {
     console.log("[handleAttendanceDataUpdate] Updating attendance data:", {
       cohortMemberListLength: data?.cohortMemberList?.length || 0,
       presentCount: data?.presentCount || 0,
@@ -350,6 +393,7 @@ const SimpleTeacherDashboard = () => {
       numberOfCohortMembers: data?.numberOfCohortMembers || 0,
       dataKeys: Object.keys(data || {}),
       sampleData: data?.cohortMemberList?.slice(0, 2) || [],
+      fullMemberList: data?.cohortMemberList || [],
     });
     // Use functional update to ensure we're setting the complete data object
     setAttendanceData((prevData) => {
@@ -366,7 +410,20 @@ const SimpleTeacherDashboard = () => {
         cohortMemberListLength: newData.cohortMemberList.length,
         presentCount: newData.presentCount,
         absentCount: newData.absentCount,
+        memberListSample: newData.cohortMemberList.slice(0, 3).map(m => ({
+          userId: m?.userId,
+          name: m?.name,
+          attendance: m?.attendance,
+        })),
       });
+      
+      // Call onComplete callback after state is set, with a small delay to ensure React has processed it
+      if (onComplete) {
+        setTimeout(() => {
+          onComplete();
+        }, 100);
+      }
+      
       return newData;
     });
     console.log("[handleAttendanceDataUpdate] State update queued");
@@ -436,12 +493,12 @@ const SimpleTeacherDashboard = () => {
 
             const limit = 300;
             const page = 0;
-            const filters = { cohortId: classId };
+            const filters = { cohortId: classId, status: [Status.ACTIVE] };
             const response = await getMyCohortMemberList({
               limit,
               page,
               filters,
-              includeArchived: true,
+              includeArchived: false,
             });
 
             console.log("[handleRemoteSession] Cohort member list API response:", {
@@ -452,7 +509,26 @@ const SimpleTeacherDashboard = () => {
             });
 
             const resp = response?.result?.userDetails || response?.data?.result?.userDetails || [];
+            console.log("[handleRemoteSession] Raw API response members:", {
+              totalMembers: resp.length,
+              members: resp.map(m => ({
+                userId: m?.userId,
+                name: `${m?.firstName || ""} ${m?.lastName || ""}`.trim(),
+                role: m?.role,
+                username: m?.username,
+              })),
+            });
+            
             const filteredResp = filterMembersExcludingCurrentUser(resp);
+            console.log("[handleRemoteSession] After filtering current user:", {
+              originalCount: resp.length,
+              filteredCount: filteredResp.length,
+              filteredMembers: filteredResp.map(m => ({
+                userId: m?.userId,
+                name: `${m?.firstName || ""} ${m?.lastName || ""}`.trim(),
+                role: m?.role,
+              })),
+            });
             
             if (filteredResp && filteredResp.length > 0) {
               console.log("[handleRemoteSession] Processing members:", filteredResp.length);
@@ -537,22 +613,41 @@ const SimpleTeacherDashboard = () => {
                   typeof selectedDate === "string"
                     ? selectedDate
                     : shortDateFormat(selectedDate);
-                await fetchAttendanceDetails(
-                  nameUserIdArray,
-                  selectedDateStr,
-                  classId,
-                  handleAttendanceDataUpdate
-                );
-                console.log("[handleRemoteSession] Attendance details fetched successfully");
-                // Wait a bit to ensure state update is applied
-                await new Promise(resolve => setTimeout(resolve, 200));
-                console.log("[handleRemoteSession] Opening modal with updated data");
+                
+                // Fetch attendance details - this will call handleAttendanceDataUpdate when done
+                // The callback is called synchronously at the end of fetchAttendanceDetails
+                await new Promise<void>((resolve) => {
+                  const updateCallback = (data: any) => {
+                    console.log("[handleRemoteSession] Callback received data:", {
+                      memberCount: data?.cohortMemberList?.length || 0,
+                    });
+                    handleAttendanceDataUpdate(data, () => {
+                      console.log("[handleRemoteSession] State update completed, opening modal");
+                      setOpen(true);
+                      resolve();
+                    });
+                  };
+                  
+                  fetchAttendanceDetails(
+                    nameUserIdArray,
+                    selectedDateStr,
+                    classId,
+                    updateCallback
+                  ).catch((error) => {
+                    console.error("[handleRemoteSession] Error in fetchAttendanceDetails:", error);
+                    // Still open modal even on error
+                    setOpen(true);
+                    resolve();
+                  });
+                });
               } else {
                 console.warn("[handleRemoteSession] No members to fetch attendance for:", {
                   nameUserIdArrayLength: nameUserIdArray?.length || 0,
                   selectedDate,
                   classId,
                 });
+                // Still open modal even if no members (to show empty state)
+                setOpen(true);
               }
             } else {
               console.warn("[handleRemoteSession] No members found in response:", {
@@ -560,13 +655,18 @@ const SimpleTeacherDashboard = () => {
                 hasResult: !!response?.result,
                 hasData: !!response?.data,
               });
+              // Open modal even if no members found
+              setOpen(true);
             }
           } catch (error) {
             console.error("[handleRemoteSession] Error fetching cohort member list:", error);
+            // Open modal even on error
+            setOpen(true);
           }
+        } else {
+          // If no classId or selectedDate, still open modal
+          setOpen(true);
         }
-        // Open modal after data is fetched and state is updated
-        handleModalToggle();
       }
     } catch (error) {
       console.error("Error parsing teacher app data:", error);
@@ -582,6 +682,13 @@ const SimpleTeacherDashboard = () => {
     handleRemoteSession();
   };
 
+  useEffect(() => {
+    // Load user role for Staff-specific behaviour
+    if (typeof window !== "undefined") {
+      const role = localStorage.getItem("userRole");
+      setUserRole(role);
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -696,11 +803,20 @@ const SimpleTeacherDashboard = () => {
                 item.parentId === defaultCenter.centerId &&
                 item.cohortStatus === "active"
             )
-            .map((item: any) => ({
-              batchId: item.cohortId,
-              batchName: item.cohortName,
-              parentId: item.parentId,
-            }));
+            .map((item: any) => {
+              // Extract slot value from cohortMemberCustomField
+              const slotField = item.cohortMemberCustomField?.find(
+                (field: any) => field?.label?.toUpperCase() === "SLOTS"
+              );
+              const slotValue = slotField?.selectedValues?.[0] || "";
+              
+              return {
+                batchId: item.cohortId,
+                batchName: item.cohortName,
+                parentId: item.parentId,
+                slot: slotValue,
+              };
+            });
 
           console.log("Batches for default center (from myCohorts):", batches);
           setBatchesData(batches);
@@ -740,11 +856,20 @@ const SimpleTeacherDashboard = () => {
               const defaultCenter = fallbackCenters[0];
               setSelectedCenterId(defaultCenter.centerId);
               
-              const batches = defaultCenter.childData.map((batch: any) => ({
-                batchId: batch.cohortId,
-                batchName: batch.cohortName,
-                parentId: batch.parentId,
-              }));
+              const batches = defaultCenter.childData.map((batch: any) => {
+                // Extract slot value from cohortMemberCustomField
+                const slotField = batch.cohortMemberCustomField?.find(
+                  (field: any) => field?.label?.toUpperCase() === "SLOTS"
+                );
+                const slotValue = slotField?.selectedValues?.[0] || "";
+                
+                return {
+                  batchId: batch.cohortId,
+                  batchName: batch.cohortName,
+                  parentId: batch.parentId,
+                  slot: slotValue,
+                };
+              });
               setBatchesData(batches);
               
               if (batches.length > 0) {
@@ -773,11 +898,20 @@ const SimpleTeacherDashboard = () => {
           item.parentId === centerId &&
           item.cohortStatus === "active"
       )
-      .map((item: any) => ({
-        batchId: item.cohortId,
-        batchName: item.cohortName,
-        parentId: item.parentId,
-      }));
+      .map((item: any) => {
+        // Extract slot value from cohortMemberCustomField
+        const slotField = item.cohortMemberCustomField?.find(
+          (field: any) => field?.label?.toUpperCase() === "SLOTS"
+        );
+        const slotValue = slotField?.selectedValues?.[0] || "";
+        
+        return {
+          batchId: item.cohortId,
+          batchName: item.cohortName,
+          parentId: item.parentId,
+          slot: slotValue,
+        };
+      });
 
     console.log("Batches for selected center (from myCohorts):", batches);
 
@@ -903,11 +1037,126 @@ const SimpleTeacherDashboard = () => {
     }
   };
 
+  // Generate calendar data function (moved before use)
+  const generateCalendarData = () => {
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const days = [];
+
+    for (let i = 0; i < 30; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      date.setHours(0, 0, 0, 0);
+
+      if (date <= today) {
+        const dayName = ["S", "M", "T", "W", "T", "F", "S"][date.getDay()];
+        const dateStr = shortDateFormat(date);
+        days.push({
+          date: date.getDate(),
+          day: dayName,
+          fullDate: date,
+          dateString: dateStr,
+          isToday: i === 0,
+        });
+      }
+    }
+
+    return days;
+  };
+
+      // Fetch self-attendance for all calendar dates (for Staff/Supervisor role calendar display)
+  const fetchStaffSelfAttendanceForCalendar = async () => {
+        if (!classId || classId === "all" || (userRole !== "Staff" && userRole !== "Supervisor")) return;
+
+    try {
+      const userId = localStorage.getItem("userId");
+      if (!userId) return;
+
+      const calendarDays = generateCalendarData();
+      if (calendarDays.length === 0) return;
+
+      const firstDate = calendarDays[calendarDays.length - 1].dateString;
+      const lastDate = calendarDays[0].dateString;
+
+      const limit = 300;
+      const page = 0;
+
+      let filters = {
+        contextId: classId,
+        userId: userId,
+        scope: "self",
+        toDate: lastDate,
+        fromDate: firstDate,
+      };
+
+      let response = await getLearnerAttendanceStatus({
+        limit,
+        page,
+        filters,
+      });
+
+      if (
+        !response?.data?.attendanceList ||
+        response.data.attendanceList.length === 0
+      ) {
+        filters = {
+          ...filters,
+          scope: "student",
+        };
+        response = await getLearnerAttendanceStatus({
+          limit,
+          page,
+          filters,
+        });
+      }
+
+      if (response?.data?.attendanceList) {
+        // Create a map of date -> attendance status
+        const attendanceMap: { [date: string]: "present" | "absent" | null } = {};
+        
+        response.data.attendanceList.forEach((item: any) => {
+          if (item.attendanceDate) {
+            const dateKey = shortDateFormat(new Date(item.attendanceDate));
+            attendanceMap[dateKey] = item.attendance?.toLowerCase() === "present" 
+              ? "present" 
+              : item.attendance?.toLowerCase() === "absent" 
+              ? "absent" 
+              : null;
+          }
+        });
+
+        setStaffSelfAttendanceByDate(attendanceMap);
+      } else {
+        setStaffSelfAttendanceByDate({});
+      }
+    } catch (error) {
+      console.error("Error fetching staff self-attendance for calendar:", error);
+      setStaffSelfAttendanceByDate({});
+    }
+  };
+
   const requestLocationPermission = () => {
     if (!isSelectedDateTodayValue) {
       showSelfAttendanceRestrictionMessage();
       return;
     }
+
+    // In local development (localhost), skip geolocation to avoid browser/device limitations
+    if (typeof window !== "undefined" && window.location.hostname === "localhost") {
+      // For localhost, set a test location (Pune, India coordinates) instead of 0,0
+      setCapturedLocation({
+        latitude: 18.5204,
+        longitude: 73.8567,
+      });
+      setIsLocationModalOpen(false);
+      const currentAttendance = selfAttendanceData?.[0]?.attendance;
+      setSelectedSelfAttendance(
+        currentAttendance ? currentAttendance.toLowerCase() : null
+      );
+      setIsSelfAttendanceModalOpen(true);
+      return;
+    }
+
     if (!navigator.geolocation) {
       showToastMessage("Geolocation is not supported by your browser", "error");
       return;
@@ -915,6 +1164,12 @@ const SimpleTeacherDashboard = () => {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
+        // Store the captured location
+        setCapturedLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        // On success, open the self attendance modal
         setIsLocationModalOpen(false);
         const currentAttendance = selfAttendanceData?.[0]?.attendance;
         setSelectedSelfAttendance(
@@ -924,15 +1179,45 @@ const SimpleTeacherDashboard = () => {
       },
       (error) => {
         console.error("Error getting location:", error);
-        showToastMessage(
-          "Failed to get location. Please enable location services.",
-          "error"
-        );
-        setIsLocationModalOpen(false);
+
+        // Provide clearer messages for different error codes
+        if (error.code === 1) {
+          // PERMISSION_DENIED - Keep modal open and show instructions
+          showToastMessage(
+            "Location permission denied. Please enable location access in your browser settings and try again.",
+            "error"
+          );
+          // Don't close the modal - let user retry after enabling permission
+          // The modal will stay open so user can click "Turn On" again after enabling permission
+          console.log("[Location] Permission denied - keeping modal open for retry");
+        } else if (error.code === 2) {
+          // POSITION_UNAVAILABLE
+          showToastMessage(
+            "Location unavailable. Please check your network or try again from an outdoor/open area.",
+            "error"
+          );
+          // Keep modal open for retry
+        } else if (error.code === 3) {
+          // TIMEOUT
+          showToastMessage(
+            "Unable to get location in time. Please ensure GPS/location is ON and try again.",
+            "error"
+          );
+          // Keep modal open for retry
+        } else {
+          showToastMessage(
+            "Failed to get location. Please enable location services and try again.",
+            "error"
+          );
+          // Keep modal open for retry
+        }
+
+        // Don't close the modal on error - allow user to retry
+        // setIsLocationModalOpen(false);
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 30000, // increase timeout to reduce false timeouts
         maximumAge: 0,
       }
     );
@@ -943,6 +1228,23 @@ const SimpleTeacherDashboard = () => {
       showSelfAttendanceRestrictionMessage();
       return;
     }
+
+    // For Teacher: enforce slot timing but keep button enabled.
+    // Do NOT allow marking before 5 minutes of slot start.
+    if (userRole === "Teacher") {
+      const timing = getSelectedBatchSlotTiming();
+      if (timing) {
+        const now = new Date();
+        if (now < timing.enableTime) {
+          showToastMessage(
+            "You can mark self attendance only within 5 minutes before the slot start time.",
+            "warning"
+          );
+          return;
+        }
+      }
+    }
+
     setIsLocationModalOpen(true);
   };
 
@@ -980,6 +1282,12 @@ const SimpleTeacherDashboard = () => {
       return;
     }
 
+    // Validation: Staff/Supervisor must select work location when Present
+    if ((userRole === "Staff" || userRole === "Supervisor") && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && !workLocation) {
+      showToastMessage("Please select a work location", "warning");
+      return;
+    }
+
     try {
       const userId = localStorage.getItem("userId");
       if (!userId) {
@@ -987,47 +1295,174 @@ const SimpleTeacherDashboard = () => {
         return;
       }
 
-      const locationData = await getLocation(true);
-      if (locationData) {
-        console.log("[SelfAttendance] Current location", {
+      // Use captured location first (already captured when location modal was confirmed)
+      // Only call getLocation if capturedLocation is not available
+      let locationData = null;
+      
+      if (capturedLocation && capturedLocation.latitude !== 0 && capturedLocation.longitude !== 0) {
+        // Use previously captured location (preferred - faster, no delay)
+        locationData = {
+          latitude: capturedLocation.latitude,
+          longitude: capturedLocation.longitude,
+          accuracy: 0,
+        };
+        console.log("[SelfAttendance] Using previously captured location", {
           latitude: locationData.latitude,
           longitude: locationData.longitude,
         });
       } else {
-        console.log("[SelfAttendance] No location data returned");
+        // Only try to get location if we don't have a captured one
+        console.log("[SelfAttendance] No captured location, attempting to get current location...");
+        locationData = await getLocation(true);
+        if (locationData) {
+          console.log("[SelfAttendance] Current location obtained", {
+            latitude: locationData.latitude,
+            longitude: locationData.longitude,
+          });
+          // Update captured location for future use
+          setCapturedLocation({
+            latitude: locationData.latitude,
+            longitude: locationData.longitude,
+          });
+        } else {
+          console.log("[SelfAttendance] No location data available");
+        }
       }
+
+      // Scope for API: always "self" for both Teacher, Staff & Supervisor
+      const scope = "self";
+      
+      // Get work location label for API from value (title case)
+      // Only include workLocation if Staff/Supervisor and Present is selected
+      let workLocationLabel = "";
+      if ((userRole === "Staff" || userRole === "Supervisor") && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT) {
+        if (workLocation) {
+          workLocationLabel = workLocationLabelMap[workLocation] || "";
+          // If mapping fails, try to format the value directly
+          if (!workLocationLabel && workLocation) {
+            // Convert "work_from_home" to "Work From Home"
+            workLocationLabel = workLocation
+              .split("_")
+              .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+              .join(" ");
+          }
+        }
+      }
+
+      // Determine lateMark and reason based on slot timing for Teacher role
+      let isLate = false;
+      let effectiveAbsentReason = absentReason || "";
+
+      if (userRole === "Teacher" && selectedSelfAttendance) {
+        const timing = getSelectedBatchSlotTiming();
+        if (timing) {
+          const now = new Date();
+          // Window where lateMark is FALSE: from 5 min before start until 5 min after start
+          // Outside this window, lateMark is TRUE
+          if (now < timing.enableTime) {
+            isLate = true;
+          } else if (now <= timing.lateThreshold) {
+            isLate = false;
+          } else {
+            isLate = true;
+          }
+        }
+      }
+
+      // Debug logging for Staff/Teacher role - check state values
+      console.log("[Self Attendance] State values before payload:", {
+        userRole,
+        selectedSelfAttendance,
+        workLocation,
+        workLocationLabel,
+        comment,
+        absentReason: effectiveAbsentReason,
+        workLocationLabelMapKeys: Object.keys(workLocationLabelMap),
+        workLocationInMap: workLocation ? workLocationLabelMap[workLocation] : "N/A",
+      });
 
       const data: any = {
         userId: userId,
         attendance: selectedSelfAttendance?.toLowerCase(),
         attendanceDate: selectedDate,
-        contextId: classId,
-        scope: "self",
+        contextId: classId || "5767a18a-323a-4eac-b115-22dabcd9b8ae",
+        scope: scope, // Always "self" for both Teacher and Staff
         context: "cohort",
+        // Use `reason` as the primary field; keep absentReason empty to avoid mixing
         absentReason: "",
-        lateMark: true,
+        reason: isLate ? "Late" : effectiveAbsentReason, // Late or user-provided reason
+        workLocation: workLocationLabel || "",
+        comment: comment || "",
+        lateMark: userRole === "Staff" ? true : isLate,
         validLocation: false,
       };
 
+      // Debug logging for Staff/Teacher role - payload before location
+      console.log("[Self Attendance] Payload before location:", {
+        scope: data.scope,
+        workLocation: data.workLocation,
+        comment: data.comment,
+        absentReason: data.absentReason,
+        attendance: data.attendance,
+        userRole,
+      });
+
+      // Always include location if available (from getLocation or capturedLocation)
       if (locationData) {
         data.latitude = locationData.latitude;
         data.longitude = locationData.longitude;
-        const validationResult = isLocationValid(locationData);
-        data.validLocation = validationResult.valid;
-console.log('validationResult', !validationResult.valid);
-        if (!validationResult.valid) {
-          const distanceMsg =
-            validationResult.distance !== undefined
-              ? `Distance from center: ${validationResult.distance.toFixed(2)}m`
-              : "Distance could not be computed.";
-          showToastMessage(
-            `${distanceMsg} You must be within 50 meters of the center to mark self attendance.`,
-            "warning"
-          );
-          setIsSelfAttendanceModalOpen(false);
-          return;
+
+        // For Teachers (and other non-Staff/Supervisor roles), enforce 50m validation
+        // if (userRole !== "Staff" && userRole !== "Supervisor") {
+        //   const validationResult = isLocationValid(locationData);
+        //   data.validLocation = validationResult.valid;
+
+        //   if (!validationResult.valid) {
+        //     const distanceMsg =
+        //       validationResult.distance !== undefined
+        //         ? `Distance from center: ${validationResult.distance.toFixed(2)}m`
+        //         : "Distance could not be computed.";
+        //     showToastMessage(
+        //       `${distanceMsg} You must be within 50 meters of the center to mark self attendance.`,
+        //       "warning"
+        //     );
+        //     setIsSelfAttendanceModalOpen(false);
+        //     return;
+        //   }
+        // } else {
+        //   // For Staff, don't enforce 50m radius and keep validLocation as false (as per payload example)
+        //   data.validLocation = false;
+        // }
+      } else {
+        // If no location at all, try to use capturedLocation as last resort
+        if (capturedLocation && capturedLocation.latitude !== 0 && capturedLocation.longitude !== 0) {
+          data.latitude = capturedLocation.latitude;
+          data.longitude = capturedLocation.longitude;
+          data.validLocation = false;
+          console.log("[SelfAttendance] Using capturedLocation as fallback", {
+            latitude: data.latitude,
+            longitude: data.longitude,
+          });
+        } else {
+          // Only set to 0 if we truly have no location data
+          console.warn("[SelfAttendance] No location data available, setting to 0");
+          data.latitude = 0;
+          data.longitude = 0;
+          data.validLocation = false;
         }
       }
+
+      // Debug logging for Staff/Teacher role - final payload
+      console.log("[Self Attendance] Final payload being sent:", JSON.stringify(data, null, 2));
+      console.log("[Self Attendance] Payload fields check:", {
+        hasWorkLocation: !!data.workLocation,
+        hasComment: !!data.comment,
+        workLocationValue: data.workLocation,
+        commentValue: data.comment,
+        workLocationLength: data.workLocation?.length || 0,
+        commentLength: data.comment?.length || 0,
+      });
+
       const response = await markAttendance(data);
 
       if (
@@ -1039,6 +1474,10 @@ console.log('validationResult', !validationResult.valid);
         showToastMessage(successMessage, "success");
         setIsSelfAttendanceModalOpen(false);
         setSelectedSelfAttendance(null);
+        setAbsentReason("");
+        setWorkLocation("");
+        setComment("");
+        setCapturedLocation(null); // Clear captured location after successful submission
 
         if (response?.data?.attendance) {
           const attendanceValue = response.data.attendance.toLowerCase();
@@ -1056,6 +1495,10 @@ console.log('validationResult', !validationResult.valid);
 
         await fetchSelfAttendance();
         fetchAttendanceData();
+        // Refresh staff self-attendance for calendar if Staff/Supervisor
+        if (userRole === "Staff" || userRole === "Supervisor") {
+          fetchStaffSelfAttendanceForCalendar();
+        }
       } else if (response?.responseCode === 400 || response?.params?.err) {
         const errorMessage =
           response?.params?.errmsg ||
@@ -1078,9 +1521,13 @@ console.log('validationResult', !validationResult.valid);
       if (ShowSelfAttendance) {
         fetchSelfAttendance();
       }
+      // Fetch self-attendance for all calendar dates if Staff/Supervisor
+      if (userRole === "Staff" || userRole === "Supervisor") {
+        fetchStaffSelfAttendanceForCalendar();
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classId, selectedDate, startDateRange, endDateRange, handleSaveHasRun]);
+  }, [classId, selectedDate, startDateRange, endDateRange, handleSaveHasRun, userRole]);
 
   const fetchDayWiseAttendanceData = async () => {
     if (!classId || classId === "all") return;
@@ -1129,12 +1576,12 @@ console.log('validationResult', !validationResult.valid);
 
       const limit = 300;
       const page = 0;
-      const filters = { cohortId: classId };
+      const filters = { cohortId: classId, status: [Status.ACTIVE] };
       const memberResponse = await getMyCohortMemberList({
         limit,
         page,
         filters,
-        includeArchived: true,
+        includeArchived: false,
       });
       const members = memberResponse?.result?.userDetails || [];
       const filteredMembers = filterMembersExcludingCurrentUser(members);
@@ -1385,30 +1832,65 @@ console.log('validationResult', !validationResult.valid);
     }
   };
 
-  const generateCalendarData = () => {
-    const today = new Date();
-    today.setHours(23, 59, 59, 999);
-    const days = [];
+  // Helper: get selected batch slot timings for Teacher's self-attendance
+  const getSelectedBatchSlotTiming = () => {
+    if (!classId || !selectedDate) return null;
 
-    for (let i = 0; i < 30; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      date.setHours(0, 0, 0, 0);
+    // Always derive slot from cohortsData so it works for all centers/batches
+    const selectedCohort: any = (cohortsData as any[]).find(
+      (cohort: any) => cohort.cohortId === classId
+    );
 
-      if (date <= today) {
-        const dayName = ["S", "M", "T", "W", "T", "F", "S"][date.getDay()];
-        const dateStr = shortDateFormat(date);
-        days.push({
-          date: date.getDate(),
-          day: dayName,
-          fullDate: date,
-          dateString: dateStr,
-          isToday: i === 0,
-        });
-      }
+    let slot: string | undefined;
+
+    if (selectedCohort) {
+      const slotField =
+        selectedCohort.cohortMemberCustomField?.find(
+          (field: any) => field?.label?.toUpperCase() === "SLOTS"
+        ) ||
+        selectedCohort.customField?.find(
+          (field: any) => field?.label?.toUpperCase() === "SLOTS"
+        );
+
+      slot = slotField?.selectedValues?.[0];
     }
 
-    return days;
+    // Fallback to batchesData.slot if for some reason cohortsData doesn't carry slots
+    if (!slot) {
+      const selectedBatch = batchesData.find(
+        (batch: any) => batch.batchId === classId
+      );
+      slot = selectedBatch?.slot;
+    }
+
+    if (!slot) return null;
+
+    // Expecting format like "02:15 PM - 03:15 PM"
+    const [startPart] = slot.split("-").map((s: string) => s.trim());
+    if (!startPart) return null;
+
+    const [time, meridian] = startPart.split(" ");
+    if (!time || !meridian) return null;
+
+    const [hourStr, minuteStr] = time.split(":");
+    let hour = parseInt(hourStr || "0", 10);
+    const minute = parseInt(minuteStr || "0", 10);
+
+    if (meridian.toUpperCase() === "PM" && hour < 12) {
+      hour += 12;
+    } else if (meridian.toUpperCase() === "AM" && hour === 12) {
+      hour = 0;
+    }
+
+    const slotStart = new Date(selectedDate);
+    if (Number.isNaN(slotStart.getTime())) return null;
+
+    slotStart.setHours(hour, minute, 0, 0);
+
+    const enableTime = new Date(slotStart.getTime() - 5 * 60 * 1000); // 5 min before start
+    const lateThreshold = new Date(slotStart.getTime() + 5 * 60 * 1000); // 5 min after start
+
+    return { slotStart, enableTime, lateThreshold };
   };
 
   const calendarDays = generateCalendarData();
@@ -1495,14 +1977,14 @@ console.log('validationResult', !validationResult.valid);
     value: string
   ) => {
     switch (value) {
-      case "Course":
-        router.push("/dashboard?tab=0");
-        break;
       case "content":
         router.push("/dashboard?tab=1");
         break;
-      case "groups":
+      case "Course":
         router.push("/dashboard?tab=2");
+        break;
+      case "groups":
+        router.push("/dashboard?tab=3");
         break;
       case "myClasses":
         router.push("/my-classes");
@@ -1717,6 +2199,7 @@ console.log('validationResult', !validationResult.valid);
               "& .MuiTabs-scrollButtons": {
                 color: secondaryColor,
                 width: { xs: 40, sm: 48 },
+                display: { xs: "flex", md: "none" },
                 "&.Mui-disabled": {
                   opacity: 0.3,
                 },
@@ -1727,11 +2210,30 @@ console.log('validationResult', !validationResult.valid);
               overflowX: { xs: "auto", sm: "visible" },
             }}
           >
-            <Tab label={t("LEARNER_APP.COMMON.CONTENT")} value="content" />
-            <Tab label={t("LEARNER_APP.COMMON.COURSES")} value="Course" />
-            <Tab label={t("LEARNER_APP.COMMON.GROUPS")} value="groups" />
-            <Tab label={t("LEARNER_APP.COMMON.ATTENDANCE")} value="attendance" />
-            <Tab label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"} value="myClasses" />
+            <Tab
+              label={t("LEARNER_APP.COMMON.CONTENT")}
+              value="content"
+              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+            />
+            <Tab
+              label={t("LEARNER_APP.COMMON.COURSES")}
+              value="Course"
+              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+            />
+            <Tab
+              label={t("LEARNER_APP.COMMON.GROUPS")}
+              value="groups"
+              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+            />
+            <Tab
+              label={t("LEARNER_APP.COMMON.ATTENDANCE")}
+              value="attendance"
+            />
+            <Tab
+              label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"}
+              value="myClasses"
+              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+            />
           </Tabs>
           <Grid container style={gredientStyle}>
           <Grid item xs={12}>
@@ -1769,166 +2271,126 @@ console.log('validationResult', !validationResult.valid);
                 >
                   {t("LEARNER_APP.ATTENDANCE.DAY_WISE_ATTENDANCE")}
                 </Typography>
-                <Box
-                  sx={{
-                    display: "flex",
-                    gap: { xs: "0.5rem", md: "1rem" },
-                    alignItems: "center",
-                    flexDirection: { xs: "column", sm: "row" },
-                    width: { xs: "100%", md: "auto" },
-                  }}
-                >
-                  {/* Center Selection */}
-                  {centersData.length > 0 && (
-                    <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                      <FormControl
-                        fullWidth
-                        size="small"
-                        sx={{
-                          minWidth: { xs: "100%", sm: "150px" },
-                          maxWidth: { xs: "100%", md: "200px" },
-                          backgroundColor: "white",
-                          borderRadius: "8px",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                          "& .MuiOutlinedInput-root": {
-                            "&:hover fieldset": {
-                              borderColor: primaryColor,
-                            },
-                            "&.Mui-focused fieldset": {
-                              borderColor: primaryColor,
-                            },
-                          },
-                        }}
-                      >
-                        <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.CENTER")}</InputLabel>
-                        <Select
-                          value={selectedCenterId}
-                          label={t("LEARNER_APP.COMMON.CENTER")}
-                          onChange={handleCenterChange}
-                          disabled={loading}
+                {/* Center and Batch Selection - Hidden for Staff role */}
+                {userRole !== "Staff" && (
+                  <Box
+                    sx={{
+                      display: "flex",
+                      gap: { xs: "0.5rem", md: "1rem" },
+                      alignItems: "center",
+                      flexDirection: { xs: "column", sm: "row" },
+                      width: { xs: "100%", md: "auto" },
+                    }}
+                  >
+                    {/* Center Selection */}
+                    {centersData.length > 0 && (
+                      <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                        <FormControl
+                          fullWidth
+                          size="small"
                           sx={{
-                            color: secondaryColor,
-                            "& .MuiSelect-select": {
-                              color: secondaryColor,
-                            },
-                            "& .MuiSvgIcon-root": {
-                              color: secondaryColor,
+                            minWidth: { xs: "100%", sm: "150px" },
+                            maxWidth: { xs: "100%", md: "200px" },
+                            backgroundColor: "white",
+                            borderRadius: "8px",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                            "& .MuiOutlinedInput-root": {
+                              "&:hover fieldset": {
+                                borderColor: primaryColor,
+                              },
+                              "&.Mui-focused fieldset": {
+                                borderColor: primaryColor,
+                              },
                             },
                           }}
                         >
-                          {centersData.map((center) => (
-                            <MenuItem
-                              key={center.centerId}
-                              value={center.centerId}
-                              sx={{ color: secondaryColor }}
-                            >
-                              {center.centerName}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
-                  )}
+                          <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.CENTER")}</InputLabel>
+                          <Select
+                            value={selectedCenterId}
+                            label={t("LEARNER_APP.COMMON.CENTER")}
+                            onChange={handleCenterChange}
+                            disabled={loading}
+                            sx={{
+                              color: secondaryColor,
+                              "& .MuiSelect-select": {
+                                color: secondaryColor,
+                              },
+                              "& .MuiSvgIcon-root": {
+                                color: secondaryColor,
+                              },
+                            }}
+                          >
+                            {centersData.map((center) => (
+                              <MenuItem
+                                key={center.centerId}
+                                value={center.centerId}
+                                sx={{ color: secondaryColor }}
+                              >
+                                {center.centerName}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
+                    )}
 
-                  {/* Batch Selection */}
-                  {batchesData.length > 0 && (
-                    <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                      <FormControl
-                        fullWidth
-                        size="small"
-                        sx={{
-                          minWidth: { xs: "100%", sm: "150px" },
-                          maxWidth: { xs: "100%", md: "200px" },
-                          backgroundColor: "white",
-                          borderRadius: "8px",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                          "& .MuiOutlinedInput-root": {
-                            "&:hover fieldset": {
-                              borderColor: primaryColor,
-                            },
-                            "&.Mui-focused fieldset": {
-                              borderColor: primaryColor,
-                            },
-                          },
-                        }}
-                      >
-                        <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.BATCH")}</InputLabel>
-                        <Select
-                          value={classId}
-                          label={t("LEARNER_APP.COMMON.BATCH")}
-                          onChange={handleBatchChange}
-                          disabled={loading || !selectedCenterId}
+                    {/* Batch Selection */}
+                    {batchesData.length > 0 && (
+                      <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                        <FormControl
+                          fullWidth
+                          size="small"
                           sx={{
-                            color: secondaryColor,
-                            "& .MuiSelect-select": {
-                              color: secondaryColor,
-                            },
-                            "& .MuiSvgIcon-root": {
-                              color: secondaryColor,
+                            minWidth: { xs: "100%", sm: "150px" },
+                            maxWidth: { xs: "100%", md: "200px" },
+                            backgroundColor: "white",
+                            borderRadius: "8px",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                            "& .MuiOutlinedInput-root": {
+                              "&:hover fieldset": {
+                                borderColor: primaryColor,
+                              },
+                              "&.Mui-focused fieldset": {
+                                borderColor: primaryColor,
+                              },
                             },
                           }}
                         >
-                          {batchesData.map((batch) => (
-                            <MenuItem key={batch.batchId} value={batch.batchId} sx={{ color: secondaryColor }}>
-                              {batch.batchName}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
-                  )}
-                   {batchesData.length > 0 && (
-                    <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                      <FormControl
-                        fullWidth
-                        size="small"
-                        sx={{
-                          minWidth: { xs: "100%", sm: "150px" },
-                          maxWidth: { xs: "100%", md: "200px" },
-                          backgroundColor: "white",
-                          borderRadius: "8px",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                          "& .MuiOutlinedInput-root": {
-                            "&:hover fieldset": {
-                              borderColor: primaryColor,
-                            },
-                            "&.Mui-focused fieldset": {
-                              borderColor: primaryColor,
-                            },
-                          },
-                        }}
-                      >
-                        <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.PROGRAM")}</InputLabel>
-                        <Select
-                          value={classId}
-                          label={t("LEARNER_APP.COMMON.PROGRAM")}
-                          onChange={handleBatchChange}
-                          disabled={loading || !selectedCenterId}
-                          sx={{
-                            color: secondaryColor,
-                            "& .MuiSelect-select": {
+                          <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.BATCH")}</InputLabel>
+                          <Select
+                            value={classId}
+                            label={t("LEARNER_APP.COMMON.BATCH")}
+                            onChange={handleBatchChange}
+                            disabled={loading || !selectedCenterId}
+                            sx={{
                               color: secondaryColor,
-                            },
-                            "& .MuiSvgIcon-root": {
-                              color: secondaryColor,
-                            },
-                          }}
-                        >
-                          {batchesData.map((batch) => (
-                            <MenuItem key={batch.batchId} value={batch.batchId} sx={{ color: secondaryColor }}>
-                              {batch.batchName}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
-                  )}
-                </Box>
+                              "& .MuiSelect-select": {
+                                color: secondaryColor,
+                              },
+                              "& .MuiSvgIcon-root": {
+                                color: secondaryColor,
+                              },
+                            }}
+                          >
+                            {batchesData.map((batch) => (
+                              <MenuItem key={batch.batchId} value={batch.batchId} sx={{ color: secondaryColor }}>
+                                {batch.batchName}{batch.slot ? ` (${batch.slot})` : ""}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
+                    )}
+                  </Box>
+                )}
 
                 <Box
                   display={"flex"}
                   sx={{
-                    cursor: "pointer",
+                    cursor:
+                      userRole === "Staff" || userRole === "Supervisor"
+                        ? "not-allowed"
+                        : "pointer",
                     color: theme.palette.secondary.main,
                     gap: { xs: "4px", sm: "6px", md: "8px" },
                     alignItems: "center",
@@ -1940,12 +2402,24 @@ console.log('validationResult', !validationResult.valid);
                     transition: "all 0.2s",
                     width: { xs: "100%", sm: "auto" },
                     justifyContent: { xs: "space-between", sm: "flex-start" },
+                    opacity:
+                      userRole === "Staff" || userRole === "Supervisor" ? 0.6 : 1,
                     "&:hover": {
-                      boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
-                      transform: { xs: "none", md: "translateY(-1px)" },
+                      boxShadow:
+                        userRole === "Staff" || userRole === "Supervisor"
+                          ? "0 2px 4px rgba(0,0,0,0.1)"
+                          : "0 4px 8px rgba(0,0,0,0.15)",
+                      transform:
+                        userRole === "Staff" || userRole === "Supervisor"
+                          ? "none"
+                          : { xs: "none", md: "translateY(-1px)" },
                     },
                   }}
-                  onClick={handleCalendarClick}
+                  onClick={
+                    userRole === "Staff" || userRole === "Supervisor"
+                      ? undefined
+                      : handleCalendarClick
+                  }
                 >
                   <Typography
                     sx={{
@@ -1955,11 +2429,19 @@ console.log('validationResult', !validationResult.valid);
                       fontSize: { xs: "13px", sm: "14px", md: "15px" },
                       color: secondaryColor,
                       flex: { xs: 1, sm: "none" },
+                      cursor:
+                        userRole === "Staff" || userRole === "Supervisor"
+                          ? "not-allowed"
+                          : "pointer",
                     }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCalendarClick();
-                    }}
+                    onClick={
+                      userRole === "Staff" || userRole === "Supervisor"
+                        ? undefined
+                        : (e) => {
+                            e.stopPropagation();
+                            handleCalendarClick();
+                          }
+                    }
                   >
                     {currentMonth} {currentYear}
                   </Typography>
@@ -1967,14 +2449,21 @@ console.log('validationResult', !validationResult.valid);
                     sx={{
                       fontSize: { xs: "14px", sm: "15px", md: "16px" },
                       ml: { xs: 0, sm: 0.5 },
-                      cursor: "pointer",
+                      cursor:
+                        userRole === "Staff" || userRole === "Supervisor"
+                          ? "not-allowed"
+                          : "pointer",
                       color: secondaryColor,
                       display: { xs: "none", sm: "block" },
                     }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCalendarClick();
-                    }}
+                    onClick={
+                      userRole === "Staff" || userRole === "Supervisor"
+                        ? undefined
+                        : (e) => {
+                            e.stopPropagation();
+                            handleCalendarClick();
+                          }
+                    }
                   />
                 </Box>
               </Box>
@@ -1989,6 +2478,13 @@ console.log('validationResult', !validationResult.valid);
                       dateAttendance && dateAttendance.totalCount > 0;
                     const attendancePercentage =
                       dateAttendance?.percentage || 0;
+
+                    // For Staff: check self-attendance status for this date
+                    const staffSelfAttendance = userRole === "Staff" 
+                      ? staffSelfAttendanceByDate[dayData.dateString] 
+                      : null;
+                    const isStaffPresent = staffSelfAttendance === "present";
+                    const isStaffAbsent = staffSelfAttendance === "absent";
 
                     const currentDate = new Date();
                     currentDate.setHours(0, 0, 0, 0);
@@ -2046,7 +2542,42 @@ console.log('validationResult', !validationResult.valid);
                           >
                             {dayData.date}
                           </DateNumber>
-                          {isMarked ? (
+                          {/* For Staff/Supervisor: Show green/red circular progress ring based on self-attendance */}
+                          {(userRole === "Staff" || userRole === "Supervisor") && (isStaffPresent || isStaffAbsent) ? (
+                            <Box
+                              sx={{
+                                position: "relative",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                width: { xs: "16px", sm: "18px", md: "20px" },
+                                height: { xs: "16px", sm: "18px", md: "20px" },
+                                marginTop: { xs: "1px", md: "2px" },
+                              }}
+                            >
+                              <CircularProgress
+                                variant="determinate"
+                                value={100}
+                                size={20}
+                                thickness={10}
+                                sx={{
+                                  color: isStaffPresent
+                                    ? theme.palette.success.main
+                                    : theme.palette.error.main,
+                                  position: "absolute",
+                                  width: { xs: "16px", sm: "18px", md: "20px" },
+                                  height: { xs: "16px", sm: "18px", md: "20px" },
+                                  "& .MuiCircularProgress-circle": {
+                                    strokeLinecap: "round",
+                                    stroke: isStaffPresent
+                                      ? theme.palette.success.main
+                                      : theme.palette.error.main,
+                                  },
+                                }}
+                              />
+                            </Box>
+                          ) : isMarked ? (
+                            /* For Teacher: Show circular progress as before */
                             <Box
                               sx={{
                                 position: "relative",
@@ -2103,6 +2634,7 @@ console.log('validationResult', !validationResult.valid);
               flexWrap: { xs: "wrap", md: "nowrap" },
             }}
           >
+          {userRole !== "Staff" && (
           <Box
             height={"auto"}
             flex={1}
@@ -2237,6 +2769,7 @@ console.log('validationResult', !validationResult.valid);
                 {currentAttendance === "notMarked" ? t("LEARNER_APP.ATTENDANCE.MARK") : t("LEARNER_APP.ATTENDANCE.MODIFY")}
               </Button>
             </Box>
+          )}
 
           {ShowSelfAttendance && (
             <Box
@@ -2378,6 +2911,7 @@ console.log('validationResult', !validationResult.valid);
             </Box>
           )}
           </Box>
+          {userRole !== "Staff" && (
           <Box
             sx={{
               padding: { xs: "1rem", md: "1.5rem 1.5rem" },
@@ -2594,6 +3128,7 @@ console.log('validationResult', !validationResult.valid);
               </Grid>
             )}
           </Box>
+          )}
                 </ContentWrapper>
               </MainContent>
             </DashboardContainer>
@@ -2691,6 +3226,10 @@ console.log('validationResult', !validationResult.valid);
             setSelectedSelfAttendance(
               currentAttendance ? currentAttendance.toLowerCase() : null
             );
+            setAbsentReason("");
+            setWorkLocation("");
+            setComment("");
+            // Don't clear capturedLocation here - keep it for retry
           }}
           handlePrimaryAction={() => {
             if (selectedSelfAttendance) {
@@ -2837,6 +3376,119 @@ console.log('validationResult', !validationResult.valid);
                 }}
               />
             </Box>
+
+            {/* Conditional Fields based on Role and Attendance Selection */}
+            
+            {/* For Staff/Supervisor: Work Location dropdown when Present is selected */}
+            {(userRole === "Staff" || userRole === "Supervisor") && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
+              <Box sx={{ mt: 3 }}>
+                <FormControl fullWidth>
+                  <InputLabel id="work-location-label">Work Location</InputLabel>
+                  <Select
+                    labelId="work-location-label"
+                    value={workLocation}
+                    onChange={(e) => setWorkLocation(e.target.value)}
+                    label="Work Location"
+                    sx={{
+                      mt: 1,
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: alpha(secondaryColor, 0.3),
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: primaryColor,
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: primaryColor,
+                      },
+                    }}
+                  >
+                    {workLocationOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
+
+            {/* For Teacher & Staff/Supervisor: Comment text box when Present is selected */}
+            {(userRole === "Teacher" || userRole === "Staff" || userRole === "Supervisor") &&
+              selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
+                <Box sx={{ mt: 3 }}>
+                  <TextField
+                    fullWidth
+                    label="Comment"
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="sup / tap"
+                    sx={{
+                      mt: 1,
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": {
+                          borderColor: alpha(secondaryColor, 0.3),
+                        },
+                        "&:hover fieldset": {
+                          borderColor: primaryColor,
+                        },
+                        "&.Mui-focused fieldset": {
+                          borderColor: primaryColor,
+                        },
+                      },
+                    }}
+                  />
+                  <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>
+                    {attendanceCommentOptions.map((option) => (
+                      <Chip
+                        key={option}
+                        label={option}
+                        size="small"
+                        onClick={() => setComment(option)}
+                        sx={{
+                          cursor: "pointer",
+                          backgroundColor:
+                            comment === option
+                              ? alpha(primaryColor, 0.1)
+                              : alpha(secondaryColor, 0.08),
+                        }}
+                      />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+            {/* For Teacher & Staff: Absent Reason dropdown when Absent is selected */}
+            {selectedSelfAttendance === ATTENDANCE_ENUM.ABSENT && (
+              <Box sx={{ mt: 3 }}>
+                <FormControl fullWidth>
+                  <InputLabel id="absent-reason-label">Reason for Absence</InputLabel>
+                  <Select
+                    labelId="absent-reason-label"
+                    value={absentReason}
+                    onChange={(e) => setAbsentReason(e.target.value)}
+                    label="Reason for Absence"
+                    sx={{
+                      mt: 1,
+                      "& .MuiOutlinedInput-notchedOutline": {
+                        borderColor: alpha(secondaryColor, 0.3),
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: primaryColor,
+                      },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                        borderColor: primaryColor,
+                      },
+                    }}
+                  >
+                    {absentReasonOptions.map((option) => (
+                      <MenuItem key={option.label} value={option.value}>
+                        {option.value}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            )}
           </Box>
         </ModalComponent>
       )}
