@@ -26,6 +26,10 @@ type MarkAttendanceRequest = MarkAttendanceParams & {
   context?: string;
   workLocation?: string;
   comment?: string;
+  remark?: string;
+  metaData?: {
+    workLocation?: string;
+  };
 };
 
 type PostAttendanceListParams = {
@@ -106,6 +110,8 @@ export const markAttendance = async ({
   context,
   workLocation,
   comment,
+  remark,
+  metaData,
 }: MarkAttendanceRequest): Promise<any> => {
   const apiUrl: string = API_ENDPOINTS.attendanceCreate;
   try {
@@ -128,8 +134,18 @@ export const markAttendance = async ({
       payload.scope = scope;
     }
     
-    // Always include workLocation and comment (even if empty strings)
-    // This ensures they are sent to the API when they have values
+    // Add remark if provided (new field replacing comment)
+    if (remark !== undefined && remark !== null) {
+      payload.remark = remark;
+    }
+    
+    // Add metaData if provided (contains workLocation)
+    if (metaData !== undefined && metaData !== null) {
+      payload.metaData = metaData;
+    }
+    
+    // Keep backward compatibility: include workLocation and comment if provided
+    // (for any existing code that might still use these)
     if (workLocation !== undefined && workLocation !== null) {
       payload.workLocation = workLocation;
     }
