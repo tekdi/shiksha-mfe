@@ -1599,20 +1599,40 @@ const SimpleTeacherDashboard = () => {
         // For Staff with work_from_office, enforce 50m validation against office
         // For Staff with other work locations, no validation
         if (userRole === "Teacher" || userRole === "Supervisor") {
-          const validationResult = isLocationValid(locationData, false);
-          data.validLocation = validationResult.valid;
+          let shouldValidate = true;
 
-          if (!validationResult.valid) {
-            const distanceMsg =
-              validationResult.distance !== undefined
-                ? `Distance from center: ${validationResult.distance.toFixed(2)}m`
-                : "Distance could not be computed.";
-            showToastMessage(
-              `${distanceMsg} You must be within 50 meters of the center to mark self attendance.`,
-              "warning"
-            );
-            setIsSelfAttendanceModalOpen(false);
-            return;
+          // For Supervisor: check if selected center has coordinates
+          // If not, skip validation
+          if (userRole === "Supervisor") {
+            const centerCoords = getSelectedCenterCoordinates();
+            if (!centerCoords) {
+              shouldValidate = false;
+              console.log(
+                "[SelfAttendance] Supervisor selected center has no coordinates. Skipping validation."
+              );
+            }
+          }
+
+          if (shouldValidate) {
+            const validationResult = isLocationValid(locationData, false);
+            data.validLocation = validationResult.valid;
+
+            if (!validationResult.valid) {
+              const distanceMsg =
+                validationResult.distance !== undefined
+                  ? `Distance from center: ${validationResult.distance.toFixed(
+                      2
+                    )}m`
+                  : "Distance could not be computed.";
+              showToastMessage(
+                `${distanceMsg} You must be within 50 meters of the center to mark self attendance.`,
+                "warning"
+              );
+              setIsSelfAttendanceModalOpen(false);
+              return;
+            }
+          } else {
+            data.validLocation = false;
           }
         } 
         else if (userRole === "Staff" && workLocation === "work_from_office") {
@@ -3635,7 +3655,7 @@ const SimpleTeacherDashboard = () => {
             {/* For Teacher: Comment Autocomplete when Present is selected */}
             {userRole === "Teacher" &&
               selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
-                <Box sx={{ p: 2.5, pt: 2.5 }}>
+                <Box sx={{ p: 0.5, pt: 2.5,borderRadius:"12px" }}>
                   <Autocomplete
                     freeSolo
                     fullWidth
@@ -3764,4 +3784,3 @@ const SimpleTeacherDashboard = () => {
 };
 
 export default SimpleTeacherDashboard;
-
