@@ -22,7 +22,7 @@ import {
   Tab,
   IconButton,
   TextField,
-  Chip,
+  Autocomplete,
 } from "@mui/material";
 import Link from "next/link";
 import Image from "next/image";
@@ -233,7 +233,7 @@ const workLocationLabelMap: Record<string, string> = {
   other: "Other",
 };
 
-// Absent reason options for Teacher and Staff
+// Absent reason options for Staff and Supervisor
 const absentReasonOptions = [
   { label: "PAID_LEAVE_HALF_DAY", value: "Paid leave - Half day" },
   { label: "PAID_LEAVE_FULL_DAY", value: "Paid leave - Full day" },
@@ -241,12 +241,22 @@ const absentReasonOptions = [
   { label: "UNPAID_LEAVE_FULL_DAY", value: "Unpaid leave - Full day" },
   { label: "MENSTRUAL_LEAVE_HALF_DAY", value: "Menstrual leave - Half day" },
   { label: "MENSTRUAL_LEAVE_FULL_DAY", value: "Menstrual leave - Full day" },
+  { label: "STUDY_LEAVE_HALF_DAY", value: "Study Leave - Half day" },
+  { label: "STUDY_LEAVE_FULL_DAY", value: "Study Leave - Full day" },
+  { label: "OTHER", value: "Other" },
 ];
 
-// Attendance comment options for Teacher and Staff (when Present is selected)
+// Additional absent reason options for Teacher role only
+const teacherOnlyAbsentReasonOptions = [
+  { label: "UNINFORMED_FULL_DAY_ABSENT", value: "Uninformed Full Day Absent" },
+  { label: "UNINFORMED_HALF_DAY_PRESENT", value: "Uninformed Half Day Present" },
+  { label: "MEDICAL_LEAVE", value: "Medical Leave" },
+];
+
+// Attendance comment options for Teacher role only (when Present is selected)
 const attendanceCommentOptions = [
-  "sup",
-  "tap",
+  "STAT",
+  "TAB",
 ];
 
 // Haversine distance (meters) to validate geo-fence for self attendance
@@ -629,9 +639,9 @@ const SimpleTeacherDashboard = () => {
                   };
                   
                   fetchAttendanceDetails(
-                    nameUserIdArray,
-                    selectedDateStr,
-                    classId,
+                  nameUserIdArray,
+                  selectedDateStr,
+                  classId,
                     updateCallback
                   ).catch((error) => {
                     console.error("[handleRemoteSession] Error in fetchAttendanceDetails:", error);
@@ -749,8 +759,8 @@ const SimpleTeacherDashboard = () => {
       const response = await getCohortList(
         userId,
         {
-          customField: "true",
-          children: "true",
+        customField: "true",
+        children: "true",
         },
         true // isCustomFields: true to get all data without filtering
       );
@@ -803,61 +813,61 @@ const SimpleTeacherDashboard = () => {
           }
         } else {
           // For Teacher and other roles: Fetch hierarchy to get centers
-          // Extract unique parent IDs from the cohorts
-          const uniqueParentIds = [...new Set(
-            response
-              .filter((item: any) => item.parentId && item.type === "COHORT")
-              .map((item: any) => item.parentId)
-          )];
-          
-          console.log("Unique parent IDs:", uniqueParentIds);
-          
-          // Fetch hierarchy data for each unique parent ID
-          const centersWithHierarchy = await Promise.all(
-            uniqueParentIds.map(async (parentId: any) => {
-              try {
-                // Call cohortHierarchy API with the parent ID
-                const hierarchyData = await getCohortDetails(parentId, {
-                  children: "true",
-                  customField: "true",
-                });
-                
-                console.log(`Hierarchy data for ${parentId}:`, hierarchyData);
-                
-                // The API returns an array, get the first item
-                const centerData = Array.isArray(hierarchyData) ? hierarchyData[0] : hierarchyData;
-                
-                return {
-                  centerId: centerData?.cohortId || parentId,
-                  centerName: centerData?.cohortName || centerData?.name || "Unknown Center",
-                  childData: centerData?.childData || [],
-                  hierarchyData: centerData,
-                };
-              } catch (error) {
-                console.error(`Error fetching hierarchy for ${parentId}:`, error);
-                return null;
-              }
-            })
-          );
-          
-          // Filter out null values (failed requests)
-          const validCenters = centersWithHierarchy.filter((center) => center !== null);
-          
-          console.log("[fetchUserCohorts] Valid centers found:", validCenters.length, validCenters);
-          setCentersData(validCenters);
+        // Extract unique parent IDs from the cohorts
+        const uniqueParentIds = [...new Set(
+          response
+            .filter((item: any) => item.parentId && item.type === "COHORT")
+            .map((item: any) => item.parentId)
+        )];
         
-          if (validCenters.length > 0) {
-            const defaultCenter = validCenters[0];
-            setSelectedCenterId(defaultCenter.centerId);
+        console.log("Unique parent IDs:", uniqueParentIds);
+        
+        // Fetch hierarchy data for each unique parent ID
+        const centersWithHierarchy = await Promise.all(
+          uniqueParentIds.map(async (parentId: any) => {
+            try {
+              // Call cohortHierarchy API with the parent ID
+              const hierarchyData = await getCohortDetails(parentId, {
+                children: "true",
+                customField: "true",
+              });
+              
+              console.log(`Hierarchy data for ${parentId}:`, hierarchyData);
+              
+              // The API returns an array, get the first item
+              const centerData = Array.isArray(hierarchyData) ? hierarchyData[0] : hierarchyData;
+              
+              return {
+                centerId: centerData?.cohortId || parentId,
+                centerName: centerData?.cohortName || centerData?.name || "Unknown Center",
+                childData: centerData?.childData || [],
+                hierarchyData: centerData,
+              };
+            } catch (error) {
+              console.error(`Error fetching hierarchy for ${parentId}:`, error);
+              return null;
+            }
+          })
+        );
+        
+        // Filter out null values (failed requests)
+        const validCenters = centersWithHierarchy.filter((center) => center !== null);
+        
+          console.log("[fetchUserCohorts] Valid centers found:", validCenters.length, validCenters);
+        setCentersData(validCenters);
+        
+        if (validCenters.length > 0) {
+          const defaultCenter = validCenters[0];
+          setSelectedCenterId(defaultCenter.centerId);
 
-            // Batches/classes should come ONLY from myCohorts response
-            const batches = response
-              .filter(
-                (item: any) =>
-                  item.type === "COHORT" &&
-                  item.parentId === defaultCenter.centerId &&
-                  item.cohortStatus === "active"
-              )
+          // Batches/classes should come ONLY from myCohorts response
+          const batches = response
+            .filter(
+              (item: any) =>
+                item.type === "COHORT" &&
+                item.parentId === defaultCenter.centerId &&
+                item.cohortStatus === "active"
+            )
               .map((item: any) => {
                 // Extract slot value from cohortMemberCustomField
                 const slotField = item.cohortMemberCustomField?.find(
@@ -866,23 +876,23 @@ const SimpleTeacherDashboard = () => {
                 const slotValue = slotField?.selectedValues?.[0] || "";
                 
                 return {
-                  batchId: item.cohortId,
-                  batchName: item.cohortName,
-                  parentId: item.parentId,
+              batchId: item.cohortId,
+              batchName: item.cohortName,
+              parentId: item.parentId,
                   slot: slotValue,
                 };
               });
 
-            console.log("Batches for default center (from myCohorts):", batches);
-            setBatchesData(batches);
+          console.log("Batches for default center (from myCohorts):", batches);
+          setBatchesData(batches);
 
-            // Set default batch if available
-            if (batches.length > 0) {
-              setClassId(batches[0].batchId);
-            } else {
-              setClassId("");
-            }
+          // Set default batch if available
+          if (batches.length > 0) {
+            setClassId(batches[0].batchId);
           } else {
+            setClassId("");
+          }
+        } else {
           console.log("[fetchUserCohorts] No valid centers from hierarchy, trying fallback with direct cohorts");
           // If no hierarchy data, use direct cohorts/schools from response
           // For Supervisor: items have type "SCHOOL", for Teacher: items have type "COHORT"
@@ -919,10 +929,10 @@ const SimpleTeacherDashboard = () => {
                 } catch (error) {
                   console.error(`Error fetching hierarchy for fallback center ${parentId}:`, error);
                   return {
-                    centerId: parentId,
-                    centerName: `Center ${parentId.substring(0, 8)}`,
-                    childData: cohortsByParent[parentId],
-                    hierarchyData: null,
+              centerId: parentId,
+              centerName: `Center ${parentId.substring(0, 8)}`,
+              childData: cohortsByParent[parentId],
+              hierarchyData: null,
                   };
                 }
               })
@@ -943,9 +953,9 @@ const SimpleTeacherDashboard = () => {
                 const slotValue = slotField?.selectedValues?.[0] || "";
                 
                 return {
-                  batchId: batch.cohortId,
-                  batchName: batch.cohortName,
-                  parentId: batch.parentId,
+                batchId: batch.cohortId,
+                batchName: batch.cohortName,
+                parentId: batch.parentId,
                   slot: slotValue,
                 };
               });
@@ -961,7 +971,7 @@ const SimpleTeacherDashboard = () => {
     } else {
       console.warn("[fetchUserCohorts] No response or empty response from API");
       setCentersData([]);
-    }
+      }
     } catch (error) {
       console.error("[fetchUserCohorts] Error fetching cohorts:", error);
       setCentersData([]);
@@ -990,9 +1000,9 @@ const SimpleTeacherDashboard = () => {
         const slotValue = slotField?.selectedValues?.[0] || "";
         
         return {
-          batchId: item.cohortId,
-          batchName: item.cohortName,
-          parentId: item.parentId,
+        batchId: item.cohortId,
+        batchName: item.cohortName,
+        parentId: item.parentId,
           slot: slotValue,
         };
       });
@@ -1064,7 +1074,10 @@ const SimpleTeacherDashboard = () => {
   const currentAttendance = getCurrentAttendanceStatusValue();
 
   const fetchSelfAttendance = async () => {
-    if (!classId || classId === "all") return;
+    // For Supervisor: use selectedCenterId, for other roles: use classId
+    const effectiveContextId = userRole === "Supervisor" ? selectedCenterId : classId;
+    
+    if (!effectiveContextId || effectiveContextId === "all") return;
 
     try {
       const userId = localStorage.getItem("userId");
@@ -1074,7 +1087,7 @@ const SimpleTeacherDashboard = () => {
       const page = 0;
 
       let filters = {
-        contextId: classId,
+        contextId: effectiveContextId,
         userId: userId,
         scope: "self",
         toDate: selectedDate,
@@ -1150,7 +1163,10 @@ const SimpleTeacherDashboard = () => {
 
       // Fetch self-attendance for all calendar dates (for Staff/Supervisor role calendar display)
   const fetchStaffSelfAttendanceForCalendar = async () => {
-        if (!classId || classId === "all" || (userRole !== "Staff" && userRole !== "Supervisor")) return;
+        // For Supervisor: use selectedCenterId, for Staff: use classId
+        const effectiveContextId = userRole === "Supervisor" ? selectedCenterId : classId;
+        
+        if (!effectiveContextId || effectiveContextId === "all" || (userRole !== "Staff" && userRole !== "Supervisor")) return;
 
     try {
       const userId = localStorage.getItem("userId");
@@ -1166,7 +1182,7 @@ const SimpleTeacherDashboard = () => {
       const page = 0;
 
       let filters = {
-        contextId: classId,
+        contextId: effectiveContextId,
         userId: userId,
         scope: "self",
         toDate: lastDate,
@@ -1225,84 +1241,50 @@ const SimpleTeacherDashboard = () => {
       return;
     }
 
-    // In local development (localhost), skip geolocation to avoid browser/device limitations
-    if (typeof window !== "undefined" && window.location.hostname === "localhost") {
-      // For localhost, set a test location (Pune, India coordinates) instead of 0,0
-      setCapturedLocation({
-        latitude: 18.5204,
-        longitude: 73.8567,
-      });
-      setIsLocationModalOpen(false);
-      const currentAttendance = selfAttendanceData?.[0]?.attendance;
-      setSelectedSelfAttendance(
-        currentAttendance ? currentAttendance.toLowerCase() : null
-      );
-      setIsSelfAttendanceModalOpen(true);
-      return;
-    }
-
     if (!navigator.geolocation) {
       showToastMessage("Geolocation is not supported by your browser", "error");
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        // Store the captured location
-        setCapturedLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        // On success, open the self attendance modal
+    // Close location modal and open attendance modal immediately for better UX
         setIsLocationModalOpen(false);
         const currentAttendance = selfAttendanceData?.[0]?.attendance;
         setSelectedSelfAttendance(
           currentAttendance ? currentAttendance.toLowerCase() : null
         );
         setIsSelfAttendanceModalOpen(true);
+
+    // Get location in the background (non-blocking)
+    // This is a pre-fetch to speed up the actual attendance marking
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        // Store the captured location for use when marking attendance
+        setCapturedLocation({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        console.log("[Location] Location captured successfully", {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
       },
       (error) => {
-        console.error("Error getting location:", error);
-
-        // Provide clearer messages for different error codes
+        console.error("Error getting location (background fetch):", error);
+        // Don't show error to user immediately - this is just a background pre-fetch
+        // Location will be attempted again when marking attendance with retry logic
+        // Only log for debugging
         if (error.code === 1) {
-          // PERMISSION_DENIED - Keep modal open and show instructions
-          showToastMessage(
-            "Location permission denied. Please enable location access in your browser settings and try again.",
-            "error"
-          );
-          // Don't close the modal - let user retry after enabling permission
-          // The modal will stay open so user can click "Turn On" again after enabling permission
-          console.log("[Location] Permission denied - keeping modal open for retry");
+          console.log("[Location] Permission denied");
         } else if (error.code === 2) {
-          // POSITION_UNAVAILABLE
-          showToastMessage(
-            "Location unavailable. Please check your network or try again from an outdoor/open area.",
-            "error"
-          );
-          // Keep modal open for retry
+          console.log("[Location] Position unavailable");
         } else if (error.code === 3) {
-          // TIMEOUT
-          showToastMessage(
-            "Unable to get location in time. Please ensure GPS/location is ON and try again.",
-            "error"
-          );
-          // Keep modal open for retry
-        } else {
-          showToastMessage(
-            "Failed to get location. Please enable location services and try again.",
-            "error"
-          );
-          // Keep modal open for retry
+          console.log("[Location] Timeout - will retry when marking attendance");
         }
-
-        // Don't close the modal on error - allow user to retry
-        // setIsLocationModalOpen(false);
       },
       {
         enableHighAccuracy: true,
-        timeout: 30000, // increase timeout to reduce false timeouts
-        maximumAge: 0,
+        timeout: 20000, // Increased timeout to 20 seconds
+        maximumAge: 30000, // Allow cached location up to 30 seconds old
       }
     );
   };
@@ -1329,33 +1311,95 @@ const SimpleTeacherDashboard = () => {
       }
     }
 
+    // For Staff: enforce fixed 9:30 AM timing but keep button enabled.
+    // Do NOT allow marking before 5 minutes of 9:30 AM (i.e., before 9:25 AM).
+    if (userRole === "Staff") {
+      const timing = getStaffFixedTiming();
+      if (timing) {
+        const now = new Date();
+        if (now < timing.enableTime) {
+          showToastMessage(
+            "You can mark self attendance only within 5 minutes before 9:30 AM.",
+            "warning"
+          );
+          return;
+        }
+      }
+    }
+
     setIsLocationModalOpen(true);
   };
 
+  // Get OBLF office coordinates (for Staff work_from_office validation)
+  const getOBLFOfficeCoordinates = () => {
+    // Try to get office coordinates from centersData or a specific office location
+    // For now, we'll use the selected center's coordinates as office location
+    // If there's a specific office field, it should be added here
+    const center = centersData.find((c) => c.centerId === selectedCenterId);
+    const customFields: any[] =
+      center?.hierarchyData?.customField || center?.customField || [];
+    
+    // Look for office-specific latitude/longitude fields, or use center coordinates
+    const officeLatitudeField = customFields.find(
+      (field) =>
+        (field?.label?.toLowerCase() === "office latitude" || 
+         field?.label?.toLowerCase() === "oblf office latitude") &&
+        Array.isArray(field?.selectedValues) &&
+        field.selectedValues.length > 0
+    );
+    const officeLongitudeField = customFields.find(
+      (field) =>
+        (field?.label?.toLowerCase() === "office longitude" || 
+         field?.label?.toLowerCase() === "oblf office longitude") &&
+        Array.isArray(field?.selectedValues) &&
+        field.selectedValues.length > 0
+    );
+
+    // If office-specific coordinates exist, use them; otherwise use center coordinates
+    if (officeLatitudeField && officeLongitudeField) {
+      const lat = parseFloat(officeLatitudeField?.selectedValues?.[0]);
+      const lon = parseFloat(officeLongitudeField?.selectedValues?.[0]);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        return { latitude: lat, longitude: lon };
+      }
+    }
+
+    // Fallback to center coordinates (office is typically at the center/school)
+    return getSelectedCenterCoordinates();
+  };
+
   const isLocationValid = (
-    locationData: { latitude: number; longitude: number } | null
+    locationData: { latitude: number; longitude: number } | null,
+    useOfficeCoords = false
   ): { valid: boolean; distance?: number } => {
-    const centerCoords = getSelectedCenterCoordinates();
-    if (!centerCoords || !locationData) {
+    // For Staff with work_from_office, use office coordinates
+    // For Teacher/Supervisor, use center coordinates
+    const referenceCoords = useOfficeCoords 
+      ? getOBLFOfficeCoordinates() 
+      : getSelectedCenterCoordinates();
+    
+    if (!referenceCoords || !locationData) {
       console.log("[SelfAttendance] Missing coords", {
-        centerCoords,
+        referenceCoords,
         locationData,
+        useOfficeCoords,
       });
       return { valid: false };
     }
     console.log("[SelfAttendance] Geo check", {
-      centerLatitude: centerCoords.latitude,
-      centerLongitude: centerCoords.longitude,
+      referenceLatitude: referenceCoords.latitude,
+      referenceLongitude: referenceCoords.longitude,
       userLatitude: locationData.latitude,
       userLongitude: locationData.longitude,
+      useOfficeCoords,
     });
     const distance = getDistanceInMeters(
-      centerCoords.latitude,
-      centerCoords.longitude,
+      referenceCoords.latitude,
+      referenceCoords.longitude,
       locationData.latitude,
       locationData.longitude
     );
-    const allowedRadiusMeters = 50; // within 50m of center
+    const allowedRadiusMeters = 50; // within 50m
     return { valid: distance <= allowedRadiusMeters, distance };
   };
 
@@ -1366,8 +1410,8 @@ const SimpleTeacherDashboard = () => {
       return;
     }
 
-    // Validation: Staff/Supervisor must select work location when Present
-    if ((userRole === "Staff" || userRole === "Supervisor") && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && !workLocation) {
+    // Validation: Staff must select work location when Present (Supervisor doesn't need it)
+    if (userRole === "Staff" && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && !workLocation) {
       showToastMessage("Please select a work location", "warning");
       return;
     }
@@ -1379,37 +1423,45 @@ const SimpleTeacherDashboard = () => {
         return;
       }
 
-      // Use captured location first (already captured when location modal was confirmed)
-      // Only call getLocation if capturedLocation is not available
+      // Always get real-time device location for all roles
+      // This ensures we have the most current location, not stale data
       let locationData = null;
       
-      if (capturedLocation && capturedLocation.latitude !== 0 && capturedLocation.longitude !== 0) {
-        // Use previously captured location (preferred - faster, no delay)
-        locationData = {
-          latitude: capturedLocation.latitude,
-          longitude: capturedLocation.longitude,
-          accuracy: 0,
-        };
-        console.log("[SelfAttendance] Using previously captured location", {
+      console.log("[SelfAttendance] Getting real-time device location...");
+      
+      // Try to get location with retry logic (built into getLocation)
+      locationData = await getLocation(true, 2); // 2 retries
+      
+      if (locationData && locationData.latitude !== 0 && locationData.longitude !== 0) {
+        console.log("[SelfAttendance] Real-time location obtained", {
+          latitude: locationData.latitude,
+          longitude: locationData.longitude,
+          accuracy: locationData.accuracy,
+        });
+        // Update captured location for future reference
+        setCapturedLocation({
           latitude: locationData.latitude,
           longitude: locationData.longitude,
         });
       } else {
-        // Only try to get location if we don't have a captured one
-        console.log("[SelfAttendance] No captured location, attempting to get current location...");
-        locationData = await getLocation(true);
-        if (locationData) {
-          console.log("[SelfAttendance] Current location obtained", {
-            latitude: locationData.latitude,
-            longitude: locationData.longitude,
+        // If getLocation failed after retries, try using capturedLocation as fallback
+        if (capturedLocation && capturedLocation.latitude !== 0 && capturedLocation.longitude !== 0) {
+          console.log("[SelfAttendance] Using captured location as fallback after retry failure", {
+            latitude: capturedLocation.latitude,
+            longitude: capturedLocation.longitude,
           });
-          // Update captured location for future use
-          setCapturedLocation({
-            latitude: locationData.latitude,
-            longitude: locationData.longitude,
-          });
+          locationData = {
+            latitude: capturedLocation.latitude,
+            longitude: capturedLocation.longitude,
+            accuracy: 0,
+          };
         } else {
-          console.log("[SelfAttendance] No location data available");
+          console.error("[SelfAttendance] Failed to get location after retries - no valid location data available");
+          showToastMessage(
+            "Unable to get your location. Please ensure location services are enabled, move to an area with better GPS signal, and try again.",
+            "error"
+          );
+          return;
         }
       }
 
@@ -1417,9 +1469,9 @@ const SimpleTeacherDashboard = () => {
       const scope = "self";
       
       // Get work location label for API from value (title case)
-      // Only include workLocation if Staff/Supervisor and Present is selected
+      // Only include workLocation if Staff (not Supervisor) and Present is selected
       let workLocationLabel = "";
-      if ((userRole === "Staff" || userRole === "Supervisor") && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT) {
+      if (userRole === "Staff" && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT) {
         if (workLocation) {
           workLocationLabel = workLocationLabelMap[workLocation] || "";
           // If mapping fails, try to format the value directly
@@ -1433,7 +1485,7 @@ const SimpleTeacherDashboard = () => {
         }
       }
 
-      // Determine lateMark and reason based on slot timing for Teacher role
+      // Determine lateMark and reason based on timing for Teacher and Staff roles
       let isLate = false;
       const effectiveAbsentReason = absentReason || "";
 
@@ -1442,6 +1494,20 @@ const SimpleTeacherDashboard = () => {
         if (timing) {
           const now = new Date();
           // Window where lateMark is FALSE: from 5 min before start until 5 min after start
+          // Outside this window, lateMark is TRUE
+          if (now < timing.enableTime) {
+            isLate = true;
+          } else if (now <= timing.lateThreshold) {
+            isLate = false;
+          } else {
+            isLate = true;
+          }
+        }
+      } else if (userRole === "Staff" && selectedSelfAttendance) {
+        const timing = getStaffFixedTiming();
+        if (timing) {
+          const now = new Date();
+          // Window where lateMark is FALSE: from 5 min before 9:30 AM (9:25 AM) until 5 min after (9:35 AM)
           // Outside this window, lateMark is TRUE
           if (now < timing.enableTime) {
             isLate = true;
@@ -1472,32 +1538,68 @@ const SimpleTeacherDashboard = () => {
       const finalAbsentReason = isPresent ? "" : effectiveAbsentReason;
       const finalReason = isLate ? "Late" : "";
 
+      // For Supervisor: use selectedCenterId as contextId (since classId is empty)
+      // For other roles: use classId
+      const effectiveContextId = userRole === "Supervisor" 
+        ? (selectedCenterId || "5767a18a-323a-4eac-b115-22dabcd9b8ae")
+        : (classId || "5767a18a-323a-4eac-b115-22dabcd9b8ae");
+
       const data: any = {
         userId: userId,
         attendance: selectedSelfAttendance?.toLowerCase(),
         attendanceDate: selectedDate,
-        contextId: classId || "5767a18a-323a-4eac-b115-22dabcd9b8ae",
-        scope: scope, // Always "self" for both Teacher and Staff
+        contextId: effectiveContextId,
+        scope: scope, 
         context: "cohort",
-        absentReason: finalAbsentReason, // Empty for present, absent reason for absent
-        reason: finalReason, // "Late" if late, otherwise empty
+        absentReason: finalAbsentReason, 
+        reason: finalReason, 
         remark: comment || "",
-        lateMark: (userRole === "Staff" || userRole === "Supervisor") ? true : isLate,
         validLocation: false,
-        metaData: {
-          workLocation: workLocationLabel || "",
-        }
       };
 
+     
+      if (userRole === "Supervisor") {
+         data.lateMark = null;
+       
+      } else if (userRole === "Staff") {
+        
+        data.lateMark = isLate; // Use calculated isLate for Staff
+        data.metaData = {
+          workLocation: workLocationLabel || "",
+        };
+      } else {
+       
+        data.lateMark = isLate;
+      }
 
-      // Always include location if available (from getLocation or capturedLocation)
-      if (locationData) {
-        data.latitude = locationData.latitude;
-        data.longitude = locationData.longitude;
-
-        // For Teachers (and other non-Staff/Supervisor roles), enforce 50m validation
-        if (userRole !== "Staff" && userRole !== "Supervisor") {
-          const validationResult = isLocationValid(locationData);
+      // Ensure latitude and longitude are always set (should not be 0)
+      // Always require valid real-time device location for all roles
+      if (!locationData || locationData.latitude === 0 || locationData.longitude === 0) {
+        console.error("[SelfAttendance] Invalid location data - cannot proceed", locationData);
+        showToastMessage(
+          "Invalid location data. Please ensure location services are enabled and try again.",
+          "error"
+        );
+        return;
+      }
+      
+      // Always set latitude and longitude for all roles (real-time device location)
+      data.latitude = locationData.latitude;
+      data.longitude = locationData.longitude;
+      
+      // No 50m validation when marking absent - validation only applies to "present" attendance
+      const isAbsent = selectedSelfAttendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT;
+      
+      if (isAbsent) {
+        // For absent attendance, no location validation needed
+        data.validLocation = false;
+      } else {
+        // For present attendance, apply validation based on role
+        // For Teachers and Supervisor, enforce 50m validation against center
+        // For Staff with work_from_office, enforce 50m validation against office
+        // For Staff with other work locations, no validation
+        if (userRole === "Teacher" || userRole === "Supervisor") {
+          const validationResult = isLocationValid(locationData, false);
           data.validLocation = validationResult.valid;
 
           if (!validationResult.valid) {
@@ -1512,22 +1614,27 @@ const SimpleTeacherDashboard = () => {
             setIsSelfAttendanceModalOpen(false);
             return;
           }
-        } else {
-          // For Staff, don't enforce 50m radius and keep validLocation as false (as per payload example)
-          data.validLocation = false;
-        }
-      } else {
-        // If no location at all, try to use capturedLocation as last resort
-        if (capturedLocation && capturedLocation.latitude !== 0 && capturedLocation.longitude !== 0) {
-          data.latitude = capturedLocation.latitude;
-          data.longitude = capturedLocation.longitude;
-          data.validLocation = false;
-         
-        } else {
-          // Only set to 0 if we truly have no location data
-          console.warn("[SelfAttendance] No location data available, setting to 0");
-          data.latitude = 0;
-          data.longitude = 0;
+        } 
+        else if (userRole === "Staff" && workLocation === "work_from_office") {
+          // Staff with work_from_office: validate against office location
+          const validationResult = isLocationValid(locationData, true);
+          data.validLocation = validationResult.valid;
+
+          if (!validationResult.valid) {
+            const distanceMsg =
+              validationResult.distance !== undefined
+                ? `Distance from office: ${validationResult.distance.toFixed(2)}m`
+                : "Distance could not be computed.";
+            showToastMessage(
+              `${distanceMsg} You must be within 50 meters of the office to mark attendance when working from office.`,
+              "warning"
+            );
+            setIsSelfAttendanceModalOpen(false);
+            return;
+          }
+        } 
+        else {
+          // For Staff with other work locations (work_from_home, work_from_field, other), no validation
           data.validLocation = false;
         }
       }
@@ -1551,6 +1658,15 @@ const SimpleTeacherDashboard = () => {
         const successMessage =
           response?.params?.successmessage || "Attendance marked successfully";
         showToastMessage(successMessage, "success");
+        
+        // Show late message if attendance was marked as late (for Teacher or Staff)
+        if ((userRole === "Teacher" || userRole === "Staff") && isLate) {
+          showToastMessage(
+            "Your attendance has been marked as Late. Please ensure you arrive on time in the future.",
+            "warning"
+          );
+        }
+        
         setIsSelfAttendanceModalOpen(false);
         setSelectedSelfAttendance(null);
         setAbsentReason("");
@@ -1594,7 +1710,10 @@ const SimpleTeacherDashboard = () => {
   };
 
   useEffect(() => {
-    if (classId && classId !== "all") {
+    // For Supervisor: check selectedCenterId, for other roles: check classId
+    const effectiveContextId = userRole === "Supervisor" ? selectedCenterId : classId;
+    
+    if (effectiveContextId && effectiveContextId !== "all") {
       fetchAttendanceData();
       fetchDayWiseAttendanceData();
       if (ShowSelfAttendance) {
@@ -1606,7 +1725,7 @@ const SimpleTeacherDashboard = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classId, selectedDate, startDateRange, endDateRange, handleSaveHasRun, userRole]);
+  }, [classId, selectedCenterId, selectedDate, startDateRange, endDateRange, handleSaveHasRun, userRole]);
 
   const fetchDayWiseAttendanceData = async () => {
     if (!classId || classId === "all") return;
@@ -1970,6 +2089,22 @@ const SimpleTeacherDashboard = () => {
     const lateThreshold = new Date(slotStart.getTime() + 5 * 60 * 1000); // 5 min after start
 
     return { slotStart, enableTime, lateThreshold };
+  };
+
+  // Helper: get fixed 9:30 AM timings for Staff's self-attendance
+  const getStaffFixedTiming = () => {
+    if (!selectedDate) return null;
+
+    const fixedTime = new Date(selectedDate);
+    if (Number.isNaN(fixedTime.getTime())) return null;
+
+    // Set to 9:30 AM
+    fixedTime.setHours(9, 30, 0, 0);
+
+    const enableTime = new Date(fixedTime.getTime() - 5 * 60 * 1000); // 5 min before (9:25 AM)
+    const lateThreshold = new Date(fixedTime.getTime() + 5 * 60 * 1000); // 5 min after (9:35 AM)
+
+    return { fixedTime, enableTime, lateThreshold };
   };
 
   const calendarDays = generateCalendarData();
@@ -2354,15 +2489,15 @@ const SimpleTeacherDashboard = () => {
                 </Typography>
                 {/* Center and Batch Selection - Hidden for Staff, Center only for Supervisor */}
                 {userRole !== "Staff" && (
-                  <Box
-                    sx={{
-                      display: "flex",
-                      gap: { xs: "0.5rem", md: "1rem" },
-                      alignItems: "center",
-                      flexDirection: { xs: "column", sm: "row" },
-                      width: { xs: "100%", md: "auto" },
-                    }}
-                  >
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: { xs: "0.5rem", md: "1rem" },
+                    alignItems: "center",
+                    flexDirection: { xs: "column", sm: "row" },
+                    width: { xs: "100%", md: "auto" },
+                  }}
+                >
                     {/* Center Selection - Visible for Supervisor and non-Staff roles */}
                     <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
                       <FormControl
@@ -2402,13 +2537,13 @@ const SimpleTeacherDashboard = () => {
                         >
                           {centersData.length > 0 ? (
                             centersData.map((center) => (
-                              <MenuItem
-                                key={center.centerId}
-                                value={center.centerId}
-                                sx={{ color: secondaryColor }}
-                              >
-                                {center.centerName}
-                              </MenuItem>
+                            <MenuItem
+                              key={center.centerId}
+                              value={center.centerId}
+                              sx={{ color: secondaryColor }}
+                            >
+                              {center.centerName}
+                            </MenuItem>
                             ))
                           ) : (
                             <MenuItem disabled value="">
@@ -2421,52 +2556,52 @@ const SimpleTeacherDashboard = () => {
 
                     {/* Batch Selection - Hidden for Supervisor, visible for non-Staff/Supervisor roles */}
                     {userRole !== "Supervisor" && batchesData.length > 0 && (
-                      <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                        <FormControl
-                          fullWidth
-                          size="small"
+                    <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                      <FormControl
+                        fullWidth
+                        size="small"
+                        sx={{
+                          minWidth: { xs: "100%", sm: "150px" },
+                          maxWidth: { xs: "100%", md: "200px" },
+                          backgroundColor: "white",
+                          borderRadius: "8px",
+                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                          "& .MuiOutlinedInput-root": {
+                            "&:hover fieldset": {
+                              borderColor: primaryColor,
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: primaryColor,
+                            },
+                          },
+                        }}
+                      >
+                        <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.BATCH")}</InputLabel>
+                        <Select
+                          value={classId}
+                          label={t("LEARNER_APP.COMMON.BATCH")}
+                          onChange={handleBatchChange}
+                          disabled={loading || !selectedCenterId}
                           sx={{
-                            minWidth: { xs: "100%", sm: "150px" },
-                            maxWidth: { xs: "100%", md: "200px" },
-                            backgroundColor: "white",
-                            borderRadius: "8px",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                            "& .MuiOutlinedInput-root": {
-                              "&:hover fieldset": {
-                                borderColor: primaryColor,
-                              },
-                              "&.Mui-focused fieldset": {
-                                borderColor: primaryColor,
-                              },
+                            color: secondaryColor,
+                            "& .MuiSelect-select": {
+                              color: secondaryColor,
+                            },
+                            "& .MuiSvgIcon-root": {
+                              color: secondaryColor,
                             },
                           }}
                         >
-                          <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.BATCH")}</InputLabel>
-                          <Select
-                            value={classId}
-                            label={t("LEARNER_APP.COMMON.BATCH")}
-                            onChange={handleBatchChange}
-                            disabled={loading || !selectedCenterId}
-                            sx={{
-                              color: secondaryColor,
-                              "& .MuiSelect-select": {
-                                color: secondaryColor,
-                              },
-                              "& .MuiSvgIcon-root": {
-                                color: secondaryColor,
-                              },
-                            }}
-                          >
-                            {batchesData.map((batch) => (
-                              <MenuItem key={batch.batchId} value={batch.batchId} sx={{ color: secondaryColor }}>
+                          {batchesData.map((batch) => (
+                            <MenuItem key={batch.batchId} value={batch.batchId} sx={{ color: secondaryColor }}>
                                 {batch.batchName}{batch.slot ? ` (${batch.slot})` : ""}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      </Box>
-                    )}
-                  </Box>
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  )}
+                </Box>
                 )}
 
                 <Box
@@ -2523,8 +2658,8 @@ const SimpleTeacherDashboard = () => {
                       userRole === "Staff" || userRole === "Supervisor"
                         ? undefined
                         : (e) => {
-                            e.stopPropagation();
-                            handleCalendarClick();
+                      e.stopPropagation();
+                      handleCalendarClick();
                           }
                     }
                   >
@@ -2545,8 +2680,8 @@ const SimpleTeacherDashboard = () => {
                       userRole === "Staff" || userRole === "Supervisor"
                         ? undefined
                         : (e) => {
-                            e.stopPropagation();
-                            handleCalendarClick();
+                      e.stopPropagation();
+                      handleCalendarClick();
                           }
                     }
                   />
@@ -2982,7 +3117,7 @@ const SimpleTeacherDashboard = () => {
                   },
                   transition: "all 0.2s",
                 }}
-                disabled={classId === "all"}
+                disabled={userRole === "Supervisor" ? (!selectedCenterId || selectedCenterId === "all") : (!classId || classId === "all")}
                 onClick={handleSelfAttendanceButtonClick}
               >
                 {selfAttendanceData?.length > 0 &&
@@ -3464,8 +3599,8 @@ const SimpleTeacherDashboard = () => {
 
             {/* Conditional Fields based on Role and Attendance Selection */}
             
-            {/* For Staff/Supervisor: Work Location dropdown when Present is selected */}
-            {(userRole === "Staff" || userRole === "Supervisor") && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
+            {/* For Staff: Work Location dropdown when Present is selected (Supervisor doesn't need it) */}
+            {userRole === "Staff" && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
               <Box sx={{ mt: 3 }}>
                 <FormControl fullWidth>
                   <InputLabel id="work-location-label">Work Location</InputLabel>
@@ -3497,8 +3632,50 @@ const SimpleTeacherDashboard = () => {
               </Box>
             )}
 
-            {/* For Teacher & Staff/Supervisor: Comment text box when Present is selected */}
-            {(userRole === "Teacher" || userRole === "Staff" || userRole === "Supervisor") &&
+            {/* For Teacher: Comment Autocomplete when Present is selected */}
+            {userRole === "Teacher" &&
+              selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
+                <Box sx={{ p: 2.5, pt: 2.5 }}>
+                  <Autocomplete
+                    freeSolo
+                    fullWidth
+                    options={attendanceCommentOptions}
+                    value={comment}
+                    onChange={(event, newValue) => {
+                      setComment(newValue || "");
+                    }}
+                    onInputChange={(event, newInputValue) => {
+                      setComment(newInputValue);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        size="small"
+                        label="Comment"
+                        multiline
+                        rows={3}
+                        placeholder="Type to search or add custom comment..."
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            "& fieldset": {
+                              borderColor: alpha(secondaryColor, 0.3),
+                            },
+                            "&:hover fieldset": {
+                              borderColor: primaryColor,
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: primaryColor,
+                            },
+                          },
+                        }}
+                      />
+                    )}
+                  />
+                </Box>
+              )}
+
+            {/* For Staff/Supervisor: Comment text box when Present is selected */}
+            {(userRole === "Staff" || userRole === "Supervisor") &&
               selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
                 <Box sx={{ mt: 3 }}>
                   <TextField
@@ -3506,7 +3683,7 @@ const SimpleTeacherDashboard = () => {
                     label="Comment"
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
-                    placeholder="sup / tap"
+                    placeholder="Enter comment"
                     sx={{
                       mt: 1,
                       "& .MuiOutlinedInput-root": {
@@ -3522,23 +3699,6 @@ const SimpleTeacherDashboard = () => {
                       },
                     }}
                   />
-                  <Box sx={{ display: "flex", gap: 1, mt: 1, flexWrap: "wrap" }}>
-                    {attendanceCommentOptions.map((option) => (
-                      <Chip
-                        key={option}
-                        label={option}
-                        size="small"
-                        onClick={() => setComment(option)}
-                        sx={{
-                          cursor: "pointer",
-                          backgroundColor:
-                            comment === option
-                              ? alpha(primaryColor, 0.1)
-                              : alpha(secondaryColor, 0.08),
-                        }}
-                      />
-                    ))}
-                  </Box>
                 </Box>
               )}
 
@@ -3565,11 +3725,19 @@ const SimpleTeacherDashboard = () => {
                       },
                     }}
                   >
-                    {absentReasonOptions.map((option) => (
-                      <MenuItem key={option.label} value={option.value}>
-                        {option.value}
-                      </MenuItem>
-                    ))}
+                    {(() => {
+                      // For Teacher: combine common options + teacher-only options
+                      // For Staff/Supervisor: only common options
+                      const optionsToShow = userRole === "Teacher"
+                        ? [...absentReasonOptions, ...teacherOnlyAbsentReasonOptions]
+                        : absentReasonOptions;
+                      
+                      return optionsToShow.map((option) => (
+                        <MenuItem key={option.label} value={option.value}>
+                          {option.value}
+                        </MenuItem>
+                      ));
+                    })()}
                   </Select>
                 </FormControl>
               </Box>
