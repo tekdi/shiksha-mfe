@@ -29,6 +29,8 @@ import {
   GroupsOutlined,
   PersonOutlined,
   MoreVert,
+  ExpandMore,
+  ExpandLess,
 } from "@mui/icons-material";
 import ProfileMenu from "../../components/ProfileMenu/ProfileMenu";
 import ConfirmationModal from "../../components/ConfirmationModal/ConfirmationModal";
@@ -83,6 +85,7 @@ const MyClassesPage = () => {
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<any | null>(null);
   const [firstName, setFirstName] = useState("");
+  const [expandedCenters, setExpandedCenters] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const initializePage = async () => {
@@ -176,7 +179,14 @@ const MyClassesPage = () => {
       });
 
       const members = response?.result?.userDetails || [];
-      setBatchMembers(members);
+      // Filter to show only active members
+      const activeMembers = members.filter((member: any) => 
+        member.status === Status.ACTIVE || 
+        member.memberStatus === Status.ACTIVE ||
+        member.status === "active" ||
+        member.memberStatus === "active"
+      );
+      setBatchMembers(activeMembers);
     } catch (error) {
       console.error("Error fetching batch members:", error);
       showToastMessage(t("LEARNER_APP.COMMON.ERROR_FETCHING_MEMBERS") || "Error fetching batch members", "error");
@@ -188,6 +198,18 @@ const MyClassesPage = () => {
   const handleBatchClickForCenter = (batchId: string) => {
     setSelectedBatchForCenter(batchId);
     fetchBatchMembers(batchId);
+  };
+
+  const toggleCenterExpansion = (centerId: string) => {
+    setExpandedCenters((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(centerId)) {
+        newSet.delete(centerId);
+      } else {
+        newSet.add(centerId);
+      }
+      return newSet;
+    });
   };
 
   const handleUserClick = (user: any) => {
@@ -236,12 +258,9 @@ const MyClassesPage = () => {
       });
 
       if (response?.responseCode === 200 || response?.responseCode === "OK") {
+        // Remove archived member from the list (only show active members)
         setBatchMembers((prev) =>
-          prev.map((m: any) =>
-            m.userId === memberToRemove.userId
-              ? { ...m, status: Status.ARCHIVED, memberStatus: Status.ARCHIVED }
-              : m
-          )
+          prev.filter((m: any) => m.userId !== memberToRemove.userId)
         );
         setSelectedUser((prev: any) =>
           prev?.userId === memberToRemove.userId
@@ -378,6 +397,8 @@ const MyClassesPage = () => {
                   fontSize: { xs: "18px", sm: "22px" },
                   lineHeight: 1.3,
                   color: secondaryColor,
+                  display: { xs: "none", sm: "block" },
+                  flexShrink: 0,
                 }}
               >
                 {tenantName}
@@ -539,97 +560,118 @@ const MyClassesPage = () => {
                                 </Box>
                               ) : (
                                 <Box sx={{ maxHeight: "600px", overflowY: "auto", pr: 1 }}>
-                                  {centersData.map((center, index) => (
-                                    <Box key={center.centerId} sx={{ mb: 3 }}>
-                                      <Box
-                                        sx={{
-                                          display: "flex",
-                                          alignItems: "center",
-                                          gap: 1,
-                                          mb: 1.5,
-                                          p: 1.5,
-                                          borderRadius: 2,
-                                          background: `linear-gradient(135deg, ${alpha(primaryColor, 0.1)} 0%, ${alpha(primaryColor, 0.05)} 100%)`,
-                                        }}
-                                      >
-                                        <SchoolOutlined sx={{ color: primaryColor, fontSize: 20 }} />
-                                        <Typography
-                                          variant="subtitle1"
+                                  {centersData.map((center, index) => {
+                                    const isExpanded = expandedCenters.has(center.centerId);
+                                    const batches = cohortsData.filter(
+                                      (cohort: any) =>
+                                        cohort.type === "COHORT" &&
+                                        cohort.parentId === center.centerId &&
+                                        cohort.cohortStatus === "active"
+                                    );
+                                    
+                                    return (
+                                      <Box key={center.centerId} sx={{ mb: 3 }}>
+                                        <Box
+                                          onClick={() => toggleCenterExpansion(center.centerId)}
                                           sx={{
-                                            fontWeight: 700,
-                                            color: secondaryColor,
-                                            fontSize: { xs: "0.95rem", md: "1rem" },
+                                            display: "flex",
+                                            alignItems: "center",
+                                            gap: 1,
+                                            mb: 1.5,
+                                            p: 1.5,
+                                            borderRadius: 2,
+                                            background: `linear-gradient(135deg, ${alpha(primaryColor, 0.1)} 0%, ${alpha(primaryColor, 0.05)} 100%)`,
+                                            cursor: "pointer",
+                                            "&:hover": {
+                                              background: `linear-gradient(135deg, ${alpha(primaryColor, 0.15)} 0%, ${alpha(primaryColor, 0.08)} 100%)`,
+                                            },
+                                            transition: "all 0.2s ease",
                                           }}
                                         >
-                                          {center.centerName}
-                                        </Typography>
-                                      </Box>
-                                      
-                                      <Box sx={{ pl: { xs: 1, md: 2 } }}>
-                                        {cohortsData
-                                          .filter(
-                                            (cohort: any) =>
-                                              cohort.type === "COHORT" &&
-                                              cohort.parentId === center.centerId &&
-                                              cohort.cohortStatus === "active"
-                                          )
-                                          .map((batch: any) => (
-                                            <Box
-                                              key={batch.cohortId}
-                                              onClick={() => handleBatchClickForCenter(batch.cohortId)}
-                                              sx={{
-                                                p: { xs: 1.25, md: 1.5 },
-                                                my: 1,
-                                                borderRadius: 2,
-                                                cursor: "pointer",
-                                                backgroundColor:
-                                                  selectedBatchForCenter === batch.cohortId
-                                                    ? alpha(primaryColor, 0.15)
-                                                    : "white",
-                                                border:
-                                                  selectedBatchForCenter === batch.cohortId
-                                                    ? `2px solid ${primaryColor}`
-                                                    : `1px solid ${alpha(secondaryColor, 0.15)}`,
-                                                "&:hover": {
-                                                  backgroundColor: alpha(primaryColor, 0.08),
-                                                  borderColor: primaryColor,
-                                                  transform: "translateX(4px)",
-                                                  boxShadow: `0 4px 12px ${alpha(primaryColor, 0.2)}`,
-                                                },
-                                                transition: "all 0.3s ease",
-                                                boxShadow:
-                                                  selectedBatchForCenter === batch.cohortId
-                                                    ? `0 4px 16px ${alpha(primaryColor, 0.25)}`
-                                                    : "0 2px 8px rgba(0,0,0,0.05)",
-                                              }}
-                                            >
-                                              <Typography
+                                          <SchoolOutlined sx={{ color: primaryColor, fontSize: 20 }} />
+                                          <Typography
+                                            variant="subtitle1"
+                                            sx={{
+                                              fontWeight: 700,
+                                              color: secondaryColor,
+                                              fontSize: { xs: "0.95rem", md: "1rem" },
+                                              flex: 1,
+                                            }}
+                                          >
+                                            {center.centerName}
+                                          </Typography>
+                                          {batches.length > 0 && (
+                                            <>
+                                              {isExpanded ? (
+                                                <ExpandLess sx={{ color: primaryColor, fontSize: 20 }} />
+                                              ) : (
+                                                <ExpandMore sx={{ color: primaryColor, fontSize: 20 }} />
+                                              )}
+                                            </>
+                                          )}
+                                        </Box>
+                                        
+                                        {isExpanded && batches.length > 0 && (
+                                          <Box sx={{ pl: { xs: 1, md: 2 } }}>
+                                            {batches.map((batch: any) => (
+                                              <Box
+                                                key={batch.cohortId}
+                                                onClick={() => handleBatchClickForCenter(batch.cohortId)}
                                                 sx={{
-                                                  fontSize: { xs: "0.875rem", md: "0.95rem" },
-                                                  color:
+                                                  p: { xs: 1.25, md: 1.5 },
+                                                  my: 1,
+                                                  borderRadius: 2,
+                                                  cursor: "pointer",
+                                                  backgroundColor:
                                                     selectedBatchForCenter === batch.cohortId
-                                                      ? primaryColor
-                                                      : secondaryColor,
-                                                  fontWeight:
-                                                    selectedBatchForCenter === batch.cohortId ? 700 : 500,
+                                                      ? alpha(primaryColor, 0.15)
+                                                      : "white",
+                                                  border:
+                                                    selectedBatchForCenter === batch.cohortId
+                                                      ? `2px solid ${primaryColor}`
+                                                      : `1px solid ${alpha(secondaryColor, 0.15)}`,
+                                                  "&:hover": {
+                                                    backgroundColor: alpha(primaryColor, 0.08),
+                                                    borderColor: primaryColor,
+                                                    transform: "translateX(4px)",
+                                                    boxShadow: `0 4px 12px ${alpha(primaryColor, 0.2)}`,
+                                                  },
+                                                  transition: "all 0.3s ease",
+                                                  boxShadow:
+                                                    selectedBatchForCenter === batch.cohortId
+                                                      ? `0 4px 16px ${alpha(primaryColor, 0.25)}`
+                                                      : "0 2px 8px rgba(0,0,0,0.05)",
                                                 }}
                                               >
-                                                {(() => {
-                                                  // Extract slot value from cohortMemberCustomField (label: "SLOTS")
-                                                  const slotField = batch.cohortMemberCustomField?.find(
-                                                    (field: any) => field?.label?.toUpperCase() === "SLOTS"
-                                                  );
-                                                  const slotValue = slotField?.selectedValues?.[0] || "";
-                                                  return slotValue
-                                                    ? `${batch.cohortName} (${slotValue})`
-                                                    : batch.cohortName;
-                                                })()}
-                                              </Typography>
-                                            </Box>
-                                          ))}
+                                                <Typography
+                                                  sx={{
+                                                    fontSize: { xs: "0.875rem", md: "0.95rem" },
+                                                    color:
+                                                      selectedBatchForCenter === batch.cohortId
+                                                        ? primaryColor
+                                                        : secondaryColor,
+                                                    fontWeight:
+                                                      selectedBatchForCenter === batch.cohortId ? 700 : 500,
+                                                  }}
+                                                >
+                                                  {(() => {
+                                                    // Extract slot value from cohortMemberCustomField (label: "SLOTS")
+                                                    const slotField = batch.cohortMemberCustomField?.find(
+                                                      (field: any) => field?.label?.toUpperCase() === "SLOTS"
+                                                    );
+                                                    const slotValue = slotField?.selectedValues?.[0] || "";
+                                                    return slotValue
+                                                      ? `${batch.cohortName} (${slotValue})`
+                                                      : batch.cohortName;
+                                                  })()}
+                                                </Typography>
+                                              </Box>
+                                            ))}
+                                          </Box>
+                                        )}
                                       </Box>
-                                    </Box>
-                                  ))}
+                                    );
+                                  })}
                                 </Box>
                               )}
                             </CardContent>

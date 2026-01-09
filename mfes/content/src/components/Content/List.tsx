@@ -45,6 +45,8 @@ const SUPPORTED_MIME_TYPES = [
   "application/epub",
   "video/x-youtube",
   "application/vnd.sunbird.questionset",
+  "audio/mpeg",
+  "audio/mp3",
 ];
 
 const DEFAULT_TABS = [

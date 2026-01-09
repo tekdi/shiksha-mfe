@@ -32,11 +32,12 @@ import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import Layout from "@learner/components/Layout";
 import ProfileMenu from "@learner/components/ProfileMenu/ProfileMenu";
 import ConfirmationModal from "@learner/components/ConfirmationModal/ConfirmationModal";
-import { getCohortList } from "@learner/utils/API/services/CohortServices";
+import { getCohortList, getCohortDetails } from "@learner/utils/API/services/CohortServices";
 import { getUserDetails } from "@learner/utils/API/services/ProfileService";
 import {
   attendanceStatusList,
   getCohortAttendance,
+  getLearnerAttendanceStatus,
 } from "@learner/utils/API/services/AttendanceService";
 import { getMyCohortMemberList } from "@learner/utils/API/services/MyClassDetailsService";
 import { ICohort } from "@learner/utils/attendance/interfaces";
@@ -101,6 +102,109 @@ const AttendanceHistoryPageContent = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [staffSelfAttendanceByDate, setStaffSelfAttendanceByDate] = useState<{
+    [date: string]: "present" | "absent" | null;
+  }>({});
+  const getEffectiveContextId = () => {
+    if (userRole === "Supervisor") {
+      return selectedCenterId;
+    }
+    if (classId && classId !== "all") {
+      return classId;
+    }
+    return "";
+  };
+
+  const fetchStaffSelfAttendanceForCalendar = async (baseDate?: Date) => {
+    // Only for Staff and Supervisor
+    if (userRole !== "Staff" && userRole !== "Supervisor") return;
+
+    const contextId = getEffectiveContextId();
+    if (!contextId) return;
+
+    try {
+      const userId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("userId")
+          : null;
+      if (!userId) return;
+
+      // Use provided baseDate (from calendar month), otherwise selectedDate/current month
+      const currentDate = baseDate || selectedDate || new Date();
+      const firstDayOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      );
+      const lastDayOfMonth = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0
+      );
+      const fromDate = shortDateFormat(firstDayOfMonth);
+      const toDate = shortDateFormat(lastDayOfMonth);
+
+      const limit = 300;
+      const page = 0;
+
+      let filters: any = {
+        contextId,
+        userId,
+        scope: "self",
+        fromDate,
+        toDate,
+      };
+
+      let response = await getLearnerAttendanceStatus({
+        limit,
+        page,
+        filters,
+      });
+
+      if (
+        !response?.data?.attendanceList ||
+        response.data.attendanceList.length === 0
+      ) {
+        filters = {
+          ...filters,
+          scope: "student",
+        };
+        response = await getLearnerAttendanceStatus({
+          limit,
+          page,
+          filters,
+        });
+      }
+
+      if (response?.data?.attendanceList) {
+        const attendanceMap: { [date: string]: "present" | "absent" | null } =
+          {};
+
+        response.data.attendanceList.forEach((item: any) => {
+          if (item.attendanceDate) {
+            const dateKey = shortDateFormat(new Date(item.attendanceDate));
+            attendanceMap[dateKey] =
+              item.attendance?.toLowerCase() === "present"
+                ? "present"
+                : item.attendance?.toLowerCase() === "absent"
+                ? "absent"
+                : null;
+          }
+        });
+
+        setStaffSelfAttendanceByDate(attendanceMap);
+      } else {
+        setStaffSelfAttendanceByDate({});
+      }
+    } catch (error) {
+      console.error(
+        "[fetchStaffSelfAttendanceForCalendar] Error:",
+        error
+      );
+      setStaffSelfAttendanceByDate({});
+    }
+  };
 
   const selectedDateDiffFromToday = useMemo(
     () => getDayDifferenceFromToday(selectedDate),
@@ -121,11 +225,10 @@ const AttendanceHistoryPageContent = () => {
     bulkAttendanceStatus: "",
   });
   
-  const today = new Date();
-  const currentMonth = today.toLocaleString("default", {
+  const currentMonth = selectedDate.toLocaleString("default", {
     month: "long",
   });
-  const currentYear = today.getFullYear();
+  const currentYear = selectedDate.getFullYear();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -152,6 +255,8 @@ const AttendanceHistoryPageContent = () => {
       if (typeof window !== "undefined" && window.localStorage) {
         const token = localStorage.getItem("token");
         const storedUserId = localStorage.getItem("userId");
+        const storedRole = localStorage.getItem("userRole");
+        if (storedRole) setUserRole(storedRole);
         
         if (!token) {
           router.push("/home");
@@ -175,44 +280,220 @@ const AttendanceHistoryPageContent = () => {
 
     try {
       setLoading(true);
-      const response = await getCohortList(userId, {
-        customField: "true",
-        children: "true",
-      });
+      // Read userRole directly from localStorage to avoid race condition with state
+      const currentUserRole =
+        typeof window !== "undefined"
+          ? localStorage.getItem("userRole")
+          : userRole;
+
+      // For Supervisor and Staff, we need all data including inactive cohorts to build centers
+      const response = await getCohortList(
+        userId,
+        {
+          customField: "true",
+          children: "true",
+        },
+        true // isCustomFields: true to get all data without filtering
+      );
       await getUserDetails(userId, true);
-      
+
       if (response && response.length > 0) {
         setCohortsData(response);
-        
-        // Filter centers: items with parentId === null (SCHOOL type)
-        const centers = response
-          .filter((item: any) => item.parentId === null && item.type === "SCHOOL")
-          .map((center: any) => ({
-            centerId: center.cohortId,
-            centerName: center.cohortName,
-            childData: center.childData || [],
-          }));
-        
-        setCentersData(centers);
-        
-        if (centers.length > 0) {
-          const defaultCenter = centers[0];
-          setSelectedCenterId(defaultCenter.centerId);
 
-          const batches = defaultCenter.childData.map((batch: any) => ({
-            batchId: batch.cohortId,
-            batchName: batch.name,
-            parentId: batch.parentId,
-          }));
-          setBatchesData(batches);
+        // For Supervisor: Show SCHOOL items directly in center dropdown
+        // For Teacher: Fetch hierarchy to get centers
+        if (currentUserRole === "Supervisor") {
+          // Extract SCHOOL items directly - these are the schools assigned to Supervisor
+          const schoolItems = response.filter(
+            (item: any) => item.type === "SCHOOL"
+          );
 
-          if (batches.length > 0 && !initialClassId) {
-            setClassId(batches[0].batchId);
+          // Map SCHOOL items directly to centers - NO hierarchy API call
+          const supervisorCenters = schoolItems.map((school: any) => ({
+            centerId: school.cohortId,
+            centerName: school.cohortName,
+            childData: school.childData || [],
+            hierarchyData: school,
+            parentId: school.parentId,
+          }));
+
+          setCentersData(supervisorCenters);
+
+          if (supervisorCenters.length > 0) {
+            const defaultCenter = supervisorCenters[0];
+            setSelectedCenterId(defaultCenter.centerId);
+            // For Supervisor in history page we treat center as context; no batches
+            setBatchesData([]);
+            setClassId("");
+          } else {
+            setCentersData([]);
+          }
+        } else {
+          // For Teacher and other roles: Fetch hierarchy to get centers
+          const uniqueParentIds = [
+            ...new Set(
+              response
+                .filter(
+                  (item: any) => item.parentId && item.type === "COHORT"
+                )
+                .map((item: any) => item.parentId)
+            ),
+          ];
+
+          const centersWithHierarchy = await Promise.all(
+            uniqueParentIds.map(async (parentId: any) => {
+              try {
+                const hierarchyData = await getCohortDetails(parentId, {
+                  children: "true",
+                  customField: "true",
+                });
+
+                const centerData = Array.isArray(hierarchyData)
+                  ? hierarchyData[0]
+                  : hierarchyData;
+
+                return {
+                  centerId: centerData?.cohortId || parentId,
+                  centerName:
+                    centerData?.cohortName ||
+                    centerData?.name ||
+                    "Unknown Center",
+                  childData: centerData?.childData || [],
+                  hierarchyData: centerData,
+                };
+              } catch (error) {
+                console.error(
+                  `Error fetching hierarchy for ${parentId}:`,
+                  error
+                );
+                return null;
+              }
+            })
+          );
+
+          const validCenters = centersWithHierarchy.filter(
+            (center) => center !== null
+          ) as any[];
+
+          setCentersData(validCenters);
+
+          if (validCenters.length > 0) {
+            const defaultCenter = validCenters[0];
+            setSelectedCenterId(defaultCenter.centerId);
+
+            // Batches/classes should come ONLY from myCohorts response
+            const batches = response
+              .filter(
+                (item: any) =>
+                  item.type === "COHORT" &&
+                  item.parentId === defaultCenter.centerId &&
+                  item.cohortStatus === "active"
+              )
+              .map((item: any) => {
+                const slotField = item.cohortMemberCustomField?.find(
+                  (field: any) => field?.label?.toUpperCase() === "SLOTS"
+                );
+                const slotValue = slotField?.selectedValues?.[0] || "";
+
+                return {
+                  batchId: item.cohortId,
+                  batchName: item.cohortName,
+                  parentId: item.parentId,
+                  slot: slotValue,
+                };
+              });
+
+            setBatchesData(batches);
+
+            // Default to first batch like attendance page (Teacher view)
+            if (batches.length > 0) {
+              setClassId(batches[0].batchId);
+            }
+          } else {
+            // Fallback: derive centers from direct cohorts/schools
+            const directCohorts = response.filter(
+              (item: any) => item.type === "COHORT" || item.type === "SCHOOL"
+            );
+            if (directCohorts.length > 0) {
+              const cohortsByParent: any = {};
+              directCohorts.forEach((cohort: any) => {
+                if (!cohortsByParent[cohort.parentId]) {
+                  cohortsByParent[cohort.parentId] = [];
+                }
+                cohortsByParent[cohort.parentId].push(cohort);
+              });
+
+              const fallbackCenters = await Promise.all(
+                Object.keys(cohortsByParent).map(async (parentId) => {
+                  try {
+                    const hierarchyData = await getCohortDetails(parentId, {
+                      children: "true",
+                      customField: "true",
+                    });
+                    const centerData = Array.isArray(hierarchyData)
+                      ? hierarchyData[0]
+                      : hierarchyData;
+                    return {
+                      centerId: centerData?.cohortId || parentId,
+                      centerName:
+                        centerData?.cohortName ||
+                        centerData?.name ||
+                        `Center ${parentId.substring(0, 8)}`,
+                      childData: cohortsByParent[parentId],
+                      hierarchyData: centerData,
+                    };
+                  } catch (error) {
+                    console.error(
+                      `Error fetching hierarchy for fallback center ${parentId}:`,
+                      error
+                    );
+                    return {
+                      centerId: parentId,
+                      centerName: `Center ${parentId.substring(0, 8)}`,
+                      childData: cohortsByParent[parentId],
+                      hierarchyData: null,
+                    };
+                  }
+                })
+              );
+
+              setCentersData(fallbackCenters);
+
+              if (fallbackCenters.length > 0) {
+                const defaultCenter = fallbackCenters[0];
+                setSelectedCenterId(defaultCenter.centerId);
+
+                const batches = defaultCenter.childData.map((batch: any) => {
+                  const slotField = batch.cohortMemberCustomField?.find(
+                    (field: any) => field?.label?.toUpperCase() === "SLOTS"
+                  );
+                  const slotValue = slotField?.selectedValues?.[0] || "";
+
+                  return {
+                    batchId: batch.cohortId,
+                    batchName: batch.cohortName,
+                    parentId: batch.parentId,
+                    slot: slotValue,
+                  };
+                });
+                setBatchesData(batches);
+
+                // Default to first batch like attendance page (Teacher view)
+                if (batches.length > 0) {
+                  setClassId(batches[0].batchId);
+                }
+              }
+            } else {
+              setCentersData([]);
+            }
           }
         }
+      } else {
+        setCentersData([]);
       }
     } catch (error) {
       console.error("Error fetching cohorts:", error);
+      setCentersData([]);
     } finally {
       setLoading(false);
     }
@@ -222,22 +503,42 @@ const AttendanceHistoryPageContent = () => {
     const centerId = event.target.value;
     setSelectedCenterId(centerId);
 
-    const selectedCenter = centersData.find(
-      (center) => center.centerId === centerId
-    );
-    if (selectedCenter) {
-      const batches = selectedCenter.childData.map((batch: any) => ({
-        batchId: batch.cohortId,
-        batchName: batch.name,
-        parentId: batch.parentId,
-      }));
-      setBatchesData(batches);
+    // For Supervisor: only center matters, batches/ classId are not used
+    if (userRole === "Supervisor") {
+      setBatchesData([]);
+      setClassId("");
+      return;
+    }
 
-      if (batches.length > 0) {
-        setClassId(batches[0].batchId);
-      } else {
-        setClassId("");
-      }
+    // For Teacher (and other non-Staff roles here), derive batches from myCohorts,
+    // same logic as attendance page
+    const batches = cohortsData
+      .filter(
+        (item: any) =>
+          item.type === "COHORT" &&
+          item.parentId === centerId &&
+          item.cohortStatus === "active"
+      )
+      .map((item: any) => {
+        const slotField = item.cohortMemberCustomField?.find(
+          (field: any) => field?.label?.toUpperCase() === "SLOTS"
+        );
+        const slotValue = slotField?.selectedValues?.[0] || "";
+
+        return {
+          batchId: item.cohortId,
+          batchName: item.cohortName,
+          parentId: item.parentId,
+          slot: slotValue,
+        };
+      });
+
+    setBatchesData(batches);
+
+    if (batches.length > 0) {
+      setClassId(batches[0].batchId);
+    } else {
+      setClassId("");
     }
   };
 
@@ -247,20 +548,28 @@ const AttendanceHistoryPageContent = () => {
   };
 
   useEffect(() => {
-    if (classId && selectedDate) {
-      console.log("[useEffect] Triggering fetchAttendanceForDate", { classId, selectedDate: shortDateFormat(selectedDate) });
-      fetchAttendanceForDate();
+    const contextId = getEffectiveContextId();
+    if (contextId && selectedDate) {
+      console.log("[useEffect] Triggering fetchAttendanceForDate", { contextId, selectedDate: shortDateFormat(selectedDate) });
+      // Only Teachers need the learner list; Staff/Supervisor see only calendar stats
+      if (userRole !== "Staff" && userRole !== "Supervisor") {
+        fetchAttendanceForDate();
+      }
       fetchAttendanceStats();
+      if (userRole === "Staff" || userRole === "Supervisor") {
+        fetchStaffSelfAttendanceForCalendar(selectedDate);
+      }
     } else {
-      console.log("[useEffect] Skipping fetch - missing classId or selectedDate", { classId, selectedDate });
+      console.log("[useEffect] Skipping fetch - missing contextId or selectedDate", { contextId, selectedDate });
     }
-  }, [classId, selectedDate]);
+  }, [classId, selectedCenterId, selectedDate, userRole]);
 
-  const fetchAttendanceStats = async () => {
-    if (!classId) return;
+  const fetchAttendanceStats = async (dateForMonth?: Date) => {
+    const contextId = getEffectiveContextId();
+    if (!contextId) return;
 
     try {
-      const currentDate = selectedDate || new Date();
+      const currentDate = dateForMonth || selectedDate || new Date();
       const firstDayOfMonth = new Date(
         currentDate.getFullYear(),
         currentDate.getMonth(),
@@ -278,10 +587,14 @@ const AttendanceHistoryPageContent = () => {
       const memberResponse = await getMyCohortMemberList({
         limit: 300,
         page: 0,
-        filters: { cohortId: classId, status: ["active"] },
+        filters: { cohortId: contextId, status: ["active"] },
         includeArchived: false,
       });
-      const rawMembers = memberResponse?.result?.userDetails || [];
+      // Support both legacy and new response shapes
+      const rawMembers =
+        memberResponse?.result?.userDetails ||
+        memberResponse?.data?.result?.userDetails ||
+        [];
       const filteredMembers = filterMembersExcludingCurrentUser(rawMembers);
       const totalMembers = filteredMembers.length;
 
@@ -290,7 +603,7 @@ const AttendanceHistoryPageContent = () => {
         limit: 300,
         page: 0,
         filters: {
-          contextId: classId,
+          contextId,
           fromDate,
           toDate,
           scope: "student",
@@ -324,8 +637,9 @@ const AttendanceHistoryPageContent = () => {
   };
 
   const fetchAttendanceForDate = async () => {
-    if (!classId || !selectedDate) {
-      console.log("[fetchAttendanceForDate] Skipping - missing classId or selectedDate", { classId, selectedDate });
+    const contextId = getEffectiveContextId();
+    if (!contextId || !selectedDate) {
+      console.log("[fetchAttendanceForDate] Skipping - missing contextId or selectedDate", { contextId, selectedDate });
       return;
     }
 
@@ -340,7 +654,7 @@ const AttendanceHistoryPageContent = () => {
       const memberResponse = await getMyCohortMemberList({
         limit: 300,
         page: 0,
-        filters: { cohortId: classId, status: ["active"] },
+        filters: { cohortId: contextId, status: ["active"] },
         includeArchived: false,
       });
       const members = memberResponse?.result?.userDetails || [];
@@ -399,7 +713,7 @@ const AttendanceHistoryPageContent = () => {
         filters: {
           fromDate: selectedDateStr,
           toDate: selectedDateStr,
-          contextId: classId,
+          contextId,
           scope: "student",
         },
       };
@@ -573,7 +887,16 @@ const AttendanceHistoryPageContent = () => {
   };
 
   const handleActiveStartDateChange = ({ activeStartDate }: any) => {
-    // Handle month change
+    // Handle month change - fetch attendance stats for the new month
+    const contextId = getEffectiveContextId();
+    if (activeStartDate && contextId) {
+      console.log("[handleActiveStartDateChange] Month changed, fetching stats for:", activeStartDate);
+      fetchAttendanceStats(activeStartDate);
+      // For Staff and Supervisor, also refresh self-attendance rings for the new month
+      if (userRole === "Staff" || userRole === "Supervisor") {
+        fetchStaffSelfAttendanceForCalendar(activeStartDate);
+      }
+    }
   };
 
   const showHistoryBackDateRestrictionMessage = () => {
@@ -734,6 +1057,8 @@ const AttendanceHistoryPageContent = () => {
                   fontSize: { xs: "18px", sm: "22px" },
                   lineHeight: 1.3,
                   color: secondaryColor,
+                  display: { xs: "none", sm: "block" },
+                  flexShrink: 0,
                 }}
               >
                 {tenantName}
@@ -882,8 +1207,8 @@ const AttendanceHistoryPageContent = () => {
                     width: { xs: "100%", md: "auto" },
                   }}
                 >
-                  {/* Center Selection */}
-                  {centersData.length > 0 && (
+                  {/* Center Selection - visible for Teacher and Supervisor */}
+                  {userRole !== "Staff" && centersData.length > 0 && (
                     <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
                       <FormControl
                         fullWidth
@@ -920,9 +1245,9 @@ const AttendanceHistoryPageContent = () => {
                             },
                           }}
                         >
-                          {centersData.map((center) => (
+                          {centersData.map((center, index) => (
                             <MenuItem
-                              key={center.centerId}
+                              key={`${center.centerId}-${index}`}
                               value={center.centerId}
                               sx={{ color: secondaryColor }}
                             >
@@ -934,8 +1259,10 @@ const AttendanceHistoryPageContent = () => {
                     </Box>
                   )}
 
-                  {/* Batch Selection */}
-                  {batchesData.length > 0 && (
+                  {/* Batch Selection - visible only for Teacher (not Staff/Supervisor) */}
+                  {userRole !== "Staff" &&
+                    userRole !== "Supervisor" &&
+                    batchesData.length > 0 && (
                     <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
                       <FormControl
                         fullWidth
@@ -972,9 +1299,14 @@ const AttendanceHistoryPageContent = () => {
                             },
                           }}
                         >
-                          {batchesData.map((batch) => (
-                            <MenuItem key={batch.batchId} value={batch.batchId} sx={{ color: secondaryColor }}>
+                          {batchesData.map((batch, index) => (
+                            <MenuItem
+                              key={`${batch.batchId}-${index}`}
+                              value={batch.batchId}
+                              sx={{ color: secondaryColor }}
+                            >
                               {batch.batchName}
+                              {batch.slot ? ` (${batch.slot})` : ""}
                             </MenuItem>
                           ))}
                         </Select>
@@ -1031,8 +1363,6 @@ const AttendanceHistoryPageContent = () => {
 
           {/* Sticky Header with Attendance Status */}
           <Box
-            pl={3}
-            pr={3}
             sx={{
               position: "sticky",
               top: 0,
@@ -1041,137 +1371,162 @@ const AttendanceHistoryPageContent = () => {
               boxShadow: "0px 4px 16px rgba(0,0,0,0.12)",
               borderTop: `2px solid ${alpha(primaryColor, 0.2)}`,
               borderBottom: `2px solid ${alpha(primaryColor, 0.2)}`,
-              padding: "18px 24px",
+              padding: { xs: "16px", md: "18px 24px" },
+              paddingLeft: { xs: 2, md: 3 },
+              paddingRight: { xs: 2, md: 3 },
               marginTop: "12px",
               borderRadius: "12px 12px 0 0",
             }}
           >
-            <Grid container display="flex" justifyContent="space-between" alignItems="center">
-              <Grid item xs={12} md={8}>
-                <Box display="flex" width="100%" alignItems="center" gap={3} flexWrap="wrap">
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1,
-                      backgroundColor: "white",
-                      padding: "8px 16px",
-                      borderRadius: "8px",
-                      boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
-                    }}
-                  >
-                    <Typography
-                      fontSize="16px"
-                      fontWeight="700"
-                      color={secondaryColor}
-                      sx={{ letterSpacing: "0.3px" }}
-                    >
-                      {format(selectedDate, "dd MMMM yyyy")}
-                    </Typography>
-                  </Box>
-                  {attendanceInfo && (
-                    <Box
-                      display="flex"
-                      gap="8px"
-                      alignItems="center"
-                      sx={{
-                        backgroundColor: "white",
-                        padding: "8px 16px",
-                        borderRadius: "8px",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
-                      }}
-                    >
-                      <Box width="32px" height="32px">
-                        <CircularProgressbar
-                          value={presentPercentage}
-                          styles={buildStyles({
-                            textColor: pathColor,
-                            pathColor: pathColor,
-                            trailColor: "#E6E6E6",
-                            strokeLinecap: "round",
-                          })}
-                          strokeWidth={18}
-                        />
-                      </Box>
-                      <Box display="flex" flexDirection="column">
-                        <Typography
-                          fontSize="14px"
-                          fontWeight="700"
-                          color={secondaryColor}
-                          sx={{ lineHeight: 1.2 }}
-                        >
-                          {presentPercentage}%
-                        </Typography>
-                        <Typography
-                          fontSize="11px"
-                          fontWeight="500"
-                          color={alpha(secondaryColor, 0.6)}
-                          sx={{ lineHeight: 1.2 }}
-                        >
-                          Present
-                        </Typography>
-                        <Typography
-                          fontSize="12px"
-                          fontWeight={600}
-                          color={pathColor}
-                          sx={{ lineHeight: 1.2, mt: 0.2 }}
-                        >
-                          {presentPercentage >= 75
-                            ? "Good Attendance"
-                            : presentPercentage >= 50
-                            ? "Average Attendance"
-                            : "Low Attendance"}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  )}
-                </Box>
-              </Grid>
-              <Grid item xs={12} md={4} display="flex" justifyContent="flex-end" mt={{ xs: 2, md: 0 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleOpen}
+            <Box
+              display="flex"
+              flexDirection={{ xs: "column", md: "row" }}
+              justifyContent="space-between"
+              alignItems={{ xs: "stretch", md: "center" }}
+              gap={{ xs: 2, md: 0 }}
+            >
+              <Box 
+                display="flex" 
+                width="100%" 
+                alignItems="center" 
+                gap={{ xs: 2, md: 3 }} 
+                flexWrap="wrap"
+                flexDirection={{ xs: "column", sm: "row" }}
+              >
+                <Box
                   sx={{
-                    minWidth: "140px",
-                    height: "2.75rem",
-                    fontWeight: "600",
-                    fontSize: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 1,
+                    backgroundColor: "white",
+                    padding: { xs: "6px 12px", md: "8px 16px" },
                     borderRadius: "8px",
-                    backgroundColor:
-                      attendanceData.presentCount > 0
-                        ? theme.palette.success.main
-                        : primaryColor,
-                    color: getContrastTextColor(
-                      attendanceData.presentCount > 0
-                        ? theme.palette.success.main
-                        : primaryColor
-                    ),
-                    boxShadow: `0 4px 12px ${alpha(primaryColor, 0.4)}`,
-                    "&:hover": {
-                      backgroundColor:
-                        attendanceData.presentCount > 0
-                          ? alpha(theme.palette.success.main, 0.9)
-                          : primaryColor,
-                      opacity: 0.9,
-                      boxShadow: `0 6px 16px ${alpha(primaryColor, 0.5)}`,
-                      transform: "translateY(-1px)",
-                    },
-                    transition: "all 0.2s",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
+                    width: { xs: "100%", sm: "auto" },
+                    justifyContent: { xs: "center", sm: "flex-start" },
                   }}
                 >
-                  {attendanceData.presentCount > 0
-                    ? t("LEARNER_APP.ATTENDANCE.MODIFY")
-                    : t("LEARNER_APP.ATTENDANCE.MARK_ATTENDANCE")}
-                </Button>
-              </Grid>
-            </Grid>
+                  <Typography
+                    fontSize={{ xs: "14px", md: "16px" }}
+                    fontWeight="700"
+                    color={secondaryColor}
+                    sx={{ letterSpacing: "0.3px" }}
+                  >
+                    {format(selectedDate, "dd MMMM yyyy")}
+                  </Typography>
+                </Box>
+                {attendanceInfo && presentPercentage > 0 && (
+                  <Box
+                    display="flex"
+                    gap="8px"
+                    alignItems="center"
+                    sx={{
+                      backgroundColor: "white",
+                      padding: { xs: "6px 12px", md: "8px 16px" },
+                      borderRadius: "8px",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
+                      width: { xs: "100%", sm: "auto" },
+                      justifyContent: { xs: "center", sm: "flex-start" },
+                    }}
+                  >
+                    <Box width="32px" height="32px">
+                      <CircularProgressbar
+                        value={presentPercentage}
+                        styles={buildStyles({
+                          textColor: pathColor,
+                          pathColor: pathColor,
+                          trailColor: "#E6E6E6",
+                          strokeLinecap: "round",
+                        })}
+                        strokeWidth={18}
+                      />
+                    </Box>
+                    <Box display="flex" flexDirection="column">
+                      <Typography
+                        fontSize={{ xs: "13px", md: "14px" }}
+                        fontWeight="700"
+                        color={secondaryColor}
+                        sx={{ lineHeight: 1.2 }}
+                      >
+                        {presentPercentage}%
+                      </Typography>
+                      <Typography
+                        fontSize={{ xs: "10px", md: "11px" }}
+                        fontWeight="500"
+                        color={alpha(secondaryColor, 0.6)}
+                        sx={{ lineHeight: 1.2 }}
+                      >
+                        Present
+                      </Typography>
+                      <Typography
+                        fontSize={{ xs: "11px", md: "12px" }}
+                        fontWeight={600}
+                        color={pathColor}
+                        sx={{ lineHeight: 1.2, mt: 0.2 }}
+                      >
+                        {presentPercentage >= 75
+                          ? "Good Attendance"
+                          : presentPercentage >= 50
+                          ? "Average Attendance"
+                          : "Low Attendance"}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+              </Box>
+              {userRole !== "Staff" && userRole !== "Supervisor" && (
+                <Box 
+                  display="flex" 
+                  justifyContent={{ xs: "stretch", md: "flex-end" }}
+                  width={{ xs: "100%", md: "auto" }}
+                  mt={{ xs: 0, md: 0 }}
+                >
+                  <Button
+                    variant="contained"
+                    onClick={handleOpen}
+                    sx={{
+                      width: { xs: "100%", md: "auto" },
+                      minWidth: { xs: "100%", md: "140px" },
+                      height: "2.75rem",
+                      fontWeight: "600",
+                      fontSize: { xs: "13px", md: "14px" },
+                      borderRadius: "8px",
+                      backgroundColor:
+                        attendanceData.presentCount > 0
+                          ? theme.palette.success.main
+                          : primaryColor,
+                      color: getContrastTextColor(
+                        attendanceData.presentCount > 0
+                          ? theme.palette.success.main
+                          : primaryColor
+                      ),
+                      boxShadow: `0 4px 12px ${alpha(primaryColor, 0.4)}`,
+                      "&:hover": {
+                        backgroundColor:
+                          attendanceData.presentCount > 0
+                            ? alpha(theme.palette.success.main, 0.9)
+                            : primaryColor,
+                        opacity: 0.9,
+                        boxShadow: `0 6px 16px ${alpha(primaryColor, 0.5)}`,
+                        transform: "translateY(-1px)",
+                      },
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {attendanceData.presentCount > 0
+                      ? t("LEARNER_APP.ATTENDANCE.MODIFY")
+                      : t("LEARNER_APP.ATTENDANCE.MARK_ATTENDANCE")}
+                  </Button>
+                </Box>
+              )}
+            </Box>
           </Box>
 
           {/* Calendar */}
           <Box
             className="calender-container"
             sx={{
-              padding: "28px 24px",
+              padding: { xs: "16px", md: "28px 24px" },
               backgroundColor: alpha(backgroundColor, 0.95),
               marginTop: "12px",
               borderRadius: "0 0 12px 12px",
@@ -1194,8 +1549,59 @@ const AttendanceHistoryPageContent = () => {
                   if (view === "month") {
                     const dateStr = shortDateFormat(date);
                     const attendance = percentageAttendance[dateStr];
-                    if (attendance && attendance.present_percentage !== undefined) {
-                      const pathColor = determinePathColor(attendance.present_percentage || 0);
+                    const staffSelfAttendance =
+                      userRole === "Staff" || userRole === "Supervisor"
+                        ? staffSelfAttendanceByDate[dateStr]
+                        : null;
+
+                    if (
+                      (userRole === "Staff" || userRole === "Supervisor") &&
+                      (staffSelfAttendance === "present" ||
+                        staffSelfAttendance === "absent")
+                    ) {
+                      const isPresent = staffSelfAttendance === "present";
+                      const color = isPresent
+                        ? theme.palette.success.main
+                        : theme.palette.error.main;
+                      return (
+                        <Box
+                          sx={{
+                            position: "relative",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            width: 20,
+                            height: 20,
+                            marginTop: "4px",
+                          }}
+                        >
+                          <CircularProgress
+                            variant="determinate"
+                            value={100}
+                            size={20}
+                            thickness={10}
+                            sx={{
+                              color,
+                              position: "absolute",
+                              width: 20,
+                              height: 20,
+                              "& .MuiCircularProgress-circle": {
+                                strokeLinecap: "round",
+                                stroke: color,
+                              },
+                            }}
+                          />
+                        </Box>
+                      );
+                    }
+
+                    if (
+                      attendance &&
+                      attendance.present_percentage !== undefined
+                    ) {
+                      const pathColor = determinePathColor(
+                        attendance.present_percentage || 0
+                      );
                       return (
                         <div className="circularProgressBar">
                           <CircularProgressbar
@@ -1243,124 +1649,95 @@ const AttendanceHistoryPageContent = () => {
         </Box>
         </Box>
 
-          {/* Search and Student List */}
-          <Box
-            mt={3}
-            sx={{
-              backgroundColor: alpha(backgroundColor, 0.95),
-              borderRadius: "12px",
-              padding: "24px",
-              boxShadow: "0 2px 12px rgba(0,0,0,0.1)",
-            }}
-          >
-            <Stack mr={1} ml={1}>
-              <Box
-                mt="16px"
-                mb={3}
-                sx={{ padding: "0 10px" }}
-                boxShadow="none"
-              >
-                <Paper
-                  component="form"
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                  }}
+          {/* Search and Student List - hide for Staff/Supervisor */}
+          {userRole !== "Staff" && userRole !== "Supervisor" && (
+            <Box
+              mt={3}
+              sx={{
+                backgroundColor: alpha(backgroundColor, 0.95),
+                borderRadius: "12px",
+                padding: "24px",
+                boxShadow: "0 2px 12px rgba(0,0,0,0.1)",
+              }}
+            >
+              <Stack mr={1} ml={1}>
+                <Box
+                  mt="16px"
+                  mb={3}
+                  sx={{ padding: "0 10px" }}
+                  boxShadow="none"
+                >
+                  <Paper
+                    component="form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                    }}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      borderRadius: "100px",
+                      background: "white",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      border: `2px solid ${alpha(primaryColor, 0.2)}`,
+                      transition: "all 0.2s",
+                      "&:hover": {
+                        boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
+                        borderColor: alpha(primaryColor, 0.4),
+                      },
+                    }}
+                  >
+                    <InputBase
+                      ref={inputRef}
+                      value={searchWord}
+                      sx={{
+                        flex: 1,
+                        mb: "0",
+                        fontSize: "14px",
+                        color: secondaryColor,
+                        px: "16px",
+                      }}
+                      placeholder="Search student (Present / Absent)"
+                      inputProps={{ "aria-label": "search student" }}
+                      onChange={handleSearch}
+                      autoFocus={false}
+                    />
+                    <IconButton
+                      type="button"
+                      sx={{ p: "10px", color: secondaryColor }}
+                      aria-label="search"
+                    >
+                      <SearchIcon />
+                    </IconButton>
+                    <IconButton
+                      type="button"
+                      aria-label="Clear"
+                      onClick={handleSearchClear}
+                      sx={{
+                        p: "10px",
+                        color: secondaryColor,
+                        opacity: searchWord?.length > 0 ? 1 : 0,
+                        visibility: searchWord?.length > 0 ? "visible" : "hidden",
+                        transition: "opacity 0.2s",
+                      }}
+                    >
+                      <ClearIcon />
+                    </IconButton>
+                  </Paper>
+                </Box>
+
+                {/* Student List Header */}
+                <Box
                   sx={{
                     display: "flex",
-                    alignItems: "center",
-                    borderRadius: "100px",
-                    background: "white",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    border: `2px solid ${alpha(primaryColor, 0.2)}`,
-                    transition: "all 0.2s",
-                    "&:hover": {
-                      boxShadow: "0 6px 16px rgba(0,0,0,0.15)",
-                      borderColor: alpha(primaryColor, 0.4),
-                    },
+                    justifyContent: "space-between",
+                    padding: "18px 24px",
+                    borderBottom: `1px solid ${primaryColor}`,
+                    bgcolor: "white",
+                    borderRadius: "12px 12px 0 0",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                    background: `linear-gradient(180deg, ${alpha(backgroundColor, 0.95)} 0%, #ffffff 100%)`,
                   }}
                 >
-                  <InputBase
-                    ref={inputRef}
-                    value={searchWord}
-                    sx={{
-                      flex: 1,
-                      mb: "0",
-                      fontSize: "14px",
-                      color: secondaryColor,
-                      px: "16px",
-                    }}
-                    placeholder="Search student (Present / Absent)"
-                    inputProps={{ "aria-label": "search student" }}
-                    onChange={handleSearch}
-                    autoFocus={false}
-                  />
-                  <IconButton
-                    type="button"
-                    sx={{ p: "10px", color: secondaryColor }}
-                    aria-label="search"
-                  >
-                    <SearchIcon />
-                  </IconButton>
-                  <IconButton
-                    type="button"
-                    aria-label="Clear"
-                    onClick={handleSearchClear}
-                    sx={{
-                      p: "10px",
-                      color: secondaryColor,
-                      opacity: searchWord?.length > 0 ? 1 : 0,
-                      visibility: searchWord?.length > 0 ? "visible" : "hidden",
-                      transition: "opacity 0.2s",
-                    }}
-                  >
-                    <ClearIcon />
-                  </IconButton>
-                </Paper>
-              </Box>
-
-              {/* Student List Header */}
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  padding: "18px 24px",
-                  borderBottom: `1px solid ${primaryColor}`,
-                  bgcolor: "white",
-                  borderRadius: "12px 12px 0 0",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                  background: `linear-gradient(180deg, ${alpha(backgroundColor, 0.95)} 0%, #ffffff 100%)`,
-                }}
-              >
-                <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                  <Typography
-                    sx={{
-                      color: secondaryColor,
-                      fontSize: "14px",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: "1px",
-                    }}
-                  >
-                    {t("LEARNER_APP.ATTENDANCE.LEARNER_NAME")}
-                  </Typography>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleSortToggle("name")}
-                    sx={{
-                      color:
-                        getSortDirection("name") === "desc"
-                          ? secondaryColor
-                          : alpha(secondaryColor, 0.6),
-                    }}
-                  >
-                    {getSortDirection("name") === "desc" ? (
-                      <ArrowDownwardIcon fontSize="small" />
-                    ) : (
-                      <ArrowUpwardIcon fontSize="small" />
-                    )}
-                  </IconButton>
-                </Box>
-                <Box sx={attendanceColumnStyles}>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                     <Typography
                       sx={{
@@ -1371,179 +1748,210 @@ const AttendanceHistoryPageContent = () => {
                         letterSpacing: "1px",
                       }}
                     >
-                      {t("LEARNER_APP.ATTENDANCE.ATTENDANCE_LABEL")}
+                      {t("LEARNER_APP.ATTENDANCE.LEARNER_NAME")}
                     </Typography>
                     <IconButton
                       size="small"
-                      onClick={() => handleSortToggle("attendance")}
+                      onClick={() => handleSortToggle("name")}
                       sx={{
                         color:
-                          getSortDirection("attendance") === "desc"
+                          getSortDirection("name") === "desc"
                             ? secondaryColor
                             : alpha(secondaryColor, 0.6),
                       }}
                     >
-                      {getSortDirection("attendance") === "desc" ? (
+                      {getSortDirection("name") === "desc" ? (
                         <ArrowDownwardIcon fontSize="small" />
                       ) : (
                         <ArrowUpwardIcon fontSize="small" />
                       )}
                     </IconButton>
                   </Box>
-                  <Box width="40px" />
-                </Box>
-              </Box>
-
-              {/* Student List */}
-              {displayStudentList.length > 0 ? (
-                <Box
-                  sx={{
-                    backgroundColor: "white",
-                    borderRadius: "0 0 12px 12px",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-                    overflow: "hidden",
-                  }}
-                >
-                  {displayStudentList.map((user: any, index: number) => (
-                    <Box
-                      key={user.userId}
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        padding: "18px 24px",
-                        borderBottom: index < displayStudentList.length - 1
-                          ? `1px solid ${alpha(primaryColor, 0.1)}`
-                          : "none",
-                        opacity: user.attendance ? 1 : 0.6,
-                        borderLeft:
-                          user.attendance?.toLowerCase() === "present"
-                            ? `4px solid ${theme.palette.success.main}`
-                            : user.attendance?.toLowerCase() === "absent"
-                            ? `4px solid ${theme.palette.error.main}`
-                            : "4px solid transparent",
-                        "&:hover": {
-                          backgroundColor: alpha(primaryColor, 0.08),
-                          transform: "translateX(4px)",
-                        },
-                        transition: "all 0.2s ease",
-                        cursor: "pointer",
-                      }}
-                    >
+                  <Box sx={attendanceColumnStyles}>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                       <Typography
-                        variant="body1"
                         sx={{
                           color: secondaryColor,
-                          fontWeight: 600,
-                          fontSize: "16px",
-                          letterSpacing: "0.2px",
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                          letterSpacing: "1px",
                         }}
                       >
-                        {user.name}
+                        {t("LEARNER_APP.ATTENDANCE.ATTENDANCE_LABEL")}
                       </Typography>
-                      <Box sx={attendanceColumnStyles}>
-                        {user.attendance?.toLowerCase() === "present" ? (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "4px 12px",
-                              borderRadius: "20px",
-                              backgroundColor: "rgba(76, 175, 80, 0.1)",
-                            }}
-                          >
-                            <CheckCircleIcon
-                              sx={{
-                                color: theme.palette.success.main,
-                                fontSize: "26px",
-                              }}
-                            />
-                            <Typography
-                              sx={{
-                                color: theme.palette.success.main,
-                                fontSize: "13px",
-                                fontWeight: 600,
-                              }}
-                            >
-                              Present
-                            </Typography>
-                          </Box>
-                        ) : user.attendance?.toLowerCase() === "absent" ? (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "4px 12px",
-                              borderRadius: "20px",
-                              backgroundColor: "rgba(244, 67, 54, 0.1)",
-                            }}
-                          >
-                            <CancelIcon
-                              sx={{
-                                color: theme.palette.error.main,
-                                fontSize: "26px",
-                              }}
-                            />
-                            <Typography
-                              sx={{
-                                color: theme.palette.error.main,
-                                fontSize: "13px",
-                                fontWeight: 600,
-                              }}
-                            >
-                              Absent
-                            </Typography>
-                          </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleSortToggle("attendance")}
+                        sx={{
+                          color:
+                            getSortDirection("attendance") === "desc"
+                              ? secondaryColor
+                              : alpha(secondaryColor, 0.6),
+                        }}
+                      >
+                        {getSortDirection("attendance") === "desc" ? (
+                          <ArrowDownwardIcon fontSize="small" />
                         ) : (
-                          <Box
-                            sx={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px",
-                              padding: "4px 12px",
-                              borderRadius: "20px",
-                              backgroundColor: "rgba(158, 158, 158, 0.1)",
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
+                          <ArrowUpwardIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Box>
+                    <Box width="40px" />
+                  </Box>
+                </Box>
+
+                {/* Student List */}
+                {displayStudentList.length > 0 ? (
+                  <Box
+                    sx={{
+                      backgroundColor: "white",
+                      borderRadius: "0 0 12px 12px",
+                      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {displayStudentList.map((user: any, index: number) => (
+                      <Box
+                        key={user.userId}
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          padding: "18px 24px",
+                          borderBottom: index < displayStudentList.length - 1
+                            ? `1px solid ${alpha(primaryColor, 0.1)}`
+                            : "none",
+                          opacity: user.attendance ? 1 : 0.6,
+                          borderLeft:
+                            user.attendance?.toLowerCase() === "present"
+                              ? `4px solid ${theme.palette.success.main}`
+                              : user.attendance?.toLowerCase() === "absent"
+                              ? `4px solid ${theme.palette.error.main}`
+                              : "4px solid transparent",
+                          "&:hover": {
+                            backgroundColor: alpha(primaryColor, 0.08),
+                            transform: "translateX(4px)",
+                          },
+                          transition: "all 0.2s ease",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <Typography
+                          variant="body1"
+                          sx={{
+                            color: secondaryColor,
+                            fontWeight: 600,
+                            fontSize: "16px",
+                            letterSpacing: "0.2px",
+                          }}
+                        >
+                          {user.name}
+                        </Typography>
+                        <Box sx={attendanceColumnStyles}>
+                          {user.attendance?.toLowerCase() === "present" ? (
+                            <Box
                               sx={{
-                                color: "#9e9e9e",
-                                fontSize: "13px",
-                                fontWeight: 500,
-                                fontStyle: "italic",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                padding: "4px 12px",
+                                borderRadius: "20px",
+                                backgroundColor: "rgba(76, 175, 80, 0.1)",
                               }}
                             >
-                              Not Marked
-                            </Typography>
-                          </Box>
-                        )}
-                        <Box sx={{ width: "40px" }} />
+                              <CheckCircleIcon
+                                sx={{
+                                  color: theme.palette.success.main,
+                                  fontSize: "26px",
+                                }}
+                              />
+                              <Typography
+                                sx={{
+                                  color: theme.palette.success.main,
+                                  fontSize: "13px",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Present
+                              </Typography>
+                            </Box>
+                          ) : user.attendance?.toLowerCase() === "absent" ? (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                padding: "4px 12px",
+                                borderRadius: "20px",
+                                backgroundColor: "rgba(244, 67, 54, 0.1)",
+                              }}
+                            >
+                              <CancelIcon
+                                sx={{
+                                  color: theme.palette.error.main,
+                                  fontSize: "26px",
+                                }}
+                              />
+                              <Typography
+                                sx={{
+                                  color: theme.palette.error.main,
+                                  fontSize: "13px",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Absent
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Box
+                              sx={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px",
+                                padding: "4px 12px",
+                                borderRadius: "20px",
+                                backgroundColor: "rgba(158, 158, 158, 0.1)",
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  color: "#9e9e9e",
+                                  fontSize: "13px",
+                                  fontWeight: 500,
+                                  fontStyle: "italic",
+                                }}
+                              >
+                                Not Marked
+                              </Typography>
+                            </Box>
+                          )}
+                          <Box sx={{ width: "40px" }} />
+                        </Box>
                       </Box>
-                    </Box>
-                  ))}
-                </Box>
-              ) : (
-                <Box
-                  sx={{
-                    textAlign: "center",
-                    padding: "80px 40px",
-                    backgroundColor: "white",
-                    borderRadius: "0 0 12px 12px",
-                  }}
-                >
-                  <Typography
-                    color="textSecondary"
-                    sx={{ fontSize: "18px", fontWeight: 500, color: alpha(secondaryColor, 0.6) }}
+                    ))}
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      textAlign: "center",
+                      padding: "80px 40px",
+                      backgroundColor: "white",
+                      borderRadius: "0 0 12px 12px",
+                    }}
                   >
-                    Attendance not marked for this date
-                  </Typography>
-                </Box>
-              )}
-            </Stack>
-          </Box>
+                    <Typography
+                      color="textSecondary"
+                      sx={{ fontSize: "18px", fontWeight: 500, color: alpha(secondaryColor, 0.6) }}
+                    >
+                      Attendance not marked for this date
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+            </Box>
+          )}
         </Box>
         </Box>
       </Box>
