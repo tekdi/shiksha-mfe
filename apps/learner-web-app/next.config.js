@@ -36,7 +36,7 @@ const nextConfig = {
   transpilePackages: ["@shared-lib-v2/*"],
 
   images: {
-    domains: ["program-image-dev.s3.ap-south-1.amazonaws.com"],
+    domains: ["program-image-dev.s3.ap-south-1.amazonaws.com","oblf.org"],
     remotePatterns: [
       {
         protocol: 'https',
@@ -96,11 +96,11 @@ const nextConfig = {
   async rewrites() {
     return [
       {
-        source: "/action/data/v3/telemetry",
+        source: "/data/v3/telemetry",
         destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
       },
       {
-        source: "/action/v1/telemetry",
+        source: "/v1/telemetry",
         destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
       },
       {

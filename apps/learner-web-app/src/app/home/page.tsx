@@ -40,6 +40,8 @@ import { preserveLocalStorage } from "@learner/utils/helper";
 import { getDeviceId } from "@shared-lib-v2/DynamicForm/utils/Helper";
 import { profileComplitionCheck } from "@learner/utils/API/userService";
 import { ensureAcademicYearForTenant } from "@learner/utils/API/ProgramService";
+import { telemetryFactory } from "../../utils/telemtery";
+
 
 /* ---------------- Helper ---------------- */
 
@@ -1463,7 +1465,17 @@ export default function Index() {
           if (tenantId) {
             await ensureAcademicYearForTenant(tenantId);
           }
-
+          const telemetryInteract = {
+            context: { env: "sign-in", cdata: [] },
+            edata: {
+              id: "login-success",
+              type: "CLICK",
+              pageid: "sign-in",
+              uid: userResponse?.userId || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
+          console.log("telemetryInteract",telemetryInteract);
           const channelId = userResponse?.tenantData?.[0]?.channelId;
           localStorage.setItem("channelId", channelId);
 
@@ -1485,9 +1497,11 @@ export default function Index() {
           if (redirectAfterLogin && redirectAfterLogin.startsWith("/")) {
             sessionStorage.removeItem("redirectAfterLogin");
             window.location.href = `${window.location.origin}${redirectAfterLogin}`;
-          } else {
+          }else {
+            
             window.location.href = `${window.location.origin}/dashboard?tab=1`;
           }
+           
           return;
         } else if (
           userRole === "Creator" ||
@@ -1518,7 +1532,16 @@ export default function Index() {
           localStorage.setItem("ssoData", JSON.stringify(ssoData));
           document.cookie = `sso_token=${token}; path=/; secure; SameSite=Lax`;
           document.cookie = `user_data=${JSON.stringify(ssoData)}; path=/; secure; SameSite=Lax`;
-
+          const telemetryInteract = {
+            context: { env: "prod", cdata: [] },
+            edata: {
+              id: "login-success-learner",
+              type: "CLICK",
+              pageid: "sign-in",
+              uid: userResponse?.userId || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
           window.location.href = `${window.location.origin.replace("3003", "3002")}/login`;
           return;
         } else {

@@ -33,7 +33,7 @@ import { trackingData } from "@content-mfes/services/TrackingService";
 import LayoutPage from "@content-mfes/components/LayoutPage";
 import { getUserCertificates } from "@content-mfes/services/Certificate";
 import { getUserId } from "@shared-lib-v2/utils/AuthService";
-
+import {telemetryFactory} from "../../utils/telemetry";
 // Constants
 const SUPPORTED_MIME_TYPES = [
   "application/vnd.ekstep.ecml-archive",
@@ -45,6 +45,8 @@ const SUPPORTED_MIME_TYPES = [
   "application/epub",
   "video/x-youtube",
   "application/vnd.sunbird.questionset",
+  "audio/mpeg",
+  "audio/mp3",
 ];
 
 const DEFAULT_TABS = [
@@ -621,6 +623,16 @@ export default function Content(props: Readonly<ContentProps>) {
   };
   const handleCardClickLocal = useCallback(
     async (content: ContentItem) => {
+      const telemetryInteract = {
+        context: { env: "prod", cdata: [] },
+        edata: {
+          id: "content-click",
+          type: "CLICK",
+          pageid: `content-${content.identifier}`,
+          uid: localStorage.getItem("userId") || "Anonymous",
+        },
+      };
+      telemetryFactory.interact(telemetryInteract);
       try {
         sessionStorage.setItem(sessionKeys.scrollId, content.identifier);
         persistFilters(localFilters);

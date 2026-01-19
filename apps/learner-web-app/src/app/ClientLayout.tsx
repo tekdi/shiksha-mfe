@@ -5,7 +5,7 @@
 import React, { useEffect } from "react";
 import { FontSizeProvider } from "../context/FontSizeContext";
 import { UnderlineLinksProvider } from "../context/UnderlineLinksContext";
-import { telemetryFactory } from "@shared-lib-v2/DynamicForm/utils/telemetry";
+import { telemetryFactory } from "../utils/telemtery";
 import AuthGuard from "../components/AuthGuard/AuthGuard";
 
 export default function ClientLayout({
@@ -15,7 +15,7 @@ export default function ClientLayout({
 }) {
   useEffect(() => {
     telemetryFactory.init();
-
+console.log("Telemetry initialized");
     // Set userId in cookies for cross-port access
     const currentUserId = localStorage.getItem("userId");
    

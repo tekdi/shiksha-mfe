@@ -71,7 +71,7 @@ import { gredientStyle } from "@learner/utils/style";
 import { useTenant } from "@learner/context/TenantContext";
 import { useTranslation } from "@shared-lib";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
-
+import {telemetryFactory} from "../../utils/telemtery";
 const DashboardContainer = styled(Box)<{ backgroundColor?: string }>(({ theme, backgroundColor }) => ({
   minHeight: "100vh",
   backgroundColor: backgroundColor || "var(--background-color, #f5f5f5)",
@@ -420,7 +420,7 @@ const SimpleTeacherDashboard = () => {
         cohortMemberListLength: newData.cohortMemberList.length,
         presentCount: newData.presentCount,
         absentCount: newData.absentCount,
-        memberListSample: newData.cohortMemberList.slice(0, 3).map(m => ({
+        memberListSample: newData.cohortMemberList.slice(0, 3).map((m: any) => ({
           userId: m?.userId,
           name: m?.name,
           attendance: m?.attendance,
@@ -2193,11 +2193,33 @@ const SimpleTeacherDashboard = () => {
   };
 
   const handleProfileClick = () => {
+    
+     const telemetryInteract = {
+            context: { env: "prod", cdata: [] },
+            edata: {
+              id: "profile-click",
+              type: "CLICK",
+              pageid: `Profile menu`,
+              uid: localStorage.getItem("userId") || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
+      
     router.push("/profile");
     setAnchorEl(null);
   };
 
   const handleLogoutClick = () => {
+    const telemetryInteract = {
+            context: { env: "prod", cdata: [] },
+            edata: {
+              id: "logout-click",
+              type: "CLICK",
+              pageid: `logout`,
+              uid: localStorage.getItem("userId") || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
     setLogoutModalOpen(true);
     setAnchorEl(null);
   };

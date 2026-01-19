@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { preserveLocalStorage } from "@learner/utils/helper";
 import { Loader, useTranslation } from "@shared-lib";
 import { Telemetry } from "@shared-lib-v2/DynamicForm/utils/app.constant";
-import { telemetryFactory } from "@shared-lib-v2/DynamicForm/utils/telemetry";
+import { telemetryFactory } from "../../utils/telemtery";
 
 // Helper function to clear cookies
 const clearCookies = () => {

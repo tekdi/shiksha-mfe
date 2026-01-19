@@ -14,6 +14,7 @@ import FilterComponent from "./FilterComponent";
 import { gredientStyle } from "@learner/utils/style";
 import { logEvent } from "@learner/utils/googleAnalytics";
 import { useTenant } from "@learner/context/TenantContext";
+import { telemetryFactory } from "../../utils/telemtery";
 
 interface LearnerCourseProps {
   title?: string;
@@ -112,6 +113,7 @@ export default memo(function LearnerCourse({
   }, []);
   const handleSearchClick = useCallback(
     (searchValue: string) => {
+      
       if (typeof window !== "undefined") {
         const windowUrl = window.location.pathname;
         const cleanedUrl = windowUrl;
@@ -147,6 +149,16 @@ export default memo(function LearnerCourse({
   );
 
   const handleFilterChange = (newFilterState: typeof filterState) => {
+    const telemetryInteract = {
+      context: { env: "prod", cdata: [] },
+      edata: {
+        id: "dashboard-filter-click",
+        type: "CLICK",
+        pageid: `filter-${newFilterState}`,
+        uid: localStorage.getItem("userId") || "Anonymous",
+      },
+    };
+    telemetryFactory.interact(telemetryInteract);
     setFilterState((prevState: any) => {
       const newState = {
         ...prevState,
