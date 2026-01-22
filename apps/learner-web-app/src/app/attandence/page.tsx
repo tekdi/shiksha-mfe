@@ -1939,23 +1939,8 @@ const SimpleTeacherDashboard = () => {
 
           if (shouldValidate) {
             const validationResult = isLocationValid(locationData, false);
+            // Set validLocation based on distance: true if <= 100m, false if > 100m
             data.validLocation = validationResult.valid;
-
-            if (!validationResult.valid) {
-              const distanceMsg =
-                validationResult.distance !== undefined
-                  ? `Distance from center: ${validationResult.distance.toFixed(
-                      2
-                    )}m`
-                  : "Distance could not be computed.";
-              showToastMessage(
-                `${distanceMsg} You must be within 100 meters of the center to mark self attendance.`,
-                "warning"
-              );
-              setIsSelfAttendanceModalOpen(false);
-              setIsMarkingAttendance(false);
-              return;
-            }
           } else {
             data.validLocation = false;
           }
@@ -1963,12 +1948,7 @@ const SimpleTeacherDashboard = () => {
           userRole === "Staff" &&
           workLocation === "work_from_office"
         ) {
-          // Staff with work_from_office: 50m validation commented out for now
-          // No location validation - allow marking attendance regardless of distance
-          data.validLocation = false;
-
-          // COMMENTED OUT: 50m validation for work_from_office
-          // // Staff with work_from_office: validate against office location
+          // Staff with work_from_office: validate location but allow marking attendance regardless of distance
           console.log(
             "[Work From Office] Validating location for work_from_office",
             {
@@ -2000,44 +1980,26 @@ const SimpleTeacherDashboard = () => {
             console.error(
               "[Work From Office] OBLF Office coordinates not available. Cannot validate location."
             );
-            showToastMessage(
-              "OBLF Office location not found. Please try again or contact support.",
-              "error"
-            );
-            setIsSelfAttendanceModalOpen(false);
-            return;
-          }
+            // Set validLocation to false when coordinates are not available, but allow marking attendance
+            data.validLocation = false;
+          } else {
+            const validationResult = isLocationValid(locationData, true);
+            // Set validLocation based on distance: true if <= 100m, false if > 100m
+            data.validLocation = validationResult.valid;
 
-          const validationResult = isLocationValid(locationData, true);
-          data.validLocation = validationResult.valid;
-
-          console.log("[Work From Office] Validation result:", {
-            valid: validationResult.valid,
-            distance: validationResult.distance,
-            oblfOffice: oblfOfficeCoords?.centerName || "OBLF Office",
-            oblfCoords: {
-              latitude: oblfCoords.latitude,
-              longitude: oblfCoords.longitude,
-            },
-            userLocation: {
-              latitude: locationData?.latitude,
-              longitude: locationData?.longitude,
-            },
-          });
-
-          if (!validationResult.valid) {
-            const distanceMsg =
-              validationResult.distance !== undefined
-                ? `Distance from office: ${validationResult.distance.toFixed(
-                    2
-                  )}m`
-                : "Distance could not be computed.";
-            showToastMessage(
-              `${distanceMsg} You must be within 100 meters of the office to mark attendance when working from office.`,
-              "warning"
-            );
-            setIsSelfAttendanceModalOpen(false);
-            return;
+            console.log("[Work From Office] Validation result:", {
+              valid: validationResult.valid,
+              distance: validationResult.distance,
+              oblfOffice: oblfOfficeCoords?.centerName || "OBLF Office",
+              oblfCoords: {
+                latitude: oblfCoords.latitude,
+                longitude: oblfCoords.longitude,
+              },
+              userLocation: {
+                latitude: locationData?.latitude,
+                longitude: locationData?.longitude,
+              },
+            });
           }
         } else {
           // For Staff with other work locations (work_from_home, work_from_field, other), no validation
