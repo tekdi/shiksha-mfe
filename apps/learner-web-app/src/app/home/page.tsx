@@ -1705,10 +1705,47 @@ export default function Index() {
           t("LOGIN_PAGE.USERNAME_PASSWORD_NOT_CORRECT") || "Invalid username or password",
           "error"
         );
+        setIsAuthLoading(false);
       }
-    } catch {
-      const errorMessage = t("LOGIN_PAGE.USERNAME_PASSWORD_NOT_CORRECT") || "Invalid username or password";
-      showToastMessage(errorMessage, "error");
+    } catch (error: unknown) {
+      console.error("Login error:", error);
+      
+      // Check for specific error response structure
+      const errorResponse = error as {
+        response?: {
+          status?: number;
+          data?: {
+            responseCode?: number;
+            params?: {
+              status?: string;
+              err?: string;
+              errmsg?: string;
+            };
+          };
+        };
+      };
+
+      // Check if it's a 400/500 error with failed status
+      const isUserNotActiveError =
+        errorResponse?.response?.status === 400 ||
+        errorResponse?.response?.status === 500 ||
+        errorResponse?.response?.data?.responseCode === 400 ||
+        errorResponse?.response?.data?.responseCode === 500 ||
+        (errorResponse?.response?.data?.params?.status === "failed" &&
+          (errorResponse?.response?.data?.params?.err?.includes("400") ||
+            errorResponse?.response?.data?.params?.err?.includes("500")));
+
+      if (isUserNotActiveError) {
+        showToastMessage(
+          "This user is not active Please contact your administrator.",
+          "error"
+        );
+      } else {
+        const errorMessage =
+          t("LOGIN_PAGE.USERNAME_PASSWORD_NOT_CORRECT") ||
+          "Invalid username or password";
+        showToastMessage(errorMessage, "error");
+      }
       setIsAuthLoading(false);
     }
   };
