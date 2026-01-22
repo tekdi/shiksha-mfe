@@ -41,7 +41,11 @@ import {
   getLearnerAttendanceStatus,
 } from "../../utils/API/services/AttendanceService";
 import { ShowSelfAttendance } from "../../../app.config";
-import { getCohortList, getCohortDetails } from "../../utils/API/services/CohortServices";
+import {
+  getCohortList,
+  getCohortDetails,
+  cohortList,
+} from "../../utils/API/services/CohortServices";
 import { getMyCohortMemberList } from "../../utils/API/services/MyClassDetailsService";
 import { getUserDetails } from "../../utils/API/services/ProfileService";
 import { ICohort } from "@learner/utils/attendance/interfaces";
@@ -92,7 +96,8 @@ const MainContent = styled(Box)({
 const ContentWrapper = styled(Box)({
   paddingBottom: "25px",
   width: "100%",
-  background: "linear-gradient(180deg, var(--background-color, #F5F5F5) 0%, rgba(255,255,255,0.9) 100%)",
+  background:
+    "linear-gradient(180deg, var(--background-color, #F5F5F5) 0%, rgba(255,255,255,0.9) 100%)",
   borderRadius: "8px",
 });
 
@@ -164,7 +169,9 @@ const CalendarCell = styled(Box)(({ theme }) => ({
   padding: "6px",
   overflow: "hidden",
   fontSize: "0.875em",
-  border: `2px solid var(--primary-color, ${(theme.palette.warning as any).A100 || "#FDBE16"})`,
+  border: `2px solid var(--primary-color, ${
+    (theme.palette.warning as any).A100 || "#FDBE16"
+  })`,
   borderRadius: "8px",
   cursor: "pointer",
   backgroundColor: "var(--surface-color, #FFFFFF)",
@@ -192,7 +199,9 @@ const CalendarCell = styled(Box)(({ theme }) => ({
   "&:hover": {
     transform: "translateY(-2px)",
     boxShadow: "0 4px 8px rgba(0,0,0,0.12)",
-    borderColor: `var(--primary-color, ${(theme.palette.warning as any).A200 || "#FDBE16"})`,
+    borderColor: `var(--primary-color, ${
+      (theme.palette.warning as any).A200 || "#FDBE16"
+    })`,
     backgroundColor: "var(--background-color, #F5F5F5)",
     [theme.breakpoints.down("md")]: {
       transform: "none",
@@ -249,18 +258,23 @@ const absentReasonOptions = [
 // Additional absent reason options for Teacher role only
 const teacherOnlyAbsentReasonOptions = [
   { label: "UNINFORMED_FULL_DAY_ABSENT", value: "Uninformed Full Day Absent" },
-  { label: "UNINFORMED_HALF_DAY_PRESENT", value: "Uninformed Half Day Present" },
+  {
+    label: "UNINFORMED_HALF_DAY_PRESENT",
+    value: "Uninformed Half Day Present",
+  },
   { label: "MEDICAL_LEAVE", value: "Medical Leave" },
 ];
 
 // Attendance comment options for Teacher role only (when Present is selected)
-const attendanceCommentOptions = [
-  "STAT",
-  "TAB",
-];
+const attendanceCommentOptions = ["STAT", "TAB"];
 
 // Haversine distance (meters) to validate geo-fence for self attendance
-const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+const getDistanceInMeters = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+) => {
   const toRad = (value: number) => (value * Math.PI) / 180;
   const R = 6371000; // Earth radius in meters
   const dLat = toRad(lat2 - lat1);
@@ -276,7 +290,7 @@ const SimpleTeacherDashboard = () => {
   const theme = useTheme();
   const { tenant, contentFilter } = useTenant();
   const { t, language, setLanguage } = useTranslation();
-  
+
   // Get tenant colors
   const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
   const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
@@ -284,7 +298,7 @@ const SimpleTeacherDashboard = () => {
   const tenantIcon = contentFilter?.icon || "/logo.png";
   const tenantName = contentFilter?.title || tenant?.name || "Tenant";
   const tenantAlt = `${tenantName} logo`;
-  
+
   const [classId, setClassId] = useState("");
   const [yearSelect, setYearSelect] = useState("");
   const [academicYearList, setAcademicYearList] = useState<Array<any>>([]);
@@ -295,11 +309,9 @@ const SimpleTeacherDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
   const [isRemoteCohort, setIsRemoteCohort] = useState(false);
-  const [cohortPresentPercentage, setCohortPresentPercentage] =
-    useState("");
-  const [lowAttendanceLearnerList, setLowAttendanceLearnerList] = useState<any>(
-    ""
-  );
+  const [cohortPresentPercentage, setCohortPresentPercentage] = useState("");
+  const [lowAttendanceLearnerList, setLowAttendanceLearnerList] =
+    useState<any>("");
   const [allCenterAttendanceData, setAllCenterAttendanceData] = useState<any>(
     []
   );
@@ -342,11 +354,21 @@ const SimpleTeacherDashboard = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [firstName, setFirstName] = useState("");
+  const [oblfOfficeCoords, setOblfOfficeCoords] = useState<{
+    latitude: number;
+    longitude: number;
+    centerName: string;
+  } | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [absentReason, setAbsentReason] = useState("");
   const [workLocation, setWorkLocation] = useState("");
   const [comment, setComment] = useState("");
-  const [capturedLocation, setCapturedLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isCalendarLoading, setIsCalendarLoading] = useState(false);
+  const [isMarkingAttendance, setIsMarkingAttendance] = useState(false);
+  const [capturedLocation, setCapturedLocation] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   const selectedDateDiffFromToday = useMemo(
     () => getDayDifferenceFromToday(selectedDate),
@@ -377,7 +399,10 @@ const SimpleTeacherDashboard = () => {
   };
 
   const showSelfAttendanceRestrictionMessage = () => {
-    showToastMessage("Self attendance can only be marked for today's date.", "warning");
+    showToastMessage(
+      "Self attendance can only be marked for today's date.",
+      "warning"
+    );
   };
 
   const today = new Date();
@@ -426,14 +451,14 @@ const SimpleTeacherDashboard = () => {
           attendance: m?.attendance,
         })),
       });
-      
+
       // Call onComplete callback after state is set, with a small delay to ensure React has processed it
       if (onComplete) {
         setTimeout(() => {
           onComplete();
         }, 100);
       }
-      
+
       return newData;
     });
     console.log("[handleAttendanceDataUpdate] State update queued");
@@ -495,11 +520,14 @@ const SimpleTeacherDashboard = () => {
               dropoutCount: 0,
               bulkAttendanceStatus: "",
             });
-            
-            console.log("[handleRemoteSession] Fetching cohort member list for:", {
-              classId,
-              selectedDate,
-            });
+
+            console.log(
+              "[handleRemoteSession] Fetching cohort member list for:",
+              {
+                classId,
+                selectedDate,
+              }
+            );
 
             const limit = 300;
             const page = 0;
@@ -511,38 +539,47 @@ const SimpleTeacherDashboard = () => {
               includeArchived: false,
             });
 
-            console.log("[handleRemoteSession] Cohort member list API response:", {
-              hasResponse: !!response,
-              hasResult: !!response?.result,
-              userDetailsCount: response?.result?.userDetails?.length || 0,
-              responseStructure: Object.keys(response || {}),
-            });
+            console.log(
+              "[handleRemoteSession] Cohort member list API response:",
+              {
+                hasResponse: !!response,
+                hasResult: !!response?.result,
+                userDetailsCount: response?.result?.userDetails?.length || 0,
+                responseStructure: Object.keys(response || {}),
+              }
+            );
 
-            const resp = response?.result?.userDetails || response?.data?.result?.userDetails || [];
+            const resp =
+              response?.result?.userDetails ||
+              response?.data?.result?.userDetails ||
+              [];
             console.log("[handleRemoteSession] Raw API response members:", {
               totalMembers: resp.length,
-              members: resp.map(m => ({
+              members: resp.map((m) => ({
                 userId: m?.userId,
                 name: `${m?.firstName || ""} ${m?.lastName || ""}`.trim(),
                 role: m?.role,
                 username: m?.username,
               })),
             });
-            
+
             const filteredResp = filterMembersExcludingCurrentUser(resp);
             console.log("[handleRemoteSession] After filtering current user:", {
               originalCount: resp.length,
               filteredCount: filteredResp.length,
-              filteredMembers: filteredResp.map(m => ({
+              filteredMembers: filteredResp.map((m) => ({
                 userId: m?.userId,
                 name: `${m?.firstName || ""} ${m?.lastName || ""}`.trim(),
                 role: m?.role,
               })),
             });
-            
+
             if (filteredResp && filteredResp.length > 0) {
-              console.log("[handleRemoteSession] Processing members:", filteredResp.length);
-              
+              console.log(
+                "[handleRemoteSession] Processing members:",
+                filteredResp.length
+              );
+
               const nameUserIdArray = filteredResp
                 ?.map((entry: any) => ({
                   userId: entry.userId,
@@ -561,45 +598,61 @@ const SimpleTeacherDashboard = () => {
                     // For older dates, show members based on their status:
                     // - ACTIVE members: always show (they exist now, so they existed on older dates too)
                     // - ARCHIVED/DROPOUT: only show if they were archived/dropped out AFTER the selected date
-                    
+
                     if (member.memberStatus === "ACTIVE") {
                       // Active members should always be shown
                       return true;
                     }
-                    
+
                     // For ARCHIVED or DROPOUT members, check if they were archived/dropped out after the selected date
-                    if (member.memberStatus === "ARCHIVED" || member.memberStatus === "DROPOUT") {
+                    if (
+                      member.memberStatus === "ARCHIVED" ||
+                      member.memberStatus === "DROPOUT"
+                    ) {
                       if (!member.updatedAt) {
                         // If no updatedAt, include to be safe
-                        console.warn("[handleRemoteSession] Member has no updatedAt:", member);
+                        console.warn(
+                          "[handleRemoteSession] Member has no updatedAt:",
+                          member
+                        );
                         return true;
                       }
-                      
+
                       const updatedAt = new Date(member.updatedAt);
                       const currentDate = new Date(selectedDate);
-                      
-                      if (isNaN(updatedAt.getTime()) || isNaN(currentDate.getTime())) {
-                        console.warn("[handleRemoteSession] Invalid date for member:", {
-                          userId: member.userId,
-                          name: member.name,
-                          updatedAt: member.updatedAt,
-                          selectedDate,
-                        });
+
+                      if (
+                        isNaN(updatedAt.getTime()) ||
+                        isNaN(currentDate.getTime())
+                      ) {
+                        console.warn(
+                          "[handleRemoteSession] Invalid date for member:",
+                          {
+                            userId: member.userId,
+                            name: member.name,
+                            updatedAt: member.updatedAt,
+                            selectedDate,
+                          }
+                        );
                         return true; // Include on error
                       }
-                      
+
                       updatedAt.setHours(0, 0, 0, 0);
                       currentDate.setHours(0, 0, 0, 0);
-                      
+
                       // Include if archived/dropped out AFTER the selected date (they were active on that date)
                       const wasArchivedAfterDate = updatedAt > currentDate;
                       return wasArchivedAfterDate;
                     }
-                    
+
                     // For any other status, include by default
                     return true;
                   } catch (error) {
-                    console.error("[handleRemoteSession] Error filtering member:", error, member);
+                    console.error(
+                      "[handleRemoteSession] Error filtering member:",
+                      error,
+                      member
+                    );
                     // On error, include the member to be safe
                     return true;
                   }
@@ -609,67 +662,91 @@ const SimpleTeacherDashboard = () => {
                 selectedDate,
                 totalMembers: resp.length,
                 filteredMembers: nameUserIdArray.length,
-                sampleMembers: nameUserIdArray.slice(0, 3).map(m => ({
+                sampleMembers: nameUserIdArray.slice(0, 3).map((m) => ({
                   name: m.name,
                   status: m.memberStatus,
                   createdAt: m.createdAt,
                 })),
               });
 
-              if (nameUserIdArray && nameUserIdArray.length > 0 && selectedDate && classId) {
-                console.log("[handleRemoteSession] Calling fetchAttendanceDetails");
+              if (
+                nameUserIdArray &&
+                nameUserIdArray.length > 0 &&
+                selectedDate &&
+                classId
+              ) {
+                console.log(
+                  "[handleRemoteSession] Calling fetchAttendanceDetails"
+                );
                 // Convert Date to string format for fetchAttendanceDetails
                 const selectedDateStr =
                   typeof selectedDate === "string"
                     ? selectedDate
                     : shortDateFormat(selectedDate);
-                
+
                 // Fetch attendance details - this will call handleAttendanceDataUpdate when done
                 // The callback is called synchronously at the end of fetchAttendanceDetails
                 await new Promise<void>((resolve) => {
                   const updateCallback = (data: any) => {
-                    console.log("[handleRemoteSession] Callback received data:", {
-                      memberCount: data?.cohortMemberList?.length || 0,
-                    });
+                    console.log(
+                      "[handleRemoteSession] Callback received data:",
+                      {
+                        memberCount: data?.cohortMemberList?.length || 0,
+                      }
+                    );
                     handleAttendanceDataUpdate(data, () => {
-                      console.log("[handleRemoteSession] State update completed, opening modal");
+                      console.log(
+                        "[handleRemoteSession] State update completed, opening modal"
+                      );
                       setOpen(true);
                       resolve();
                     });
                   };
-                  
+
                   fetchAttendanceDetails(
-                  nameUserIdArray,
-                  selectedDateStr,
-                  classId,
+                    nameUserIdArray,
+                    selectedDateStr,
+                    classId,
                     updateCallback
                   ).catch((error) => {
-                    console.error("[handleRemoteSession] Error in fetchAttendanceDetails:", error);
+                    console.error(
+                      "[handleRemoteSession] Error in fetchAttendanceDetails:",
+                      error
+                    );
                     // Still open modal even on error
                     setOpen(true);
                     resolve();
                   });
                 });
               } else {
-                console.warn("[handleRemoteSession] No members to fetch attendance for:", {
-                  nameUserIdArrayLength: nameUserIdArray?.length || 0,
-                  selectedDate,
-                  classId,
-                });
+                console.warn(
+                  "[handleRemoteSession] No members to fetch attendance for:",
+                  {
+                    nameUserIdArrayLength: nameUserIdArray?.length || 0,
+                    selectedDate,
+                    classId,
+                  }
+                );
                 // Still open modal even if no members (to show empty state)
                 setOpen(true);
               }
             } else {
-              console.warn("[handleRemoteSession] No members found in response:", {
-                responseKeys: Object.keys(response || {}),
-                hasResult: !!response?.result,
-                hasData: !!response?.data,
-              });
+              console.warn(
+                "[handleRemoteSession] No members found in response:",
+                {
+                  responseKeys: Object.keys(response || {}),
+                  hasResult: !!response?.result,
+                  hasData: !!response?.data,
+                }
+              );
               // Open modal even if no members found
               setOpen(true);
             }
           } catch (error) {
-            console.error("[handleRemoteSession] Error fetching cohort member list:", error);
+            console.error(
+              "[handleRemoteSession] Error fetching cohort member list:",
+              error
+            );
             // Open modal even on error
             setOpen(true);
           }
@@ -699,6 +776,21 @@ const SimpleTeacherDashboard = () => {
       setUserRole(role);
     }
   }, []);
+
+  // Fetch OBLF Office coordinates when work_from_office is selected
+  useEffect(() => {
+    if (
+      userRole === "Staff" &&
+      workLocation === "work_from_office" &&
+      !oblfOfficeCoords
+    ) {
+      console.log(
+        "[Work From Office] Work location changed to work_from_office, fetching OBLF Office coordinates..."
+      );
+      fetchOBLFOfficeCoordinates();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workLocation, userRole, oblfOfficeCoords]);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -752,22 +844,36 @@ const SimpleTeacherDashboard = () => {
     try {
       setLoading(true);
       // Read userRole directly from localStorage to avoid race condition with state
-      const currentUserRole = typeof window !== "undefined" ? localStorage.getItem("userRole") : userRole;
-      console.log("[fetchUserCohorts] Fetching cohorts for userId:", userId, "userRole from localStorage:", currentUserRole, "userRole from state:", userRole);
-      
+      const currentUserRole =
+        typeof window !== "undefined"
+          ? localStorage.getItem("userRole")
+          : userRole;
+      console.log(
+        "[fetchUserCohorts] Fetching cohorts for userId:",
+        userId,
+        "userRole from localStorage:",
+        currentUserRole,
+        "userRole from state:",
+        userRole
+      );
+
       // For Supervisor and Staff, we need all data including inactive cohorts to build centers
       const response = await getCohortList(
         userId,
         {
-        customField: "true",
-        children: "true",
+          customField: "true",
+          children: "true",
         },
         true // isCustomFields: true to get all data without filtering
       );
       console.log("[fetchUserCohorts] API response:", response);
       await getUserDetails(userId, true);
       if (response && response.length > 0) {
-        console.log("[fetchUserCohorts] Response has data, processing...", response.length, "items");
+        console.log(
+          "[fetchUserCohorts] Response has data, processing...",
+          response.length,
+          "items"
+        );
         setCohortsData(response);
 
         // For Supervisor: Show SCHOOL items directly in center dropdown
@@ -775,20 +881,28 @@ const SimpleTeacherDashboard = () => {
         if (currentUserRole === "Supervisor") {
           console.log("[fetchUserCohorts] Processing for Supervisor role");
           console.log("[fetchUserCohorts] Full response:", response);
-          
+
           // Extract SCHOOL items directly - these are the schools assigned to Supervisor
           // Filter for type === "SCHOOL" exactly (case-sensitive)
           const schoolItems = response.filter((item: any) => {
             const isSchool = item.type === "SCHOOL";
-            console.log(`[fetchUserCohorts] Item: ${item.cohortName}, type: ${item.type}, isSchool: ${isSchool}`);
+            console.log(
+              `[fetchUserCohorts] Item: ${item.cohortName}, type: ${item.type}, isSchool: ${isSchool}`
+            );
             return isSchool;
           });
-          
-          console.log("[fetchUserCohorts] Supervisor - SCHOOL items found:", schoolItems.length, schoolItems);
-          
+
+          console.log(
+            "[fetchUserCohorts] Supervisor - SCHOOL items found:",
+            schoolItems.length,
+            schoolItems
+          );
+
           // Map SCHOOL items directly to centers - NO hierarchy API call
           const supervisorCenters = schoolItems.map((school: any) => {
-            console.log(`[fetchUserCohorts] Mapping school: ${school.cohortName} (${school.cohortId})`);
+            console.log(
+              `[fetchUserCohorts] Mapping school: ${school.cohortName} (${school.cohortId})`
+            );
             return {
               centerId: school.cohortId, // Use school ID as center ID
               centerName: school.cohortName, // Use school name as center name
@@ -797,180 +911,226 @@ const SimpleTeacherDashboard = () => {
               parentId: school.parentId, // Keep parentId for reference
             };
           });
-          
-          console.log("[fetchUserCohorts] Supervisor centers (schools) - FINAL:", supervisorCenters);
+
+          console.log(
+            "[fetchUserCohorts] Supervisor centers (schools) - FINAL:",
+            supervisorCenters
+          );
           setCentersData(supervisorCenters);
-          
+
           if (supervisorCenters.length > 0) {
             const defaultCenter = supervisorCenters[0];
             setSelectedCenterId(defaultCenter.centerId);
             // Don't set batches for Supervisor (batch dropdown is hidden)
             setBatchesData([]);
             setClassId("");
-            console.log("[fetchUserCohorts] Default center set for Supervisor:", defaultCenter.centerName);
+            console.log(
+              "[fetchUserCohorts] Default center set for Supervisor:",
+              defaultCenter.centerName
+            );
           } else {
-            console.warn("[fetchUserCohorts] No SCHOOL items found for Supervisor!");
+            console.warn(
+              "[fetchUserCohorts] No SCHOOL items found for Supervisor!"
+            );
           }
         } else {
           // For Teacher and other roles: Fetch hierarchy to get centers
-        // Extract unique parent IDs from the cohorts
-        const uniqueParentIds = [...new Set(
-          response
-            .filter((item: any) => item.parentId && item.type === "COHORT")
-            .map((item: any) => item.parentId)
-        )];
-        
-        console.log("Unique parent IDs:", uniqueParentIds);
-        
-        // Fetch hierarchy data for each unique parent ID
-        const centersWithHierarchy = await Promise.all(
-          uniqueParentIds.map(async (parentId: any) => {
-            try {
-              // Call cohortHierarchy API with the parent ID
-              const hierarchyData = await getCohortDetails(parentId, {
-                children: "true",
-                customField: "true",
-              });
-              
-              console.log(`Hierarchy data for ${parentId}:`, hierarchyData);
-              
-              // The API returns an array, get the first item
-              const centerData = Array.isArray(hierarchyData) ? hierarchyData[0] : hierarchyData;
-              
-              return {
-                centerId: centerData?.cohortId || parentId,
-                centerName: centerData?.cohortName || centerData?.name || "Unknown Center",
-                childData: centerData?.childData || [],
-                hierarchyData: centerData,
-              };
-            } catch (error) {
-              console.error(`Error fetching hierarchy for ${parentId}:`, error);
-              return null;
-            }
-          })
-        );
-        
-        // Filter out null values (failed requests)
-        const validCenters = centersWithHierarchy.filter((center) => center !== null);
-        
-          console.log("[fetchUserCohorts] Valid centers found:", validCenters.length, validCenters);
-        setCentersData(validCenters);
-        
-        if (validCenters.length > 0) {
-          const defaultCenter = validCenters[0];
-          setSelectedCenterId(defaultCenter.centerId);
+          // Extract unique parent IDs from the cohorts
+          const uniqueParentIds = [
+            ...new Set(
+              response
+                .filter((item: any) => item.parentId && item.type === "COHORT")
+                .map((item: any) => item.parentId)
+            ),
+          ];
 
-          // Batches/classes should come ONLY from myCohorts response
-          const batches = response
-            .filter(
-              (item: any) =>
-                item.type === "COHORT" &&
-                item.parentId === defaultCenter.centerId &&
-                item.cohortStatus === "active"
-            )
+          console.log("Unique parent IDs:", uniqueParentIds);
+
+          // Fetch hierarchy data for each unique parent ID
+          const centersWithHierarchy = await Promise.all(
+            uniqueParentIds.map(async (parentId: any) => {
+              try {
+                // Call cohortHierarchy API with the parent ID
+                const hierarchyData = await getCohortDetails(parentId, {
+                  children: "true",
+                  customField: "true",
+                });
+
+                console.log(`Hierarchy data for ${parentId}:`, hierarchyData);
+
+                // The API returns an array, get the first item
+                const centerData = Array.isArray(hierarchyData)
+                  ? hierarchyData[0]
+                  : hierarchyData;
+
+                return {
+                  centerId: centerData?.cohortId || parentId,
+                  centerName:
+                    centerData?.cohortName ||
+                    centerData?.name ||
+                    "Unknown Center",
+                  childData: centerData?.childData || [],
+                  hierarchyData: centerData,
+                };
+              } catch (error) {
+                console.error(
+                  `Error fetching hierarchy for ${parentId}:`,
+                  error
+                );
+                return null;
+              }
+            })
+          );
+
+          // Filter out null values (failed requests)
+          const validCenters = centersWithHierarchy.filter(
+            (center) => center !== null
+          );
+
+          console.log(
+            "[fetchUserCohorts] Valid centers found:",
+            validCenters.length,
+            validCenters
+          );
+          setCentersData(validCenters);
+
+          if (validCenters.length > 0) {
+            const defaultCenter = validCenters[0];
+            setSelectedCenterId(defaultCenter.centerId);
+
+            // Batches/classes should come ONLY from myCohorts response
+            const batches = response
+              .filter(
+                (item: any) =>
+                  item.type === "COHORT" &&
+                  item.parentId === defaultCenter.centerId &&
+                  item.cohortStatus === "active"
+              )
               .map((item: any) => {
                 // Extract slot value from cohortMemberCustomField
                 const slotField = item.cohortMemberCustomField?.find(
                   (field: any) => field?.label?.toUpperCase() === "SLOTS"
                 );
                 const slotValue = slotField?.selectedValues?.[0] || "";
-                
+
                 return {
-              batchId: item.cohortId,
-              batchName: item.cohortName,
-              parentId: item.parentId,
+                  batchId: item.cohortId,
+                  batchName: item.cohortName,
+                  parentId: item.parentId,
                   slot: slotValue,
                 };
               });
 
-          console.log("Batches for default center (from myCohorts):", batches);
-          setBatchesData(batches);
-
-          // Set default batch if available
-          if (batches.length > 0) {
-            setClassId(batches[0].batchId);
-          } else {
-            setClassId("");
-          }
-        } else {
-          console.log("[fetchUserCohorts] No valid centers from hierarchy, trying fallback with direct cohorts");
-          // If no hierarchy data, use direct cohorts/schools from response
-          // For Supervisor: items have type "SCHOOL", for Teacher: items have type "COHORT"
-          const directCohorts = response.filter(
-            (item: any) => item.type === "COHORT" || item.type === "SCHOOL"
-          );
-          console.log("[fetchUserCohorts] Direct cohorts/schools found:", directCohorts.length);
-          if (directCohorts.length > 0) {
-            // Group cohorts/schools by parentId
-            const cohortsByParent: any = {};
-            directCohorts.forEach((cohort: any) => {
-              if (!cohortsByParent[cohort.parentId]) {
-                cohortsByParent[cohort.parentId] = [];
-              }
-              cohortsByParent[cohort.parentId].push(cohort);
-            });
-            
-            // Create centers from parent IDs
-            // Try to get center name from first cohort's parentId by fetching hierarchy, or use a generic name
-            const fallbackCenters = await Promise.all(
-              Object.keys(cohortsByParent).map(async (parentId) => {
-                try {
-                  const hierarchyData = await getCohortDetails(parentId, {
-                    children: "true",
-                    customField: "true",
-                  });
-                  const centerData = Array.isArray(hierarchyData) ? hierarchyData[0] : hierarchyData;
-                  return {
-                    centerId: centerData?.cohortId || parentId,
-                    centerName: centerData?.cohortName || centerData?.name || `Center ${parentId.substring(0, 8)}`,
-                    childData: cohortsByParent[parentId],
-                    hierarchyData: centerData,
-                  };
-                } catch (error) {
-                  console.error(`Error fetching hierarchy for fallback center ${parentId}:`, error);
-                  return {
-              centerId: parentId,
-              centerName: `Center ${parentId.substring(0, 8)}`,
-              childData: cohortsByParent[parentId],
-              hierarchyData: null,
-                  };
-                }
-              })
+            console.log(
+              "Batches for default center (from myCohorts):",
+              batches
             );
-            
-            console.log("[fetchUserCohorts] Fallback centers created:", fallbackCenters.length, fallbackCenters);
-            setCentersData(fallbackCenters);
-            
-            if (fallbackCenters.length > 0) {
-              const defaultCenter = fallbackCenters[0];
-              setSelectedCenterId(defaultCenter.centerId);
-              
-              const batches = defaultCenter.childData.map((batch: any) => {
-                // Extract slot value from cohortMemberCustomField
-                const slotField = batch.cohortMemberCustomField?.find(
-                  (field: any) => field?.label?.toUpperCase() === "SLOTS"
-                );
-                const slotValue = slotField?.selectedValues?.[0] || "";
-                
-                return {
-                batchId: batch.cohortId,
-                batchName: batch.cohortName,
-                parentId: batch.parentId,
-                  slot: slotValue,
-                };
+            setBatchesData(batches);
+
+            // Set default batch if available
+            if (batches.length > 0) {
+              setClassId(batches[0].batchId);
+            } else {
+              setClassId("");
+            }
+          } else {
+            console.log(
+              "[fetchUserCohorts] No valid centers from hierarchy, trying fallback with direct cohorts"
+            );
+            // If no hierarchy data, use direct cohorts/schools from response
+            // For Supervisor: items have type "SCHOOL", for Teacher: items have type "COHORT"
+            const directCohorts = response.filter(
+              (item: any) => item.type === "COHORT" || item.type === "SCHOOL"
+            );
+            console.log(
+              "[fetchUserCohorts] Direct cohorts/schools found:",
+              directCohorts.length
+            );
+            if (directCohorts.length > 0) {
+              // Group cohorts/schools by parentId
+              const cohortsByParent: any = {};
+              directCohorts.forEach((cohort: any) => {
+                if (!cohortsByParent[cohort.parentId]) {
+                  cohortsByParent[cohort.parentId] = [];
+                }
+                cohortsByParent[cohort.parentId].push(cohort);
               });
-              setBatchesData(batches);
-              
-              if (batches.length > 0) {
-                setClassId(batches[0].batchId);
+
+              // Create centers from parent IDs
+              // Try to get center name from first cohort's parentId by fetching hierarchy, or use a generic name
+              const fallbackCenters = await Promise.all(
+                Object.keys(cohortsByParent).map(async (parentId) => {
+                  try {
+                    const hierarchyData = await getCohortDetails(parentId, {
+                      children: "true",
+                      customField: "true",
+                    });
+                    const centerData = Array.isArray(hierarchyData)
+                      ? hierarchyData[0]
+                      : hierarchyData;
+                    return {
+                      centerId: centerData?.cohortId || parentId,
+                      centerName:
+                        centerData?.cohortName ||
+                        centerData?.name ||
+                        `Center ${parentId.substring(0, 8)}`,
+                      childData: cohortsByParent[parentId],
+                      hierarchyData: centerData,
+                    };
+                  } catch (error) {
+                    console.error(
+                      `Error fetching hierarchy for fallback center ${parentId}:`,
+                      error
+                    );
+                    return {
+                      centerId: parentId,
+                      centerName: `Center ${parentId.substring(0, 8)}`,
+                      childData: cohortsByParent[parentId],
+                      hierarchyData: null,
+                    };
+                  }
+                })
+              );
+
+              console.log(
+                "[fetchUserCohorts] Fallback centers created:",
+                fallbackCenters.length,
+                fallbackCenters
+              );
+              setCentersData(fallbackCenters);
+
+              if (fallbackCenters.length > 0) {
+                const defaultCenter = fallbackCenters[0];
+                setSelectedCenterId(defaultCenter.centerId);
+
+                const batches = defaultCenter.childData.map((batch: any) => {
+                  // Extract slot value from cohortMemberCustomField
+                  const slotField = batch.cohortMemberCustomField?.find(
+                    (field: any) => field?.label?.toUpperCase() === "SLOTS"
+                  );
+                  const slotValue = slotField?.selectedValues?.[0] || "";
+
+                  return {
+                    batchId: batch.cohortId,
+                    batchName: batch.cohortName,
+                    parentId: batch.parentId,
+                    slot: slotValue,
+                  };
+                });
+                setBatchesData(batches);
+
+                if (batches.length > 0) {
+                  setClassId(batches[0].batchId);
+                }
               }
             }
-          }
-        } // End of Teacher else block
-      } // End of outer if (response && response.length > 0)
-    } else {
-      console.warn("[fetchUserCohorts] No response or empty response from API");
-      setCentersData([]);
+          } // End of Teacher else block
+        } // End of outer if (response && response.length > 0)
+      } else {
+        console.warn(
+          "[fetchUserCohorts] No response or empty response from API"
+        );
+        setCentersData([]);
       }
     } catch (error) {
       console.error("[fetchUserCohorts] Error fetching cohorts:", error);
@@ -998,11 +1158,11 @@ const SimpleTeacherDashboard = () => {
           (field: any) => field?.label?.toUpperCase() === "SLOTS"
         );
         const slotValue = slotField?.selectedValues?.[0] || "";
-        
+
         return {
-        batchId: item.cohortId,
-        batchName: item.cohortName,
-        parentId: item.parentId,
+          batchId: item.cohortId,
+          batchName: item.cohortName,
+          parentId: item.parentId,
           slot: slotValue,
         };
       });
@@ -1075,8 +1235,9 @@ const SimpleTeacherDashboard = () => {
 
   const fetchSelfAttendance = async () => {
     // For Supervisor: use selectedCenterId, for other roles: use classId
-    const effectiveContextId = userRole === "Supervisor" ? selectedCenterId : classId;
-    
+    const effectiveContextId =
+      userRole === "Supervisor" ? selectedCenterId : classId;
+
     if (!effectiveContextId || effectiveContextId === "all") return;
 
     try {
@@ -1161,12 +1322,18 @@ const SimpleTeacherDashboard = () => {
     return days;
   };
 
-      // Fetch self-attendance for all calendar dates (for Staff/Supervisor role calendar display)
+  // Fetch self-attendance for all calendar dates (for Staff/Supervisor role calendar display)
   const fetchStaffSelfAttendanceForCalendar = async () => {
-        // For Supervisor: use selectedCenterId, for Staff: use classId
-        const effectiveContextId = userRole === "Supervisor" ? selectedCenterId : classId;
-        
-        if (!effectiveContextId || effectiveContextId === "all" || (userRole !== "Staff" && userRole !== "Supervisor")) return;
+    // For Supervisor: use selectedCenterId, for Staff: use classId
+    const effectiveContextId =
+      userRole === "Supervisor" ? selectedCenterId : classId;
+
+    if (
+      !effectiveContextId ||
+      effectiveContextId === "all" ||
+      (userRole !== "Staff" && userRole !== "Supervisor")
+    )
+      return;
 
     try {
       const userId = localStorage.getItem("userId");
@@ -1212,16 +1379,18 @@ const SimpleTeacherDashboard = () => {
 
       if (response?.data?.attendanceList) {
         // Create a map of date -> attendance status
-        const attendanceMap: { [date: string]: "present" | "absent" | null } = {};
-        
+        const attendanceMap: { [date: string]: "present" | "absent" | null } =
+          {};
+
         response.data.attendanceList.forEach((item: any) => {
           if (item.attendanceDate) {
             const dateKey = shortDateFormat(new Date(item.attendanceDate));
-            attendanceMap[dateKey] = item.attendance?.toLowerCase() === "present" 
-              ? "present" 
-              : item.attendance?.toLowerCase() === "absent" 
-              ? "absent" 
-              : null;
+            attendanceMap[dateKey] =
+              item.attendance?.toLowerCase() === "present"
+                ? "present"
+                : item.attendance?.toLowerCase() === "absent"
+                ? "absent"
+                : null;
           }
         });
 
@@ -1230,7 +1399,10 @@ const SimpleTeacherDashboard = () => {
         setStaffSelfAttendanceByDate({});
       }
     } catch (error) {
-      console.error("Error fetching staff self-attendance for calendar:", error);
+      console.error(
+        "Error fetching staff self-attendance for calendar:",
+        error
+      );
       setStaffSelfAttendanceByDate({});
     }
   };
@@ -1247,12 +1419,12 @@ const SimpleTeacherDashboard = () => {
     }
 
     // Close location modal and open attendance modal immediately for better UX
-        setIsLocationModalOpen(false);
-        const currentAttendance = selfAttendanceData?.[0]?.attendance;
-        setSelectedSelfAttendance(
-          currentAttendance ? currentAttendance.toLowerCase() : null
-        );
-        setIsSelfAttendanceModalOpen(true);
+    setIsLocationModalOpen(false);
+    const currentAttendance = selfAttendanceData?.[0]?.attendance;
+    setSelectedSelfAttendance(
+      currentAttendance ? currentAttendance.toLowerCase() : null
+    );
+    setIsSelfAttendanceModalOpen(true);
 
     // Get location in the background (non-blocking)
     // This is a pre-fetch to speed up the actual attendance marking
@@ -1278,7 +1450,9 @@ const SimpleTeacherDashboard = () => {
         } else if (error.code === 2) {
           console.log("[Location] Position unavailable");
         } else if (error.code === 3) {
-          console.log("[Location] Timeout - will retry when marking attendance");
+          console.log(
+            "[Location] Timeout - will retry when marking attendance"
+          );
         }
       },
       {
@@ -1311,61 +1485,113 @@ const SimpleTeacherDashboard = () => {
       }
     }
 
-    // For Staff: enforce fixed 9:30 AM timing but keep button enabled.
-    // Do NOT allow marking before 5 minutes of 9:30 AM (i.e., before 9:25 AM).
-    if (userRole === "Staff") {
-      const timing = getStaffFixedTiming();
-      if (timing) {
-        const now = new Date();
-        if (now < timing.enableTime) {
-          showToastMessage(
-            "You can mark self attendance only within 5 minutes before 9:30 AM.",
-            "warning"
-          );
-          return;
-        }
-      }
-    }
+    // For Staff: allow marking attendance anytime, but late flag will be true after 9:35 AM
 
     setIsLocationModalOpen(true);
   };
 
-  // Get OBLF office coordinates (for Staff work_from_office validation)
-  const getOBLFOfficeCoordinates = () => {
-    // Try to get office coordinates from centersData or a specific office location
-    // For now, we'll use the selected center's coordinates as office location
-    // If there's a specific office field, it should be added here
-    const center = centersData.find((c) => c.centerId === selectedCenterId);
-    const customFields: any[] =
-      center?.hierarchyData?.customField || center?.customField || [];
-    
-    // Look for office-specific latitude/longitude fields, or use center coordinates
-    const officeLatitudeField = customFields.find(
-      (field) =>
-        (field?.label?.toLowerCase() === "office latitude" || 
-         field?.label?.toLowerCase() === "oblf office latitude") &&
-        Array.isArray(field?.selectedValues) &&
-        field.selectedValues.length > 0
-    );
-    const officeLongitudeField = customFields.find(
-      (field) =>
-        (field?.label?.toLowerCase() === "office longitude" || 
-         field?.label?.toLowerCase() === "oblf office longitude") &&
-        Array.isArray(field?.selectedValues) &&
-        field.selectedValues.length > 0
-    );
-
-    // If office-specific coordinates exist, use them; otherwise use center coordinates
-    if (officeLatitudeField && officeLongitudeField) {
-      const lat = parseFloat(officeLatitudeField?.selectedValues?.[0]);
-      const lon = parseFloat(officeLongitudeField?.selectedValues?.[0]);
-      if (Number.isFinite(lat) && Number.isFinite(lon)) {
-        return { latitude: lat, longitude: lon };
-      }
+  // Fetch OBLF Office coordinates from API
+  const fetchOBLFOfficeCoordinates = async () => {
+    if (oblfOfficeCoords) {
+      // Return cached coordinates
+      return oblfOfficeCoords;
     }
 
-    // Fallback to center coordinates (office is typically at the center/school)
-    return getSelectedCenterCoordinates();
+    try {
+      console.log("[Work From Office] Fetching OBLF Office from API...");
+      const filters = { type: "SCHOOL", status: ["active"] };
+      const response = await cohortList({ limit: 0, offset: 0, filters });
+
+      const cohorts =
+        response?.cohortDetails || response?.results?.cohortDetails || [];
+      console.log(
+        "[Work From Office] API Response - Total cohorts:",
+        cohorts.length
+      );
+
+      // Find OBLF Office
+      const oblfEntity = cohorts.find(
+        (c: any) =>
+          c.name?.toLowerCase().includes("oblf office") ||
+          c.cohortName?.toLowerCase().includes("oblf office")
+      );
+
+      if (oblfEntity) {
+        console.log("[Work From Office] Found OBLF Office:", {
+          cohortId: oblfEntity.cohortId,
+          name: oblfEntity.name || oblfEntity.cohortName,
+          customFields: oblfEntity.customFields || oblfEntity.customField,
+        });
+
+        const customFields =
+          oblfEntity.customFields || oblfEntity.customField || [];
+        const latField = customFields.find(
+          (f: any) => f.label?.toLowerCase() === "latitude"
+        );
+        const lonField = customFields.find(
+          (f: any) => f.label?.toLowerCase() === "longitude"
+        );
+
+        if (latField && lonField) {
+          const lat = parseFloat(latField.selectedValues?.[0]);
+          const lon = parseFloat(lonField.selectedValues?.[0]);
+
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            const coords = {
+              latitude: lat,
+              longitude: lon,
+              centerName:
+                oblfEntity.name || oblfEntity.cohortName || "OBLF Office",
+            };
+            console.log(
+              "[Work From Office] OBLF Office coordinates found:",
+              coords
+            );
+            setOblfOfficeCoords(coords);
+            return coords;
+          } else {
+            console.error("[Work From Office] Invalid lat/lon values:", {
+              lat,
+              lon,
+            });
+          }
+        } else {
+          console.error(
+            "[Work From Office] Latitude or Longitude field not found in customFields"
+          );
+        }
+      } else {
+        console.error("[Work From Office] OBLF Office not found in cohorts");
+      }
+    } catch (error) {
+      console.error(
+        "[Work From Office] Error fetching OBLF Office coordinates:",
+        error
+      );
+    }
+
+    return null;
+  };
+
+  // Get OBLF office coordinates (for Staff work_from_office validation)
+  const getOBLFOfficeCoordinates = () => {
+    // Return cached coordinates if available
+    if (oblfOfficeCoords) {
+      console.log(
+        "[Work From Office] Using cached OBLF Office coordinates:",
+        oblfOfficeCoords
+      );
+      return {
+        latitude: oblfOfficeCoords.latitude,
+        longitude: oblfOfficeCoords.longitude,
+      };
+    }
+
+    // If not cached, return null (will trigger fetch when needed)
+    console.warn(
+      "[Work From Office] OBLF Office coordinates not cached yet. Call fetchOBLFOfficeCoordinates first."
+    );
+    return null;
   };
 
   const isLocationValid = (
@@ -1374,10 +1600,10 @@ const SimpleTeacherDashboard = () => {
   ): { valid: boolean; distance?: number } => {
     // For Staff with work_from_office, use office coordinates
     // For Teacher/Supervisor, use center coordinates
-    const referenceCoords = useOfficeCoords 
-      ? getOBLFOfficeCoordinates() 
+    const referenceCoords = useOfficeCoords
+      ? getOBLFOfficeCoordinates()
       : getSelectedCenterCoordinates();
-    
+
     if (!referenceCoords || !locationData) {
       console.log("[SelfAttendance] Missing coords", {
         referenceCoords,
@@ -1386,21 +1612,81 @@ const SimpleTeacherDashboard = () => {
       });
       return { valid: false };
     }
-    console.log("[SelfAttendance] Geo check", {
-      referenceLatitude: referenceCoords.latitude,
-      referenceLongitude: referenceCoords.longitude,
-      userLatitude: locationData.latitude,
-      userLongitude: locationData.longitude,
-      useOfficeCoords,
+
+    // Ensure coordinates are numbers (not strings)
+    const refLat =
+      typeof referenceCoords.latitude === "string"
+        ? parseFloat(referenceCoords.latitude)
+        : referenceCoords.latitude;
+    const refLon =
+      typeof referenceCoords.longitude === "string"
+        ? parseFloat(referenceCoords.longitude)
+        : referenceCoords.longitude;
+    const userLat =
+      typeof locationData.latitude === "string"
+        ? parseFloat(locationData.latitude)
+        : locationData.latitude;
+    const userLon =
+      typeof locationData.longitude === "string"
+        ? parseFloat(locationData.longitude)
+        : locationData.longitude;
+
+    // Validate coordinates are valid numbers
+    if (
+      !Number.isFinite(refLat) ||
+      !Number.isFinite(refLon) ||
+      !Number.isFinite(userLat) ||
+      !Number.isFinite(userLon)
+    ) {
+      console.error("[Location Validation] Invalid coordinate values:", {
+        refLat,
+        refLon,
+        userLat,
+        userLon,
+        refLatType: typeof referenceCoords.latitude,
+        refLonType: typeof referenceCoords.longitude,
+        userLatType: typeof locationData.latitude,
+        userLonType: typeof locationData.longitude,
+      });
+      return { valid: false };
+    }
+
+    // DEBUG: Log exact coordinates being compared
+    console.log("[Location Validation DEBUG] Coordinates being compared:", {
+      referencePoint: {
+        latitude: refLat,
+        longitude: refLon,
+        type: useOfficeCoords ? "OBLF Office" : "Center/School",
+      },
+      userLocation: {
+        latitude: userLat,
+        longitude: userLon,
+      },
+      functionCall: `getDistanceInMeters(${refLat}, ${refLon}, ${userLat}, ${userLon})`,
     });
-    const distance = getDistanceInMeters(
-      referenceCoords.latitude,
-      referenceCoords.longitude,
-      locationData.latitude,
-      locationData.longitude
-    );
-    const allowedRadiusMeters = 50; // within 50m
-    return { valid: distance <= allowedRadiusMeters, distance };
+
+    const distance = getDistanceInMeters(refLat, refLon, userLat, userLon);
+
+    const allowedRadiusMeters = 100; // within 50m
+    const isValid = distance <= allowedRadiusMeters;
+
+    // DEBUG: Log calculation result
+    console.log("[Location Validation DEBUG] Distance calculation result:", {
+      calculatedDistance_meters: distance,
+      calculatedDistance_rounded: distance.toFixed(4),
+      allowedRadius_meters: allowedRadiusMeters,
+      comparison: `${distance} <= ${allowedRadiusMeters}`,
+      isValid: isValid,
+      whyFailed: !isValid
+        ? `Distance ${distance.toFixed(
+            4
+          )}m exceeds ${allowedRadiusMeters}m by ${(
+            distance - allowedRadiusMeters
+          ).toFixed(4)}m`
+        : "PASSED",
+    });
+
+    return { valid: isValid, distance };
   };
 
   const handleMarkSelfAttendance = async () => {
@@ -1411,67 +1697,100 @@ const SimpleTeacherDashboard = () => {
     }
 
     // Validation: Staff must select work location when Present (Supervisor doesn't need it)
-    if (userRole === "Staff" && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && !workLocation) {
+    if (
+      userRole === "Staff" &&
+      selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT &&
+      !workLocation
+    ) {
       showToastMessage("Please select a work location", "warning");
       return;
     }
 
+    setIsMarkingAttendance(true);
     try {
       const userId = localStorage.getItem("userId");
       if (!userId) {
         showToastMessage("User ID not found", "error");
+        setIsMarkingAttendance(false);
         return;
       }
 
       // Always get real-time device location for all roles
       // This ensures we have the most current location, not stale data
       let locationData = null;
-      
+
+      console.log(
+        "[SelfAttendance] ===== GETTING USER LOCATION FROM GPS ====="
+      );
       console.log("[SelfAttendance] Getting real-time device location...");
-      
+
       // Try to get location with retry logic (built into getLocation)
-      locationData = await getLocation(true, 2); // 2 retries
-      
-      if (locationData && locationData.latitude !== 0 && locationData.longitude !== 0) {
-        console.log("[SelfAttendance] Real-time location obtained", {
+      // Increased retries to 3 to give GPS more time to get a fix
+      locationData = await getLocation(true, 3); // 3 retries with fallback to low accuracy
+
+      if (
+        locationData &&
+        locationData.latitude !== 0 &&
+        locationData.longitude !== 0
+      ) {
+        console.log("[SelfAttendance] Real-time GPS location obtained:", {
           latitude: locationData.latitude,
           longitude: locationData.longitude,
           accuracy: locationData.accuracy,
+          coordinates: `${locationData.latitude}, ${locationData.longitude}`,
         });
         // Update captured location for future reference
         setCapturedLocation({
           latitude: locationData.latitude,
           longitude: locationData.longitude,
         });
+        console.log("[SelfAttendance] ===== END USER LOCATION =====");
       } else {
         // If getLocation failed after retries, try using capturedLocation as fallback
-        if (capturedLocation && capturedLocation.latitude !== 0 && capturedLocation.longitude !== 0) {
-          console.log("[SelfAttendance] Using captured location as fallback after retry failure", {
-            latitude: capturedLocation.latitude,
-            longitude: capturedLocation.longitude,
-          });
+        if (
+          capturedLocation &&
+          capturedLocation.latitude !== 0 &&
+          capturedLocation.longitude !== 0
+        ) {
+          console.log(
+            "[SelfAttendance] Using captured location as fallback after retry failure:",
+            {
+              latitude: capturedLocation.latitude,
+              longitude: capturedLocation.longitude,
+              coordinates: `${capturedLocation.latitude}, ${capturedLocation.longitude}`,
+            }
+          );
           locationData = {
             latitude: capturedLocation.latitude,
             longitude: capturedLocation.longitude,
             accuracy: 0,
           };
+          console.log(
+            "[SelfAttendance] ===== END USER LOCATION (FALLBACK) ====="
+          );
         } else {
-          console.error("[SelfAttendance] Failed to get location after retries - no valid location data available");
+          console.error(
+            "[SelfAttendance] Failed to get location after retries - no valid location data available"
+          );
           showToastMessage(
-            "Unable to get your location. Please ensure location services are enabled, move to an area with better GPS signal, and try again.",
+            "Unable to get your GPS location. Please check: 1) Location/GPS is enabled in device settings, 2) Browser has location permission, 3) You are in an area with GPS signal (try moving to an open area), then try again.",
             "error"
           );
+          setIsMarkingAttendance(false);
           return;
         }
       }
 
       // Scope for API: always "self" for both Teacher, Staff & Supervisor
       const scope = "self";
-      
+
       // Get work location label for API from value (title case)
       // Only include workLocation if Staff (not Supervisor) and Present is selected
       let workLocationLabel = "";
-      if (userRole === "Staff" && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT) {
+      if (
+        userRole === "Staff" &&
+        selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT
+      ) {
         if (workLocation) {
           workLocationLabel = workLocationLabelMap[workLocation] || "";
           // If mapping fails, try to format the value directly
@@ -1504,18 +1823,13 @@ const SimpleTeacherDashboard = () => {
           }
         }
       } else if (userRole === "Staff" && selectedSelfAttendance) {
+        // Staff can mark attendance anytime, but late is TRUE only after 9:35 AM
         const timing = getStaffFixedTiming();
-        if (timing) {
-          const now = new Date();
-          // Window where lateMark is FALSE: from 5 min before 9:30 AM (9:25 AM) until 5 min after (9:35 AM)
-          // Outside this window, lateMark is TRUE
-          if (now < timing.enableTime) {
-            isLate = true;
-          } else if (now <= timing.lateThreshold) {
-            isLate = false;
-          } else {
-            isLate = true;
-          }
+        const now = new Date();
+        if (timing && now > timing.lateThreshold) {
+          isLate = true;
+        } else {
+          isLate = false;
         }
       }
 
@@ -1528,7 +1842,9 @@ const SimpleTeacherDashboard = () => {
         comment,
         absentReason: effectiveAbsentReason,
         workLocationLabelMapKeys: Object.keys(workLocationLabelMap),
-        workLocationInMap: workLocation ? workLocationLabelMap[workLocation] : "N/A",
+        workLocationInMap: workLocation
+          ? workLocationLabelMap[workLocation]
+          : "N/A",
       });
 
       // Determine absentReason and reason based on attendance type and late status
@@ -1540,56 +1856,62 @@ const SimpleTeacherDashboard = () => {
 
       // For Supervisor: use selectedCenterId as contextId (since classId is empty)
       // For other roles: use classId
-      const effectiveContextId = userRole === "Supervisor" 
-        ? (selectedCenterId || "5767a18a-323a-4eac-b115-22dabcd9b8ae")
-        : (classId || "5767a18a-323a-4eac-b115-22dabcd9b8ae");
+      const effectiveContextId =
+        userRole === "Supervisor"
+          ? selectedCenterId || "5767a18a-323a-4eac-b115-22dabcd9b8ae"
+          : classId || "5767a18a-323a-4eac-b115-22dabcd9b8ae";
 
       const data: any = {
         userId: userId,
         attendance: selectedSelfAttendance?.toLowerCase(),
         attendanceDate: selectedDate,
         contextId: effectiveContextId,
-        scope: scope, 
+        scope: scope,
         context: "cohort",
-        absentReason: finalAbsentReason, 
-        reason: finalReason, 
+        absentReason: finalAbsentReason,
+        reason: finalReason,
         remark: comment || "",
         validLocation: false,
       };
 
-     
       if (userRole === "Supervisor") {
-         data.lateMark = null;
-       
+        data.lateMark = null;
       } else if (userRole === "Staff") {
-        
         data.lateMark = isLate; // Use calculated isLate for Staff
         data.metaData = {
           workLocation: workLocationLabel || "",
         };
       } else {
-       
         data.lateMark = isLate;
       }
 
       // Ensure latitude and longitude are always set (should not be 0)
       // Always require valid real-time device location for all roles
-      if (!locationData || locationData.latitude === 0 || locationData.longitude === 0) {
-        console.error("[SelfAttendance] Invalid location data - cannot proceed", locationData);
+      if (
+        !locationData ||
+        locationData.latitude === 0 ||
+        locationData.longitude === 0
+      ) {
+        console.error(
+          "[SelfAttendance] Invalid location data - cannot proceed",
+          locationData
+        );
         showToastMessage(
-          "Invalid location data. Please ensure location services are enabled and try again.",
+          "GPS location not available. Please ensure: 1) Location/GPS is enabled, 2) Browser has location permission, 3) You have GPS signal, then try again.",
           "error"
         );
+        setIsMarkingAttendance(false);
         return;
       }
-      
+
       // Always set latitude and longitude for all roles (real-time device location)
       data.latitude = locationData.latitude;
       data.longitude = locationData.longitude;
-      
+
       // No 50m validation when marking absent - validation only applies to "present" attendance
-      const isAbsent = selectedSelfAttendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT;
-      
+      const isAbsent =
+        selectedSelfAttendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT;
+
       if (isAbsent) {
         // For absent attendance, no location validation needed
         data.validLocation = false;
@@ -1625,42 +1947,107 @@ const SimpleTeacherDashboard = () => {
                     )}m`
                   : "Distance could not be computed.";
               showToastMessage(
-                `${distanceMsg} You must be within 50 meters of the center to mark self attendance.`,
+                `${distanceMsg} You must be within 100 meters of the center to mark self attendance.`,
                 "warning"
               );
               setIsSelfAttendanceModalOpen(false);
+              setIsMarkingAttendance(false);
               return;
             }
           } else {
             data.validLocation = false;
           }
-        } 
-        else if (userRole === "Staff" && workLocation === "work_from_office") {
-          // Staff with work_from_office: validate against office location
+        } else if (
+          userRole === "Staff" &&
+          workLocation === "work_from_office"
+        ) {
+          // Staff with work_from_office: 50m validation commented out for now
+          // No location validation - allow marking attendance regardless of distance
+          data.validLocation = false;
+
+          // COMMENTED OUT: 50m validation for work_from_office
+          // // Staff with work_from_office: validate against office location
+          console.log(
+            "[Work From Office] Validating location for work_from_office",
+            {
+              workLocation: workLocation,
+              userLocation: {
+                latitude: locationData?.latitude,
+                longitude: locationData?.longitude,
+              },
+              oblfCoordsCached: !!oblfOfficeCoords,
+            }
+          );
+
+          // Fetch OBLF coordinates if not cached
+          let oblfCoords = getOBLFOfficeCoordinates();
+          if (!oblfCoords) {
+            console.log(
+              "[Work From Office] OBLF coordinates not cached, fetching now..."
+            );
+            const fetchedCoords = await fetchOBLFOfficeCoordinates();
+            if (fetchedCoords) {
+              oblfCoords = {
+                latitude: fetchedCoords.latitude,
+                longitude: fetchedCoords.longitude,
+              };
+            }
+          }
+
+          if (!oblfCoords) {
+            console.error(
+              "[Work From Office] OBLF Office coordinates not available. Cannot validate location."
+            );
+            showToastMessage(
+              "OBLF Office location not found. Please try again or contact support.",
+              "error"
+            );
+            setIsSelfAttendanceModalOpen(false);
+            return;
+          }
+
           const validationResult = isLocationValid(locationData, true);
           data.validLocation = validationResult.valid;
+
+          console.log("[Work From Office] Validation result:", {
+            valid: validationResult.valid,
+            distance: validationResult.distance,
+            oblfOffice: oblfOfficeCoords?.centerName || "OBLF Office",
+            oblfCoords: {
+              latitude: oblfCoords.latitude,
+              longitude: oblfCoords.longitude,
+            },
+            userLocation: {
+              latitude: locationData?.latitude,
+              longitude: locationData?.longitude,
+            },
+          });
 
           if (!validationResult.valid) {
             const distanceMsg =
               validationResult.distance !== undefined
-                ? `Distance from office: ${validationResult.distance.toFixed(2)}m`
+                ? `Distance from office: ${validationResult.distance.toFixed(
+                    2
+                  )}m`
                 : "Distance could not be computed.";
             showToastMessage(
-              `${distanceMsg} You must be within 50 meters of the office to mark attendance when working from office.`,
+              `${distanceMsg} You must be within 100 meters of the office to mark attendance when working from office.`,
               "warning"
             );
             setIsSelfAttendanceModalOpen(false);
             return;
           }
-        } 
-        else {
+        } else {
           // For Staff with other work locations (work_from_home, work_from_field, other), no validation
           data.validLocation = false;
         }
       }
 
       // Debug logging for Staff/Teacher role - final payload
-      console.log("[Self Attendance] Final payload being sent:", JSON.stringify(data, null, 2));
+      console.log(
+        "[Self Attendance] Final payload being sent:",
+        JSON.stringify(data, null, 2)
+      );
       console.log("[Self Attendance] Payload fields check:", {
         hasRemark: !!data.remark,
         hasMetaData: !!data.metaData,
@@ -1678,7 +2065,7 @@ const SimpleTeacherDashboard = () => {
         const successMessage =
           response?.params?.successmessage || "Attendance marked successfully";
         showToastMessage(successMessage, "success");
-        
+
         // Show late message if attendance was marked as late (for Teacher or Staff)
         if ((userRole === "Teacher" || userRole === "Staff") && isLate) {
           showToastMessage(
@@ -1686,7 +2073,7 @@ const SimpleTeacherDashboard = () => {
             "warning"
           );
         }
-        
+
         setIsSelfAttendanceModalOpen(false);
         setSelectedSelfAttendance(null);
         setAbsentReason("");
@@ -1714,25 +2101,30 @@ const SimpleTeacherDashboard = () => {
         if (userRole === "Staff" || userRole === "Supervisor") {
           fetchStaffSelfAttendanceForCalendar();
         }
+        setIsMarkingAttendance(false);
       } else if (response?.responseCode === 400 || response?.params?.err) {
         const errorMessage =
           response?.params?.errmsg ||
           response?.params?.err ||
           "Something went wrong";
         showToastMessage(errorMessage, "error");
+        setIsMarkingAttendance(false);
       } else {
         showToastMessage("Something went wrong", "error");
+        setIsMarkingAttendance(false);
       }
     } catch (error) {
       console.error("Error marking self attendance:", error);
       showToastMessage("Something went wrong", "error");
+      setIsMarkingAttendance(false);
     }
   };
 
   useEffect(() => {
     // For Supervisor: check selectedCenterId, for other roles: check classId
-    const effectiveContextId = userRole === "Supervisor" ? selectedCenterId : classId;
-    
+    const effectiveContextId =
+      userRole === "Supervisor" ? selectedCenterId : classId;
+
     if (effectiveContextId && effectiveContextId !== "all") {
       fetchAttendanceData();
       fetchDayWiseAttendanceData();
@@ -1745,7 +2137,15 @@ const SimpleTeacherDashboard = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classId, selectedCenterId, selectedDate, startDateRange, endDateRange, handleSaveHasRun, userRole]);
+  }, [
+    classId,
+    selectedCenterId,
+    selectedDate,
+    startDateRange,
+    endDateRange,
+    handleSaveHasRun,
+    userRole,
+  ]);
 
   const fetchDayWiseAttendanceData = async () => {
     if (!classId || classId === "all") return;
@@ -1888,10 +2288,8 @@ const SimpleTeacherDashboard = () => {
             const currentDate = new Date(selectedDate);
             currentDate.setHours(0, 0, 0, 0);
 
-            if (
-              member.memberStatus === "ARCHIVED" 
-            ) {
-             return updatedAt > currentDate
+            if (member.memberStatus === "ARCHIVED") {
+              return updatedAt > currentDate;
             }
             return true;
           });
@@ -2111,20 +2509,20 @@ const SimpleTeacherDashboard = () => {
     return { slotStart, enableTime, lateThreshold };
   };
 
-  // Helper: get fixed 9:30 AM timings for Staff's self-attendance
+  // Helper: get late threshold (9:35 AM) for Staff's self-attendance
+  // No fixed time - staff can mark attendance anytime, but late is true after 9:35 AM
+  // Helper: get late threshold (9:35 AM) for Staff's self-attendance
+  // No fixed time - staff can mark attendance anytime, but late is true after 9:35 AM
   const getStaffFixedTiming = () => {
     if (!selectedDate) return null;
 
-    const fixedTime = new Date(selectedDate);
-    if (Number.isNaN(fixedTime.getTime())) return null;
+    const dateForThreshold = new Date(selectedDate);
+    if (Number.isNaN(dateForThreshold.getTime())) return null;
 
-    // Set to 9:30 AM
-    fixedTime.setHours(9, 30, 0, 0);
+    // Late threshold is 9:35 AM - staff can mark anytime, but after this time late flag is true
+    dateForThreshold.setHours(9, 35, 0, 0);
 
-    const enableTime = new Date(fixedTime.getTime() - 5 * 60 * 1000); // 5 min before (9:25 AM)
-    const lateThreshold = new Date(fixedTime.getTime() + 5 * 60 * 1000); // 5 min after (9:35 AM)
-
-    return { fixedTime, enableTime, lateThreshold };
+    return { lateThreshold: dateForThreshold };
   };
 
   const calendarDays = generateCalendarData();
@@ -2134,11 +2532,13 @@ const SimpleTeacherDashboard = () => {
   };
 
   const handleCalendarClick = () => {
-    if (classId && classId !== "all") {
-      router.push(`/attendance-history?classId=${classId}`);
-    } else {
-      router.push("/attendance-history");
-    }
+    if (isCalendarLoading) return;
+    setIsCalendarLoading(true);
+    const targetUrl =
+      classId && classId !== "all"
+        ? `/attendance-history?classId=${classId}`
+        : "/attendance-history";
+    router.push(targetUrl);
   };
 
   const handlePreviousMonth = () => {
@@ -2228,10 +2628,7 @@ const SimpleTeacherDashboard = () => {
     router.push("/logout");
   };
 
-  const handleTopTabChange = (
-    _: React.SyntheticEvent,
-    value: string
-  ) => {
+  const handleTopTabChange = (_: React.SyntheticEvent, value: string) => {
     switch (value) {
       case "content":
         router.push("/dashboard?tab=1");
@@ -2250,9 +2647,20 @@ const SimpleTeacherDashboard = () => {
     }
   };
 
-  console.log("centersData",centersData);
-  console.log("userRole for center dropdown:", userRole, "Should show:", userRole !== "Staff");
-  console.log("centersData types:", centersData.map((c: any) => ({ name: c.centerName, type: c.hierarchyData?.type || "unknown" })));
+  console.log("centersData", centersData);
+  console.log(
+    "userRole for center dropdown:",
+    userRole,
+    "Should show:",
+    userRole !== "Staff"
+  );
+  console.log(
+    "centersData types:",
+    centersData.map((c: any) => ({
+      name: c.centerName,
+      type: c.hierarchyData?.type || "unknown",
+    }))
+  );
 
   return (
     <Layout onlyHideElements={["footer", "topBar"]}>
@@ -2276,10 +2684,10 @@ const SimpleTeacherDashboard = () => {
               flexWrap: "wrap",
             }}
           >
-            <Box 
-              sx={{ 
-                display: "flex", 
-                alignItems: "center", 
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
                 gap: 1.5,
                 cursor: "pointer",
                 "&:hover": {
@@ -2290,8 +2698,8 @@ const SimpleTeacherDashboard = () => {
             >
               <Box
                 sx={{
-                  width: 48,
-                  height: 48,
+                  width: { xs: 40, sm: 48 },
+                  height: { xs: 40, sm: 48 },
                   borderRadius: "50%",
                   backgroundColor: alpha("#FFFFFF", 0.35),
                   display: "flex",
@@ -2299,13 +2707,18 @@ const SimpleTeacherDashboard = () => {
                   justifyContent: "center",
                   overflow: "hidden",
                   boxShadow: "0 8px 20px rgba(0,0,0,0.08)",
+                  flexShrink: 0,
+                  cursor: "pointer",
+                  "&:hover": {
+                    opacity: 0.8,
+                  },
                 }}
               >
                 <Image
                   src={tenantIcon}
                   alt={tenantAlt}
-                  width={48}
-                  height={48}
+                  width={32}
+                  height={32}
                   style={{ objectFit: "contain" }}
                 />
               </Box>
@@ -2315,6 +2728,8 @@ const SimpleTeacherDashboard = () => {
                   fontSize: { xs: "18px", sm: "22px" },
                   lineHeight: 1.3,
                   color: secondaryColor,
+                  display: { xs: "none", sm: "block" },
+                  flexShrink: 0,
                 }}
               >
                 {tenantName}
@@ -2421,14 +2836,16 @@ const SimpleTeacherDashboard = () => {
             </Select> */}
           </Box>
         </Box>
-        <Box sx={{ 
-          px: { xs: 2, md: 4 }, 
-          pb: { xs: 4, md: 6 },
-          width: "100%",
-          maxWidth: "100%",
-          overflowX: "hidden",
-          boxSizing: "border-box",
-        }}>
+        <Box
+          sx={{
+            px: { xs: 2, md: 4 },
+            pb: { xs: 4, md: 6 },
+            width: "100%",
+            maxWidth: "100%",
+            overflowX: "hidden",
+            boxSizing: "border-box",
+          }}
+        >
           <Tabs
             value="attendance"
             onChange={handleTopTabChange}
@@ -2471,17 +2888,32 @@ const SimpleTeacherDashboard = () => {
             <Tab
               label={t("LEARNER_APP.COMMON.CONTENT")}
               value="content"
-              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+              sx={{
+                display:
+                  userRole === "Staff" || userRole === "Supervisor"
+                    ? "none"
+                    : "inline-flex",
+              }}
             />
             <Tab
               label={t("LEARNER_APP.COMMON.COURSES")}
               value="Course"
-              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+              sx={{
+                display:
+                  userRole === "Staff" || userRole === "Supervisor"
+                    ? "none"
+                    : "inline-flex",
+              }}
             />
             <Tab
               label={t("LEARNER_APP.COMMON.GROUPS")}
               value="groups"
-              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+              sx={{
+                display:
+                  userRole === "Staff" || userRole === "Supervisor"
+                    ? "none"
+                    : "inline-flex",
+              }}
             />
             <Tab
               label={t("LEARNER_APP.COMMON.ATTENDANCE")}
@@ -2490,913 +2922,1167 @@ const SimpleTeacherDashboard = () => {
             <Tab
               label={t("LEARNER_APP.COMMON.MY_CLASSES") || "My Classes"}
               value="myClasses"
-              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+              sx={{
+                display:
+                  userRole === "Staff" || userRole === "Supervisor"
+                    ? "none"
+                    : "inline-flex",
+              }}
             />
           </Tabs>
           <Grid container style={gredientStyle}>
-          <Grid item xs={12}>
-            <DashboardContainer backgroundColor={backgroundColor}>
-              <MainContent>
-                <ContentWrapper>
-          <Box>
-            <Box
-              display={"flex"}
-              flexDirection={"column"}
-              padding={{ xs: "1rem 1rem 1rem 1rem", md: "2rem 2.5rem 1.5rem 1.5rem" }}
-              sx={{
-                backgroundColor: alpha(backgroundColor, 0.95),
-                borderRadius: "12px 12px 0 0",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-              }}
-            >
-              <Box
-                display={"flex"}
-                flexDirection={{ xs: "column", md: "row" }}
-                justifyContent={"space-between"}
-                alignItems={{ xs: "flex-start", md: "center" }}
-                marginBottom={"16px"}
-                marginRight={{ xs: 0, md: "25px" }}
-                gap={{ xs: 2, md: 0 }}
-              >
-                <Typography
-                  variant="h2"
-                  sx={{
-                    fontSize: { xs: "18px", md: "20px" },
-                    fontWeight: "700",
-                    color: secondaryColor,
-                    letterSpacing: "0.3px",
-                  }}
-                >
-                  {t("LEARNER_APP.ATTENDANCE.DAY_WISE_ATTENDANCE")}
-                </Typography>
-                {/* Center and Batch Selection - Hidden for Staff, Center only for Supervisor */}
-                {userRole !== "Staff" && (
-                <Box
-                  sx={{
-                    display: "flex",
-                    gap: { xs: "0.5rem", md: "1rem" },
-                    alignItems: "center",
-                    flexDirection: { xs: "column", sm: "row" },
-                    width: { xs: "100%", md: "auto" },
-                  }}
-                >
-                    {/* Center Selection - Visible for Supervisor and non-Staff roles */}
-                    <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                      <FormControl
-                        fullWidth
-                        size="small"
-                        sx={{
-                          minWidth: { xs: "100%", sm: "150px" },
-                          maxWidth: { xs: "100%", md: "200px" },
-                          backgroundColor: "white",
-                          borderRadius: "8px",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                          "& .MuiOutlinedInput-root": {
-                            "&:hover fieldset": {
-                              borderColor: primaryColor,
-                            },
-                            "&.Mui-focused fieldset": {
-                              borderColor: primaryColor,
-                            },
-                          },
-                        }}
-                      >
-                        <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.CENTER")}</InputLabel>
-                        <Select
-                          value={selectedCenterId || ""}
-                          label={t("LEARNER_APP.COMMON.CENTER")}
-                          onChange={handleCenterChange}
-                          disabled={loading || centersData.length === 0}
-                          sx={{
-                            color: secondaryColor,
-                            "& .MuiSelect-select": {
-                              color: secondaryColor,
-                            },
-                            "& .MuiSvgIcon-root": {
-                              color: secondaryColor,
-                            },
-                          }}
-                        >
-                          {centersData.length > 0 ? (
-                            centersData.map((center) => (
-                            <MenuItem
-                              key={center.centerId}
-                              value={center.centerId}
-                              sx={{ color: secondaryColor }}
-                            >
-                              {center.centerName}
-                            </MenuItem>
-                            ))
-                          ) : (
-                            <MenuItem disabled value="">
-                              {loading ? "Loading centers..." : "No centers available"}
-                            </MenuItem>
-                          )}
-                        </Select>
-                      </FormControl>
-                    </Box>
-
-                    {/* Batch Selection - Hidden for Supervisor, visible for non-Staff/Supervisor roles */}
-                    {userRole !== "Supervisor" && batchesData.length > 0 && (
-                    <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
-                      <FormControl
-                        fullWidth
-                        size="small"
-                        sx={{
-                          minWidth: { xs: "100%", sm: "150px" },
-                          maxWidth: { xs: "100%", md: "200px" },
-                          backgroundColor: "white",
-                          borderRadius: "8px",
-                          boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                          "& .MuiOutlinedInput-root": {
-                            "&:hover fieldset": {
-                              borderColor: primaryColor,
-                            },
-                            "&.Mui-focused fieldset": {
-                              borderColor: primaryColor,
-                            },
-                          },
-                        }}
-                      >
-                        <InputLabel sx={{ color: secondaryColor }}>{t("LEARNER_APP.COMMON.BATCH")}</InputLabel>
-                        <Select
-                          value={classId}
-                          label={t("LEARNER_APP.COMMON.BATCH")}
-                          onChange={handleBatchChange}
-                          disabled={loading || !selectedCenterId}
-                          sx={{
-                            color: secondaryColor,
-                            "& .MuiSelect-select": {
-                              color: secondaryColor,
-                            },
-                            "& .MuiSvgIcon-root": {
-                              color: secondaryColor,
-                            },
-                          }}
-                        >
-                          {batchesData.map((batch) => (
-                            <MenuItem key={batch.batchId} value={batch.batchId} sx={{ color: secondaryColor }}>
-                                {batch.batchName}{batch.slot ? ` (${batch.slot})` : ""}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
-                  )}
-                </Box>
-                )}
-
-                <Box
-                  display={"flex"}
-                  sx={{
-                    cursor:
-                      userRole === "Staff" || userRole === "Supervisor"
-                        ? "not-allowed"
-                        : "pointer",
-                    color: theme.palette.secondary.main,
-                    gap: { xs: "4px", sm: "6px", md: "8px" },
-                    alignItems: "center",
-                    backgroundColor: "white",
-                    padding: { xs: "6px 12px", sm: "7px 14px", md: "8px 16px" },
-                    borderRadius: { xs: "6px", md: "8px" },
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                    border: "1px solid rgba(0,0,0,0.05)",
-                    transition: "all 0.2s",
-                    width: { xs: "100%", sm: "auto" },
-                    justifyContent: { xs: "space-between", sm: "flex-start" },
-                    opacity:
-                      userRole === "Staff" || userRole === "Supervisor" ? 0.6 : 1,
-                    "&:hover": {
-                      boxShadow:
-                        userRole === "Staff" || userRole === "Supervisor"
-                          ? "0 2px 4px rgba(0,0,0,0.1)"
-                          : "0 4px 8px rgba(0,0,0,0.15)",
-                      transform:
-                        userRole === "Staff" || userRole === "Supervisor"
-                          ? "none"
-                          : { xs: "none", md: "translateY(-1px)" },
-                    },
-                  }}
-                  onClick={
-                    userRole === "Staff" || userRole === "Supervisor"
-                      ? undefined
-                      : handleCalendarClick
-                  }
-                >
-                  <Typography
-                    sx={{
-                      fontWeight: "600",
-                      minWidth: { xs: "auto", sm: "120px", md: "140px" },
-                      textAlign: "center",
-                      fontSize: { xs: "13px", sm: "14px", md: "15px" },
-                      color: secondaryColor,
-                      flex: { xs: 1, sm: "none" },
-                      cursor:
-                        userRole === "Staff" || userRole === "Supervisor"
-                          ? "not-allowed"
-                          : "pointer",
-                    }}
-                    onClick={
-                      userRole === "Staff" || userRole === "Supervisor"
-                        ? undefined
-                        : (e) => {
-                      e.stopPropagation();
-                      handleCalendarClick();
-                          }
-                    }
-                  >
-                    {currentMonth} {currentYear}
-                  </Typography>
-                  <CalendarMonthIcon
-                    sx={{
-                      fontSize: { xs: "14px", sm: "15px", md: "16px" },
-                      ml: { xs: 0, sm: 0.5 },
-                      cursor:
-                        userRole === "Staff" || userRole === "Supervisor"
-                          ? "not-allowed"
-                          : "pointer",
-                      color: secondaryColor,
-                      display: { xs: "none", sm: "block" },
-                    }}
-                    onClick={
-                      userRole === "Staff" || userRole === "Supervisor"
-                        ? undefined
-                        : (e) => {
-                      e.stopPropagation();
-                      handleCalendarClick();
-                          }
-                    }
-                  />
-                </Box>
-              </Box>
-
-              <CalendarContainer>
-                <HorizontalCalendarScroll>
-                  {calendarDays.map((dayData, index) => {
-                    const dateAttendance =
-                      dayWiseAttendanceData[dayData.dateString] || null;
-                    const isSelected = dayData.dateString === selectedDate;
-                    const isMarked =
-                      dateAttendance && dateAttendance.totalCount > 0;
-                    const attendancePercentage =
-                      dateAttendance?.percentage || 0;
-
-                    // For Staff/Supervisor: check self-attendance status for this date
-                    const staffSelfAttendance = (userRole === "Staff" || userRole === "Supervisor")
-                      ? staffSelfAttendanceByDate[dayData.dateString] 
-                      : null;
-                    const isStaffPresent = staffSelfAttendance === "present";
-                    const isStaffAbsent = staffSelfAttendance === "absent";
-
-                    const currentDate = new Date();
-                    currentDate.setHours(0, 0, 0, 0);
-                    const dayDate = new Date(dayData.fullDate);
-                    dayDate.setHours(0, 0, 0, 0);
-                    const isToday =
-                      dayDate.getTime() === currentDate.getTime();
-
-                    return (
+            <Grid item xs={12}>
+              <DashboardContainer backgroundColor={backgroundColor}>
+                <MainContent>
+                  <ContentWrapper>
+                    <Box>
                       <Box
-                        key={index}
+                        display={"flex"}
+                        flexDirection={"column"}
+                        padding={{
+                          xs: "1rem 1rem 1rem 1rem",
+                          md: "2rem 2.5rem 1.5rem 1.5rem",
+                        }}
                         sx={{
-                          display: "flex",
-                          flexDirection: "column",
-                          alignItems: "center",
-                          gap: "2px",
+                          backgroundColor: alpha(backgroundColor, 0.95),
+                          borderRadius: "12px 12px 0 0",
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
                         }}
                       >
-                        <Typography
-                          sx={{
-                            fontSize: { xs: "0.65em", sm: "0.7em", md: "0.75em" },
-                            fontWeight: "700",
-                            color: isToday ? primaryColor : secondaryColor,
-                            lineHeight: 1,
-                            marginBottom: { xs: "2px", md: "4px" },
-                            textTransform: "uppercase",
-                            letterSpacing: { xs: "0.3px", md: "0.5px" },
-                          }}
+                        <Box
+                          display={"flex"}
+                          flexDirection={{ xs: "column", md: "row" }}
+                          justifyContent={"space-between"}
+                          alignItems={{ xs: "flex-start", md: "center" }}
+                          marginBottom={"16px"}
+                          marginRight={{ xs: 0, md: "25px" }}
+                          gap={{ xs: 2, md: 0 }}
                         >
-                          {isToday ? t("LEARNER_APP.ATTENDANCE.TODAY") : dayData.day}
-                        </Typography>
-                        <CalendarCell
-                          onClick={() => handleDateClick(dayData.dateString)}
-                          sx={{
-                            backgroundColor: isSelected
-                              ? primaryColor
-                              : isToday
-                              ? alpha(backgroundColor, 0.95)
-                              : "#fff",
-                            borderColor: isSelected
-                              ? primaryColor
-                              : isToday
-                              ? primaryColor
-                              : alpha(primaryColor, 0.3),
-                            borderWidth: isSelected || isToday ? "2px" : "1px",
-                          }}
-                        >
-                          <DateNumber
-                            variant="body2"
+                          <Typography
+                            variant="h2"
                             sx={{
-                              color: isSelected
-                                ? getContrastTextColor(primaryColor)
-                                : secondaryColor,
+                              fontSize: { xs: "18px", md: "20px" },
+                              fontWeight: "700",
+                              color: secondaryColor,
+                              letterSpacing: "0.3px",
                             }}
                           >
-                            {dayData.date}
-                          </DateNumber>
-                          {/* For Staff/Supervisor: Show green/red circular progress ring based on self-attendance */}
-                          {(userRole === "Staff" || userRole === "Supervisor") && (isStaffPresent || isStaffAbsent) ? (
+                            {t("LEARNER_APP.ATTENDANCE.DAY_WISE_ATTENDANCE")}
+                          </Typography>
+                          {/* Center and Batch Selection - Hidden for Staff, Center only for Supervisor */}
+                          {userRole !== "Staff" && (
                             <Box
                               sx={{
-                                position: "relative",
                                 display: "flex",
+                                gap: { xs: "0.5rem", md: "1rem" },
                                 alignItems: "center",
-                                justifyContent: "center",
-                                width: { xs: "16px", sm: "18px", md: "20px" },
-                                height: { xs: "16px", sm: "18px", md: "20px" },
-                                marginTop: { xs: "1px", md: "2px" },
+                                flexDirection: { xs: "column", sm: "row" },
+                                width: { xs: "100%", md: "auto" },
                               }}
                             >
-                              <CircularProgress
-                                variant="determinate"
-                                value={100}
-                                size={20}
-                                thickness={10}
-                                sx={{
-                                  color: isStaffPresent
-                                    ? theme.palette.success.main
-                                    : theme.palette.error.main,
-                                  position: "absolute",
-                                  width: { xs: "16px", sm: "18px", md: "20px" },
-                                  height: { xs: "16px", sm: "18px", md: "20px" },
-                                  "& .MuiCircularProgress-circle": {
-                                    strokeLinecap: "round",
-                                    stroke: isStaffPresent
-                                      ? theme.palette.success.main
-                                      : theme.palette.error.main,
-                                  },
-                                }}
-                              />
-                            </Box>
-                          ) : isMarked ? (
-                            /* For Teacher: Show circular progress as before */
-                            <Box
-                              sx={{
-                                position: "relative",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                width: { xs: "16px", sm: "18px", md: "20px" },
-                                height: { xs: "16px", sm: "18px", md: "20px" },
-                                marginTop: { xs: "1px", md: "2px" },
-                              }}
-                            >
-                              <CircularProgress
-                                variant="determinate"
-                                value={attendancePercentage}
-                                size={20}
-                                thickness={10}
-                                sx={{
-                                  color:
-                                    attendancePercentage >= 75
-                                      ? theme.palette.success.main
-                                      : theme.palette.error.main,
-                                  position: "absolute",
-                                  width: { xs: "16px", sm: "18px", md: "20px" },
-                                  height: { xs: "16px", sm: "18px", md: "20px" },
-                                  "& .MuiCircularProgress-circle": {
-                                    strokeLinecap: "round",
-                                    stroke:
-                                      attendancePercentage >= 75
-                                        ? theme.palette.success.main
-                                        : theme.palette.error.main,
-                                  },
-                                }}
-                              />
-                            </Box>
-                          ) : null}
-                        </CalendarCell>
-                      </Box>
-                    );
-                  })}
-                </HorizontalCalendarScroll>
-              </CalendarContainer>
-            </Box>
-
-            <Box sx={{ padding: { xs: "0 10px", sm: "0 15px", md: "0 20px" } }}>
-              <Divider sx={{ borderBottomWidth: "0.1rem" }} />
-            </Box>
-          </Box>
-          {/* Attendance Summary Cards - Two Cards Side by Side */}
-          <Box
-            sx={{
-              display: "flex",
-              gap: 2,
-              margin: { xs: "15px 10px", md: "20px 35px 20px 25px" },
-              flexWrap: { xs: "wrap", md: "nowrap" },
-            }}
-          >
-          {userRole !== "Staff" && userRole !== "Supervisor" && (
-          <Box
-            height={"auto"}
-            flex={1}
-            minWidth={{ xs: "100%", md: 0 }}
-            padding={{ xs: "1rem 1.5rem", md: "1.5rem 2rem" }}
-            borderRadius={"16px"}
-            bgcolor={alpha(backgroundColor, 0.8)}
-            textAlign={"left"}
-            sx={{
-              opacity: classId === "all" ? 0.5 : 1,
-              boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
-              transition: "transform 0.2s, box-shadow 0.2s",
-              background: `linear-gradient(135deg, ${alpha(backgroundColor, 0.8)} 0%, ${backgroundColor} 100%)`,
-              "&:hover": {
-                transform: { xs: "none", md: "translateY(-3px)" },
-                boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-              },
-            }}
-            justifyContent={"space-between"}
-            display={"flex"}
-            flexDirection={{ xs: "column", sm: "row" }}
-            alignItems={{ xs: "flex-start", sm: "center" }}
-            gap={{ xs: 2, sm: 0 }}
-          >
-              <Box display="flex" alignItems="center" gap="12px">
-                {currentAttendance !== "notMarked" &&
-                  currentAttendance !== "futureDate" && (
-                    <>
-                      <Box sx={{ width: { xs: "24px", sm: "28px", md: "30px" }, height: { xs: "24px", sm: "28px", md: "30px" } }}>
-                        <CircularProgressbar
-                          value={
-                            attendanceData?.numberOfCohortMembers &&
-                            attendanceData.numberOfCohortMembers !== 0
-                              ? (attendanceData.presentCount /
-                                  attendanceData.numberOfCohortMembers) *
-                                100
-                              : 0
-                          }
-                          styles={buildStyles({
-                            pathColor: primaryColor,
-                            trailColor: alpha(secondaryColor, 0.15),
-                            strokeLinecap: "round",
-                            backgroundColor: alpha(backgroundColor, 0.5),
-                          })}
-                          strokeWidth={20}
-                          background
-                          backgroundPadding={6}
-                        />
-                      </Box>
-                      <Box>
-                        <Typography
-                          sx={{
-                            fontSize: { xs: "12px", sm: "13px", md: "14px" },
-                            fontWeight: "700",
-                            color: secondaryColor,
-                            letterSpacing: "0.3px",
-                          }}
-                          variant="h6"
-                        >
-                          {attendanceData?.numberOfCohortMembers &&
-                          attendanceData.numberOfCohortMembers !== 0
-                            ? (
-                                (attendanceData.presentCount /
-                                  attendanceData.numberOfCohortMembers) *
-                                100
-                              ).toFixed(2)
-                            : "0"}
-                          {t("LEARNER_APP.ATTENDANCE.ATTENDANCE_PERCENTAGE")}
-                        </Typography>
-                        <Typography
-                          sx={{
-                            fontSize: { xs: "11px", sm: "12px", md: "13px" },
-                            fontWeight: "500",
-                            color: alpha(secondaryColor, 0.6),
-                            marginTop: "2px",
-                          }}
-                          variant="body2"
-                        >
-                          ({attendanceData.presentCount}/
-                          {attendanceData.numberOfCohortMembers} {t("LEARNER_APP.ATTENDANCE.PRESENT_LABEL")})
-                        </Typography>
-                      </Box>
-                    </>
-                  )}
-                {currentAttendance === "notMarked" && (
-                  <Typography
-                    sx={{
-                      color: alpha(secondaryColor, 0.6),
-                      fontWeight: "500",
-                    }}
-                    fontSize={"0.9rem"}
-                  >
-                    {t("LEARNER_APP.ATTENDANCE.NOT_STARTED")}
-                  </Typography>
-                )}
-                {currentAttendance === "futureDate" && (
-                  <Typography
-                    sx={{
-                      color: alpha(secondaryColor, 0.6),
-                    }}
-                    fontSize={"0.9rem"}
-                    fontStyle={"italic"}
-                    fontWeight={"500"}
-                  >
-                    {t("LEARNER_APP.ATTENDANCE.FUTURE_DATE_CANT_MARK")}
-                  </Typography>
-                )}
-              </Box>
-              <Button
-                className="btn-mark-width"
-                variant="contained"
-                sx={{
-                  minWidth: { xs: "100%", sm: "100px", md: "120px" },
-                  height: { xs: "2.25rem", sm: "2.5rem", md: "2.75rem" },
-                  padding: { xs: theme.spacing(1), sm: theme.spacing(1.25), md: theme.spacing(1.5) },
-                  fontWeight: "600",
-                  fontSize: { xs: "12px", sm: "13px", md: "14px" },
-                  borderRadius: { xs: "6px", md: "8px" },
-                  backgroundColor: primaryColor,
-                  color: getContrastTextColor(primaryColor),
-                  boxShadow: `0 4px 12px ${alpha(primaryColor, 0.4)}`,
-                  "&:hover": {
-                    backgroundColor: primaryColor,
-                    boxShadow: `0 6px 16px ${alpha(primaryColor, 0.5)}`,
-                    transform: { xs: "none", md: "translateY(-1px)" },
-                  },
-                  transition: "all 0.2s",
-                }}
-                disabled={classId === "all"}
-                onClick={handleMarkAttendanceClick}
-              >
-                {currentAttendance === "notMarked" ? t("LEARNER_APP.ATTENDANCE.MARK") : t("LEARNER_APP.ATTENDANCE.MODIFY")}
-              </Button>
-            </Box>
-          )}
-
-          {ShowSelfAttendance && (
-            <Box
-              height={"auto"}
-              flex={1}
-              minWidth={{ xs: "100%", md: 0 }}
-              padding={{ xs: "1rem 1.5rem", md: "1.5rem 2rem" }}
-              borderRadius={"16px"}
-              bgcolor={alpha(backgroundColor, 0.8)}
-              textAlign={"left"}
-              sx={{
-                opacity: classId === "all" ? 0.5 : 1,
-                boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
-                transition: "transform 0.2s, box-shadow 0.2s",
-                background: `linear-gradient(135deg, ${alpha(backgroundColor, 0.8)} 0%, ${backgroundColor} 100%)`,
-                "&:hover": {
-                  transform: { xs: "none", md: "translateY(-3px)" },
-                  boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-                },
-              }}
-              justifyContent={"space-between"}
-              display={"flex"}
-              flexDirection={{ xs: "column", sm: "row" }}
-              alignItems={{ xs: "flex-start", sm: "center" }}
-              gap={{ xs: 2, sm: 0 }}
-            >
-              <Box
-                sx={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "8px",
-                  px: 1.5,
-                  py: 0.75,
-                  borderRadius: "999px",
-                  backgroundColor:
-                    selfAttendanceData[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT
-                      ? alpha(theme.palette.success.main, 0.12)
-                      : selfAttendanceData[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT
-                      ? alpha(theme.palette.error.main, 0.12)
-                      : alpha(secondaryColor, 0.08),
-                }}
-              >
-                {selfAttendanceData?.length > 0 ? (
-                  <Box display={"flex"} alignItems={"center"}>
-                    <Typography
-                      sx={{
-                        color: secondaryColor,
-                        fontWeight: "600",
-                        fontSize: { xs: "0.85rem", sm: "0.9rem", md: "0.95rem" },
-                      }}
-                    >
-                      {selfAttendanceData[0]?.attendance?.toLowerCase() ===
-                      ATTENDANCE_ENUM.PRESENT
-                        ? t("LEARNER_APP.COMMON.PRESENT")
-                        : selfAttendanceData[0]?.attendance?.toLowerCase() ===
-                          ATTENDANCE_ENUM.ABSENT
-                        ? t("LEARNER_APP.COMMON.ABSENT")
-                        : selfAttendanceData[0]?.attendance}
-                    </Typography>
-                    {selfAttendanceData[0]?.attendance?.toLowerCase() ===
-                    ATTENDANCE_ENUM.PRESENT ? (
-                      <CheckCircleOutlineIcon
-                        fontSize="small"
-                        sx={{
-                          color: theme.palette.success.main,
-                          marginLeft: "4px",
-                        }}
-                      />
-                    ) : selfAttendanceData[0]?.attendance?.toLowerCase() ===
-                      ATTENDANCE_ENUM.ABSENT ? (
-                      <WarningAmberIcon
-                        fontSize="small"
-                        sx={{
-                          color: theme.palette.error.main,
-                          marginLeft: "4px",
-                        }}
-                      />
-                    ) : null}
-                  </Box>
-                ) : (
-                  <Typography
-                    sx={{
-                      color: alpha(secondaryColor, 0.6),
-                      fontWeight: "500",
-                    }}
-                    fontSize={"0.9rem"}
-                  >
-                    {t("LEARNER_APP.ATTENDANCE.NOT_MARKED_FOR_SELF")}
-                  </Typography>
-                )}
-              </Box>
-              <Button
-                className="btn-mark-width"
-                variant="contained"
-                sx={{
-                  minWidth: { xs: "100%", sm: "100px", md: "120px" },
-                  height: { xs: "2.25rem", sm: "2.5rem", md: "2.75rem" },
-                  padding: { xs: theme.spacing(1), sm: theme.spacing(1.25), md: theme.spacing(1.5) },
-                  fontWeight: "600",
-                  fontSize: { xs: "12px", sm: "12px", md: "13px" },
-                  borderRadius: { xs: "6px", md: "8px" },
-                  backgroundColor:
-                    selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT
-                      ? theme.palette.success.main
-                      : selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT
-                      ? theme.palette.error.main
-                      : primaryColor,
-                  color: getContrastTextColor(
-                    selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT
-                      ? theme.palette.success.main
-                      : selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT
-                      ? theme.palette.error.main
-                      : primaryColor
-                  ),
-                  boxShadow: `0 4px 12px ${alpha(primaryColor, 0.4)}`,
-                  "&:hover": {
-                    backgroundColor:
-                      selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT
-                        ? alpha(theme.palette.success.main, 0.85)
-                        : selfAttendanceData?.[0]?.attendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT
-                        ? alpha(theme.palette.error.main, 0.85)
-                        : primaryColor,
-                    boxShadow: `0 6px 16px ${alpha(primaryColor, 0.5)}`,
-                    transform: "translateY(-1px)",
-                  },
-                  transition: "all 0.2s",
-                }}
-                disabled={userRole === "Supervisor" ? (!selectedCenterId || selectedCenterId === "all") : (!classId || classId === "all")}
-                onClick={handleSelfAttendanceButtonClick}
-              >
-                {selfAttendanceData?.length > 0 &&
-                (selfAttendanceData[0]?.attendance?.toLowerCase() ===
-                  ATTENDANCE_ENUM.PRESENT ||
-                  selfAttendanceData[0]?.attendance?.toLowerCase() ===
-                    ATTENDANCE_ENUM.ABSENT)
-                  ? t("LEARNER_APP.ATTENDANCE.MODIFY_FOR_SELF")
-                  : t("LEARNER_APP.ATTENDANCE.MARK_FOR_SELF")}
-              </Button>
-            </Box>
-          )}
-          </Box>
-          {userRole !== "Staff" && userRole !== "Supervisor" && (
-          <Box
-            sx={{
-              padding: { xs: "1rem", md: "1.5rem 1.5rem" },
-              backgroundColor: alpha(backgroundColor, 0.95),
-              borderRadius: "12px",
-              margin: { xs: "0 10px 15px", md: "0 20px 20px" },
-              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
-            }}
-          >
-            <Box
-              mb={3}
-              sx={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                paddingBottom: "12px",
-                borderBottom: `2px solid ${alpha(primaryColor, 0.2)}`,
-              }}
-            >
-              <Box>
-                <Typography
-                  variant="h6"
-                  fontWeight="700"
-                  color={secondaryColor}
-                  sx={{ fontSize: "18px", mb: 0.5 }}
-                >
-                  {t("LEARNER_APP.ATTENDANCE.OVERVIEW")}
-                </Typography>
-                <Typography variant="body2" color={alpha(secondaryColor, 0.6)} sx={{ fontSize: "13px" }}>
-                  {t("LEARNER_APP.ATTENDANCE.LAST_7_DAYS")} {dateRange}
-                </Typography>
-              </Box>
-
-              <Link href="/attendance-overview" legacyBehavior>
-                <a
-                  onClick={(e) => {
-                    e.preventDefault();
-                    clickAttendanceOverview();
-                  }}
-                  style={{
-                    color: primaryColor,
-                    textDecoration: "none",
-                    fontWeight: "600",
-                    display: "flex",
-                    alignItems: "center",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    transition: "color 0.2s",
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = alpha(primaryColor, 0.8);
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = primaryColor;
-                  }}
-                >
-                  {t("LEARNER_APP.ATTENDANCE.MORE_DETAILS")}
-                </a>
-              </Link>
-            </Box>
-            {loading ? (
-              <Typography color={secondaryColor}>Loading...</Typography>
-            ) : (
-              <Grid container spacing={2}>
-                {classId && classId !== "all" ? (
-                  <>
-                    <Grid item xs={12} md={4}>
-                      <StatusCard>
-                        <CardContent sx={{ pt: 2 }}>
-                          <Box textAlign="center" mb={2} p={2}>
-                            <Typography
-                              fontSize={"14px"}
-                              fontWeight="600"
-                              color={secondaryColor}
-                              sx={{ mb: 1.5, textTransform: "uppercase", letterSpacing: "0.5px" }}
-                            >
-                              {t("LEARNER_APP.ATTENDANCE.CENTER_ATTENDANCE")}
-                            </Typography>
-                            {allCenterAttendanceData.length > 0 ? (
-                              allCenterAttendanceData.map((item: any, index: number) => (
-                                <Box key={item.userId || index} mb={index < allCenterAttendanceData.length - 1 ? 2 : 0}>
-                                  <Typography
-                                    fontSize={"11px"}
-                                    color={alpha(secondaryColor, 0.6)}
-                                    sx={{ mb: 0.5 }}
-                                  >
-                                    {item.name}
-                                  </Typography>
-                                  <Typography
-                                    fontWeight="700"
-                                    color={primaryColor}
-                                    sx={{ fontSize: "24px", lineHeight: 1.2 }}
-                                  >
-                                    {item.presentPercentage}%
-                                  </Typography>
-                                </Box>
-                              ))
-                            ) : (
-                              <Typography
-                                fontWeight="700"
-                                color={primaryColor}
-                                sx={{ fontSize: "28px", lineHeight: 1.2, mb: 0.5 }}
-                              >
-                                {cohortPresentPercentage === t("LEARNER_APP.ATTENDANCE.NO_ATTENDANCE")
-                                  ? cohortPresentPercentage
-                                  : `${cohortPresentPercentage}%`}
-                              </Typography>
-                            )}
-                            {allCenterAttendanceData.length === 0 && cohortPresentPercentage !== t("LEARNER_APP.ATTENDANCE.NO_ATTENDANCE") && (
-                              <Typography
-                                variant="caption"
-                                color={alpha(secondaryColor, 0.6)}
-                                sx={{ fontSize: "11px" }}
-                              >
-                                {t("LEARNER_APP.ATTENDANCE.OVERALL_ATTENDANCE")}
-                              </Typography>
-                            )}
-                          </Box>
-                        </CardContent>
-                      </StatusCard>
-                    </Grid>
-
-                    <Grid item xs={12} md={8}>
-                      <StatusCard>
-                        <CardContent sx={{ pt: 2 }}>
-                          <Box textAlign="center" mb={2} p={2}>
-                            <Typography
-                              fontSize={"14px"}
-                              fontWeight="600"
-                              color={secondaryColor}
-                              sx={{ mb: 1.5, textTransform: "uppercase", letterSpacing: "0.5px" }}
-                            >
-                              {t("LEARNER_APP.ATTENDANCE.LOW_ATTENDANCE_LEARNERS")}
-                            </Typography>
-                            <Typography
-                              fontWeight="500"
-                              color={alpha(secondaryColor, 0.6)}
-                              sx={{ fontSize: "15px", lineHeight: 1.6 }}
-                            >
-                              {Array.isArray(lowAttendanceLearnerList) &&
-                              lowAttendanceLearnerList.length > 0 ? (
-                                <>
-                                  {lowAttendanceLearnerList
-                                    .slice(0, 2)
-                                    .join(", ")}
-                                  {lowAttendanceLearnerList.length > 2 && (
-                                    <>
-                                      {" "}
-                                      and{" "}
-                                      <Link
-                                        href="/attendance-overview"
-                                        legacyBehavior
-                                      >
-                                        <a
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            clickAttendanceOverview();
-                                          }}
-                                          style={{
-                                            color: primaryColor,
-                                            textDecoration: "none",
-                                            fontWeight: "600",
-                                            cursor: "pointer",
-                                          }}
-                                        >
-                                          more
-                                        </a>
-                                      </Link>
-                                    </>
-                                  )}
-                                </>
-                              ) : (
-                                <Typography
+                              {/* Center Selection - Visible for Supervisor and non-Staff roles */}
+                              <Box sx={{ width: { xs: "100%", sm: "auto" } }}>
+                                <FormControl
+                                  fullWidth
+                                  size="small"
                                   sx={{
-                                    color: primaryColor,
-                                    fontWeight: "500",
-                                    fontStyle: "italic",
+                                    minWidth: { xs: "100%", sm: "150px" },
+                                    maxWidth: { xs: "100%", md: "200px" },
+                                    backgroundColor: "white",
+                                    borderRadius: "8px",
+                                    boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                    "& .MuiOutlinedInput-root": {
+                                      "&:hover fieldset": {
+                                        borderColor: primaryColor,
+                                      },
+                                      "&.Mui-focused fieldset": {
+                                        borderColor: primaryColor,
+                                      },
+                                    },
                                   }}
                                 >
-                                  {t("LEARNER_APP.ATTENDANCE.NO_LEARNERS_LOW_ATTENDANCE")}
-                                </Typography>
-                              )}
-                            </Typography>
-                          </Box>
-                        </CardContent>
-                      </StatusCard>
-                    </Grid>
-                  </>
-                ) : (
-                  allCenterAttendanceData.map((item: any) => (
-                    <Grid item xs={12} md={6} key={item.userId}>
-                      <StatusCard>
-                        <CardContent sx={{ pt: 0 }}>
-                          <Box textAlign="center" mb={2} p={2}>
+                                  <InputLabel sx={{ color: secondaryColor }}>
+                                    {t("LEARNER_APP.COMMON.CENTER")}
+                                  </InputLabel>
+                                  <Select
+                                    value={selectedCenterId || ""}
+                                    label={t("LEARNER_APP.COMMON.CENTER")}
+                                    onChange={handleCenterChange}
+                                    disabled={
+                                      loading || centersData.length === 0
+                                    }
+                                    sx={{
+                                      color: secondaryColor,
+                                      "& .MuiSelect-select": {
+                                        color: secondaryColor,
+                                      },
+                                      "& .MuiSvgIcon-root": {
+                                        color: secondaryColor,
+                                      },
+                                    }}
+                                  >
+                                    {centersData.length > 0 ? (
+                                      centersData.map((center) => (
+                                        <MenuItem
+                                          key={center.centerId}
+                                          value={center.centerId}
+                                          sx={{ color: secondaryColor }}
+                                        >
+                                          {center.centerName}
+                                        </MenuItem>
+                                      ))
+                                    ) : (
+                                      <MenuItem disabled value="">
+                                        {loading
+                                          ? "Loading centers..."
+                                          : "No centers available"}
+                                      </MenuItem>
+                                    )}
+                                  </Select>
+                                </FormControl>
+                              </Box>
+
+                              {/* Batch Selection - Hidden for Supervisor, visible for non-Staff/Supervisor roles */}
+                              {userRole !== "Supervisor" &&
+                                batchesData.length > 0 && (
+                                  <Box
+                                    sx={{ width: { xs: "100%", sm: "auto" } }}
+                                  >
+                                    <FormControl
+                                      fullWidth
+                                      size="small"
+                                      sx={{
+                                        minWidth: { xs: "100%", sm: "150px" },
+                                        maxWidth: { xs: "100%", md: "200px" },
+                                        backgroundColor: "white",
+                                        borderRadius: "8px",
+                                        boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                                        "& .MuiOutlinedInput-root": {
+                                          "&:hover fieldset": {
+                                            borderColor: primaryColor,
+                                          },
+                                          "&.Mui-focused fieldset": {
+                                            borderColor: primaryColor,
+                                          },
+                                        },
+                                      }}
+                                    >
+                                      <InputLabel
+                                        sx={{ color: secondaryColor }}
+                                      >
+                                        {t("LEARNER_APP.COMMON.BATCH")}
+                                      </InputLabel>
+                                      <Select
+                                        value={classId}
+                                        label={t("LEARNER_APP.COMMON.BATCH")}
+                                        onChange={handleBatchChange}
+                                        disabled={loading || !selectedCenterId}
+                                        sx={{
+                                          color: secondaryColor,
+                                          "& .MuiSelect-select": {
+                                            color: secondaryColor,
+                                          },
+                                          "& .MuiSvgIcon-root": {
+                                            color: secondaryColor,
+                                          },
+                                        }}
+                                      >
+                                        {batchesData.map((batch) => (
+                                          <MenuItem
+                                            key={batch.batchId}
+                                            value={batch.batchId}
+                                            sx={{ color: secondaryColor }}
+                                          >
+                                            {batch.batchName}
+                                            {batch.slot
+                                              ? ` (${batch.slot})`
+                                              : ""}
+                                          </MenuItem>
+                                        ))}
+                                      </Select>
+                                    </FormControl>
+                                  </Box>
+                                )}
+                            </Box>
+                          )}
+
+                          <Box
+                            display={"flex"}
+                            sx={{
+                              color: theme.palette.secondary.main,
+                              gap: { xs: "4px", sm: "6px", md: "8px" },
+                              alignItems: "center",
+                              backgroundColor: "white",
+                              padding: {
+                                xs: "6px 12px",
+                                sm: "7px 14px",
+                                md: "8px 16px",
+                              },
+                              borderRadius: { xs: "6px", md: "8px" },
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                              border: "1px solid rgba(0,0,0,0.05)",
+                              transition: "all 0.2s",
+                              width: { xs: "100%", sm: "auto" },
+                              justifyContent: {
+                                xs: "space-between",
+                                sm: "flex-start",
+                              },
+                              cursor: "pointer",
+                              "&:hover": {
+                                boxShadow: "0 4px 8px rgba(0,0,0,0.15)",
+                                transform: {
+                                  xs: "none",
+                                  md: "translateY(-1px)",
+                                },
+                              },
+                              opacity: isCalendarLoading ? 0.7 : 1,
+                            }}
+                            onClick={handleCalendarClick}
+                          >
                             <Typography
-                              fontSize={"11px"}
-                              color={alpha(secondaryColor, 0.6)}
+                              sx={{
+                                fontWeight: "600",
+                                minWidth: {
+                                  xs: "auto",
+                                  sm: "120px",
+                                  md: "140px",
+                                },
+                                textAlign: "center",
+                                fontSize: {
+                                  xs: "13px",
+                                  sm: "14px",
+                                  md: "15px",
+                                },
+                                color: secondaryColor,
+                                flex: { xs: 1, sm: "none" },
+                                cursor: "pointer",
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCalendarClick();
+                              }}
                             >
-                              {item.name}
+                              {currentMonth} {currentYear}
                             </Typography>
+                            <CalendarMonthIcon
+                              sx={{
+                                fontSize: {
+                                  xs: "14px",
+                                  sm: "15px",
+                                  md: "16px",
+                                },
+                                ml: { xs: 0, sm: 0.5 },
+                                cursor: "pointer",
+                                color: secondaryColor,
+                                display: { xs: "none", sm: "block" },
+                              }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCalendarClick();
+                              }}
+                            />
+                            {isCalendarLoading && (
+                              <CircularProgress
+                                size={18}
+                                sx={{ ml: 1, color: secondaryColor }}
+                              />
+                            )}
+                          </Box>
+                        </Box>
+
+                        <CalendarContainer>
+                          <HorizontalCalendarScroll>
+                            {calendarDays.map((dayData, index) => {
+                              const dateAttendance =
+                                dayWiseAttendanceData[dayData.dateString] ||
+                                null;
+                              const isSelected =
+                                dayData.dateString === selectedDate;
+                              const isMarked =
+                                dateAttendance && dateAttendance.totalCount > 0;
+                              const attendancePercentage =
+                                dateAttendance?.percentage || 0;
+
+                              // For Staff/Supervisor: check self-attendance status for this date
+                              const staffSelfAttendance =
+                                userRole === "Staff" ||
+                                userRole === "Supervisor"
+                                  ? staffSelfAttendanceByDate[
+                                      dayData.dateString
+                                    ]
+                                  : null;
+                              const isStaffPresent =
+                                staffSelfAttendance === "present";
+                              const isStaffAbsent =
+                                staffSelfAttendance === "absent";
+
+                              const currentDate = new Date();
+                              currentDate.setHours(0, 0, 0, 0);
+                              const dayDate = new Date(dayData.fullDate);
+                              dayDate.setHours(0, 0, 0, 0);
+                              const isToday =
+                                dayDate.getTime() === currentDate.getTime();
+
+                              return (
+                                <Box
+                                  key={index}
+                                  sx={{
+                                    display: "flex",
+                                    flexDirection: "column",
+                                    alignItems: "center",
+                                    gap: "2px",
+                                  }}
+                                >
+                                  <Typography
+                                    sx={{
+                                      fontSize: {
+                                        xs: "0.65em",
+                                        sm: "0.7em",
+                                        md: "0.75em",
+                                      },
+                                      fontWeight: "700",
+                                      color: isToday
+                                        ? primaryColor
+                                        : secondaryColor,
+                                      lineHeight: 1,
+                                      marginBottom: { xs: "2px", md: "4px" },
+                                      textTransform: "uppercase",
+                                      letterSpacing: {
+                                        xs: "0.3px",
+                                        md: "0.5px",
+                                      },
+                                    }}
+                                  >
+                                    {isToday
+                                      ? t("LEARNER_APP.ATTENDANCE.TODAY")
+                                      : dayData.day}
+                                  </Typography>
+                                  <CalendarCell
+                                    onClick={() =>
+                                      handleDateClick(dayData.dateString)
+                                    }
+                                    sx={{
+                                      backgroundColor: isSelected
+                                        ? primaryColor
+                                        : isToday
+                                        ? alpha(backgroundColor, 0.95)
+                                        : "#fff",
+                                      borderColor: isSelected
+                                        ? primaryColor
+                                        : isToday
+                                        ? primaryColor
+                                        : alpha(primaryColor, 0.3),
+                                      borderWidth:
+                                        isSelected || isToday ? "2px" : "1px",
+                                    }}
+                                  >
+                                    <DateNumber
+                                      variant="body2"
+                                      sx={{
+                                        color: isSelected
+                                          ? getContrastTextColor(primaryColor)
+                                          : secondaryColor,
+                                      }}
+                                    >
+                                      {dayData.date}
+                                    </DateNumber>
+                                    {/* For Staff/Supervisor: Show green/red circular progress ring based on self-attendance */}
+                                    {(userRole === "Staff" ||
+                                      userRole === "Supervisor") &&
+                                    (isStaffPresent || isStaffAbsent) ? (
+                                      <Box
+                                        sx={{
+                                          position: "relative",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          width: {
+                                            xs: "16px",
+                                            sm: "18px",
+                                            md: "20px",
+                                          },
+                                          height: {
+                                            xs: "16px",
+                                            sm: "18px",
+                                            md: "20px",
+                                          },
+                                          marginTop: { xs: "1px", md: "2px" },
+                                        }}
+                                      >
+                                        <CircularProgress
+                                          variant="determinate"
+                                          value={100}
+                                          size={20}
+                                          thickness={10}
+                                          sx={{
+                                            color: isStaffPresent
+                                              ? theme.palette.success.main
+                                              : theme.palette.error.main,
+                                            position: "absolute",
+                                            width: {
+                                              xs: "16px",
+                                              sm: "18px",
+                                              md: "20px",
+                                            },
+                                            height: {
+                                              xs: "16px",
+                                              sm: "18px",
+                                              md: "20px",
+                                            },
+                                            "& .MuiCircularProgress-circle": {
+                                              strokeLinecap: "round",
+                                              stroke: isStaffPresent
+                                                ? theme.palette.success.main
+                                                : theme.palette.error.main,
+                                            },
+                                          }}
+                                        />
+                                      </Box>
+                                    ) : isMarked ? (
+                                      /* For Teacher: Show circular progress as before */
+                                      <Box
+                                        sx={{
+                                          position: "relative",
+                                          display: "flex",
+                                          alignItems: "center",
+                                          justifyContent: "center",
+                                          width: {
+                                            xs: "16px",
+                                            sm: "18px",
+                                            md: "20px",
+                                          },
+                                          height: {
+                                            xs: "16px",
+                                            sm: "18px",
+                                            md: "20px",
+                                          },
+                                          marginTop: { xs: "1px", md: "2px" },
+                                        }}
+                                      >
+                                        <CircularProgress
+                                          variant="determinate"
+                                          value={attendancePercentage}
+                                          size={20}
+                                          thickness={10}
+                                          sx={{
+                                            color:
+                                              attendancePercentage >= 75
+                                                ? theme.palette.success.main
+                                                : theme.palette.error.main,
+                                            position: "absolute",
+                                            width: {
+                                              xs: "16px",
+                                              sm: "18px",
+                                              md: "20px",
+                                            },
+                                            height: {
+                                              xs: "16px",
+                                              sm: "18px",
+                                              md: "20px",
+                                            },
+                                            "& .MuiCircularProgress-circle": {
+                                              strokeLinecap: "round",
+                                              stroke:
+                                                attendancePercentage >= 75
+                                                  ? theme.palette.success.main
+                                                  : theme.palette.error.main,
+                                            },
+                                          }}
+                                        />
+                                      </Box>
+                                    ) : null}
+                                  </CalendarCell>
+                                </Box>
+                              );
+                            })}
+                          </HorizontalCalendarScroll>
+                        </CalendarContainer>
+                      </Box>
+
+                      <Box
+                        sx={{
+                          padding: { xs: "0 10px", sm: "0 15px", md: "0 20px" },
+                        }}
+                      >
+                        <Divider sx={{ borderBottomWidth: "0.1rem" }} />
+                      </Box>
+                    </Box>
+                    {/* Attendance Summary Cards - Two Cards Side by Side */}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        gap: 2,
+                        margin: { xs: "15px 10px", md: "20px 35px 20px 25px" },
+                        flexWrap: { xs: "wrap", md: "nowrap" },
+                      }}
+                    >
+                      {userRole !== "Staff" && userRole !== "Supervisor" && (
+                        <Box
+                          height={"auto"}
+                          flex={1}
+                          minWidth={{ xs: "100%", md: 0 }}
+                          padding={{ xs: "1rem 1.5rem", md: "1.5rem 2rem" }}
+                          borderRadius={"16px"}
+                          bgcolor={alpha(backgroundColor, 0.8)}
+                          textAlign={"left"}
+                          sx={{
+                            opacity: classId === "all" ? 0.5 : 1,
+                            boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
+                            transition: "transform 0.2s, box-shadow 0.2s",
+                            background: `linear-gradient(135deg, ${alpha(
+                              backgroundColor,
+                              0.8
+                            )} 0%, ${backgroundColor} 100%)`,
+                            "&:hover": {
+                              transform: { xs: "none", md: "translateY(-3px)" },
+                              boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                            },
+                          }}
+                          justifyContent={"space-between"}
+                          display={"flex"}
+                          flexDirection={{ xs: "column", sm: "row" }}
+                          alignItems={{ xs: "flex-start", sm: "center" }}
+                          gap={{ xs: 2, sm: 0 }}
+                        >
+                          <Box display="flex" alignItems="center" gap="12px">
+                            {currentAttendance !== "notMarked" &&
+                              currentAttendance !== "futureDate" && (
+                                <>
+                                  <Box
+                                    sx={{
+                                      width: {
+                                        xs: "24px",
+                                        sm: "28px",
+                                        md: "30px",
+                                      },
+                                      height: {
+                                        xs: "24px",
+                                        sm: "28px",
+                                        md: "30px",
+                                      },
+                                    }}
+                                  >
+                                    <CircularProgressbar
+                                      value={
+                                        attendanceData?.numberOfCohortMembers &&
+                                        attendanceData.numberOfCohortMembers !==
+                                          0
+                                          ? (attendanceData.presentCount /
+                                              attendanceData.numberOfCohortMembers) *
+                                            100
+                                          : 0
+                                      }
+                                      styles={buildStyles({
+                                        pathColor: primaryColor,
+                                        trailColor: alpha(secondaryColor, 0.15),
+                                        strokeLinecap: "round",
+                                        backgroundColor: alpha(
+                                          backgroundColor,
+                                          0.5
+                                        ),
+                                      })}
+                                      strokeWidth={20}
+                                      background
+                                      backgroundPadding={6}
+                                    />
+                                  </Box>
+                                  <Box>
+                                    <Typography
+                                      sx={{
+                                        fontSize: {
+                                          xs: "12px",
+                                          sm: "13px",
+                                          md: "14px",
+                                        },
+                                        fontWeight: "700",
+                                        color: secondaryColor,
+                                        letterSpacing: "0.3px",
+                                      }}
+                                      variant="h6"
+                                    >
+                                      {attendanceData?.numberOfCohortMembers &&
+                                      attendanceData.numberOfCohortMembers !== 0
+                                        ? (
+                                            (attendanceData.presentCount /
+                                              attendanceData.numberOfCohortMembers) *
+                                            100
+                                          ).toFixed(2)
+                                        : "0"}
+                                      {t(
+                                        "LEARNER_APP.ATTENDANCE.ATTENDANCE_PERCENTAGE"
+                                      )}
+                                    </Typography>
+                                    <Typography
+                                      sx={{
+                                        fontSize: {
+                                          xs: "11px",
+                                          sm: "12px",
+                                          md: "13px",
+                                        },
+                                        fontWeight: "500",
+                                        color: alpha(secondaryColor, 0.6),
+                                        marginTop: "2px",
+                                      }}
+                                      variant="body2"
+                                    >
+                                      ({attendanceData.presentCount}/
+                                      {attendanceData.numberOfCohortMembers}{" "}
+                                      {t(
+                                        "LEARNER_APP.ATTENDANCE.PRESENT_LABEL"
+                                      )}
+                                      )
+                                    </Typography>
+                                  </Box>
+                                </>
+                              )}
+                            {currentAttendance === "notMarked" && (
+                              <Typography
+                                sx={{
+                                  color: alpha(secondaryColor, 0.6),
+                                  fontWeight: "500",
+                                }}
+                                fontSize={"0.9rem"}
+                              >
+                                {t("LEARNER_APP.ATTENDANCE.NOT_STARTED")}
+                              </Typography>
+                            )}
+                            {currentAttendance === "futureDate" && (
+                              <Typography
+                                sx={{
+                                  color: alpha(secondaryColor, 0.6),
+                                }}
+                                fontSize={"0.9rem"}
+                                fontStyle={"italic"}
+                                fontWeight={"500"}
+                              >
+                                {t(
+                                  "LEARNER_APP.ATTENDANCE.FUTURE_DATE_CANT_MARK"
+                                )}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Button
+                            className="btn-mark-width"
+                            variant="contained"
+                            sx={{
+                              minWidth: {
+                                xs: "100%",
+                                sm: "100px",
+                                md: "120px",
+                              },
+                              height: {
+                                xs: "2.25rem",
+                                sm: "2.5rem",
+                                md: "2.75rem",
+                              },
+                              padding: {
+                                xs: theme.spacing(1),
+                                sm: theme.spacing(1.25),
+                                md: theme.spacing(1.5),
+                              },
+                              fontWeight: "600",
+                              fontSize: { xs: "12px", sm: "13px", md: "14px" },
+                              borderRadius: { xs: "6px", md: "8px" },
+                              backgroundColor: primaryColor,
+                              color: getContrastTextColor(primaryColor),
+                              boxShadow: `0 4px 12px ${alpha(
+                                primaryColor,
+                                0.4
+                              )}`,
+                              "&:hover": {
+                                backgroundColor: primaryColor,
+                                boxShadow: `0 6px 16px ${alpha(
+                                  primaryColor,
+                                  0.5
+                                )}`,
+                                transform: {
+                                  xs: "none",
+                                  md: "translateY(-1px)",
+                                },
+                              },
+                              transition: "all 0.2s",
+                            }}
+                            disabled={classId === "all"}
+                            onClick={handleMarkAttendanceClick}
+                          >
+                            {currentAttendance === "notMarked"
+                              ? t("LEARNER_APP.ATTENDANCE.MARK")
+                              : t("LEARNER_APP.ATTENDANCE.MODIFY")}
+                          </Button>
+                        </Box>
+                      )}
+
+                      {ShowSelfAttendance && (
+                        <Box
+                          height={"auto"}
+                          flex={1}
+                          minWidth={{ xs: "100%", md: 0 }}
+                          padding={{ xs: "1rem 1.5rem", md: "1.5rem 2rem" }}
+                          borderRadius={"16px"}
+                          bgcolor={alpha(backgroundColor, 0.8)}
+                          textAlign={"left"}
+                          sx={{
+                            opacity: classId === "all" ? 0.5 : 1,
+                            boxShadow: "0 6px 20px rgba(0,0,0,0.15)",
+                            transition: "transform 0.2s, box-shadow 0.2s",
+                            background: `linear-gradient(135deg, ${alpha(
+                              backgroundColor,
+                              0.8
+                            )} 0%, ${backgroundColor} 100%)`,
+                            "&:hover": {
+                              transform: { xs: "none", md: "translateY(-3px)" },
+                              boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+                            },
+                          }}
+                          justifyContent={"space-between"}
+                          display={"flex"}
+                          flexDirection={{ xs: "column", sm: "row" }}
+                          alignItems={{ xs: "flex-start", sm: "center" }}
+                          gap={{ xs: 2, sm: 0 }}
+                        >
+                          <Box
+                            sx={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              px: 1.5,
+                              py: 0.75,
+                              borderRadius: "999px",
+                              backgroundColor:
+                                selfAttendanceData[0]?.attendance?.toLowerCase() ===
+                                ATTENDANCE_ENUM.PRESENT
+                                  ? alpha(theme.palette.success.main, 0.12)
+                                  : selfAttendanceData[0]?.attendance?.toLowerCase() ===
+                                    ATTENDANCE_ENUM.ABSENT
+                                  ? alpha(theme.palette.error.main, 0.12)
+                                  : alpha(secondaryColor, 0.08),
+                            }}
+                          >
+                            {selfAttendanceData?.length > 0 ? (
+                              <Box display={"flex"} alignItems={"center"}>
+                                <Typography
+                                  sx={{
+                                    color: secondaryColor,
+                                    fontWeight: "600",
+                                    fontSize: {
+                                      xs: "0.85rem",
+                                      sm: "0.9rem",
+                                      md: "0.95rem",
+                                    },
+                                  }}
+                                >
+                                  {selfAttendanceData[0]?.attendance?.toLowerCase() ===
+                                  ATTENDANCE_ENUM.PRESENT
+                                    ? t("LEARNER_APP.COMMON.PRESENT")
+                                    : selfAttendanceData[0]?.attendance?.toLowerCase() ===
+                                      ATTENDANCE_ENUM.ABSENT
+                                    ? t("LEARNER_APP.COMMON.ABSENT")
+                                    : selfAttendanceData[0]?.attendance}
+                                </Typography>
+                                {selfAttendanceData[0]?.attendance?.toLowerCase() ===
+                                ATTENDANCE_ENUM.PRESENT ? (
+                                  <CheckCircleOutlineIcon
+                                    fontSize="small"
+                                    sx={{
+                                      color: theme.palette.success.main,
+                                      marginLeft: "4px",
+                                    }}
+                                  />
+                                ) : selfAttendanceData[0]?.attendance?.toLowerCase() ===
+                                  ATTENDANCE_ENUM.ABSENT ? (
+                                  <WarningAmberIcon
+                                    fontSize="small"
+                                    sx={{
+                                      color: theme.palette.error.main,
+                                      marginLeft: "4px",
+                                    }}
+                                  />
+                                ) : null}
+                              </Box>
+                            ) : (
+                              <Typography
+                                sx={{
+                                  color: alpha(secondaryColor, 0.6),
+                                  fontWeight: "500",
+                                }}
+                                fontSize={"0.9rem"}
+                              >
+                                {t(
+                                  "LEARNER_APP.ATTENDANCE.NOT_MARKED_FOR_SELF"
+                                )}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Button
+                            className="btn-mark-width"
+                            variant="contained"
+                            sx={{
+                              minWidth: {
+                                xs: "100%",
+                                sm: "100px",
+                                md: "120px",
+                              },
+                              height: {
+                                xs: "2.25rem",
+                                sm: "2.5rem",
+                                md: "2.75rem",
+                              },
+                              padding: {
+                                xs: theme.spacing(1),
+                                sm: theme.spacing(1.25),
+                                md: theme.spacing(1.5),
+                              },
+                              fontWeight: "600",
+                              fontSize: { xs: "12px", sm: "12px", md: "13px" },
+                              borderRadius: { xs: "6px", md: "8px" },
+                              backgroundColor:
+                                selfAttendanceData?.[0]?.attendance?.toLowerCase() ===
+                                ATTENDANCE_ENUM.PRESENT
+                                  ? theme.palette.success.main
+                                  : selfAttendanceData?.[0]?.attendance?.toLowerCase() ===
+                                    ATTENDANCE_ENUM.ABSENT
+                                  ? theme.palette.error.main
+                                  : primaryColor,
+                              color: getContrastTextColor(
+                                selfAttendanceData?.[0]?.attendance?.toLowerCase() ===
+                                  ATTENDANCE_ENUM.PRESENT
+                                  ? theme.palette.success.main
+                                  : selfAttendanceData?.[0]?.attendance?.toLowerCase() ===
+                                    ATTENDANCE_ENUM.ABSENT
+                                  ? theme.palette.error.main
+                                  : primaryColor
+                              ),
+                              boxShadow: `0 4px 12px ${alpha(
+                                primaryColor,
+                                0.4
+                              )}`,
+                              "&:hover": {
+                                backgroundColor:
+                                  selfAttendanceData?.[0]?.attendance?.toLowerCase() ===
+                                  ATTENDANCE_ENUM.PRESENT
+                                    ? alpha(theme.palette.success.main, 0.85)
+                                    : selfAttendanceData?.[0]?.attendance?.toLowerCase() ===
+                                      ATTENDANCE_ENUM.ABSENT
+                                    ? alpha(theme.palette.error.main, 0.85)
+                                    : primaryColor,
+                                boxShadow: `0 6px 16px ${alpha(
+                                  primaryColor,
+                                  0.5
+                                )}`,
+                                transform: "translateY(-1px)",
+                              },
+                              transition: "all 0.2s",
+                            }}
+                            disabled={
+                              userRole === "Supervisor"
+                                ? !selectedCenterId ||
+                                  selectedCenterId === "all"
+                                : !classId || classId === "all"
+                            }
+                            onClick={handleSelfAttendanceButtonClick}
+                          >
+                            {selfAttendanceData?.length > 0 &&
+                            (selfAttendanceData[0]?.attendance?.toLowerCase() ===
+                              ATTENDANCE_ENUM.PRESENT ||
+                              selfAttendanceData[0]?.attendance?.toLowerCase() ===
+                                ATTENDANCE_ENUM.ABSENT)
+                              ? t("LEARNER_APP.ATTENDANCE.MODIFY_FOR_SELF")
+                              : t("LEARNER_APP.ATTENDANCE.MARK_FOR_SELF")}
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
+                    {userRole !== "Staff" && userRole !== "Supervisor" && (
+                      <Box
+                        sx={{
+                          padding: { xs: "1rem", md: "1.5rem 1.5rem" },
+                          backgroundColor: alpha(backgroundColor, 0.95),
+                          borderRadius: "12px",
+                          margin: { xs: "0 10px 15px", md: "0 20px 20px" },
+                          boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+                        }}
+                      >
+                        <Box
+                          mb={3}
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            paddingBottom: "12px",
+                            borderBottom: `2px solid ${alpha(
+                              primaryColor,
+                              0.2
+                            )}`,
+                          }}
+                        >
+                          <Box>
                             <Typography
+                              variant="h6"
                               fontWeight="700"
                               color={secondaryColor}
-                              sx={{ fontSize: "16px", lineHeight: 1 }}
+                              sx={{ fontSize: "18px", mb: 0.5 }}
                             >
-                              {item.presentPercentage}%
+                              {t("LEARNER_APP.ATTENDANCE.OVERVIEW")}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color={alpha(secondaryColor, 0.6)}
+                              sx={{ fontSize: "13px" }}
+                            >
+                              {t("LEARNER_APP.ATTENDANCE.LAST_7_DAYS")}{" "}
+                              {dateRange}
                             </Typography>
                           </Box>
-                        </CardContent>
-                      </StatusCard>
-                    </Grid>
-                  ))
-                )}
-              </Grid>
-            )}
-          </Box>
-          )}
-                </ContentWrapper>
-              </MainContent>
-            </DashboardContainer>
+
+                          <Link href="/attendance-overview" legacyBehavior>
+                            <a
+                              onClick={(e) => {
+                                e.preventDefault();
+                                clickAttendanceOverview();
+                              }}
+                              style={{
+                                color: primaryColor,
+                                textDecoration: "none",
+                                fontWeight: "600",
+                                display: "flex",
+                                alignItems: "center",
+                                cursor: "pointer",
+                                fontSize: "14px",
+                                transition: "color 0.2s",
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = alpha(
+                                  primaryColor,
+                                  0.8
+                                );
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = primaryColor;
+                              }}
+                            >
+                              {t("LEARNER_APP.ATTENDANCE.MORE_DETAILS")}
+                            </a>
+                          </Link>
+                        </Box>
+                        {loading ? (
+                          <Typography color={secondaryColor}>
+                            Loading...
+                          </Typography>
+                        ) : (
+                          <Grid container spacing={2}>
+                            {classId && classId !== "all" ? (
+                              <>
+                                <Grid item xs={12} md={4}>
+                                  <StatusCard>
+                                    <CardContent sx={{ pt: 2 }}>
+                                      <Box textAlign="center" mb={2} p={2}>
+                                        <Typography
+                                          fontSize={"14px"}
+                                          fontWeight="600"
+                                          color={secondaryColor}
+                                          sx={{
+                                            mb: 1.5,
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          }}
+                                        >
+                                          {t(
+                                            "LEARNER_APP.ATTENDANCE.CENTER_ATTENDANCE"
+                                          )}
+                                        </Typography>
+                                        {allCenterAttendanceData.length > 0 ? (
+                                          allCenterAttendanceData.map(
+                                            (item: any, index: number) => (
+                                              <Box
+                                                key={item.userId || index}
+                                                mb={
+                                                  index <
+                                                  allCenterAttendanceData.length -
+                                                    1
+                                                    ? 2
+                                                    : 0
+                                                }
+                                              >
+                                                <Typography
+                                                  fontSize={"11px"}
+                                                  color={alpha(
+                                                    secondaryColor,
+                                                    0.6
+                                                  )}
+                                                  sx={{ mb: 0.5 }}
+                                                >
+                                                  {item.name}
+                                                </Typography>
+                                                <Typography
+                                                  fontWeight="700"
+                                                  color={primaryColor}
+                                                  sx={{
+                                                    fontSize: "24px",
+                                                    lineHeight: 1.2,
+                                                  }}
+                                                >
+                                                  {item.presentPercentage}%
+                                                </Typography>
+                                              </Box>
+                                            )
+                                          )
+                                        ) : (
+                                          <Typography
+                                            fontWeight="700"
+                                            color={primaryColor}
+                                            sx={{
+                                              fontSize: "28px",
+                                              lineHeight: 1.2,
+                                              mb: 0.5,
+                                            }}
+                                          >
+                                            {cohortPresentPercentage ===
+                                            t(
+                                              "LEARNER_APP.ATTENDANCE.NO_ATTENDANCE"
+                                            )
+                                              ? cohortPresentPercentage
+                                              : `${cohortPresentPercentage}%`}
+                                          </Typography>
+                                        )}
+                                        {allCenterAttendanceData.length === 0 &&
+                                          cohortPresentPercentage !==
+                                            t(
+                                              "LEARNER_APP.ATTENDANCE.NO_ATTENDANCE"
+                                            ) && (
+                                            <Typography
+                                              variant="caption"
+                                              color={alpha(secondaryColor, 0.6)}
+                                              sx={{ fontSize: "11px" }}
+                                            >
+                                              {t(
+                                                "LEARNER_APP.ATTENDANCE.OVERALL_ATTENDANCE"
+                                              )}
+                                            </Typography>
+                                          )}
+                                      </Box>
+                                    </CardContent>
+                                  </StatusCard>
+                                </Grid>
+
+                                <Grid item xs={12} md={8}>
+                                  <StatusCard>
+                                    <CardContent sx={{ pt: 2 }}>
+                                      <Box textAlign="center" mb={2} p={2}>
+                                        <Typography
+                                          fontSize={"14px"}
+                                          fontWeight="600"
+                                          color={secondaryColor}
+                                          sx={{
+                                            mb: 1.5,
+                                            textTransform: "uppercase",
+                                            letterSpacing: "0.5px",
+                                          }}
+                                        >
+                                          {t(
+                                            "LEARNER_APP.ATTENDANCE.LOW_ATTENDANCE_LEARNERS"
+                                          )}
+                                        </Typography>
+                                        <Typography
+                                          fontWeight="500"
+                                          color={alpha(secondaryColor, 0.6)}
+                                          sx={{
+                                            fontSize: "15px",
+                                            lineHeight: 1.6,
+                                          }}
+                                        >
+                                          {Array.isArray(
+                                            lowAttendanceLearnerList
+                                          ) &&
+                                          lowAttendanceLearnerList.length >
+                                            0 ? (
+                                            <>
+                                              {lowAttendanceLearnerList
+                                                .slice(0, 2)
+                                                .join(", ")}
+                                              {lowAttendanceLearnerList.length >
+                                                2 && (
+                                                <>
+                                                  {" "}
+                                                  and{" "}
+                                                  <Link
+                                                    href="/attendance-overview"
+                                                    legacyBehavior
+                                                  >
+                                                    <a
+                                                      onClick={(e) => {
+                                                        e.preventDefault();
+                                                        clickAttendanceOverview();
+                                                      }}
+                                                      style={{
+                                                        color: primaryColor,
+                                                        textDecoration: "none",
+                                                        fontWeight: "600",
+                                                        cursor: "pointer",
+                                                      }}
+                                                    >
+                                                      more
+                                                    </a>
+                                                  </Link>
+                                                </>
+                                              )}
+                                            </>
+                                          ) : (
+                                            <Typography
+                                              sx={{
+                                                color: primaryColor,
+                                                fontWeight: "500",
+                                                fontStyle: "italic",
+                                              }}
+                                            >
+                                              {t(
+                                                "LEARNER_APP.ATTENDANCE.NO_LEARNERS_LOW_ATTENDANCE"
+                                              )}
+                                            </Typography>
+                                          )}
+                                        </Typography>
+                                      </Box>
+                                    </CardContent>
+                                  </StatusCard>
+                                </Grid>
+                              </>
+                            ) : (
+                              allCenterAttendanceData.map((item: any) => (
+                                <Grid item xs={12} md={6} key={item.userId}>
+                                  <StatusCard>
+                                    <CardContent sx={{ pt: 0 }}>
+                                      <Box textAlign="center" mb={2} p={2}>
+                                        <Typography
+                                          fontSize={"11px"}
+                                          color={alpha(secondaryColor, 0.6)}
+                                        >
+                                          {item.name}
+                                        </Typography>
+                                        <Typography
+                                          fontWeight="700"
+                                          color={secondaryColor}
+                                          sx={{
+                                            fontSize: "16px",
+                                            lineHeight: 1,
+                                          }}
+                                        >
+                                          {item.presentPercentage}%
+                                        </Typography>
+                                      </Box>
+                                    </CardContent>
+                                  </StatusCard>
+                                </Grid>
+                              ))
+                            )}
+                          </Grid>
+                        )}
+                      </Box>
+                    )}
+                  </ContentWrapper>
+                </MainContent>
+              </DashboardContainer>
+            </Grid>
           </Grid>
-        </Grid>
-      </Box>
+        </Box>
       </Box>
       {open && (
         <MarkBulkAttendance
@@ -3482,19 +4168,22 @@ const SimpleTeacherDashboard = () => {
           secondaryBtnText="Cancel"
           btnText="Mark"
           selectedDate={selectedDate ? new Date(selectedDate) : undefined}
+          isLoading={isMarkingAttendance}
           onClose={() => {
-            setIsSelfAttendanceModalOpen(false);
-            const currentAttendance = selfAttendanceData?.[0]?.attendance;
-            setSelectedSelfAttendance(
-              currentAttendance ? currentAttendance.toLowerCase() : null
-            );
-            setAbsentReason("");
-            setWorkLocation("");
-            setComment("");
-            // Don't clear capturedLocation here - keep it for retry
+            if (!isMarkingAttendance) {
+              setIsSelfAttendanceModalOpen(false);
+              const currentAttendance = selfAttendanceData?.[0]?.attendance;
+              setSelectedSelfAttendance(
+                currentAttendance ? currentAttendance.toLowerCase() : null
+              );
+              setAbsentReason("");
+              setWorkLocation("");
+              setComment("");
+              // Don't clear capturedLocation here - keep it for retry
+            }
           }}
           handlePrimaryAction={() => {
-            if (selectedSelfAttendance) {
+            if (selectedSelfAttendance && !isMarkingAttendance) {
               handleMarkSelfAttendance();
             }
           }}
@@ -3640,44 +4329,47 @@ const SimpleTeacherDashboard = () => {
             </Box>
 
             {/* Conditional Fields based on Role and Attendance Selection */}
-            
+
             {/* For Staff: Work Location dropdown when Present is selected (Supervisor doesn't need it) */}
-            {userRole === "Staff" && selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
-              <Box sx={{ mt: 3 }}>
-                <FormControl fullWidth>
-                  <InputLabel id="work-location-label">Work Location</InputLabel>
-                  <Select
-                    labelId="work-location-label"
-                    value={workLocation}
-                    onChange={(e) => setWorkLocation(e.target.value)}
-                    label="Work Location"
-                    sx={{
-                      mt: 1,
-                      "& .MuiOutlinedInput-notchedOutline": {
-                        borderColor: alpha(secondaryColor, 0.3),
-                      },
-                      "&:hover .MuiOutlinedInput-notchedOutline": {
-                        borderColor: primaryColor,
-                      },
-                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                        borderColor: primaryColor,
-                      },
-                    }}
-                  >
-                    {workLocationOptions.map((option) => (
-                      <MenuItem key={option.value} value={option.value}>
-                        {option.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Box>
-            )}
+            {userRole === "Staff" &&
+              selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
+                <Box sx={{ mt: 3 }}>
+                  <FormControl fullWidth>
+                    <InputLabel id="work-location-label">
+                      Work Location
+                    </InputLabel>
+                    <Select
+                      labelId="work-location-label"
+                      value={workLocation}
+                      onChange={(e) => setWorkLocation(e.target.value)}
+                      label="Work Location"
+                      sx={{
+                        mt: 1,
+                        "& .MuiOutlinedInput-notchedOutline": {
+                          borderColor: alpha(secondaryColor, 0.3),
+                        },
+                        "&:hover .MuiOutlinedInput-notchedOutline": {
+                          borderColor: primaryColor,
+                        },
+                        "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                          borderColor: primaryColor,
+                        },
+                      }}
+                    >
+                      {workLocationOptions.map((option) => (
+                        <MenuItem key={option.value} value={option.value}>
+                          {option.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Box>
+              )}
 
             {/* For Teacher: Comment Autocomplete when Present is selected */}
             {userRole === "Teacher" &&
               selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
-                <Box sx={{ p: 0.5, pt: 2.5,borderRadius:"12px" }}>
+                <Box sx={{ p: 0.5, pt: 2.5, borderRadius: "12px" }}>
                   <Autocomplete
                     freeSolo
                     fullWidth
@@ -3748,7 +4440,9 @@ const SimpleTeacherDashboard = () => {
             {selectedSelfAttendance === ATTENDANCE_ENUM.ABSENT && (
               <Box sx={{ mt: 3 }}>
                 <FormControl fullWidth>
-                  <InputLabel id="absent-reason-label">Reason for Absence</InputLabel>
+                  <InputLabel id="absent-reason-label">
+                    Reason for Absence
+                  </InputLabel>
                   <Select
                     labelId="absent-reason-label"
                     value={absentReason}
@@ -3770,10 +4464,14 @@ const SimpleTeacherDashboard = () => {
                     {(() => {
                       // For Teacher: combine common options + teacher-only options
                       // For Staff/Supervisor: only common options
-                      const optionsToShow = userRole === "Teacher"
-                        ? [...absentReasonOptions, ...teacherOnlyAbsentReasonOptions]
-                        : absentReasonOptions;
-                      
+                      const optionsToShow =
+                        userRole === "Teacher"
+                          ? [
+                              ...absentReasonOptions,
+                              ...teacherOnlyAbsentReasonOptions,
+                            ]
+                          : absentReasonOptions;
+
                       return optionsToShow.map((option) => (
                         <MenuItem key={option.label} value={option.value}>
                           {option.value}
@@ -3799,7 +4497,10 @@ const SimpleTeacherDashboard = () => {
         handleCloseModal={() => setLogoutModalOpen(false)}
         handleAction={performLogout}
         message={t("COMMON.SURE_LOGOUT")}
-        buttonNames={{ primary: t("COMMON.LOGOUT"), secondary: t("COMMON.CANCEL") }}
+        buttonNames={{
+          primary: t("COMMON.LOGOUT"),
+          secondary: t("COMMON.CANCEL"),
+        }}
       />
     </Layout>
   );
