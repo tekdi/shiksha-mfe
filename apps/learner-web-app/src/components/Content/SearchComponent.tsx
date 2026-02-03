@@ -3,7 +3,7 @@ import { CommonSearch, useTranslation } from '@shared-lib';
 import { Search as SearchIcon } from '@mui/icons-material';
 import { TextField, InputAdornment, useMediaQuery, useTheme } from '@mui/material';
 import debounce from 'lodash/debounce';
-
+import { telemetryFactory } from "../../utils/telemtery";
 export default memo(function SearchComponent({
   onSearch,
   value,
@@ -54,6 +54,16 @@ export default memo(function SearchComponent({
 
   const handleSearchClick = () => {
     const trimmed = searchValue.trim();
+     const telemetryInteract = {
+                          context: { env: "prod", cdata: [] },
+                          edata: {
+                            id: "dashboard-search-click",
+                            type: "CLICK",
+                            pageid: `search-${trimmed}`,
+                            uid: localStorage.getItem("userId") || "Anonymous",
+                          },
+                        };
+                        telemetryFactory.interact(telemetryInteract);
     debouncedSearch.cancel(); // Cancel debounce before immediate search
 
     if (trimmed !== '') {

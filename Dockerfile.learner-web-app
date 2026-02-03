@@ -23,7 +23,7 @@ COPY . .
 
 # Build Specific Application
 # Build only specific applications
-RUN npx nx run-many --target=build --projects=learner-web-app,players,forget-password
+RUN npx nx run-many --target=build --projects=learner-web-app,players
 
 # Install PM2 to manage multiple apps
 RUN npm install -g pm2@6.0.8

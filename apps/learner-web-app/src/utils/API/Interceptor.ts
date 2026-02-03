@@ -5,6 +5,7 @@ import { tenantId } from 'apps/learner-web-app/app.config';
 const instance = axios.create();
 
 const refreshToken = async () => {
+  if (typeof window === 'undefined') return;
   const refresh_token = localStorage.getItem('refreshToken');
   if (refresh_token !== '' && refresh_token !== null) {
     try {
@@ -37,9 +38,14 @@ instance.interceptors.request.use(
     }
     // Get tenantId from localStorage
     // Priority: domainTenantId (set when tenant is loaded based on domain) > tenantId > config tenantId
-    const domainTenantId = localStorage.getItem('domainTenantId');
-    const tenantIdFromStorage = localStorage.getItem('tenantId');
-    
+    let domainTenantId: string | null = null;
+    let tenantIdFromStorage: string | null = null;
+
+    if (typeof window !== 'undefined') {
+      domainTenantId = localStorage.getItem('domainTenantId');
+      tenantIdFromStorage = localStorage.getItem('tenantId');
+    }
+
     if (domainTenantId) {
       // Use domainTenantId (set when tenant is loaded based on domain) - this is the correct tenant for the current domain
       config.headers.tenantId = domainTenantId;
@@ -68,7 +74,7 @@ instance.interceptors.response.use(
 
     // Log 401 errors for debugging
     if (error?.response?.status === 401) {
-    
+
     }
 
     if (
@@ -79,7 +85,7 @@ instance.interceptors.response.use(
       if (error?.response?.request?.responseURL.includes('/user/auth')) {
         return Promise.reject(error);
       }
-      
+
       if (error?.response?.request?.responseURL.includes('/auth/refresh')) {
         window.location.href = '/logout';
       } else {

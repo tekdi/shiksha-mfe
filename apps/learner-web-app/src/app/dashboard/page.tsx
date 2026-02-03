@@ -21,6 +21,8 @@ import ConfirmationModal from "../../components/ConfirmationModal/ConfirmationMo
 import { useTenant } from "@learner/context/TenantContext";
 import { useTranslation } from "@shared-lib";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
+import { telemetryFactory } from "../../utils/telemtery";
+import { getLocalizedText } from "@learner/utils/API/TenantService";
 
 const DashboardContent = () => {
   const pathname = usePathname();
@@ -34,7 +36,7 @@ const DashboardContent = () => {
   const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
   const backgroundColor = contentFilter?.theme?.backgroundColor || "#F5F5F5";
   const tenantIcon = contentFilter?.icon || "/logo.png";
-  const tenantName = contentFilter?.title || tenant?.name || "Tenant";
+  const tenantName = getLocalizedText(contentFilter?.title || tenant?.name || "Tenant", language);
   const tenantAlt = `${tenantName} logo`;
   
   const [activeTab, setActiveTab] = React.useState("content");
@@ -77,6 +79,16 @@ const DashboardContent = () => {
   }, []);
 
   useEffect(() => {
+    const telemetryInteract = {
+      context: { env: "prod", cdata: [] },
+      edata: {
+        id: "dashboard-load",
+        type: "VIEW",
+        pageid: "dashboard",
+        uid: localStorage.getItem("userId") || "Anonymous",
+      },
+    };
+    telemetryFactory.impression(telemetryInteract);
     if (typeof window !== "undefined") {
       const config = JSON.parse(localStorage.getItem("uiConfig") || "{}");
       setStoredConfig(config);
@@ -318,6 +330,17 @@ const DashboardContent = () => {
 
   const handleTabChange = (tab: string) => {
     // If user is Staff, redirect directly to attendance page
+     const telemetryInteract = {
+                context: { env: "prod", cdata: [] },
+                edata: {
+                  id: "tab-click",
+                  type: "CLICK",
+                  pageid: "dashboard",
+                  uid: localStorage.getItem("userId") || "Anonymous",
+                },
+              };
+              telemetryFactory.interact(telemetryInteract);
+            console.log("telemetryInteract",telemetryInteract);
     if (userRole === "Staff" || userRole === "Supervisor") {
       router.push("/attandence");
       return;
@@ -420,13 +443,13 @@ const DashboardContent = () => {
               }}
               onClick={() => router.push("/dashboard?tab=1")}
             >
-                <Image
-                               src={tenantIcon}
-                               alt={tenantAlt}
-                               width={32}
-                               height={32}
-                               style={{ objectFit: "contain" }}
-                             />
+              <Image
+                src={tenantIcon}
+                alt={tenantAlt}
+                width={48}
+                height={48}
+                style={{ objectFit: "contain" }}
+              />
             </Box>
 
             {/* Tenant Name - Hidden on mobile */}

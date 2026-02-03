@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element */
 /* eslint-disable @nx/enforce-module-boundaries */
 "use client";
 
@@ -31,7 +32,6 @@ import { useTranslation } from "@shared-lib";
 import { preserveLocalStorage } from "@learner/utils/helper";
 import { getDeviceId } from "@shared-lib-v2/DynamicForm/utils/Helper";
 import { profileComplitionCheck } from "@learner/utils/API/userService";
-import { telemetryFactory } from "@shared-lib-v2/DynamicForm/utils/telemetry";
 import Image from "next/image";
 import playstoreIcon from "../../../public/images/playstore.png";
 import prathamQRCode from "../../../public/images/prathamQR.png";
@@ -44,7 +44,7 @@ import {
 import { alpha } from "@mui/material/styles";
 import { useTenant } from "@learner/context/TenantContext";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
-
+import { telemetryFactory } from "../../utils/telemtery";
 // Helper function to get cookie value
 const getCookieValue = (name: string): string | null => {
   if (typeof document === "undefined") return null;
@@ -1285,7 +1285,7 @@ const LoginPage = () => {
             },
           };
           telemetryFactory.interact(telemetryInteract);
-
+        console.log("telemetryInteract",telemetryInteract);
           const channelId = userResponse?.tenantData?.[0]?.channelId;
           localStorage.setItem("channelId", channelId);
 
@@ -1314,7 +1314,6 @@ const LoginPage = () => {
             sessionStorage.removeItem("redirectAfterLogin");
             window.location.href = `${window.location.origin}${redirectAfterLogin}`;
           } else {
-            // Redirect to learner dashboard with tab=1
             window.location.href = `${window.location.origin}/dashboard?tab=1`;
           }
           return;

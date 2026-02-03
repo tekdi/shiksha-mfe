@@ -28,7 +28,7 @@ import { useTranslation } from "@shared-lib-v2/lib/context/LanguageContext";
 import { Loader } from "@shared-lib-v2/lib/Loader/Loader";
 import UnitGrid from "@content-mfes/components/UnitGrid";
 import { ContentItem } from "@shared-lib";
-
+import {telemetryFactory} from "../../utils/telemetry";
 interface ContentDetailsProps {
   isShowLayout: boolean;
   id?: string;
@@ -56,6 +56,16 @@ const ContentDetails = (props: ContentDetailsProps) => {
   }
   const { t } = useTranslation();
   useEffect(() => {
+    const telemetryInteract = {
+            context: { env: "prod", cdata: [] },
+            edata: {
+              id: "course-click",
+              type: "CLICK",
+              pageid: `course-${identifier}`,
+              uid: localStorage.getItem("userId") || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
     const fetchContentDetails = async () => {
       try {
         if (!identifier) {
@@ -468,6 +478,16 @@ const ContentDetails = (props: ContentDetailsProps) => {
                                     handleItemClick={(content: ContentItem) => {
                                       // Handle navigation to content details or player
                                       const unitId = item?.identifier;
+                                     const telemetryInteract = {
+                                             context: { env: "prod", cdata: [] },
+                                             edata: {
+                                               id: "unit-click",
+                                               type: "CLICK",
+                                               pageid: `unit-${unitId}`,
+                                               uid: localStorage.getItem("userId") || "Anonymous",
+                                             },
+                                           };
+                                           telemetryFactory.interact(telemetryInteract);
                                       const courseId = Array.isArray(identifier)
                                         ? identifier[0]
                                         : identifier;

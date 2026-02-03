@@ -40,25 +40,10 @@ import { preserveLocalStorage } from "@learner/utils/helper";
 import { getDeviceId } from "@shared-lib-v2/DynamicForm/utils/Helper";
 import { profileComplitionCheck } from "@learner/utils/API/userService";
 import { ensureAcademicYearForTenant } from "@learner/utils/API/ProgramService";
+import { telemetryFactory } from "../../utils/telemtery";
+
 
 /* ---------------- Helper ---------------- */
-
-// Safe translation helper: if translation key is missing (returns same key), use fallback
-const translateWithFallback = (
-  tFn: (key: string) => string,
-  key: string,
-  fallback: string
-) => {
-  try {
-    const value = tFn(key);
-    if (!value || value === key) {
-      return fallback;
-    }
-    return value;
-  } catch {
-    return fallback;
-  }
-};
 
 const getCookieValue = (name: string): string | null => {
   if (typeof document === "undefined") return null;
@@ -79,7 +64,6 @@ interface LoginComponentProps {
   prefilledUsername?: string;
   onRedirectToLogin?: () => void;
   onBack?: () => void;
-  isLoading?: boolean;
 }
 
 const LoginComponent: React.FC<LoginComponentProps> = ({
@@ -89,7 +73,6 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
   prefilledUsername,
   onRedirectToLogin,
   onBack,
-  isLoading = false,
 }) => {
   const { t, language } = useTranslation();
   const { contentFilter, tenant } = useTenant();
@@ -539,7 +522,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             lineHeight: { xs: 1.2, sm: 1.3 },
           }}
         >
-          {translateWithFallback(t, "LEARNER_APP.LOGIN.LOGIN", "Welcome Back")}
+          {t("LEARNER_APP.LOGIN.LOGIN") || "Welcome Back"}
         </Typography>
 
         <Typography
@@ -550,20 +533,12 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             fontSize: { xs: "0.875rem", sm: "1rem" },
           }}
         >
-          {translateWithFallback(
-            t,
-            "LEARNER_APP.LOGIN.LOG_IN_AS_LEARNER_SUBTITLE",
-            "Log in as a learner"
-          )}
+          {t("LEARNER_APP.LOGIN.LOG_IN_AS_LEARNER_SUBTITLE") || "Log in as a learner"}
         </Typography>
 
         {/* Username Field */}
         <TextField
-          label={translateWithFallback(
-            t,
-            "LEARNER_APP.LOGIN.username_label",
-            "Username"
-          )}
+          label={t("LEARNER_APP.LOGIN.username_label") || "Username"}
           name="username"
           value={formData.username}
           onChange={handleChange}
@@ -591,11 +566,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
 
         {/* Password Field */}
         <TextField
-          label={translateWithFallback(
-            t,
-            "LEARNER_APP.LOGIN.password_label",
-            "Password"
-          )}
+          label={t("LEARNER_APP.LOGIN.password_label") || "Password"}
           name="password"
           type={showPassword ? "text" : "password"}
           value={formData.password}
@@ -637,7 +608,6 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
 
         <Button
           onClick={handleSubmit}
-          disabled={isLoading}
           fullWidth
           sx={{
             py: { xs: 1.4, sm: 1.6 },
@@ -653,31 +623,9 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               backgroundColor: primaryColor,
               opacity: 0.9,
             },
-            "&:disabled": {
-              backgroundColor: alpha(primaryColor, 0.6),
-              color: `${buttonTextColor} !important`,
-              opacity: 0.8,
-            },
           }}
         >
-          {isLoading ? (
-            <Box display="flex" alignItems="center" gap={1} justifyContent="center">
-              <CircularProgress size={20} sx={{ color: buttonTextColor }} />
-              <span>
-                {translateWithFallback(
-                  t,
-                  "LEARNER_APP.LOGIN.LOGGING_IN",
-                  "Logging in..."
-                )}
-              </span>
-            </Box>
-          ) : (
-            translateWithFallback(
-              t,
-              "LEARNER_APP.LOGIN.login_button",
-              "Login"
-            )
-          )}
+          {t("LEARNER_APP.LOGIN.login_button") || "Login"}
         </Button>
 
         {/* {handleForgotPassword && (
@@ -733,7 +681,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           lineHeight: { xs: 1.2, sm: 1.3 },
         }}
       >
-        {translateWithFallback(t, "LEARNER_APP.LOGIN.LOGIN", "Welcome Back")}
+        {t("LEARNER_APP.LOGIN.LOGIN") || "Welcome Back"}
       </Typography>
 
       <Typography
@@ -744,11 +692,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           fontSize: { xs: "0.875rem", sm: "1rem" },
         }}
       >
-        {translateWithFallback(
-          t,
-          "LEARNER_APP.LOGIN.LOG_IN_AS_LEARNER_SUBTITLE",
-          "Log in as a learner"
-        )}
+        {t("LEARNER_APP.LOGIN.LOG_IN_AS_LEARNER_SUBTITLE") || "Log in as a learner"}
       </Typography>
 
       {!isOtpMode ? (
@@ -765,21 +709,12 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               px: { xs: 1, sm: 0 },
             }}
           >
-            👋{" "}
-            {translateWithFallback(
-              t,
-              "LEARNER_APP.LOGIN.PHONE_INSTRUCTION",
-              "Hi there! Log in with your registered phone number to continue."
-            )}
+            👋 {t("LEARNER_APP.LOGIN.PHONE_INSTRUCTION") || "Hi there! Log in with your registered phone number to continue."}
           </Typography>
 
           <TextField
             name="username"
-            label={translateWithFallback(
-              t,
-              "LEARNER_APP.LOGIN.PHONE_NUMBER",
-              "Phone Number"
-            )}
+            label={t("LEARNER_APP.LOGIN.PHONE_NUMBER") || "Phone Number"}
             value={formData.username}
             onChange={(e) => {
               const value = e.target.value.replace(/\D/g, "").slice(0, 10);
@@ -847,20 +782,10 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
             {isSendingOtp ? (
               <Box display="flex" alignItems="center" gap={1} justifyContent="center">
                 <CircularProgress size={20} sx={{ color: buttonTextColor }} />
-                <span>
-                  {translateWithFallback(
-                    t,
-                    "LEARNER_APP.LOGIN.SENDING",
-                    "Sending..."
-                  )}
-                </span>
+                <span>{t("LEARNER_APP.LOGIN.SENDING") || "Sending..."}</span>
               </Box>
             ) : (
-              translateWithFallback(
-                t,
-                "LEARNER_APP.LOGIN.SEND_OTP",
-                "SEND OTP"
-              )
+              t("LEARNER_APP.LOGIN.SEND_OTP") || "SEND OTP"
             )}
           </Button>
         </>
@@ -878,11 +803,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               px: { xs: 1, sm: 0 },
             }}
           >
-            {translateWithFallback(
-              t,
-              "LEARNER_APP.LOGIN.OTP_INSTRUCTION",
-              "Enter the 6-digit OTP sent to your phone."
-            )}
+            {t("LEARNER_APP.LOGIN.OTP_INSTRUCTION") || "Enter the 6-digit OTP sent to your phone."}
           </Typography>
 
           {/* OTP Input Boxes */}
@@ -943,7 +864,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
 
           <Button
             onClick={handleSubmit}
-            disabled={formData.otp.length !== 6 || isLoading}
+            disabled={formData.otp.length !== 6}
             fullWidth
             sx={{
               py: { xs: 1.4, sm: 1.6 },
@@ -960,41 +881,21 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                 opacity: 0.9,
               },
               "&:disabled": {
-                backgroundColor: isLoading ? alpha(primaryColor, 0.6) : backgroundColor,
-                color: isLoading ? `${buttonTextColor} !important` : secondaryColor,
-                opacity: 0.8,
+                backgroundColor: backgroundColor,
+                color: secondaryColor,
+                opacity: 0.5,
               },
             }}
           >
-            {isLoading ? (
-              <Box display="flex" alignItems="center" gap={1} justifyContent="center">
-                <CircularProgress size={20} sx={{ color: buttonTextColor }} />
-                <span>
-                  {translateWithFallback(
-                    t,
-                    "LEARNER_APP.LOGIN.VERIFYING",
-                    "Verifying..."
-                  )}
-                </span>
-              </Box>
-            ) : (
-              translateWithFallback(
-                t,
-                "LEARNER_APP.LOGIN.ENTER_OTP",
-                "ENTER OTP"
-              )
-            )}
+            {t("LEARNER_APP.LOGIN.ENTER_OTP") || "ENTER OTP"}
           </Button>
 
           {/* Resend OTP */}
           <Box sx={{ display: "flex", justifyContent: "center", mt: { xs: 1, sm: 0 } }}>
             <Tooltip
               title={
-                translateWithFallback(
-                  t,
-                  "LEARNER_APP.LOGIN.RESEND_OTP_HINT",
-                  "Didn’t receive the code? You can request a new OTP in a few seconds"
-                )
+                t("LEARNER_APP.LOGIN.RESEND_OTP_HINT") ||
+                "Didn’t receive the code? You can request a new OTP in a few seconds"
               }
               arrow
               placement="top"
@@ -1018,24 +919,12 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                   }}
                 >
                   {resendAttempts >= 2
-                    ? translateWithFallback(
-                        t,
-                        "LEARNER_APP.LOGIN.RESEND_OTP_DISABLED",
-                        "Resend OTP (Limit Reached)"
-                      )
+                    ? t("LEARNER_APP.LOGIN.RESEND_OTP_DISABLED") || "Resend OTP (Limit Reached)"
                     : resendTimer > 0
-                    ? `${translateWithFallback(
-                        t,
-                        "LEARNER_APP.LOGIN.RESEND_OTP",
-                        "Resend OTP"
-                      )} (${Math.floor(resendTimer / 60)}:${String(
-                        resendTimer % 60
-                      ).padStart(2, "0")})`
-                    : translateWithFallback(
-                        t,
-                        "LEARNER_APP.LOGIN.RESEND_OTP",
-                        "Resend OTP"
-                      )}
+                    ? `${t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"} (${Math.floor(
+                        resendTimer / 60
+                      )}:${String(resendTimer % 60).padStart(2, "0")})`
+                    : t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"}
                 </Button>
               </span>
             </Tooltip>
@@ -1303,7 +1192,6 @@ interface RightProps {
   handleForgotPassword?: () => void;
   prefilledUsername?: string;
   onRedirectToLogin?: () => void;
-  isLoading?: boolean;
 }
 
 const HomeRightColumn = ({
@@ -1318,7 +1206,6 @@ const HomeRightColumn = ({
   handleForgotPassword,
   prefilledUsername,
   onRedirectToLogin,
-  isLoading = false,
 }: RightProps) => (
   <Box
     sx={{
@@ -1383,33 +1270,21 @@ const HomeRightColumn = ({
             />
           </Box>
 
-          <Typography
-            sx={{
-              fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" },
-              fontWeight: 700,
-              mb: { xs: 0.5, sm: 1 },
-              color: uiSecondaryColor,
-            }}
-          >
-            {translateWithFallback(
-              t,
-              "LEARNER_APP.LOGIN.LOGIN",
-              "Welcome Back"
-            )}
+          <Typography sx={{ 
+            fontSize: { xs: "1.5rem", sm: "1.75rem", md: "2rem" }, 
+            fontWeight: 700, 
+            mb: { xs: 0.5, sm: 1 }, 
+            color: uiSecondaryColor 
+          }}>
+            {t("LEARNER_APP.LOGIN.LOGIN") || "Welcome Back"}
           </Typography>
 
-          <Typography
-            sx={{
-              color: "rgba(0,0,0,0.65)",
-              mb: { xs: 2, sm: 4 },
-              fontSize: { xs: "0.9rem", sm: "1rem" },
-            }}
-          >
-            {translateWithFallback(
-              t,
-              "LEARNER_APP.LOGIN.LEARNER_OR_WORKSPACE",
-              "Sign in to your Account"
-            )}
+          <Typography sx={{ 
+            color: "rgba(0,0,0,0.65)", 
+            mb: { xs: 2, sm: 4 },
+            fontSize: { xs: "0.9rem", sm: "1rem" }
+          }}>
+            {t("LEARNER_APP.LOGIN.LEARNER_OR_WORKSPACE") || "Sign in to your Account"}
           </Typography>
 
           <Button
@@ -1426,11 +1301,7 @@ const HomeRightColumn = ({
             }}
             onClick={() => setEntryMode("learner")}
           >
-            {translateWithFallback(
-              t,
-              "LEARNER_APP.LOGIN.CONTINUE_LEARNER",
-              "Log in as a Learner"
-            )}
+            {t("LEARNER_APP.LOGIN.CONTINUE_LEARNER") || "Log in as a Learner"}
           </Button>
 
           <Button
@@ -1448,11 +1319,7 @@ const HomeRightColumn = ({
               (window.location.href = "https://admin.sunbirdsaas.com/login")
             }
           >
-            {translateWithFallback(
-              t,
-              "LEARNER_APP.LOGIN.GO_TO_WORKSPACE",
-              "Log in to the Workspace"
-            )}
+            {t("LEARNER_APP.LOGIN.GO_TO_WORKSPACE") || "Log in to the Workspace"}
           </Button>
         </>
       ) : (
@@ -1463,7 +1330,6 @@ const HomeRightColumn = ({
           prefilledUsername={prefilledUsername}
           onRedirectToLogin={onRedirectToLogin}
           onBack={() => setEntryMode("selection")}
-          isLoading={isLoading}
         />
       )}
     </Card>
@@ -1528,14 +1394,12 @@ export default function Index() {
   const [entryMode, setEntryMode] = useState<"selection" | "learner">(
     "selection"
   );
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
 
   const handleSuccessfulLogin = async (
     response: { access_token: string; refresh_token?: string },
     data: { remember: boolean },
     router: { push: (url: string) => void }
   ) => {
-    // Keep isAuthLoading = true here so the loader continues until navigation completes.
     if (typeof window !== "undefined" && window.localStorage) {
       const token = response.access_token;
       const refreshToken = response?.refresh_token;
@@ -1601,7 +1465,17 @@ export default function Index() {
           if (tenantId) {
             await ensureAcademicYearForTenant(tenantId);
           }
-
+          const telemetryInteract = {
+            context: { env: "sign-in", cdata: [] },
+            edata: {
+              id: "login-success",
+              type: "CLICK",
+              pageid: "sign-in",
+              uid: userResponse?.userId || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
+          console.log("telemetryInteract",telemetryInteract);
           const channelId = userResponse?.tenantData?.[0]?.channelId;
           localStorage.setItem("channelId", channelId);
 
@@ -1623,9 +1497,11 @@ export default function Index() {
           if (redirectAfterLogin && redirectAfterLogin.startsWith("/")) {
             sessionStorage.removeItem("redirectAfterLogin");
             window.location.href = `${window.location.origin}${redirectAfterLogin}`;
-          } else {
+          }else {
+            
             window.location.href = `${window.location.origin}/dashboard?tab=1`;
           }
+           
           return;
         } else if (
           userRole === "Creator" ||
@@ -1656,7 +1532,16 @@ export default function Index() {
           localStorage.setItem("ssoData", JSON.stringify(ssoData));
           document.cookie = `sso_token=${token}; path=/; secure; SameSite=Lax`;
           document.cookie = `user_data=${JSON.stringify(ssoData)}; path=/; secure; SameSite=Lax`;
-
+          const telemetryInteract = {
+            context: { env: "prod", cdata: [] },
+            edata: {
+              id: "login-success-learner",
+              type: "CLICK",
+              pageid: "sign-in",
+              uid: userResponse?.userId || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
           window.location.href = `${window.location.origin.replace("3003", "3002")}/login`;
           return;
         } else {
@@ -1696,7 +1581,6 @@ export default function Index() {
     }
 
     try {
-      setIsAuthLoading(true);
       const response = await login({ username, password });
       if (response?.result?.access_token) {
         handleSuccessfulLogin(response?.result, data, router);
@@ -1705,48 +1589,10 @@ export default function Index() {
           t("LOGIN_PAGE.USERNAME_PASSWORD_NOT_CORRECT") || "Invalid username or password",
           "error"
         );
-        setIsAuthLoading(false);
       }
-    } catch (error: unknown) {
-      console.error("Login error:", error);
-      
-      // Check for specific error response structure
-      const errorResponse = error as {
-        response?: {
-          status?: number;
-          data?: {
-            responseCode?: number;
-            params?: {
-              status?: string;
-              err?: string;
-              errmsg?: string;
-            };
-          };
-        };
-      };
-
-      // Check if it's a 400/500 error with failed status
-      const isUserNotActiveError =
-        errorResponse?.response?.status === 400 ||
-        errorResponse?.response?.status === 500 ||
-        errorResponse?.response?.data?.responseCode === 400 ||
-        errorResponse?.response?.data?.responseCode === 500 ||
-        (errorResponse?.response?.data?.params?.status === "failed" &&
-          (errorResponse?.response?.data?.params?.err?.includes("400") ||
-            errorResponse?.response?.data?.params?.err?.includes("500")));
-
-      if (isUserNotActiveError) {
-        showToastMessage(
-          "This user is not active Please contact your administrator.",
-          "error"
-        );
-      } else {
-        const errorMessage =
-          t("LOGIN_PAGE.USERNAME_PASSWORD_NOT_CORRECT") ||
-          "Invalid username or password";
-        showToastMessage(errorMessage, "error");
-      }
-      setIsAuthLoading(false);
+    } catch {
+      const errorMessage = t("LOGIN_PAGE.USERNAME_PASSWORD_NOT_CORRECT") || "Invalid username or password";
+      showToastMessage(errorMessage, "error");
     }
   };
 
@@ -1761,7 +1607,6 @@ export default function Index() {
     const hash = data?.hash;
 
     try {
-      setIsAuthLoading(true);
       const verifyResponse = await verifyOTP({
         mobile: username,
         reason: "login",
@@ -1802,14 +1647,12 @@ export default function Index() {
           t("LOGIN_PAGE.OTP_NOT_CORRECT") || "Invalid OTP. Please try again.",
           "error"
         );
-        setIsAuthLoading(false);
       }
     } catch (error: unknown) {
       console.error("Error in OTP login flow:", error);
       const errorMessage =
         t("LOGIN_PAGE.OTP_NOT_CORRECT") || "Invalid OTP. Please try again.";
       showToastMessage(errorMessage, "error");
-      setIsAuthLoading(false);
     }
   };
 
@@ -1880,9 +1723,9 @@ export default function Index() {
               }}
             >
               {tenantIcon.startsWith("data:") ? (
-                <img src={tenantIcon} alt={`${tenantName} logo`} width={50} height={50} style={{ objectFit: "contain" }} />
+                <img src={tenantIcon} alt={`${tenantName} logo`} width={40} height={40} style={{ objectFit: "contain" }} />
               ) : (
-                <Image src={tenantIcon} alt={`${tenantName} logo`} width={20} height={20} style={{ objectFit: "contain" }} />
+                <Image src={tenantIcon} alt={`${tenantName} logo`} width={40} height={40} style={{ objectFit: "contain" }} />
               )}
             </Box>
             <Typography
@@ -1957,7 +1800,6 @@ export default function Index() {
             onLogin={handleLogin}
             onVerifyOtp={handleVerifyOtp}
             handleForgotPassword={handleForgotPassword}
-            isLoading={isAuthLoading}
           />
         </Box>
       </Box>

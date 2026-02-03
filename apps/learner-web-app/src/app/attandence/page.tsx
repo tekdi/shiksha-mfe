@@ -75,20 +75,18 @@ import { gredientStyle } from "@learner/utils/style";
 import { useTenant } from "@learner/context/TenantContext";
 import { useTranslation } from "@shared-lib";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
-
-const DashboardContainer = styled(Box)<{ backgroundColor?: string }>(
-  ({ theme, backgroundColor }) => ({
-    minHeight: "100vh",
-    backgroundColor: backgroundColor || "var(--background-color, #f5f5f5)",
-    marginRight: "20px",
-    [theme.breakpoints.down("sm")]: {
-      marginRight: "0",
-    },
-    [theme.breakpoints.between("sm", "md")]: {
-      marginRight: "10px",
-    },
-  })
-);
+import {telemetryFactory} from "../../utils/telemtery";
+const DashboardContainer = styled(Box)<{ backgroundColor?: string }>(({ theme, backgroundColor }) => ({
+  minHeight: "100vh",
+  backgroundColor: backgroundColor || "var(--background-color, #f5f5f5)",
+  marginRight: "20px",
+  [theme.breakpoints.down("sm")]: {
+    marginRight: "0",
+  },
+  [theme.breakpoints.between("sm", "md")]: {
+    marginRight: "10px",
+  },
+}));
 
 const MainContent = styled(Box)({
   display: "flex",
@@ -361,6 +359,8 @@ const SimpleTeacherDashboard = () => {
     longitude: number;
     centerName: string;
   } | null>(null);
+  const [officeList, setOfficeList] = useState<any[]>([]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState<string>("");
   const [userRole, setUserRole] = useState<string | null>(null);
   const [absentReason, setAbsentReason] = useState("");
   const [workLocation, setWorkLocation] = useState("");
@@ -447,7 +447,7 @@ const SimpleTeacherDashboard = () => {
         cohortMemberListLength: newData.cohortMemberList.length,
         presentCount: newData.presentCount,
         absentCount: newData.absentCount,
-        memberListSample: newData.cohortMemberList.slice(0, 3).map((m) => ({
+        memberListSample: newData.cohortMemberList.slice(0, 3).map((m: any) => ({
           userId: m?.userId,
           name: m?.name,
           attendance: m?.attendance,
@@ -1511,59 +1511,53 @@ const SimpleTeacherDashboard = () => {
         cohorts.length
       );
 
-      // Find OBLF Office
-      const oblfEntity = cohorts.find(
+      // Find all offices (OBLF and NEK)
+      const officeEntities = cohorts.filter(
         (c: any) =>
           c.name?.toLowerCase().includes("oblf office") ||
-          c.cohortName?.toLowerCase().includes("oblf office")
+          c.cohortName?.toLowerCase().includes("oblf office") ||
+          c.name?.toLowerCase().includes("nek office") ||
+          c.cohortName?.toLowerCase().includes("nek office")
       );
 
-      if (oblfEntity) {
-        console.log("[Work From Office] Found OBLF Office:", {
-          cohortId: oblfEntity.cohortId,
-          name: oblfEntity.name || oblfEntity.cohortName,
-          customFields: oblfEntity.customFields || oblfEntity.customField,
+      if (officeEntities.length > 0) {
+        console.log("[Work From Office] Found Offices:", officeEntities.map((o: any) => o.name || o.cohortName));
+        
+        const processedOffices = officeEntities.map((entity: any) => {
+          const customFields = entity.customFields || entity.customField || [];
+          const latField = customFields.find((f: any) => f.label?.toLowerCase() === "latitude");
+          const lonField = customFields.find((f: any) => f.label?.toLowerCase() === "longitude");
+          
+          let latitude = 0;
+          let longitude = 0;
+          
+          if (latField && lonField) {
+            latitude = parseFloat(latField.selectedValues?.[0]);
+            longitude = parseFloat(lonField.selectedValues?.[0]);
+          }
+
+          return {
+            cohortId: entity.cohortId,
+            name: entity.name || entity.cohortName || "Office",
+            latitude,
+            longitude,
+          };
         });
 
-        const customFields =
-          oblfEntity.customFields || oblfEntity.customField || [];
-        const latField = customFields.find(
-          (f: any) => f.label?.toLowerCase() === "latitude"
-        );
-        const lonField = customFields.find(
-          (f: any) => f.label?.toLowerCase() === "longitude"
-        );
-
-        if (latField && lonField) {
-          const lat = parseFloat(latField.selectedValues?.[0]);
-          const lon = parseFloat(lonField.selectedValues?.[0]);
-
-          if (Number.isFinite(lat) && Number.isFinite(lon)) {
-            const coords = {
-              latitude: lat,
-              longitude: lon,
-              centerName:
-                oblfEntity.name || oblfEntity.cohortName || "OBLF Office",
-            };
-            console.log(
-              "[Work From Office] OBLF Office coordinates found:",
-              coords
-            );
-            setOblfOfficeCoords(coords);
-            return coords;
-          } else {
-            console.error("[Work From Office] Invalid lat/lon values:", {
-              lat,
-              lon,
-            });
-          }
-        } else {
-          console.error(
-            "[Work From Office] Latitude or Longitude field not found in customFields"
-          );
+        // Still update oblfOfficeCoords for backward compatibility if OBLF is found
+        const oblfOffice = processedOffices.find(o => o.name.toLowerCase().includes("oblf"));
+        if (oblfOffice && oblfOffice.latitude !== 0) {
+          setOblfOfficeCoords({
+            latitude: oblfOffice.latitude,
+            longitude: oblfOffice.longitude,
+            centerName: oblfOffice.name,
+          });
         }
+
+        setOfficeList(processedOffices);
+        return processedOffices;
       } else {
-        console.error("[Work From Office] OBLF Office not found in cohorts");
+        console.error("[Work From Office] No matching offices found in cohorts");
       }
     } catch (error) {
       console.error(
@@ -1691,109 +1685,118 @@ const SimpleTeacherDashboard = () => {
     return { valid: isValid, distance };
   };
 
-  const handleMarkSelfAttendance = async () => {
-    if (!selectedSelfAttendance) return;
-    if (!isTodayDate(selectedDate)) {
-      showSelfAttendanceRestrictionMessage();
-      return;
-    }
+ const handleMarkSelfAttendance = async () => {
+  if (!selectedSelfAttendance) return;
+  if (!isTodayDate(selectedDate)) {
+    showSelfAttendanceRestrictionMessage();
+    return;
+  }
 
-    // Validation: Staff must select work location when Present (Supervisor doesn't need it)
-    if (
-      userRole === "Staff" &&
-      selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT &&
-      !workLocation
-    ) {
+  // Validation: Staff must select work location and office (if WFO) when Present
+  if (
+    userRole === "Staff" &&
+    selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT
+  ) {
+    if (!workLocation) {
       showToastMessage("Please select a work location", "warning");
       return;
     }
+    if (workLocation === "work_from_office" && !selectedOfficeId) {
+      showToastMessage("Please select an office", "warning");
+      return;
+    }
+  }
 
-    setIsMarkingAttendance(true);
-    try {
-      const userId = localStorage.getItem("userId");
-      if (!userId) {
-        showToastMessage("User ID not found", "error");
+  setIsMarkingAttendance(true);
+  try {
+    const userId = localStorage.getItem("userId");
+    if (!userId) {
+      showToastMessage("User ID not found", "error");
+      setIsMarkingAttendance(false);
+      return;
+    }
+
+    // Always get real-time device location for all roles
+    // This ensures we have the most current location, not stale data
+    let locationData = null;
+
+    console.log(
+      "[SelfAttendance] ===== GETTING USER LOCATION FROM GPS ====="
+    );
+    console.log("[SelfAttendance] Getting real-time device location...");
+
+    // Try to get location with retry logic (built into getLocation)
+    // Increased retries to 3 to give GPS more time to get a fix
+    locationData = await getLocation(true, 3); // 3 retries with fallback to low accuracy
+
+    if (
+      locationData &&
+      locationData.latitude !== 0 &&
+      locationData.longitude !== 0
+    ) {
+      console.log("[SelfAttendance] Real-time GPS location obtained:", {
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+        accuracy: locationData.accuracy,
+        coordinates: `${locationData.latitude}, ${locationData.longitude}`,
+      });
+      // Update captured location for future reference
+      setCapturedLocation({
+        latitude: locationData.latitude,
+        longitude: locationData.longitude,
+      });
+      console.log("[SelfAttendance] ===== END USER LOCATION =====");
+    } else {
+      // If getLocation failed after retries, try using capturedLocation as fallback
+      if (
+        capturedLocation &&
+        capturedLocation.latitude !== 0 &&
+        capturedLocation.longitude !== 0
+      ) {
+        console.log(
+          "[SelfAttendance] Using captured location as fallback after retry failure:",
+          {
+            latitude: capturedLocation.latitude,
+            longitude: capturedLocation.longitude,
+            coordinates: `${capturedLocation.latitude}, ${capturedLocation.longitude}`,
+          }
+        );
+        locationData = {
+          latitude: capturedLocation.latitude,
+          longitude: capturedLocation.longitude,
+          accuracy: 0,
+        };
+        console.log(
+          "[SelfAttendance] ===== END USER LOCATION (FALLBACK) ====="
+        );
+      } else {
+        console.error(
+          "[SelfAttendance] Failed to get location after retries - no valid location data available"
+        );
+        showToastMessage(
+          "Unable to get your GPS location. Please check: 1) Location/GPS is enabled in device settings, 2) Browser has location permission, 3) You are in an area with GPS signal (try moving to an open area), then try again.",
+          "error"
+        );
         setIsMarkingAttendance(false);
         return;
       }
+    }
 
-      // Always get real-time device location for all roles
-      // This ensures we have the most current location, not stale data
-      let locationData = null;
+    // Scope for API: always "self" for both Teacher, Staff & Supervisor
+    const scope = "self";
 
-      console.log(
-        "[SelfAttendance] ===== GETTING USER LOCATION FROM GPS ====="
-      );
-      console.log("[SelfAttendance] Getting real-time device location...");
-
-      // Try to get location with retry logic (built into getLocation)
-      // Increased retries to 3 to give GPS more time to get a fix
-      locationData = await getLocation(true, 3); // 3 retries with fallback to low accuracy
-
-      if (
-        locationData &&
-        locationData.latitude !== 0 &&
-        locationData.longitude !== 0
-      ) {
-        console.log("[SelfAttendance] Real-time GPS location obtained:", {
-          latitude: locationData.latitude,
-          longitude: locationData.longitude,
-          accuracy: locationData.accuracy,
-          coordinates: `${locationData.latitude}, ${locationData.longitude}`,
-        });
-        // Update captured location for future reference
-        setCapturedLocation({
-          latitude: locationData.latitude,
-          longitude: locationData.longitude,
-        });
-        console.log("[SelfAttendance] ===== END USER LOCATION =====");
-      } else {
-        // If getLocation failed after retries, try using capturedLocation as fallback
-        if (
-          capturedLocation &&
-          capturedLocation.latitude !== 0 &&
-          capturedLocation.longitude !== 0
-        ) {
-          console.log(
-            "[SelfAttendance] Using captured location as fallback after retry failure:",
-            {
-              latitude: capturedLocation.latitude,
-              longitude: capturedLocation.longitude,
-              coordinates: `${capturedLocation.latitude}, ${capturedLocation.longitude}`,
-            }
-          );
-          locationData = {
-            latitude: capturedLocation.latitude,
-            longitude: capturedLocation.longitude,
-            accuracy: 0,
-          };
-          console.log(
-            "[SelfAttendance] ===== END USER LOCATION (FALLBACK) ====="
-          );
+    // Get work location label for API from value (title case)
+    // Only include workLocation if Staff (not Supervisor) and Present is selected
+    let workLocationLabel = "";
+    if (
+      userRole === "Staff" &&
+      selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT
+    ) {
+      if (workLocation) {
+        if (workLocation === "work_from_office" && selectedOfficeId) {
+          const selectedOffice = officeList.find(o => o.cohortId === selectedOfficeId);
+          workLocationLabel = selectedOffice ? selectedOffice.name : "Work From Office";
         } else {
-          console.error(
-            "[SelfAttendance] Failed to get location after retries - no valid location data available"
-          );
-          showToastMessage(
-            "Unable to get your GPS location. Please check: 1) Location/GPS is enabled in device settings, 2) Browser has location permission, 3) You are in an area with GPS signal (try moving to an open area), then try again.",
-            "error"
-          );
-          setIsMarkingAttendance(false);
-          return;
-        }
-      }
-
-      // Scope for API: always "self" for both Teacher, Staff & Supervisor
-      const scope = "self";
-
-      // Get work location label for API from value (title case)
-      // Only include workLocation if Staff (not Supervisor) and Present is selected
-      let workLocationLabel = "";
-      if (
-        userRole === "Staff" &&
-        selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT
-      ) {
-        if (workLocation) {
           workLocationLabel = workLocationLabelMap[workLocation] || "";
           // If mapping fails, try to format the value directly
           if (!workLocationLabel && workLocation) {
@@ -1805,284 +1808,280 @@ const SimpleTeacherDashboard = () => {
           }
         }
       }
+    }
 
-      // Determine lateMark and reason based on timing for Teacher and Staff roles
-      let isLate = false;
-      const effectiveAbsentReason = absentReason || "";
+    // Determine lateMark and reason based on timing for Teacher and Staff roles
+    let isLate = false;
+    const effectiveAbsentReason = absentReason || "";
 
-      if (userRole === "Teacher" && selectedSelfAttendance) {
-        const timing = getSelectedBatchSlotTiming();
-        if (timing) {
-          const now = new Date();
-          // Window where lateMark is FALSE: from 5 min before start until 5 min after start
-          // Outside this window, lateMark is TRUE
-          if (now < timing.enableTime) {
-            isLate = true;
-          } else if (now <= timing.lateThreshold) {
-            isLate = false;
-          } else {
-            isLate = true;
-          }
-        }
-      } else if (userRole === "Staff" && selectedSelfAttendance) {
-        // Staff can mark attendance anytime, but late is TRUE only after 9:35 AM
-        const timing = getStaffFixedTiming();
+    if (userRole === "Teacher" && selectedSelfAttendance) {
+      const timing = getSelectedBatchSlotTiming();
+      if (timing) {
         const now = new Date();
-        if (timing && now > timing.lateThreshold) {
+        // Window where lateMark is FALSE: from 5 min before start until 5 min after start
+        // Outside this window, lateMark is TRUE
+        if (now < timing.enableTime) {
           isLate = true;
-        } else {
+        } else if (now <= timing.lateThreshold) {
           isLate = false;
+        } else {
+          isLate = true;
         }
       }
+    } else if (userRole === "Staff" && selectedSelfAttendance) {
+      // Staff can mark attendance anytime, but late is TRUE only after 9:35 AM
+      const timing = getStaffFixedTiming();
+      const now = new Date();
+      if (timing && now > timing.lateThreshold) {
+        isLate = true;
+      } else {
+        isLate = false;
+      }
+    }
 
-      // Debug logging for Staff/Teacher role - check state values
-      console.log("[Self Attendance] State values before payload:", {
-        userRole,
-        selectedSelfAttendance,
-        workLocation,
-        workLocationLabel,
-        comment,
-        absentReason: effectiveAbsentReason,
-        workLocationLabelMapKeys: Object.keys(workLocationLabelMap),
-        workLocationInMap: workLocation
-          ? workLocationLabelMap[workLocation]
-          : "N/A",
-      });
+    // Determine absentReason and reason based on attendance type and late status
+    // absentReason: only for absent attendance (not for present)
+    // reason: only "Late" if late, otherwise empty
+    const isPresent = selectedSelfAttendance?.toLowerCase() === "present";
+    const finalAbsentReason = isPresent ? "" : effectiveAbsentReason;
+    const finalReason = isLate ? "Late" : "";
 
-      // Determine absentReason and reason based on attendance type and late status
-      // absentReason: only for absent attendance (not for present)
-      // reason: only "Late" if late, otherwise empty
-      const isPresent = selectedSelfAttendance?.toLowerCase() === "present";
-      const finalAbsentReason = isPresent ? "" : effectiveAbsentReason;
-      const finalReason = isLate ? "Late" : "";
+    // For Supervisor: use selectedCenterId as contextId (since classId is empty)
+    // For other roles: use classId
+    const effectiveContextId =
+      userRole === "Supervisor"
+        ? selectedCenterId || "5767a18a-323a-4eac-b115-22dabcd9b8ae"
+        : classId || "5767a18a-323a-4eac-b115-22dabcd9b8ae";
 
-      // For Supervisor: use selectedCenterId as contextId (since classId is empty)
-      // For other roles: use classId
-      const effectiveContextId =
-        userRole === "Supervisor"
-          ? selectedCenterId || "5767a18a-323a-4eac-b115-22dabcd9b8ae"
-          : classId || "5767a18a-323a-4eac-b115-22dabcd9b8ae";
+    const data: any = {
+      userId: userId,
+      attendance: selectedSelfAttendance?.toLowerCase(),
+      attendanceDate: selectedDate,
+      contextId: effectiveContextId,
+      scope: scope,
+      context: "cohort",
+      absentReason: finalAbsentReason,
+      reason: finalReason,
+      remark: comment || "",
+      validLocation: false, // Default to false
+    };
 
-      const data: any = {
-        userId: userId,
-        attendance: selectedSelfAttendance?.toLowerCase(),
-        attendanceDate: selectedDate,
-        contextId: effectiveContextId,
-        scope: scope,
-        context: "cohort",
-        absentReason: finalAbsentReason,
-        reason: finalReason,
-        remark: comment || "",
-        validLocation: false,
+    if (userRole === "Supervisor") {
+      data.lateMark = null;
+    } else if (userRole === "Staff") {
+      data.lateMark = isLate; // Use calculated isLate for Staff
+      data.metaData = {
+        workLocation: workLocationLabel || "",
       };
+    } else {
+      data.lateMark = isLate;
+    }
 
-      if (userRole === "Supervisor") {
-        data.lateMark = null;
-      } else if (userRole === "Staff") {
-        data.lateMark = isLate; // Use calculated isLate for Staff
-        data.metaData = {
-          workLocation: workLocationLabel || "",
-        };
-      } else {
-        data.lateMark = isLate;
-      }
+    // Ensure latitude and longitude are always set (should not be 0)
+    // Always require valid real-time device location for all roles
+    if (
+      !locationData ||
+      locationData.latitude === 0 ||
+      locationData.longitude === 0
+    ) {
+      console.error(
+        "[SelfAttendance] Invalid location data - cannot proceed",
+        locationData
+      );
+      showToastMessage(
+        "GPS location not available. Please ensure: 1) Location/GPS is enabled, 2) Browser has location permission, 3) You have GPS signal, then try again.",
+        "error"
+      );
+      setIsMarkingAttendance(false);
+      return;
+    }
 
-      // Ensure latitude and longitude are always set (should not be 0)
-      // Always require valid real-time device location for all roles
-      if (
-        !locationData ||
-        locationData.latitude === 0 ||
-        locationData.longitude === 0
-      ) {
-        console.error(
-          "[SelfAttendance] Invalid location data - cannot proceed",
-          locationData
-        );
-        showToastMessage(
-          "GPS location not available. Please ensure: 1) Location/GPS is enabled, 2) Browser has location permission, 3) You have GPS signal, then try again.",
-          "error"
-        );
-        setIsMarkingAttendance(false);
-        return;
-      }
+    // Always set latitude and longitude for all roles (real-time device location)
+    data.latitude = locationData.latitude;
+    data.longitude = locationData.longitude;
 
-      // Always set latitude and longitude for all roles (real-time device location)
-      data.latitude = locationData.latitude;
-      data.longitude = locationData.longitude;
-
-      // No 50m validation when marking absent - validation only applies to "present" attendance
-      const isAbsent =
-        selectedSelfAttendance?.toLowerCase() === ATTENDANCE_ENUM.ABSENT;
-
-      if (isAbsent) {
-        // For absent attendance, no location validation needed
-        data.validLocation = false;
-      } else {
-        // For present attendance, apply validation based on role
-        // For Teachers and Supervisor, enforce 50m validation against center
-        // For Staff with work_from_office, enforce 50m validation against office
-        // For Staff with other work locations, no validation
-        if (userRole === "Teacher" || userRole === "Supervisor") {
-          let shouldValidate = true;
-
-          // For Supervisor: check if selected center has coordinates
-          // If not, skip validation
-          if (userRole === "Supervisor") {
-            const centerCoords = getSelectedCenterCoordinates();
-            if (!centerCoords) {
-              shouldValidate = false;
-              console.log(
-                "[SelfAttendance] Supervisor selected center has no coordinates. Skipping validation."
-              );
-            }
+    // For Teacher, Staff, and Supervisor: Skip 100m validation completely
+    // Always set validLocation to true for attendance marking
+    // But we still need to send the actual validation result to database
+    // So we calculate it but don't block the attendance marking
+    
+    // Calculate validation result but don't block attendance
+    let locationValidationResult = { valid: false, distance: 0 };
+    
+    if (selectedSelfAttendance?.toLowerCase() === ATTENDANCE_ENUM.PRESENT) {
+      // Calculate validation for Present attendance (but don't block)
+      if (userRole === "Teacher") {
+        // For Teacher: validate against center
+        const centerCoords = getSelectedCenterCoordinates();
+        if (centerCoords) {
+          locationValidationResult = isLocationValid(locationData, false);
+          console.log("[Teacher Location Check]", {
+            valid: locationValidationResult.valid,
+            distance: locationValidationResult.distance,
+            action: "Will allow marking regardless of distance",
+          });
+        }
+      } else if (userRole === "Staff" && workLocation === "work_from_office") {
+        // For Staff with work_from_office: validate against the selected office
+        let officeCoords = null;
+        if (selectedOfficeId) {
+          const selectedOffice = officeList.find(o => o.cohortId === selectedOfficeId);
+          if (selectedOffice && selectedOffice.latitude !== 0) {
+            officeCoords = {
+              latitude: selectedOffice.latitude,
+              longitude: selectedOffice.longitude
+            };
           }
+        }
 
-          if (shouldValidate) {
-            const validationResult = isLocationValid(locationData, false);
-            // Set validLocation based on distance: true if <= 100m, false if > 100m
-            data.validLocation = validationResult.valid;
-          } else {
-            data.validLocation = false;
-          }
-        } else if (
-          userRole === "Staff" &&
-          workLocation === "work_from_office"
-        ) {
-          // Staff with work_from_office: validate location but allow marking attendance regardless of distance
-          console.log(
-            "[Work From Office] Validating location for work_from_office",
-            {
-              workLocation: workLocation,
-              userLocation: {
-                latitude: locationData?.latitude,
-                longitude: locationData?.longitude,
-              },
-              oblfCoordsCached: !!oblfOfficeCoords,
-            }
-          );
-
-          // Fetch OBLF coordinates if not cached
+        // Fallback to OBLF office if no specific office selected or found
+        if (!officeCoords) {
           let oblfCoords = getOBLFOfficeCoordinates();
           if (!oblfCoords) {
-            console.log(
-              "[Work From Office] OBLF coordinates not cached, fetching now..."
-            );
-            const fetchedCoords = await fetchOBLFOfficeCoordinates();
-            if (fetchedCoords) {
-              oblfCoords = {
-                latitude: fetchedCoords.latitude,
-                longitude: fetchedCoords.longitude,
-              };
+            const fetchedCoordsData = await fetchOBLFOfficeCoordinates();
+            if (fetchedCoordsData) {
+              // Find OBLF in the returned list
+              const oblf = Array.isArray(fetchedCoordsData) 
+                ? fetchedCoordsData.find((oAny: any) => oAny.name.toLowerCase().includes("oblf"))
+                : fetchedCoordsData;
+              
+              if (oblf) {
+                officeCoords = {
+                  latitude: oblf.latitude,
+                  longitude: oblf.longitude,
+                };
+              }
             }
-          }
-
-          if (!oblfCoords) {
-            console.error(
-              "[Work From Office] OBLF Office coordinates not available. Cannot validate location."
-            );
-            // Set validLocation to false when coordinates are not available, but allow marking attendance
-            data.validLocation = false;
           } else {
-            const validationResult = isLocationValid(locationData, true);
-            // Set validLocation based on distance: true if <= 100m, false if > 100m
-            data.validLocation = validationResult.valid;
-
-            console.log("[Work From Office] Validation result:", {
-              valid: validationResult.valid,
-              distance: validationResult.distance,
-              oblfOffice: oblfOfficeCoords?.centerName || "OBLF Office",
-              oblfCoords: {
-                latitude: oblfCoords.latitude,
-                longitude: oblfCoords.longitude,
-              },
-              userLocation: {
-                latitude: locationData?.latitude,
-                longitude: locationData?.longitude,
-              },
-            });
+            officeCoords = oblfCoords;
           }
-        } else {
-          // For Staff with other work locations (work_from_home, work_from_field, other), no validation
-          data.validLocation = false;
+        }
+        
+        if (officeCoords) {
+          // Temporarily override oblfOfficeCoords for isLocationValid to use
+          const originalOblfCoords = oblfOfficeCoords;
+          setOblfOfficeCoords({ ...officeCoords, centerName: "Selected Office" });
+          
+          locationValidationResult = isLocationValid(locationData, true);
+          
+          // Restore original if needed, but isLocationValid will have already run
+          // Actually, better to just pass the coords directly if I could, 
+          // but isLocationValid uses getOBLFOfficeCoordinates()
+          
+          console.log("[Staff Location Check]", {
+            valid: locationValidationResult.valid,
+            distance: locationValidationResult.distance,
+            workLocation: "work_from_office",
+            selectedOffice: officeList.find(o => o.cohortId === selectedOfficeId)?.name || "Default OBLF",
+            action: "Will allow marking regardless of distance",
+          });
+          
+          // Restore
+          setOblfOfficeCoords(originalOblfCoords);
+        }
+      } else if (userRole === "Supervisor") {
+        // For Supervisor: validate against center
+        const centerCoords = getSelectedCenterCoordinates();
+        if (centerCoords) {
+          locationValidationResult = isLocationValid(locationData, false);
+          console.log("[Supervisor Location Check]", {
+            valid: locationValidationResult.valid,
+            distance: locationValidationResult.distance,
+            action: "Will allow marking regardless of distance",
+          });
         }
       }
-
-      // Debug logging for Staff/Teacher role - final payload
-      console.log(
-        "[Self Attendance] Final payload being sent:",
-        JSON.stringify(data, null, 2)
+    }
+    
+    // Set validLocation to the actual validation result (true/false based on distance)
+    // This will be sent to database as-is, but won't block attendance marking
+    data.validLocation = locationValidationResult.valid;
+    
+    // Show warning message if distance is too far, but don't block
+    if (locationValidationResult.distance && locationValidationResult.distance > 100) {
+      showToastMessage(
+        `Note: You are ${locationValidationResult.distance.toFixed(2)}m away from the location. Attendance will be marked but location validation failed.`,
+        "warning"
       );
-      console.log("[Self Attendance] Payload fields check:", {
-        hasRemark: !!data.remark,
-        hasMetaData: !!data.metaData,
-        remarkValue: data.remark,
-        metaDataValue: data.metaData,
-        workLocationInMetaData: data.metaData?.workLocation,
-      });
+    }
 
-      const response = await markAttendance(data);
+    // Debug logging for Staff/Teacher role - final payload
+    console.log(
+      "[Self Attendance] Final payload being sent:",
+      JSON.stringify(data, null, 2)
+    );
+    console.log("[Self Attendance] Payload fields check:", {
+      hasRemark: !!data.remark,
+      hasMetaData: !!data.metaData,
+      remarkValue: data.remark,
+      metaDataValue: data.metaData,
+      workLocationInMetaData: data.metaData?.workLocation,
+      validLocation: data.validLocation, // This is the actual validation result
+    });
 
-      if (
-        (response?.responseCode === 200 || response?.responseCode === 201) &&
-        response?.params?.status === "successful"
-      ) {
-        const successMessage =
-          response?.params?.successmessage || "Attendance marked successfully";
-        showToastMessage(successMessage, "success");
+    const response = await markAttendance(data);
 
-        // Show late message if attendance was marked as late (for Teacher or Staff)
-        if ((userRole === "Teacher" || userRole === "Staff") && isLate) {
-          showToastMessage(
-            "Your attendance has been marked as Late. Please ensure you arrive on time in the future.",
-            "warning"
-          );
-        }
+    if (
+      (response?.responseCode === 200 || response?.responseCode === 201) &&
+      response?.params?.status === "successful"
+    ) {
+      const successMessage =
+        response?.params?.successmessage || "Attendance marked successfully";
+      showToastMessage(successMessage, "success");
 
-        setIsSelfAttendanceModalOpen(false);
-        setSelectedSelfAttendance(null);
-        setAbsentReason("");
-        setWorkLocation("");
-        setComment("");
-        setCapturedLocation(null); // Clear captured location after successful submission
-
-        if (response?.data?.attendance) {
-          const attendanceValue = response.data.attendance.toLowerCase();
-          setSelectedSelfAttendance(attendanceValue);
-
-          const updatedSelfAttendance = [
-            {
-              attendance: response.data.attendance,
-              attendanceDate: response.data.attendanceDate,
-              ...response.data,
-            },
-          ];
-          setSelfAttendanceData(updatedSelfAttendance);
-        }
-
-        await fetchSelfAttendance();
-        fetchAttendanceData();
-        // Refresh staff self-attendance for calendar if Staff/Supervisor
-        if (userRole === "Staff" || userRole === "Supervisor") {
-          fetchStaffSelfAttendanceForCalendar();
-        }
-        setIsMarkingAttendance(false);
-      } else if (response?.responseCode === 400 || response?.params?.err) {
-        const errorMessage =
-          response?.params?.errmsg ||
-          response?.params?.err ||
-          "Something went wrong";
-        showToastMessage(errorMessage, "error");
-        setIsMarkingAttendance(false);
-      } else {
-        showToastMessage("Something went wrong", "error");
-        setIsMarkingAttendance(false);
+      // Show late message if attendance was marked as late (for Teacher or Staff)
+      if ((userRole === "Teacher" || userRole === "Staff") && isLate) {
+        showToastMessage(
+          "Your attendance has been marked as Late. Please ensure you arrive on time in the future.",
+          "warning"
+        );
       }
-    } catch (error) {
-      console.error("Error marking self attendance:", error);
+
+      setIsSelfAttendanceModalOpen(false);
+      setSelectedSelfAttendance(null);
+      setAbsentReason("");
+      setWorkLocation("");
+      setComment("");
+      setCapturedLocation(null); // Clear captured location after successful submission
+
+      if (response?.data?.attendance) {
+        const attendanceValue = response.data.attendance.toLowerCase();
+        setSelectedSelfAttendance(attendanceValue);
+
+        const updatedSelfAttendance = [
+          {
+            attendance: response.data.attendance,
+            attendanceDate: response.data.attendanceDate,
+            ...response.data,
+          },
+        ];
+        setSelfAttendanceData(updatedSelfAttendance);
+      }
+
+      await fetchSelfAttendance();
+      fetchAttendanceData();
+      // Refresh staff self-attendance for calendar if Staff/Supervisor
+      if (userRole === "Staff" || userRole === "Supervisor") {
+        fetchStaffSelfAttendanceForCalendar();
+      }
+      setIsMarkingAttendance(false);
+    } else if (response?.responseCode === 400 || response?.params?.err) {
+      const errorMessage =
+        response?.params?.errmsg ||
+        response?.params?.err ||
+        "Something went wrong";
+      showToastMessage(errorMessage, "error");
+      setIsMarkingAttendance(false);
+    } else {
       showToastMessage("Something went wrong", "error");
       setIsMarkingAttendance(false);
     }
-  };
+  } catch (error) {
+    console.error("Error marking self attendance:", error);
+    showToastMessage("Something went wrong", "error");
+    setIsMarkingAttendance(false);
+  }
+};
 
   useEffect(() => {
     // For Supervisor: check selectedCenterId, for other roles: check classId
@@ -2557,11 +2556,33 @@ const SimpleTeacherDashboard = () => {
   };
 
   const handleProfileClick = () => {
+    
+     const telemetryInteract = {
+            context: { env: "prod", cdata: [] },
+            edata: {
+              id: "profile-click",
+              type: "CLICK",
+              pageid: `Profile menu`,
+              uid: localStorage.getItem("userId") || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
+      
     router.push("/profile");
     setAnchorEl(null);
   };
 
   const handleLogoutClick = () => {
+    const telemetryInteract = {
+            context: { env: "prod", cdata: [] },
+            edata: {
+              id: "logout-click",
+              type: "CLICK",
+              pageid: `logout`,
+              uid: localStorage.getItem("userId") || "Anonymous",
+            },
+          };
+          telemetryFactory.interact(telemetryInteract);
     setLogoutModalOpen(true);
     setAnchorEl(null);
   };
@@ -4120,6 +4141,7 @@ const SimpleTeacherDashboard = () => {
               );
               setAbsentReason("");
               setWorkLocation("");
+              setSelectedOfficeId("");
               setComment("");
               // Don't clear capturedLocation here - keep it for retry
             }
@@ -4283,7 +4305,12 @@ const SimpleTeacherDashboard = () => {
                     <Select
                       labelId="work-location-label"
                       value={workLocation}
-                      onChange={(e) => setWorkLocation(e.target.value)}
+                      onChange={(e) => {
+                        setWorkLocation(e.target.value);
+                        if (e.target.value !== "work_from_office") {
+                          setSelectedOfficeId("");
+                        }
+                      }}
                       label="Work Location"
                       sx={{
                         mt: 1,
@@ -4305,12 +4332,45 @@ const SimpleTeacherDashboard = () => {
                       ))}
                     </Select>
                   </FormControl>
+
+                  {workLocation === "work_from_office" && officeList.length > 0 && (
+                    <FormControl fullWidth sx={{ mt: 3 }}>
+                      <InputLabel id="office-location-label">
+                        Select Office
+                      </InputLabel>
+                      <Select
+                        labelId="office-location-label"
+                        value={selectedOfficeId}
+                        onChange={(e) => setSelectedOfficeId(e.target.value)}
+                        label="Select Office"
+                        sx={{
+                          mt: 1,
+                          "& .MuiOutlinedInput-notchedOutline": {
+                            borderColor: alpha(secondaryColor, 0.3),
+                          },
+                          "&:hover .MuiOutlinedInput-notchedOutline": {
+                            borderColor: primaryColor,
+                          },
+                          "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                            borderColor: primaryColor,
+                          },
+                        }}
+                      >
+                        {officeList.map((office) => (
+                          <MenuItem key={office.cohortId} value={office.cohortId}>
+                            {office.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  )}
                 </Box>
               )}
 
             {/* For Teacher: Comment Autocomplete when Present is selected */}
             {userRole === "Teacher" &&
-              selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT && (
+              (selectedSelfAttendance === ATTENDANCE_ENUM.PRESENT ||
+                selectedSelfAttendance === ATTENDANCE_ENUM.ABSENT) && (
                 <Box sx={{ p: 0.5, pt: 2.5, borderRadius: "12px" }}>
                   <Autocomplete
                     freeSolo
