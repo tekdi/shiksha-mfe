@@ -235,8 +235,8 @@ docker-compose -f docker-compose.admin-app-repo.yml up -d --force-recreate --no-
 
 ## 🧑‍🏫 Mentors
 
-[Siddhi Shinde](https://github.com/siddhishinde0723)
-* Dnyanesh Kulkarni 
+* [Siddhi Shinde](https://github.com/siddhishinde0723)
+* [Dnyanesh Kulkarni](https://github.com/dnyaneshkulkarni-sudo) 
 
 ## 🧠 Domain
 
