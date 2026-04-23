@@ -10,12 +10,18 @@ import {
   Menu,
   MenuItem,
   IconButton,
+  Paper,
+  Chip,
+  Avatar,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import SettingsIcon from '@mui/icons-material/Settings';
 import settingImage from '../../../public/images/settings.png';
 import Image from 'next/image';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import PersonIcon from '@mui/icons-material/Person';
+import ContactPhoneIcon from '@mui/icons-material/ContactPhone';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
 import { useRouter } from 'next/navigation';
 import { getUserDetails } from '@learner/utils/API/userService';
 import { Loader, useTranslation } from '@shared-lib';
@@ -206,38 +212,55 @@ options.push(t('LEARNER_APP.USER_PROFILE_CARD.EDIT_PROFILE'));
   const sectionCardStyle = {
     backgroundColor: '#fff',
     border: '1px solid #e0e0e0',
-    borderRadius: '12px',
-    padding: '12px',
-    marginBottom: '16px',
+    borderRadius: '16px',
+    padding: '20px',
+    marginBottom: '20px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
   };
 
   const sectionTitleStyle = {
-    fontSize: '1rem',
-    fontWeight: 600,
-    marginBottom: '6px',
-    color: '#000',
+    fontSize: '18px',
+    fontWeight: 700,
+    marginBottom: '16px',
+    color: '#78590C',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
   };
 
   const labelStyle = {
-    fontSize: '0.85rem',
-    fontWeight: 500,
-    color: '#7c7c7c',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: '#666',
+    marginBottom: '4px',
   };
 
   const valueStyle = {
-    fontSize: '0.95rem',
+    fontSize: '12px',
     fontWeight: 500,
     color: '#333',
+    lineHeight: 1.4,
   };
 
   return (
-    <Box sx={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+    <Paper
+      sx={{
+        overflowWrap: 'break-word',
+        wordBreak: 'break-word',
+        borderRadius: 4,
+        overflow: 'hidden',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+        border: '1px solid rgba(0,0,0,0.05)',
+        maxWidth: maxWidth,
+      }}
+    >
+      {/* Header Section */}
       <Box
         sx={{
-          background: 'linear-gradient(to bottom, #FFFDF6, #F8EFDA)',
-          maxWidth: {maxWidth},
-          padding: '20px',
+          background: '#F8EFDA',
+          padding: '24px',
           position: 'relative',
+          color: '#1F1B13',
         }}
       >
         <Box
@@ -245,52 +268,75 @@ options.push(t('LEARNER_APP.USER_PROFILE_CARD.EDIT_PROFILE'));
             display: 'flex',
             flexDirection: 'row',
             justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            mb: 2,
           }}
         >
-          <Typography
-            variant="subtitle2"
-            fontWeight="600"
-            fontSize="1rem"
-            sx={{ mb: 1 }}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar
+              sx={{
+                width: 60,
+                height: 60,
+                backgroundColor: 'rgba(31,27,19,0.1)',
+                fontSize: '1.5rem',
+                fontWeight: 700,
+                color: '#1F1B13',
+              }}
+            >
+              {fullName.charAt(0).toUpperCase()}
+            </Avatar>
+            <Box>
+              <Typography
+                variant="h5"
+                fontWeight="700"
+                sx={{ mb: 0.5 }}
+              >
+                {fullName}
+              </Typography>
+              <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                @{username}
+              </Typography>
+            </Box>
+          </Box>
+          
+          {/* <IconButton 
+            onClick={handleSettingsClick}
+            sx={{
+              color: '#1F1B13',
+              backgroundColor: 'rgba(31,27,19,0.1)',
+              '&:hover': {
+                backgroundColor: 'rgba(31,27,19,0.2)',
+              },
+            }}
           >
-            {t('LEARNER_APP.USER_PROFILE_CARD.MY_PROFILE')}
-          </Typography>
-          <IconButton onClick={handleSettingsClick}>
             <Image
               src={settingImage}
               alt="Setting Icon"
-              width={24}
-              height={24}
+              width={20}
+              height={20}
             />
-          </IconButton>{' '}
+          </IconButton> */}
         </Box>
 
-        <Typography fontSize="1.25rem" fontWeight="600" sx={{ mb: 1 }}>
-          {fullName}
-        </Typography>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          {username}
-          {/* • Joined on June 16, 2024 */}
-        </Typography>
+        <Chip
+          label={t('LEARNER_APP.USER_PROFILE_CARD.MY_PROFILE')}
+          sx={{
+            backgroundColor: 'rgba(31,27,19,0.1)',
+            color: '#1F1B13',
+            fontWeight: 600,
+          }}
+        />
       </Box>
 
-      <Box
-        sx={{ padding: '16px', backgroundColor: '#FFF8F2', maxWidth: {maxWidth} }}
-      >
+      {/* Content Section */}
+      <Box sx={{ padding: '24px', backgroundColor: '#FAFAFA' }}>
         {!isUnderEighteen(dob) ? (
           <>
             <Typography sx={sectionTitleStyle}>
+              <ContactPhoneIcon sx={{ fontSize: '1.2rem' }} />
               {t('LEARNER_APP.USER_PROFILE_CARD.CONTACT_INFORMATION')}
             </Typography>
             <Box sx={sectionCardStyle}>
-              {/* <Box sx={{ mb: 1.5 }}>
-            <Typography sx={labelStyle}>
-              {t('LEARNER_APP.USER_PROFILE_CARD.EMAIL_ADDRESS')}
-            </Typography>
-            <Typography sx={valueStyle}>{email || '-'}</Typography>
-          </Box> */}
-
               <Grid container spacing={1.5}>
                 {mobile !== '-' && (
                   <Grid item xs={6}>
@@ -316,16 +362,10 @@ options.push(t('LEARNER_APP.USER_PROFILE_CARD.EDIT_PROFILE'));
         ) : (
           <>
             <Typography sx={sectionTitleStyle}>
+              <PersonIcon sx={{ fontSize: '1.2rem' }} />
               {t('LEARNER_APP.USER_PROFILE_CARD.GUARDIAN_DETAILS')}
             </Typography>
             <Box sx={sectionCardStyle}>
-              {/* <Box sx={{ mb: 1.5 }}>
-            <Typography sx={labelStyle}>
-              {t('LEARNER_APP.USER_PROFILE_CARD.EMAIL_ADDRESS')}
-            </Typography>
-            <Typography sx={valueStyle}>{email || '-'}</Typography>
-          </Box> */}
-
               <Grid container spacing={1.5}>
                 {parentPhone !== '-' && (
                   <Grid item xs={6}>
@@ -360,109 +400,8 @@ options.push(t('LEARNER_APP.USER_PROFILE_CARD.EDIT_PROFILE'));
           </>
         )}
 
-        <Typography sx={sectionTitleStyle}>
-          {t('LEARNER_APP.USER_PROFILE_CARD.PERSONAL_INFORMATION')}
-        </Typography>
-        <Box sx={sectionCardStyle}>
-          <Grid container spacing={1.5}>
-            {gender !== '-' && (
-              <Grid item xs={6}>
-                <Typography sx={labelStyle}>
-                  {t('LEARNER_APP.USER_PROFILE_CARD.GENDER')}
-                </Typography>
-                <Typography sx={valueStyle}>{toPascalCase(gender)}</Typography>
-              </Grid>
-            )}
-            {dob !== '-' && (
-              <Grid item xs={6}>
-                <Typography sx={labelStyle}>
-                  {t('LEARNER_APP.USER_PROFILE_CARD.DOB')}
-                </Typography>
-                <Typography sx={valueStyle}>
-                  {new Date(dob).toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    year: 'numeric',
-                  })}
-                </Typography>
-              </Grid>
-            )}
-            {maritalStatus !== '-' && (
-              <Grid item xs={6}>
-                <Typography sx={labelStyle}>
-                  {t('LEARNER_APP.USER_PROFILE_CARD.MARITAL_STATUS')}
-                </Typography>
-                <Typography sx={valueStyle}>
-                  {toPascalCase(maritalStatus)}
-                </Typography>
-              </Grid>
-            )}
-            {motherName !== '-' && (
-              <Grid item xs={6}>
-                <Typography sx={labelStyle}>
-                  {t('LEARNER_APP.USER_PROFILE_CARD.MOTHER_NAME')}
-                </Typography>
-                <Typography sx={valueStyle}>
-                  {toPascalCase(motherName)}
-                </Typography>
-              </Grid>
-            )}
-            {qualification !== '-' && (
-              <Grid item xs={12}>
-                <Typography sx={labelStyle}>
-                  {t('LEARNER_APP.USER_PROFILE_CARD.HIGHEST_QUALIFICATION')}
-                </Typography>
-                <Typography sx={valueStyle}>
-                  {t(`FORM.${qualification}`, { defaultValue: qualification })}
-                </Typography>
-              </Grid>
-            )}
-            {[state, district, block, village].filter(Boolean).join(', ') !== '-' && (
-              <Grid item xs={12}>
-                <Typography sx={labelStyle}>
-                  {t('LEARNER_APP.USER_PROFILE_CARD.LOCATION')}
-                </Typography>
-                <Typography sx={valueStyle}>
-                  {[state, district, block, village].filter(Boolean).join(', ')}
-                </Typography>
-              </Grid>
-            )}
-          </Grid>
-        </Box>
-
-        <Typography sx={sectionTitleStyle}>
-          {t('LEARNER_APP.USER_PROFILE_CARD.ASPIRATION_EXPERIENCE')}
-        </Typography>
-        <Box sx={sectionCardStyle}>
-          {priorTraining !== '-' && (
-            <Box sx={{ mb: 1.5 }}>
-              <Typography sx={labelStyle}>
-                {t('LEARNER_APP.USER_PROFILE_CARD.PRIOR_TRAINING')}
-              </Typography>
-              <Typography sx={valueStyle}>{priorTraining}</Typography>
-            </Box>
-          )}
-          {currentWork !== '-' && (
-            <Box sx={{ mb: 1.5 }}>
-              <Typography sx={labelStyle}>
-                {t('LEARNER_APP.USER_PROFILE_CARD.CURRENT_WORK')}
-              </Typography>
-              <Typography sx={valueStyle}>
-                {toPascalCase(currentWork).replaceAll('_', ' ')}
-              </Typography>
-            </Box>
-          )}
-          {futureWork !== '-' && (
-            <Box>
-              <Typography sx={labelStyle}>
-                {t('LEARNER_APP.USER_PROFILE_CARD.FUTURE_WORK')}
-              </Typography>
-              <Typography sx={valueStyle}>
-                - I want to become {futureWork}
-              </Typography>
-            </Box>
-          )}
-        </Box>
+    
+    
       </Box>
 
       <Menu
@@ -493,14 +432,7 @@ options.push(t('LEARNER_APP.USER_PROFILE_CARD.EDIT_PROFILE'));
           </MenuItem>
         ))}
       </Menu>
-      {/* <a
-        href="/files/consent_form_above_18_hindi.pdf"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Open PDF
-      </a> */}
-    </Box>
+    </Paper>
   );
 };
 

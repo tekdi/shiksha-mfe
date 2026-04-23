@@ -45,7 +45,6 @@ const ContentComponent = ({
   if (identifier.length <= 0) {
     return null;
   }
-
   return (
     <Content
       isShowLayout={false}

@@ -1,21 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import dynamic from 'next/dynamic';
-import { useRouter } from 'next/router';
+import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
+import { useRouter } from "next/router";
 import {
   fetchContent,
   getHierarchy,
   getQumlData,
-} from '../services/PlayerService';
-import { Box, Typography } from '@mui/material';
-import { MIME_TYPE } from '../utils/url.config';
+} from "../services/PlayerService";
+import { Box, Typography } from "@mui/material";
+import { MIME_TYPE } from "../utils/url.config";
 import {
   PlayerConfig,
   V1PlayerConfig,
   V2PlayerConfig,
-} from '../utils/url.config';
-import Loader from '../components/Loader';
+} from "../utils/url.config";
+import Loader from "../components/Loader";
 
-const SunbirdPlayers = dynamic(() => import('../components/players/Players'), {
+const SunbirdPlayers = dynamic(() => import("../components/players/Players"), {
   ssr: false,
 });
 
@@ -29,12 +29,7 @@ const Players: React.FC<SunbirdPlayerProps> = ({
   playerConfig: propPlayerConfig,
 }) => {
   const router = useRouter();
-  const {
-    courseId,
-    unitId,
-    userId,
-    identifier: queryIdentifier,
-  } = router.query ?? {}; // Get identifier from the query
+  const { courseId, unitId, identifier: queryIdentifier } = router.query ?? {}; // Get identifier from the query
   const identifier = propIdentifier || queryIdentifier; // Prefer prop over query
   const [playerConfig, setPlayerConfig] = useState<PlayerConfig | undefined>(
     propPlayerConfig
@@ -42,7 +37,36 @@ const Players: React.FC<SunbirdPlayerProps> = ({
   const [loading, setLoading] = useState(!propPlayerConfig);
   const [isGenerateCertificate, setIsGenerateCertificate] = useState(true);
   const [trackable, setTrackable] = useState(true);
+  const [userId, setUserId] = useState("");
 
+  // Get all query params once router is ready
+  useEffect(() => {
+    if (router.isReady) {
+     
+      const queryUserId = router.query.userId as string;
+      const queryTenantId = router.query.tenantId as string;
+     
+      
+      if (queryUserId) {
+        setUserId(queryUserId);
+      } else {
+        // Fallback to other sources if not in query params
+        const storedUserId = localStorage.getItem("userId") || "";
+        setUserId(storedUserId);
+      }
+
+      // Handle tenantId from URL parameters
+      if (queryTenantId) {
+        localStorage.setItem("tenantId", queryTenantId);
+      } else {
+        // Check if tenantId already exists in localStorage
+        const storedTenantId = localStorage.getItem("tenantId");
+        if (!storedTenantId) {
+          console.warn("❌ No tenantId found in URL parameters or localStorage!");
+        }
+      }
+    }
+  }, [router.isReady, router.query.userId, router.query.tenantId]);
   useEffect(() => {
     if (playerConfig || !identifier) return;
 
@@ -65,16 +89,16 @@ const Players: React.FC<SunbirdPlayerProps> = ({
         } else if (MIME_TYPE.INTERACTIVE_MIME_TYPE.includes(data?.mimeType)) {
           config = { ...V1PlayerConfig, metadata: data, data: data.body || {} };
           //@ts-ignore
-          config.context['contentId'] = identifier;
+          config.context["contentId"] = identifier;
         } else {
           config = { ...V2PlayerConfig, metadata: data };
           //@ts-ignore
-          config.context['contentId'] = identifier;
+          config.context["contentId"] = identifier;
         }
 
         setPlayerConfig(config);
       } catch (error) {
-        console.error('Error loading content:', error);
+        console.error("Error loading content:", error);
       } finally {
         setLoading(false);
       }
@@ -108,7 +132,7 @@ const Players: React.FC<SunbirdPlayerProps> = ({
           <Loader showBackdrop={false} />
         </Box>
       ) : (
-        <Box sx={{ height: 'calc(100vh - 16px)' }}>
+        <Box sx={{ height: "calc(100vh - 16px)" }}>
           {/* <Typography
             color="#024f9d"
             sx={{ padding: '0 0 4px 4px', fontWeight: 'bold' }}

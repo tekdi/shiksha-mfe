@@ -1,5 +1,5 @@
-'use client';
-import React, { useCallback, useEffect, useState } from 'react';
+"use client";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Box,
   Typography,
@@ -18,12 +18,12 @@ import {
   FormControl,
   ListItemText,
   FormHelperText,
-} from '@mui/material';
-import { filterContent, staticFilterContent } from '../../utils/AuthService';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { Loader } from '../Loader/Loader';
-import { sortJsonByArray } from '../../utils/helper';
-import SpeakableText from '../textToSpeech/SpeakableText';
+} from "@mui/material";
+import { filterContent, staticFilterContent } from "../../utils/AuthService";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { Loader } from "../Loader/Loader";
+import { sortJsonByArray } from "../../utils/helper";
+import SpeakableText from "../textToSpeech/SpeakableText";
 
 export interface TermOption {
   code: string;
@@ -59,7 +59,7 @@ interface FilterSectionProps {
   _checkbox?: any;
   inputType?: Record<
     string,
-    'checkbox' | 'dropdown' | 'dropdown-single' | 'dropdown-multi'
+    "checkbox" | "dropdown" | "dropdown-single" | "dropdown-multi"
   >;
   _box?: any;
   _selectOptionBox?: any;
@@ -107,8 +107,8 @@ export function FilterForm({
     const fetchData = async (noFilter = true) => {
       const instantId =
         _config?.COLLECTION_FRAMEWORK ??
-        localStorage.getItem('collectionFramework') ??
-        '';
+        localStorage.getItem("collectionFramework") ??
+        "";
       let data: any = {};
 
       if (memoizedFilterFramework) {
@@ -119,9 +119,13 @@ export function FilterForm({
 
       const categories = data?.framework?.categories ?? [];
       const transformedRenderForm = transformRenderForm(categories);
+      
+      // Mark dependent categories that should be hidden until parent selection
+      markDependentCategories(transformedRenderForm);
+      
       // Fetch static filter content
       const instantFramework =
-        _config?.CHANNEL_ID ?? localStorage.getItem('channelId') ?? '';
+        _config?.CHANNEL_ID ?? localStorage.getItem("channelId") ?? "";
       const staticResp = await staticFilterContent({ instantFramework });
       const props =
         staticResp?.objectCategoryDefinition?.forms?.create?.properties ?? [];
@@ -130,9 +134,48 @@ export function FilterForm({
         props,
         transformedRenderForm.map((r) => r.name)
       );
+      
+      // Filter out static fields that have no valid options/range
+      const validStaticFields = (filtered[0]?.fields ?? [])
+        .map((field: any) => {
+          const options = field.options ?? field.range ?? [];
+          // Filter out invalid options
+          const validOptions = options.filter((option: any) => {
+            const hasTemplate =
+              option.name?.includes('{{') ||
+              option.name?.includes('}}') ||
+              option.code?.includes('{{') ||
+              option.code?.includes('}}');
+            const hasValidName = option.name && option.name.trim() !== '';
+            const hasValidCode = option.code && option.code.trim() !== '';
+            
+            return !hasTemplate && hasValidName && hasValidCode;
+          });
+          
+          // Update the field with only valid options
+          if (field.options) {
+            return { ...field, options: validOptions };
+          } else if (field.range) {
+            return { ...field, range: validOptions };
+          }
+          return field;
+        })
+        .filter((field: any) => {
+          const options = field.options ?? field.range ?? [];
+          const hasValidOptions = options.length > 0;
+          
+          if (!hasValidOptions && (field.options || field.range)) {
+            console.log(`"${field.name}" (${field.code}) - No valid options`);
+          }
+          
+          // If the field has options/range, only include if it has valid options
+          // If it has no options/range (like static values), include it
+          return !field.options && !field.range || hasValidOptions;
+        });
+      
       const allFields = [
         ...transformedRenderForm,
-        ...(filtered[0]?.fields ?? []),
+        ...validStaticFields,
       ];
 
       setFilterData(allFields);
@@ -179,13 +222,15 @@ export function FilterForm({
           fields={renderForm}
           selectedValues={formData}
           onChange={(code, next) => {
+            console.log(`📝 Filter changed: ${code}`, next);
             const cat: any = renderForm.find(
               (f: { code: string; old_code?: string }) =>
                 f.code === code &&
-                Object.prototype.hasOwnProperty.call(f, 'old_code')
+                Object.prototype.hasOwnProperty.call(f, "old_code")
             );
             let filterValue = { ...formData, [code]: next };
             if (cat) {
+              console.log(`🔄 Category has associations, updating dependent filters...`);
               const { updatedFilters: dormNewData, updatedFilterValue } =
                 replaceOptionsWithAssoc({
                   filterValue,
@@ -193,6 +238,12 @@ export function FilterForm({
                   onlyFields,
                 });
               filterValue = updatedFilterValue;
+              console.log(`✅ Updated filters:`, dormNewData.map((f: any) => ({
+                name: f.name,
+                code: f.old_code,
+                hidden: f.hideUntilParentSelected,
+                optionsCount: f.options?.length || 0
+              })));
               setRenderForm(dormNewData);
             }
             setFormData(filterValue);
@@ -221,12 +272,48 @@ export function FilterForm({
 const formatPayload = (payload: any) => {
   const formattedPayload: any = {};
   Object.keys(payload).forEach((key) => {
-    if (Array.isArray(payload[key])) {
-      formattedPayload[key] = payload[key].map(
-        (item: any) => item?.name ?? item
-      );
-    } else {
-      formattedPayload[key] = payload[key];
+    const value = payload[key];
+    
+    // Skip null, undefined, or empty values
+    if (value === null || value === undefined) {
+      return;
+    }
+    
+    if (Array.isArray(value)) {
+      // Filter out null/undefined items and empty strings, then map to names/strings
+      const filteredArray = value
+        .filter((item: any) => {
+          // Keep items that are not null/undefined and have a valid name/code
+          if (item === null || item === undefined) return false;
+          if (typeof item === 'string') return item.trim() !== '';
+          if (typeof item === 'object') {
+            const name = item?.name ?? item?.code ?? '';
+            return name && name.trim() !== '';
+          }
+          return true;
+        })
+        .map((item: any) => {
+          // Convert to string (name or code or the item itself if it's already a string)
+          if (typeof item === 'string') return item;
+          if (typeof item === 'object') return item?.name ?? item?.code ?? item;
+          return String(item);
+        });
+      
+      // Only include non-empty arrays
+      if (filteredArray.length > 0) {
+        formattedPayload[key] = filteredArray;
+      }
+    } else if (typeof value === 'string' && value.trim() !== '') {
+      // Include non-empty strings
+      formattedPayload[key] = value;
+    } else if (typeof value === 'object' && value !== null) {
+      // Include non-null objects (but filter out empty objects)
+      if (Object.keys(value).length > 0) {
+        formattedPayload[key] = value;
+      }
+    } else if (typeof value !== 'object') {
+      // Include other primitive types (numbers, booleans, etc.)
+      formattedPayload[key] = value;
     }
   });
   return formattedPayload;
@@ -235,7 +322,7 @@ const formatPayload = (payload: any) => {
 function filterObjectsWithSourceCategory(data: any[], filteredNames: string[]) {
   const filtered = data.filter((section) =>
     section.fields?.some((f: any) =>
-      Object.prototype.hasOwnProperty.call(f, 'sourceCategory')
+      Object.prototype.hasOwnProperty.call(f, "sourceCategory")
     )
   );
   return filtered.map((cat) => ({
@@ -247,12 +334,31 @@ function filterObjectsWithSourceCategory(data: any[], filteredNames: string[]) {
 export function transformRenderForm(categories: any[]) {
   return categories
     .sort((a, b) => a.index - b.index)
-    .map((category) => ({
-      name: category.name,
-      code: `se_${category.code}s`,
-      old_code: category.code,
-      options: category.terms
-        .sort((a: any, b: any) => a.index - b.index)
+    .map((category) => {
+      // Filter out invalid terms (with template placeholders, empty names, etc.)
+      const validTerms = (category.terms || [])
+        .filter((term: any) => {
+          const hasTemplate =
+            term.code?.includes('{{') ||
+            term.name?.includes('{{') ||
+            term.code?.includes('}}') ||
+            term.name?.includes('}}');
+          const hasValidName = term.name && term.name.trim() !== '';
+          const hasValidCode = term.code && term.code.trim() !== '';
+          const isLive = term.status === 'Live' || term.status === undefined || term.status === null;
+          
+          return !hasTemplate && hasValidName && hasValidCode && isLive;
+        })
+        .sort((a: any, b: any) => {
+          // First sort by index if available
+          if (a.index !== undefined && b.index !== undefined && a.index !== b.index) {
+            return a.index - b.index;
+          }
+          // Then sort alphabetically by name
+          const nameA = (a.name || "").toLowerCase().trim();
+          const nameB = (b.name || "").toLowerCase().trim();
+          return nameA.localeCompare(nameB);
+        })
         .map((term: any) => ({
           code: term.code,
           name: term.name,
@@ -263,9 +369,24 @@ export function transformRenderForm(categories: any[]) {
               g[assoc.category].push(assoc);
               return g;
             }, {}) || {},
-        })),
-      index: category.index,
-    }));
+        }));
+      
+      return {
+        name: category.name,
+        code: `se_${category.code}s`,
+        old_code: category.code,
+        options: validTerms,
+        index: category.index,
+      };
+    })
+    .filter((category) => {
+      // Only include categories that have at least one valid term
+      const hasValidOptions = category.options && category.options.length > 0;
+      if (!hasValidOptions) {
+        console.log(`🔍 transformRenderForm - Skipping category "${category.name}" (${category.code}) - No valid terms`);
+      }
+      return hasValidOptions;
+    });
 }
 
 function replaceOptionsWithAssoc({
@@ -278,11 +399,18 @@ function replaceOptionsWithAssoc({
   onlyFields: any;
 }) {
   const updatedFilters = JSON.parse(JSON.stringify(filtersFields));
+  
+  // Track which categories are dependent (have associations pointing to them)
+  const dependentCategories = new Set<string>();
+  const categoriesWithActiveSelections = new Set<string>();
 
   for (let i = 0; i < updatedFilters.length; i++) {
     const currentFilter = filtersFields[i];
     const selectedValues = filterValue[currentFilter.code];
+    
     if (Array.isArray(selectedValues) && selectedValues.length > 0) {
+      categoriesWithActiveSelections.add(currentFilter.old_code);
+      
       const newfilterValue = selectedValues.map(
         (item: any) => item?.code ?? item
       );
@@ -313,6 +441,9 @@ function replaceOptionsWithAssoc({
       });
 
       Object.entries(mergedAssociations).forEach(([assocKey, assocOptions]) => {
+        // Mark this category as dependent
+        dependentCategories.add(assocKey);
+        
         const nextFilterIndex = updatedFilters.findIndex(
           (f: any, idx: number) => f.old_code === assocKey && idx > i
         );
@@ -330,11 +461,32 @@ function replaceOptionsWithAssoc({
           );
         }
         if (nextFilterIndex !== -1) {
-          updatedFilters[nextFilterIndex].options = assocOptions;
+          // Sort associated options alphabetically by name
+          const sortedAssocOptions = [...assocOptions].sort((a: any, b: any) => {
+            const nameA = (a.name || "").toLowerCase().trim();
+            const nameB = (b.name || "").toLowerCase().trim();
+            return nameA.localeCompare(nameB);
+          });
+          updatedFilters[nextFilterIndex].options = sortedAssocOptions;
+          // Mark this filter as having a parent with selections and make it visible
+          updatedFilters[nextFilterIndex].hasParentSelection = true;
+          updatedFilters[nextFilterIndex].hideUntilParentSelected = false;
         }
       });
     }
   }
+  
+  // Mark all dependent categories without parent selections as hidden
+  updatedFilters.forEach((filter: any) => {
+    if (dependentCategories.has(filter.old_code) && !filter.hasParentSelection) {
+      filter.hideUntilParentSelected = true;
+      console.log(`🔒 Hiding dependent filter: ${filter.name} (${filter.old_code}) - no parent selection`);
+    } else if (filter.hasParentSelection) {
+      // Ensure dependent categories with parent selections are visible
+      filter.hideUntilParentSelected = false;
+      console.log(`🔓 Showing dependent filter: ${filter.name} (${filter.old_code}) - parent selected`);
+    }
+  });
 
   const sortFields = sortJsonByArray({
     jsonArray: updatedFilters,
@@ -342,6 +494,29 @@ function replaceOptionsWithAssoc({
   });
 
   return { updatedFilters: sortFields, updatedFilterValue: filterValue };
+}
+
+function markDependentCategories(categories: any[]) {
+  // Identify which categories have associations pointing to other categories
+  const dependentCategoryCodes = new Set<string>();
+  
+  categories.forEach((category) => {
+    category.options?.forEach((option: any) => {
+      if (option.associations && Object.keys(option.associations).length > 0) {
+        // This category has associations, mark the associated categories as dependent
+        Object.keys(option.associations).forEach((assocKey) => {
+          dependentCategoryCodes.add(assocKey);
+        });
+      }
+    });
+  });
+  
+  // Mark all dependent categories with hideUntilParentSelected flag
+  categories.forEach((category) => {
+    if (dependentCategoryCodes.has(category.old_code)) {
+      category.hideUntilParentSelected = true;
+    }
+  });
 }
 
 const FilterSection: React.FC<FilterSectionProps> = ({
@@ -361,29 +536,98 @@ const FilterSection: React.FC<FilterSectionProps> = ({
   errors = {},
   required = {},
 }) => {
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (!Array.isArray(fields)) {
+      return;
+    }
+    setExpandedSections((prev) => {
+      const next = { ...prev };
+      fields.forEach((field) => {
+        const code = field?.code;
+        if (!code) {
+          return;
+        }
+        if (next[code] === undefined) {
+          next[code] = Array.isArray(isOpenColapsed)
+            ? isOpenColapsed.includes(code)
+            : Boolean(isOpenColapsed);
+        }
+      });
+      return next;
+    });
+  }, [fields, isOpenColapsed]);
+
+  const handleAccordionToggle =
+    (code: string) => (_event: React.SyntheticEvent, expanded: boolean) => {
+      setExpandedSections((prev) => ({
+        ...prev,
+        [code]: expanded,
+      }));
+    };
+
   return (
     <Box
       sx={{
-        display: 'flex',
-        flexDirection: 'column',
+        display: "flex",
+        flexDirection: "column",
         gap: 1,
         ...(_box?.sx ?? {}),
       }}
     >
       {fields?.map((field, idx) => {
+        // Hide dependent fields until parent category has selections
+        if (field.hideUntilParentSelected) {
+          console.log(`⚠️ Hiding filter from UI: ${field.name} (hideUntilParentSelected = true)`);
+          return null;
+        }
+        
         const values = field.options ?? field.range ?? [];
         const code = field.code;
         const selected = selectedValues[code] ?? [];
-        const optionsToShow = showMore.includes(code)
-          ? values
-          : values.slice(0, 3);
+        // Filter out template placeholders like {{name}}
+        const filteredValues = values.filter((option: any) => {
+          const hasTemplate = option.name?.includes('{{') || 
+                              option.name?.includes('}}') ||
+                              option.code?.includes('{{') || 
+                              option.code?.includes('}}');
+          
+          const isValid = !hasTemplate && option.name && option.name.trim() !== '';
+          
+          if (!isValid) {
+            console.log(`🚫 FilterForm-v2 - Filtering out option: "${option.name}" ("${option.code}") - Template: ${hasTemplate}`);
+          }
+          
+          return isValid;
+        });
+        
+        // Skip rendering if there are no valid options after filtering
+        if (filteredValues.length === 0) {
+          return null;
+        }
+        
+        // Sort options alphabetically by name
+        const sortedValues = [...filteredValues].sort((a: any, b: any) => {
+          const nameA = (a.name || "").toLowerCase().trim();
+          const nameB = (b.name || "").toLowerCase().trim();
+          return nameA.localeCompare(nameB);
+        });
+        
+        const optionsToShow = sortedValues; // Show all filtered options sorted alphabetically
+        
+        // Debug logging for GradeLevel specifically
+        if (code?.toLowerCase().includes('gradelevel') || field.name?.toLowerCase().includes('grade')) {
+          console.log(`${values.length} options, Filtered: ${filteredValues.length} options`);
+          console.log( filteredValues.map((v: any) => v.name));
+        }
         const staticValues = Array.isArray(staticFormData?.[code])
           ? staticFormData[code]
           : [];
         const fieldError = errors[code];
         const isRequired = required[code];
-        const isDropdownSingle = inputType[code] === 'dropdown-single';
-        const isDropdownMulti = inputType[code] === 'dropdown-multi';
+        const isDropdownSingle = inputType[code] === "dropdown-single";
+        const isDropdownMulti = inputType[code] === "dropdown-multi";
         if (
           Array.isArray(staticValues) &&
           staticValues.length > 0 &&
@@ -397,8 +641,8 @@ const FilterSection: React.FC<FilterSectionProps> = ({
             <Box
               key={`${code}-${idx}`}
               sx={{
-                display: 'flex',
-                flexDirection: 'column',
+                display: "flex",
+                flexDirection: "column",
                 gap: 1,
                 px: 1,
                 pb: 1,
@@ -408,7 +652,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                 /* @ts-expect-error: MUI Typography variant 'body5' is not in the type definition, but is used for custom styling */
                 variant="body5"
                 component="div"
-                sx={{ fontWeight: '500', color: '#181D27' }}
+                sx={{ fontWeight: "500", color: "#181D27" }}
               >
                 <SpeakableText>{field.name}</SpeakableText>
               </Typography>
@@ -416,7 +660,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                 <Chip
                   key={`${code}-chip-${idx}`}
                   label={item.name ?? item}
-                  sx={{ fontSize: '12px' }}
+                  sx={{ fontSize: "12px" }}
                 />
               ))}
             </Box>
@@ -443,8 +687,8 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                   id={`select-label-${code}`}
                   error={!!fieldError}
                   sx={{
-                    background: 'white',
-                    padding: '0 5px',
+                    background: "white",
+                    padding: "0 5px",
                   }}
                 >
                   {field.name}
@@ -461,7 +705,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                       : selected[0]?.code ??
                         selected[0]?.name ??
                         selected[0] ??
-                        ''
+                        ""
                   }
                   onChange={(e) => {
                     if (isDropdownMulti) {
@@ -489,7 +733,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                                   item.code === val || item.name === val
                               )?.name ?? val
                           )
-                          .join(', ')
+                          .join(", ")
                       : values.find(
                           (item: any) =>
                             item.code === selectedVals ||
@@ -497,7 +741,11 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                         )?.name ?? selectedVals
                   }
                 >
-                  {values.map((item: any) => (
+                  {[...values].sort((a: any, b: any) => {
+                    const nameA = (a.name || "").toLowerCase().trim();
+                    const nameB = (b.name || "").toLowerCase().trim();
+                    return nameA.localeCompare(nameB);
+                  }).map((item: any) => (
                     <MenuItem
                       key={item.code ?? item.name ?? item}
                       value={item.code ?? item.name ?? item}
@@ -511,7 +759,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                               (s?.name &&
                                 s?.name === (item.name ?? item.code ?? item)) ||
                               s ===
-                                (typeof item === 'string' ? item : item.icon) ||
+                                (typeof item === "string" ? item : item.icon) ||
                               s === item.name
                           )}
                         />
@@ -535,25 +783,28 @@ const FilterSection: React.FC<FilterSectionProps> = ({
             </Box>
           );
         }
+        const isExpanded =
+          expandedSections[code] ??
+          (Array.isArray(isOpenColapsed)
+            ? isOpenColapsed.includes(code)
+            : Boolean(isOpenColapsed));
+
         return (
           <Accordion
-            defaultExpanded={
-              Array.isArray(isOpenColapsed)
-                ? isOpenColapsed.includes(code)
-                : isOpenColapsed
-            }
+            expanded={isExpanded}
+            onChange={handleAccordionToggle(code)}
             key={code}
-            sx={{ background: 'unset', boxShadow: 'unset' }}
+            sx={{ background: "unset", boxShadow: "unset" }}
           >
             <AccordionSummary
-              expandIcon={<ExpandMoreIcon sx={{ color: '#1C1B1F' }} />}
+              expandIcon={<ExpandMoreIcon sx={{ color: "#1C1B1F" }} />}
               sx={{
                 px: 0,
                 minHeight: 20,
-                '&.Mui-expanded': {
+                "&.Mui-expanded": {
                   minHeight: 20,
-                  '& .MuiAccordionSummary-content': {
-                    margin: '5px 0',
+                  "& .MuiAccordionSummary-content": {
+                    margin: "5px 0",
                   },
                 },
               }}
@@ -562,18 +813,17 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                 /* @ts-expect-error: MUI Typography variant 'body5' is not in the type definition, but is used for custom styling */
                 variant="body5"
                 component="div"
-                sx={{ fontWeight: '500', color: '#181D27' }}
+                sx={{ fontWeight: "500", color: "#181D27" }}
               >
                 <SpeakableText>
-                  {field.name === 'Sub Domain' ? 'Category' : field.name}
+                  {field.name === "Sub Domain" ? "Category" : field.name}
                 </SpeakableText>
               </Typography>
             </AccordionSummary>
             <AccordionDetails
               sx={{
-                padding: '0px',
-                overflow: 'auto',
-                maxHeight: '150px',
+                padding: "0px",
+                overflow: "hidden",
               }}
             >
               <FormGroup>
@@ -581,7 +831,7 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                   const isChecked =
                     Array.isArray(selected) &&
                     selected.some((s) =>
-                      typeof s === 'string'
+                      typeof s === "string"
                         ? s === item.name || s === item
                         : s.code === item.code || s.name === item.name
                     );
@@ -615,38 +865,16 @@ const FilterSection: React.FC<FilterSectionProps> = ({
                       }
                       label={<SpeakableText>{item.name ?? item}</SpeakableText>}
                       sx={{
-                        color: '#414651',
-                        fontSize: '14px',
-                        fontWeight: '500',
+                        color: "#414651",
+                        fontSize: "14px",
+                        fontWeight: "500",
                       }}
                     />
                   );
                 })}
               </FormGroup>
             </AccordionDetails>
-            {values.length > 3 && !staticValues.length && (
-              <Button
-                /* @ts-expect-error: Custom Button variant 'text-filter-show-more' is not in the type definition, but is used for custom styling */
-                variant="text-filter-show-more"
-                size="small"
-                onClick={() =>
-                  setShowMore((prev: string[]) =>
-                    prev.includes(code)
-                      ? prev.filter((c) => c !== code)
-                      : [...prev, code]
-                  )
-                }
-                sx={{ mt: 0, px: 0 }}
-              >
-                {showMore.includes(code)
-                  ? t
-                    ? t('COMMON.SHOW_LESS')
-                    : 'Show less'
-                  : t
-                  ? t('COMMON.SHOW_MORE')
-                  : 'Show more'}
-              </Button>
-            )}
+            {/* Show more button removed - all options are now visible */}
           </Accordion>
         );
       })}

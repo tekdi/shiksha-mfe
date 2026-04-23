@@ -20,6 +20,7 @@ import { Navigation, Pagination, Autoplay } from 'swiper/modules';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Swiper as SwiperClass } from 'swiper/types';
 import { useTranslation } from '@shared-lib';
+import { useTenant } from '@learner/context/TenantContext';
 
 interface Program {
   ordering: number;
@@ -44,9 +45,14 @@ interface Program {
 const OurProgramCarousel = () => {
   const { t } = useTranslation();
   const router = useRouter();
+  const { contentFilter } = useTenant();
   const [activeSlide, setActiveSlide] = useState<number>(0);
   const [programs, setPrograms] = useState<Program[]>([]);
   const [tenantId, setTenantId] = useState('');
+  
+  // Get tenant colors
+  const primaryColor = contentFilter?.theme?.primaryColor || "#FDBE16";
+  const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#FFFFFF";
 
   const handleSlideChange = (swiper: SwiperClass) => {
     setActiveSlide(swiper.realIndex);
@@ -275,9 +281,11 @@ const OurProgramCarousel = () => {
                         color="primary"
                         sx={{
                           borderRadius: 50,
-                          backgroundColor: '#FDBE16',
+                          backgroundColor: primaryColor,
+                          color: buttonTextColor,
                           '&:hover': {
-                            backgroundColor: '#FDBE16',
+                            backgroundColor: primaryColor,
+                            opacity: 0.9,
                           },
                         }}
                         onClick={() =>
@@ -296,9 +304,11 @@ const OurProgramCarousel = () => {
                         color="primary"
                         sx={{
                           borderRadius: 50,
-                          backgroundColor: '#FDBE16',
+                          backgroundColor: primaryColor,
+                          color: buttonTextColor,
                           '&:hover': {
-                            backgroundColor: '#FDBE16',
+                            backgroundColor: primaryColor,
+                            opacity: 0.9,
                           },
                         }}
                         onClick={() => router.push('/login')}

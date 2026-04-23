@@ -563,3 +563,115 @@ mat-radio-group.mat-mdc-radio-group {
 .underline-links-enabled .MuiButton-root[href] {
   text-decoration: underline !important;
 }
+
+/* Calendar Styles */
+.calender-container {
+  display: flex !important;
+  justify-content: center !important;
+}
+
+.day-tile-wrapper {
+  width: 100%;
+}
+
+.custom-calendar-container {
+  display: flex !important;
+  justify-content: center !important;
+}
+
+.calender-body {
+  padding: 20px !important;
+  background: linear-gradient(180deg, #fffdf7 0%, #f8efda 100%) !important;
+  border: unset !important;
+}
+
+.react-calendar {
+  width: 100% !important;
+  font-family: Poppins, sans-serif !important;
+  max-width: 100% !important;
+}
+
+.react-calendar__month-view__days {
+  display: grid !important;
+  grid-template-columns: repeat(7, 1fr) !important;
+  gap: 8px !important;
+}
+
+.react-calendar__month-view__days__day {
+  text-align: center !important;
+}
+
+.react-calendar button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.react-calendar__tile--active {
+  color: black !important;
+  background-color: #fbbc13 !important;
+}
+
+.react-calendar__tile {
+  margin: auto !important;
+}
+
+.tile-day {
+  width: 100% !important;
+  height: 70px !important;
+  margin-bottom: 5px !important;
+  border: 1px solid #d0c5b4 !important;
+  border-radius: 5px;
+}
+
+.today {
+  border: 2px solid #fdbe16 !important;
+}
+
+.react-calendar__tile--active:enabled:hover {
+  background-color: #fbbc13 !important;
+}
+
+.react-calendar__month-view__days__day--weekend {
+  color: #fdbe16 !important;
+}
+
+.react-calendar__tile--now {
+  background-color: transparent !important;
+}
+
+.react-calendar__month-view__days__day--neighboringMonth {
+  visibility: hidden;
+}
+
+.react-calendar button abbr {
+  color: #1f1b13;
+  font-family: Poppins, sans-serif !important;
+}
+
+.react-calendar__month-view__weekdays__weekday abbr {
+  color: #1f1b13;
+  font-family: Poppins, sans-serif !important;
+}
+
+.react-calendar__navigation button {
+  border: unset !important;
+}
+
+.circularProgressBar {
+  width: 25px;
+  margin-top: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.react-calendar,
+.react-calendar *,
+.react-calendar *::before,
+.react-calendar *::after {
+  color: #fdbe16;
+  font-weight: 400;
+  font-size: 16px;
+  text-decoration: none;
+}

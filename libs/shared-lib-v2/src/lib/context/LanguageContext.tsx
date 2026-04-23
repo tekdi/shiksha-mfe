@@ -1,5 +1,5 @@
 // LanguageContext.tsx
-'use client';
+"use client";
 import React, {
   useContext,
   useState,
@@ -8,18 +8,18 @@ import React, {
   createContext,
   ReactNode,
   useCallback,
-} from 'react';
-import { getTitleFromValue } from './Languages';
+} from "react";
+import { getTitleFromValue } from "./Languages";
 
 // Translation files
-import en from './locales/en.json';
-import hi from './locales/hi.json';
-import mr from './locales/mr.json';
-import odi from './locales/odi.json';
-import tel from './locales/tel.json';
-import kan from './locales/kan.json';
-import tam from './locales/tam.json';
-import guj from './locales/guj.json';
+import en from "./locales/en.json";
+import hi from "./locales/hi.json";
+import mr from "./locales/mr.json";
+import odi from "./locales/odi.json";
+import tel from "./locales/tel.json";
+import kan from "./locales/kan.json";
+import tam from "./locales/tam.json";
+import guj from "./locales/guj.json";
 
 // Define translations object
 const translations: Record<string, Record<string, string>> = {
@@ -42,7 +42,7 @@ const translations: Record<string, Record<string, string>> = {
 };
 
 // Define RTL languages
-const rtlLanguages = ['ur'];
+const rtlLanguages = ["ur"];
 
 // Define context type
 export type LanguageContextType = {
@@ -63,22 +63,24 @@ interface LanguageProviderProps {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({
   children,
 }) => {
-  const [language, setLanguageState] = useState<string>('en');
+  const [language, setLanguageState] = useState<string>("en");
 
   // Load saved language preference
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('lang');
-    if (savedLanguage && translations[savedLanguage]) {
-      setLanguageState(savedLanguage);
-    } else {
-      const browserLanguage = navigator.language;
-      const title = getTitleFromValue(browserLanguage);
-      if (title) {
-        localStorage.setItem('lang', title);
-        setLanguageState(title);
+    if (typeof window !== "undefined") {
+      const savedLanguage = localStorage.getItem("lang");
+      if (savedLanguage && translations[savedLanguage]) {
+        setLanguageState(savedLanguage);
       } else {
-        localStorage.setItem('lang', 'en');
-        setLanguageState('en');
+        const browserLanguage = navigator.language;
+        const title = getTitleFromValue(browserLanguage);
+        if (title) {
+          localStorage.setItem("lang", title);
+          setLanguageState(title);
+        } else {
+          localStorage.setItem("lang", "en");
+          setLanguageState("en");
+        }
       }
     }
   }, []);
@@ -87,7 +89,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
   const t = useMemo(() => {
     return (key: string, options?: { defaultValue?: string }): string => {
       const getNestedValue = (lang: string) => {
-        const keys = key?.split('.');
+        const keys = key?.split(".");
         let result: any = translations[lang];
         if (keys) {
           for (const k of keys) {
@@ -97,7 +99,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
             result = result[k];
           }
         }
-        return typeof result === 'string' ? result : undefined;
+        return typeof result === "string" ? result : undefined;
       };
 
       // Try the current language first
@@ -108,7 +110,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
         return currentLangValue;
       }
 
-      const fallbackValue = getNestedValue('en');
+      const fallbackValue = getNestedValue("en");
 
       // Return fallback or options.defaultValue or key itself
       return fallbackValue ?? options?.defaultValue ?? key;
@@ -118,7 +120,9 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
   // Handle language switch (simple version — no confirmation)
   const handleLanguageChange = useCallback((newLanguage: string) => {
     if (!translations[newLanguage]) return;
-    localStorage.setItem('lang', newLanguage);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("lang", newLanguage);
+    }
     setLanguageState(newLanguage);
   }, []);
 

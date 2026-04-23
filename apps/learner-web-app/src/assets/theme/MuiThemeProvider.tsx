@@ -1,13 +1,14 @@
 // app/theme/ThemeRegistry.tsx or MuiThemeProvider.tsx
 'use client';
 
-import { createTheme, ThemeProvider } from '@mui/material/styles';
+import { createTheme, ThemeProvider, alpha } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { LanguageProvider } from '@shared-lib';
 import FontSizeTheme from '../../context/FontSizeTheme';
 import { SpeechProvider } from '@shared-lib-v2/lib/context/SpeechContext';
 import { ColorInversionProvider } from '../../context/ColorInversionContext';
+import { useTenant } from '../../context/TenantContext';
 
 // Add module augmentation for custom typography variants
 declare module '@mui/material/styles' {
@@ -382,9 +383,77 @@ export default function MuiThemeProvider({
 }: {
   children: React.ReactNode;
 }) {
+  const { contentFilter } = useTenant();
+  
+  // Get tenant colors or use defaults
+  const primaryColor = contentFilter?.theme?.primaryColor || "#FDBE16";
+  const secondaryColor = contentFilter?.theme?.secondaryColor || "#1F1B13";
+  const backgroundColor = contentFilter?.backgroundColor || contentFilter?.theme?.backgroundColor || "#F5F5F5";
+  const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#FFFFFF";
+
+  // Create dynamic theme based on tenant colors
+  const dynamicTheme = useMemo(() => {
+    return createTheme({
+      ...theme,
+      palette: {
+        ...theme.palette,
+        primary: {
+          main: primaryColor,
+          contrastText: buttonTextColor,
+        },
+        secondary: {
+          main: secondaryColor,
+          contrastText: buttonTextColor,
+        },
+        warning: {
+          ...theme.palette.warning,
+          main: primaryColor,
+          light: alpha(primaryColor, 0.2),
+          dark: alpha(primaryColor, 0.7),
+          contrastText: buttonTextColor,
+          A100: alpha(primaryColor, 0.25),
+          A200: alpha(primaryColor, 0.35),
+          A400: alpha(primaryColor, 0.45),
+          A700: alpha(primaryColor, 0.55),
+        },
+        background: {
+          default: backgroundColor,
+          paper: "#FFFFFF",
+        },
+      },
+      components: {
+        ...theme.components,
+        MuiButton: {
+          ...theme.components?.MuiButton,
+          styleOverrides: {
+            ...theme.components?.MuiButton?.styleOverrides,
+            root: {
+              ...theme.components?.MuiButton?.styleOverrides?.root,
+              borderRadius: '50px',
+              textTransform: 'none',
+              boxShadow: 'unset !important',
+              // Remove hardcoded color - will use contrastText from palette
+              color: 'inherit',
+            },
+            contained: {
+              // Ensure contained buttons use the theme's contrastText
+              color: buttonTextColor,
+              '&.MuiButton-containedPrimary': {
+                color: `${buttonTextColor} !important`,
+              },
+              '&.MuiButton-containedSecondary': {
+                color: `${buttonTextColor} !important`,
+              },
+            },
+          },
+        },
+      },
+    });
+  }, [primaryColor, secondaryColor, backgroundColor, buttonTextColor]);
+
   return (
     <ColorInversionProvider>
-      <FontSizeTheme baseTheme={theme}>
+      <FontSizeTheme baseTheme={dynamicTheme}>
         <CssBaseline />
         <SpeechProvider>{children}</SpeechProvider>
       </FontSizeTheme>

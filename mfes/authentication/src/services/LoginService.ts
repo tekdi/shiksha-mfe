@@ -97,8 +97,12 @@ export const getUserId = async (): Promise<any> => {
   try {
     const token = localStorage.getItem('token');
     if (!token) {
+      console.log('❌ No token found in localStorage');
       throw new Error('Authorization token not found');
     }
+
+    console.log('🔍 Calling getUserId API:', apiUrl);
+    console.log('🔑 Using token:', token.substring(0, 20) + '...');
 
     const response = await axios.get(apiUrl, {
       headers: {
@@ -106,9 +110,16 @@ export const getUserId = async (): Promise<any> => {
       },
     });
 
+    console.log('✅ getUserId API success:', response?.data);
     return response?.data?.result;
-  } catch (error) {
-    console.error('Error in fetching user details', error);
+  } catch (error: any) {
+    console.error('❌ Error in fetching user details:', {
+      url: apiUrl,
+      status: error?.response?.status,
+      statusText: error?.response?.statusText,
+      data: error?.response?.data,
+      message: error?.message
+    });
     throw error;
   }
 };

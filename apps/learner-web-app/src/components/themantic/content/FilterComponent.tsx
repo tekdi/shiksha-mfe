@@ -22,6 +22,8 @@ const FilterComponent: React.FC<{
 }) => {
   const { t } = useTranslation();
   const [filterCount, setFilterCount] = useState<any>();
+  const [pendingFilters, setPendingFilters] = useState<any>(null);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
   const theme = useTheme();
   const { isColorInverted } = useColorInversion();
 
@@ -36,20 +38,39 @@ const FilterComponent: React.FC<{
   );
 
   useEffect(() => {
-    setFilterCount(
-      Object?.keys(filterState.filters ?? {}).filter((e) => {
-        const filterValue = filterState.filters[e];
-        return (
-          !['limit', ...Object.keys(staticFilter ?? {})].includes(e) &&
-          !(Array.isArray(filterValue) && filterValue.length === 0)
-        );
-      }).length
-    );
+    // Count total number of selected filter items, not just filter categories
+    let totalCount = 0;
+    Object?.keys(filterState.filters ?? {}).forEach((key) => {
+      const filterValue = filterState.filters[key];
+      // Skip limit and static filters
+      if (['limit', ...Object.keys(staticFilter ?? {})].includes(key)) {
+        return;
+      }
+      // Count items in array or 1 for non-array values
+      if (Array.isArray(filterValue)) {
+        totalCount += filterValue.length;
+      } else if (filterValue !== undefined && filterValue !== null && filterValue !== '') {
+        totalCount += 1;
+      }
+    });
+    setFilterCount(totalCount);
+  }, [filterState, staticFilter]);
+
+  // Generate a key to force remount when filters are cleared
+  const filterFormKey = useMemo(() => {
+    const hasFilters = Object.keys(filterState?.filters ?? {}).some((key) => {
+      const value = filterState.filters[key];
+      return !['limit', ...Object.keys(staticFilter ?? {})].includes(key) &&
+             (Array.isArray(value) ? value.length > 0 : !!value);
+    });
+    // Return different key when filters change from empty to non-empty or vice versa
+    return hasFilters ? 'has-filters' : 'no-filters';
   }, [filterState, staticFilter]);
 
   const memoizedFilterForm = useMemo(
     () => (
       <FilterForm
+        key={filterFormKey}
         _config={{
           _filterBody: _config?._filterBody,
           _checkbox: {
@@ -57,12 +78,12 @@ const FilterComponent: React.FC<{
           },
         }}
         onApply={(newFilterState: any) => {
-          setFilterCount(
-            Object?.keys(newFilterState ?? {}).filter(
-              (e) => e?.toString() != 'limit'
-            ).length
-          );
-          handleFilterChange(newFilterState);
+          console.log('FilterComponent: onApply (staged)', newFilterState);
+          // Stage the filters instead of applying immediately
+          setPendingFilters(newFilterState);
+          // Check if there are changes compared to current applied filters
+          const hasChanges = JSON.stringify(newFilterState) !== JSON.stringify(filterState?.filters ?? {});
+          setHasPendingChanges(hasChanges);
         }}
         onlyFields={onlyFields}
         isOpenColapsed={isOpenColapsed}
@@ -80,6 +101,7 @@ const FilterComponent: React.FC<{
       filterState,
       _config,
       checkboxStyle,
+      filterFormKey,
     ]
   );
 
@@ -112,24 +134,43 @@ const FilterComponent: React.FC<{
           {t('LEARNER_APP.COURSE.FILTER_BY')}{' '}
           {filterCount > 0 && `(${filterCount})`}
         </Typography>
-        {filterCount > 0 && (
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="text"
             sx={{
               color: theme.palette.secondary.main,
             }}
+            disabled={!hasPendingChanges}
             onClick={() => {
-              setFilterCount(0);
+              if (pendingFilters) {
+                // Apply the filters
+                handleFilterChange(pendingFilters);
+                setHasPendingChanges(false);
+              }
+            }}
+          >
+            {t('LEARNER_APP.COURSE.APPLY_FILTER')}
+          </Button>
+          <Button
+            variant="text"
+            sx={{
+              color: theme.palette.secondary.main,
+            }}
+            disabled={filterCount === 0}
+            onClick={() => {
+              // Clear all filters by passing empty object
               handleFilterChange({});
+              setPendingFilters({});
+              setHasPendingChanges(false);
             }}
           >
             {t('LEARNER_APP.COURSE.CLEAR_FILTER')}
           </Button>
-        )}
+        </Box>
       </Box>
       {memoizedFilterForm}
     </Box>
   );
 };
 
-export default React.memo(FilterComponent);
+export default FilterComponent;

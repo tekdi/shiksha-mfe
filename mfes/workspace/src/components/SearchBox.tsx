@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Checkbox,
@@ -17,14 +17,14 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
-import { debounce, getOptionsByCategory } from '@/utils/Helper';
+import { debounce, getOptionsByCategory } from '../utils/Helper';
 import {
   getFrameworkDetails,
   getPrimaryCategory,
-} from '@workspace/services/ContentService';
-import { SortOptions, StatusOptions } from '@workspace/utils/app.constant';
+} from '../services/ContentService';
+import { SortOptions, StatusOptions } from '../utils/app.constant';
 import { useRouter } from 'next/router';
-import useTenantConfig from '@workspace/hooks/useTenantConfig';
+import useTenantConfig from '../hooks/useTenantConfig';
 
 export interface SearchBarProps {
   onSearch: (value: string) => void;
@@ -55,53 +55,32 @@ const SearchBox: React.FC<SearchBarProps> = ({
 }) => {
   const router = useRouter();
 
-  const theme = useTheme<any>();
-  const tenantConfig = useTenantConfig();
+  const theme = useTheme();
+  const { tenantConfig, isLoading, error } = useTenantConfig();
   const [searchTerm, setSearchTerm] = useState(value);
-  // const sort: string =
-  //   typeof router.query.sort === 'string' ? router.query.sort : 'Modified On';
+  const sort: string =
+    typeof router.query.sort === 'string' ? router.query.sort : 'Modified On';
 
-  const stateQuery: string =
-    typeof router.query.state === 'string' ? router.query.state : 'All';
-  const { sort } = router.query;
-  const { status: statusQuery } = router.query;
+  const [sortBy, setSortBy] = useState<string>(sort);
+  const statusQuery: string =
+    typeof router.query.status === 'string' ? router.query.status : 'All';
+  const [status, setStatus] = useState<string>(statusQuery);
+  // State-related variables removed as they're only used in commented code
 
-  const [status, setStatus] = useState<string>('');
-  useEffect(() => {
-    setStatus(statusQuery?.toString() || 'All');
-  }, [statusQuery]);
-  const [state, setState] = useState<string>(stateQuery);
-  const [stateOptions, setStateOptions] = useState<string[]>([]);
-  const { filterOptions: filterOption } = router.query;
-
-  const [filter, setFilter] = useState<any[]>([]);
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<string>('');
-
-  useEffect(() => {
-    setSortBy(sort?.toString() || 'Modified On');
-  }, [sort]);
-  // Update filter when router query changes
-  useEffect(() => {
-    if (typeof filterOption === 'string') {
-      try {
-        const parsed = JSON.parse(filterOption);
-        setSelectedFilters(parsed);
-      } catch (error) {
-        console.error('Failed to parse filterOptions:', error);
-      }
-    }
-  }, [filterOption]);
-
-  // const filterOption: string[] = router.query.filterOptions
-  // ? JSON.parse(router.query.filterOptions as string)
-  // : [];
+  const filterOption: string[] = router.query.filterOptions
+    ? JSON.parse(router.query.filterOptions as string)
+    : [];
+  const [selectedFilters, setSelectedFilters] =
+    useState<string[]>(filterOption);
 
   console.log('filterOption', filterOption);
   const [primaryCategory, setPrimaryCategory] = useState<string[]>();
 
   useEffect(() => {
     if (!tenantConfig) return;
+    console.log('SearchBox tenantConfig:', tenantConfig);
+    console.log('SearchBox CHANNEL_ID:', tenantConfig.CHANNEL_ID);
+
     const PrimaryCategoryData = async () => {
       const response = await getPrimaryCategory(tenantConfig.CHANNEL_ID);
       if (!response?.channel) return;
@@ -128,20 +107,18 @@ const SearchBox: React.FC<SearchBarProps> = ({
         const data = await getFrameworkDetails(
           tenantConfig?.COLLECTION_FRAMEWORK
         );
-        if (!data?.result?.framework) return;
-        const framework = data?.result?.framework;
+        if (!(data as any)?.result?.framework) return;
+        const framework = (data as any)?.result?.framework;
 
         const states = await getOptionsByCategory(framework, 'state');
 
         if (states) {
           const stateNames = states.map((state: any) => state.name);
-          setStateOptions(['All', ...stateNames]);
-
+          // setStateOptions removed as state functionality is commented out
           console.log('stateNames', stateNames);
         }
       } catch (err) {
         console.error(err);
-      } finally {
       }
     };
     fetchStates();
@@ -152,12 +129,9 @@ const SearchBox: React.FC<SearchBarProps> = ({
     setSearchTerm('');
   };
 
-  const handleSearch = useCallback(
-    debounce((searchTerm: string) => {
-      onSearch(searchTerm);
-    }, 300),
-    [onSearch]
-  );
+  const handleSearch = debounce((searchTerm: string) => {
+    onSearch(searchTerm);
+  }, 300);
 
   const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const searchTerm = event.target.value;
@@ -216,19 +190,7 @@ const SearchBox: React.FC<SearchBarProps> = ({
     setStatus(value);
     onStatusChange && onStatusChange(value);
   };
-  const handleStateChange = (event: SelectChangeEvent<string>) => {
-    const value = event.target.value as string;
-    router.push(
-      {
-        pathname: router.pathname,
-        query: { ...router.query, state: value },
-      },
-      undefined,
-      { shallow: true }
-    );
-    setState(value);
-    onStateChange && onStateChange(value);
-  };
+  // handleStateChange removed as it's only used in commented code
   return (
     <Box sx={{ mx: 2 }}>
       <Grid container spacing={2} alignItems="center">
@@ -240,7 +202,7 @@ const SearchBox: React.FC<SearchBarProps> = ({
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                backgroundColor: theme.palette.warning['A700'],
+                backgroundColor: (theme.palette.warning as any)['A700'],
                 borderRadius: '8px',
                 '& .MuiOutlinedInput-root fieldset': { border: 'none' },
                 '& .MuiOutlinedInput-input': { borderRadius: 8 },

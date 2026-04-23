@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import AppsOutlinedIcon from '@mui/icons-material/AppsOutlined';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -6,6 +7,8 @@ import CreateOutlinedIcon from '@mui/icons-material/CreateOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import OutlinedFlagOutlinedIcon from '@mui/icons-material/OutlinedFlagOutlined';
 import PreviewOutlinedIcon from '@mui/icons-material/PreviewOutlined';
+import StorageIcon from '@mui/icons-material/Storage';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import {
   Box,
   Drawer,
@@ -18,21 +21,27 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material';
-import Image from 'next/image';
 import { useRouter } from 'next/router';
 import React, { useEffect, useState } from 'react';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
-import logo from '/public/logo.png';
+import DynamicLogo from './DynamicLogo';
 import { Role } from '@workspace/utils/app.constant';
-import { getLocalStoredUserRole } from '@workspace/services/LocalStorageService';
+import Cookies from 'js-cookie';
+import {
+  getLocalStoredUserRole,
+  syncUserDataToCookies,
+  needsUserDataSync,
+} from '@workspace/services/LocalStorageService';
 import { TENANT_DATA } from '@workspace/utils/app.constant';
 import TenantService from '@workspace/services/TenantService';
 const route = process.env.NEXT_PUBLIC_WORKSPACE_ROUTES;
 
-let isAdmin: boolean;
-if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-  isAdmin = localStorage.getItem('adminInfo') ? true : false;
-}
+const getIsAdmin = (): boolean => {
+  if (typeof window !== 'undefined') {
+    return Cookies.get('adminInfo') ? true : false;
+  }
+  return false;
+};
 
 interface SidebarProps {
   selectedKey: string;
@@ -43,20 +52,45 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedKey, onSelect }) => {
   const [userRole, setUserRole] = useState<Role | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tenantName, setTenantName] = useState();
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const router = useRouter();
   const theme = useTheme<any>();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [showHeader, setShowHeader] = useState<boolean | null>(null);
 
-
   useEffect(() => {
+    // Check if user data sync is needed and perform it
+    if (needsUserDataSync()) {
+      console.log('SideBar: User data sync needed, performing sync...');
+      syncUserDataToCookies();
+    }
+
     setUserRole(getLocalStoredUserRole());
-    const userData = localStorage.getItem('userData');
-    const headerValue = localStorage.getItem("showHeader");
-      setShowHeader(headerValue === "true");
+    const userData = Cookies.get('userData');
+
+    // Check cookies first, then localStorage for showHeader
+    let headerValue = Cookies.get('showHeader');
+    if (!headerValue) {
+      const localStorageValue = localStorage.getItem('showHeader');
+      if (localStorageValue) {
+        headerValue = localStorageValue;
+        // Migrate to cookies if found in localStorage
+        Cookies.set('showHeader', localStorageValue, {
+          expires: 7,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'strict',
+        });
+        console.log(
+          'SideBar: Migrated showHeader from localStorage to cookies'
+        );
+      }
+    }
+
+    setShowHeader(headerValue === 'true');
     const tenant = userData ? JSON.parse(userData) : null;
     setTenantName(tenant?.tenantData[0]?.tenantName);
+    setTenantId(tenant?.tenantData[0]?.tenantId);
   }, []);
 
   if (userRole === null) return null;
@@ -71,6 +105,11 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedKey, onSelect }) => {
             key: 'submitted',
             icon: <PreviewOutlinedIcon />,
           },
+          {
+            text: 'Bulk Upload',
+            key: 'bulk-upload',
+            icon: <CloudUploadIcon />,
+          },
         ]
       : []),
     ...(userRole === Role.CCTA
@@ -80,6 +119,21 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedKey, onSelect }) => {
             key: 'up-review',
             icon: <PreviewOutlinedIcon />,
           },
+          {
+            text: 'Bulk Upload',
+            key: 'bulk-upload',
+            icon: <CloudUploadIcon />,
+          },
+
+          ...(tenantId === '3a849655-30f6-4c2b-8707-315f1ed64fbd'
+            ? [
+                {
+                  text: 'Metabase',
+                  key: 'Metabase',
+                  icon: <StorageIcon />,
+                },
+              ]
+            : []),
         ]
       : []),
     {
@@ -93,12 +147,27 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedKey, onSelect }) => {
       key: 'discover-contents',
       icon: <ManageSearchIcon />,
     },
+    {
+      text: "Attendance",
+      key: "attendance",
+      icon: <ManageSearchIcon />,
+    },
   ];
 
   const handleNavigation = (key: string) => {
     console.log(key);
+
+    // Handle Metabase navigation
+    if (key === 'Metabase') {
+      window.open(
+        'https://www.snailnetwork.org/metabase/auth/login?redirect=%2F',
+        '_blank'
+      );
+      return;
+    }
+
     router.push(`/workspace/content/${key}`);
-    localStorage.setItem('selectedFilters', JSON.stringify([]));
+    Cookies.set('selectedFilters', JSON.stringify([]));
     onSelect(key);
     if (isMobile) {
       setDrawerOpen(false); // Close drawer after selecting in mobile view
@@ -110,8 +179,8 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedKey, onSelect }) => {
   };
 
   const goBack = () => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const userInfo = JSON.parse(localStorage.getItem('adminInfo') || '{}');
+    if (typeof window !== 'undefined') {
+      const userInfo = JSON.parse(Cookies.get('adminInfo') || '{}');
       console.log('userInfo', userInfo);
       if (userInfo?.role === Role.SCTA || userInfo?.role === Role.CCTA) {
         // router.push("/course-planner");
@@ -137,24 +206,25 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedKey, onSelect }) => {
       <Box
         sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}
       >
-              {showHeader ? (
-        <img src="/logo.png" alt="logo" height={60} />
-      ) : (
-        <Box sx={{ textAlign: "center", mt: 2 }}>
-          <Typography variant="h2"
-            sx={{
-              color:"#635E57",
-                marginRight: "10px",
-                
-                fontSize: "22px",
-                fontWeight: 400,
-                '@media (max-width: 900px)': { paddingLeft: '34px' }
-            }}>
-            Workspace
-          </Typography>
-        </Box>
-      )}
+        {showHeader ? (
+          <DynamicLogo type="sidebar" width={60} height={60} fallbackSrc="/assets/images/logo.png" />
+        ) : (
+          <Box sx={{ textAlign: 'center', mt: 2 }}>
+            <Typography
+              variant="h2"
+              sx={{
+                color: '#635E57',
+                marginRight: '10px',
 
+                fontSize: '22px',
+                fontWeight: 400,
+                '@media (max-width: 900px)': { paddingLeft: '34px' },
+              }}
+            >
+              Workspace
+            </Typography>
+          </Box>
+        )}
       </Box>
       <Box
         display="flex"
@@ -163,21 +233,21 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedKey, onSelect }) => {
         paddingTop={'1rem'}
       >
         {tenantName === TENANT_DATA.SECOND_CHANCE_PROGRAM && (
-      <Box display="flex" alignItems="center">
-        <ListItemIcon>
-          <IconButton onClick={goBack}>
-            <ArrowBackIcon sx={{  color:"#635E57", }} />
-          </IconButton>
-        </ListItemIcon>
-        <Typography
-          variant="h2"
-          fontSize={'16px'}
-          sx={{ color: theme.palette.warning['100'], fontWeight: 500 }}
-        >
-         Exit Workspace
-        </Typography>
-      </Box>
-       )}
+          <Box display="flex" alignItems="center">
+            <ListItemIcon>
+              <IconButton onClick={goBack}>
+                <ArrowBackIcon sx={{ color: '#635E57' }} />
+              </IconButton>
+            </ListItemIcon>
+            <Typography
+              variant="h2"
+              fontSize={'16px'}
+              sx={{ color: theme.palette.warning['100'], fontWeight: 500 }}
+            >
+              Exit Workspace
+            </Typography>
+          </Box>
+        )}
         {isMobile && (
           <IconButton onClick={toggleDrawer}>
             <CloseIcon />
@@ -249,7 +319,7 @@ const Sidebar: React.FC<SidebarProps> = ({ selectedKey, onSelect }) => {
             sx={{
               margin: 2,
               cursor: 'pointer',
-              color: isAdmin ? 'black' : 'black',
+              color: getIsAdmin() ? 'white' : 'black',
             }}
             onClick={toggleDrawer}
           />

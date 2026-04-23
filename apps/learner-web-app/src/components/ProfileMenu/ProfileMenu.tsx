@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import React from 'react';
 import {
   Box,
@@ -14,6 +15,8 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import { usePathname } from 'next/navigation';
 import SpeakableText from '@shared-lib-v2/lib/textToSpeech/SpeakableText';
 import { useTranslation } from '@shared-lib-v2/lib/context/LanguageContext';
+import { useTenant } from '@learner/context/TenantContext';
+import { alpha } from '@mui/material/styles';
 const ProfileMenu = ({
   anchorEl,
   open,
@@ -23,6 +26,13 @@ const ProfileMenu = ({
 }: any) => {
   const pathname = usePathname();
   const { t } = useTranslation();
+  const { contentFilter } = useTenant();
+
+  const primaryColor = contentFilter?.theme?.primaryColor || '#E6873C';
+  const secondaryColor = contentFilter?.theme?.secondaryColor || '#1A1A1A';
+  const backgroundColor = contentFilter?.theme?.backgroundColor || '#FFFFFF';
+  const hoverBg = alpha(primaryColor, 0.12);
+  const selectedBg = alpha(primaryColor, 0.18);
   return (
     <Menu
       anchorEl={anchorEl}
@@ -35,6 +45,8 @@ const ProfileMenu = ({
           overflow: 'visible',
           width: 280,
           padding: 0,
+          bgcolor: backgroundColor,
+          border: `1px solid ${alpha(secondaryColor, 0.08)}`,
         },
       }}
       anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
@@ -48,9 +60,9 @@ const ProfileMenu = ({
           onClose();
         }}
         sx={{
-          bgcolor: pathname === '/profile' ? '#f0e5d9' : 'transparent',
+          bgcolor: pathname === '/profile' ? selectedBg : 'transparent',
           '&:hover': {
-            bgcolor: '#e0d6ca',
+            bgcolor: hoverBg,
           },
           py: 1.5,
           px: 2,
@@ -63,12 +75,12 @@ const ProfileMenu = ({
           width="100%"
         >
           <Box display="flex" alignItems="center" gap={1}>
-            <AccountCircleIcon sx={{ color: '#1e1e1e' }} />
-            <Typography variant="body1" fontWeight={500}>
+            <AccountCircleIcon sx={{ color: secondaryColor }} />
+            <Typography variant="body1" fontWeight={500} sx={{ color: secondaryColor }}>
               <SpeakableText>{t('COMMON.GO_TO_MY_PROFILE')}</SpeakableText>
             </Typography>
           </Box>
-          <ArrowForwardIosIcon sx={{ fontSize: 16, color: '#1e1e1e' }} />
+          <ArrowForwardIosIcon sx={{ fontSize: 16, color: secondaryColor }} />
         </Box>
       </MenuItem>
 
@@ -88,6 +100,12 @@ const ProfileMenu = ({
             borderRadius: '24px',
             textTransform: 'none',
             fontWeight: 500,
+            borderColor: primaryColor,
+            color: primaryColor,
+            '&:hover': {
+              borderColor: primaryColor,
+              backgroundColor: alpha(primaryColor, 0.1),
+            },
           }}
         >
           <SpeakableText>{t('COMMON.LOGOUT')}</SpeakableText>

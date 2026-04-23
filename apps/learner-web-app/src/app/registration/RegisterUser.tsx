@@ -459,16 +459,14 @@ setUsername(
 
     //   const loginLocalPayload = localStorage.getItem('loginLocalPayload');
     if (true) {
-      console.log(username, password);
+
 
       const payloadData = JSON.parse(
         localStorage.getItem('loginLocalPayload') || '{}'
       );
-
-      console.log(payloadData);
       username = payloadData?.username;
       password = payloadData?.password;
-      console.log(username, password);
+     
     }
 
     try {

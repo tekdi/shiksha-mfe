@@ -1,14 +1,14 @@
-import React, { memo } from 'react';
+import React, { memo } from "react";
 import {
   Breadcrumbs,
   Button,
   Typography,
   useTheme,
   useMediaQuery,
-} from '@mui/material';
-import SpeakableText from '@shared-lib-v2/lib/textToSpeech/SpeakableText';
-import { useRouter } from 'next/navigation';
-import EastIcon from '@mui/icons-material/East';
+} from "@mui/material";
+import SpeakableText from "@shared-lib-v2/lib/textToSpeech/SpeakableText";
+import { useRouter } from "next/navigation";
+import EastIcon from "@mui/icons-material/East";
 
 const BreadCrumb = ({
   breadCrumbs,
@@ -24,7 +24,7 @@ const BreadCrumb = ({
   customPlayerMarginTop?: number;
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const router = useRouter();
   const handleClick = (link: string) => {
     router.replace(link);
@@ -36,10 +36,10 @@ const BreadCrumb = ({
         separator={
           <EastIcon
             sx={{
-              fontSize: '25px',
-              color: '#000000',
+              fontSize: "25px",
+              color: "#000000",
               fontWeight: 900,
-              verticalAlign: 'middle',
+              verticalAlign: "middle",
             }}
           />
         }
@@ -55,36 +55,36 @@ const BreadCrumb = ({
 
           return isClickable ? (
             <Typography
-              key={`${breadcrumb?.name ?? breadcrumb?.label ?? ''} ${index}`}
+              key={`${breadcrumb?.name ?? breadcrumb?.label ?? ""} ${index}`}
               sx={{
-                color: '#212529',
+                color: "#212529",
                 fontWeight: index === breadCrumbs.length - 1 ? 700 : 400,
-                fontSize: '24px',
-                display: 'inline',
-                cursor: 'pointer',
+                fontSize: "24px",
+                display: "inline",
+                cursor: "pointer",
                 fontFamily: '"Montserrat", sans-serif',
-                '&:hover': {
-                  textDecoration: 'underline',
+                "&:hover": {
+                  textDecoration: "underline",
                 },
               }}
               component="span"
               onClick={() => handleClick(breadcrumb?.link)}
             >
-              {breadcrumb?.name ?? breadcrumb?.label ?? ''}
+              {breadcrumb?.name ?? breadcrumb?.label ?? ""}
             </Typography>
           ) : (
             <Typography
-              key={`${breadcrumb?.name ?? breadcrumb?.label ?? ''} ${index}`}
+              key={`${breadcrumb?.name ?? breadcrumb?.label ?? ""} ${index}`}
               sx={{
-                color: '#000000',
+                color: "#000000",
                 fontWeight: index === breadCrumbs.length - 1 ? 700 : 400,
-                fontSize: '24px',
-                display: 'inline',
+                fontSize: "24px",
+                display: "inline",
                 fontFamily: '"Montserrat", sans-serif',
               }}
               component="span"
             >
-              {breadcrumb?.name ?? breadcrumb?.label ?? ''}
+              {breadcrumb?.name ?? breadcrumb?.label ?? ""}
             </Typography>
           );
         })}
@@ -101,7 +101,7 @@ const BreadCrumb = ({
               index === breadCrumbs.length - (isShowLastLink ? 1 : 2)) ||
               !isMobile) && (
               <Button
-                key={`${breadcrumb?.name ?? breadcrumb?.label ?? ''} ${index}`}
+                key={`${breadcrumb?.name ?? breadcrumb?.label ?? ""} ${index}`}
                 variant="text"
                 sx={{
                   color: theme.palette.secondary.main,
@@ -109,24 +109,24 @@ const BreadCrumb = ({
                 onClick={() => handleClick(breadcrumb?.link)}
               >
                 <SpeakableText>
-                  {breadcrumb?.name ?? breadcrumb?.label ?? ''}
+                  {breadcrumb?.name ?? breadcrumb?.label ?? ""}
                 </SpeakableText>
               </Button>
             )
           : !isMobile && (
               <Typography
-                key={`${breadcrumb?.name ?? breadcrumb?.label ?? ''} ${index}`}
+                key={`${breadcrumb?.name ?? breadcrumb?.label ?? ""} ${index}`}
                 variant="body1"
                 color="text.secondary"
               >
                 <SpeakableText>
-                  {breadcrumb?.name ?? breadcrumb?.label ?? ''}
+                  {breadcrumb?.name ?? breadcrumb?.label ?? ""}
                 </SpeakableText>
               </Typography>
             );
       })}
       {(!breadCrumbs || breadCrumbs?.length === 0) &&
-        [...(topic ? ['Course', topic] : [])].map((key) => (
+        [...(topic ? ["Course", topic] : [])].map((key) => (
           <Typography key={key} variant="body1">
             <SpeakableText>{key}</SpeakableText>
           </Typography>

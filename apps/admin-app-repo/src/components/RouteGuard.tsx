@@ -10,7 +10,7 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const adminInfo = localStorage.getItem("adminInfo");
 
     if (!token || !adminInfo) {
-      if (router.pathname !== "/login" && router.pathname !== "/logout") {
+      if (router.pathname !== "/home" && router.pathname !== "/logout") {
         if (typeof window !== 'undefined' && window.localStorage) {
           // Specify the keys you want to keep
           const keysToKeep = [
@@ -95,7 +95,7 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
 
     if ((user.role === Role.SCTA || user.role === Role.CCTA) && !(allowedPaths.includes(router.pathname) || isWorkspaceContent || isCoursePlannerContent)) {
-      if (router.pathname !== "/login" && router.pathname !== "/logout") {
+      if (router.pathname !== "/home" && router.pathname !== "/logout") {
         if (typeof window !== 'undefined' && window.localStorage) {
           // Specify the keys you want to keep
           const keysToKeep = [
@@ -136,7 +136,7 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
 
     if ((((user.role === Role.ADMIN && user?.tenantData[0]?.tenantName == TenantName.SECOND_CHANCE_PROGRAM) || (user.role === Role.CENTRAL_ADMIN && user?.tenantData[0]?.tenantName == TenantName.SECOND_CHANCE_PROGRAM)) && (allowedPaths.includes(router.pathname) || isWorkspaceContent || isCoursePlannerContent)) || (user.role === Role.ADMIN && (router.pathname === "/programs" || router.pathname === "/notification-templates"))) {       
-      if (router.pathname !== "/login" && router.pathname !== "/logout" && router.pathname !== "/edit-password") {
+      if (router.pathname !== "/home" && router.pathname !== "/logout" && router.pathname !== "/edit-password") {
 
         router.push("/unauthorized");
       }
@@ -147,7 +147,7 @@ const RouteGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     }
     if((user.role === Role.CENTRAL_ADMIN  && user?.tenantData[0]?.tenantName == TenantName.SECOND_CHANCE_PROGRAM) && notAllowedPathsForCentralAdmin.includes(router.pathname))
     {
-      if (router.pathname !== "/login" && router.pathname !== "/logout" && router.pathname !== "/edit-password") {
+      if (router.pathname !== "/home" && router.pathname !== "/logout" && router.pathname !== "/edit-password") {
 
         router.push("/unauthorized");
       }

@@ -41,7 +41,7 @@ export const getAssessmentDetails = async (doId: string) => {
 
     // Execute the request
     const response = await get(
-      `${searchApiUrl}/api/course/v1/hierarchy/${doId}?mode=edit`,
+      `${searchApiUrl}/action/content/v3/hierarchy/${doId}`,
       { Authorization: `Bearer` }
     );
     const res = response?.data?.result?.content;

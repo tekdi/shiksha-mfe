@@ -38,7 +38,7 @@ export const API_ENDPOINTS = {
   getCourseName: `${baseurl}/action/composite/v3/search`,
   issueCertificate: `${baseurl}/tracking/certificate/issue`,
   renderCertificate: `${baseurl}/tracking/certificate/render`,
-  downloadCertificate: `${baseurl}/tracking/certificate/render-PDF`,
+  downloadCertificate: `${baseurl}/tracking/certificate/render`,
   framework : (frameworkId: string) => `${baseurl}/framework/v1/read/${frameworkId}`,
   actionObject : `${baseurl}/action/object/category/definition/v1/read?fields=objectMetadata,forms,name,label`,
 

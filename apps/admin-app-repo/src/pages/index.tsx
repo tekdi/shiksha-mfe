@@ -61,7 +61,7 @@ const Home: React.FC = () => {
         }
       } else {
         // window.location.href = '/login';
-        router.push('/login', undefined, { locale: 'en' });
+        router.push('/home', undefined, { locale: 'en' });
       }
     }
   }, []);

@@ -12,13 +12,15 @@ export const trackingData = (subIds: string[], courseIds: string[]) => {
     console.error('Tracking API URL is not defined in environment variables.');
     return;
   }
+const tenantId = typeof window !== "undefined" ? localStorage.getItem("tenantId") : null;
 
   const config: AxiosRequestConfig = {
     method: 'post',
     maxBodyLength: Infinity,
     url: `${trackingApiUrl}/tracking/content/course/status`,
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
+      ...(tenantId && { "tenantId": tenantId }),
     },
     data,
   };

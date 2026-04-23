@@ -1,16 +1,16 @@
 //@ts-check
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { composePlugins, withNx } = require('@nx/next');
+const { composePlugins, withNx } = require("@nx/next");
 
-const PORTAL_BASE_URL = 'https://sunbird-editor.tekdinext.com';
+const PORTAL_BASE_URL = "https://sunbird-editor.tekdinext.com";
 
 const routes = {
   API: {
     GENERAL: {
-      CONTENT_PREVIEW: '/content/preview/:path*',
-      CONTENT_PLUGINS: '/content-plugins/:path*',
-      GENERIC_EDITOR: '/generic-editor/:path*',
+      CONTENT_PREVIEW: "/content/preview/:path*",
+      CONTENT_PLUGINS: "/content-plugins/:path*",
+      GENERIC_EDITOR: "/generic-editor/:path*",
     },
   },
 };
@@ -33,27 +33,82 @@ const nextConfig = {
   },
 
   //cross import support
-  transpilePackages: ['@shared-lib-v2/*'],
+  transpilePackages: ["@shared-lib-v2/*"],
 
   images: {
-    domains: ['program-image-dev.s3.ap-south-1.amazonaws.com'],
+    domains: ["program-image-dev.s3.ap-south-1.amazonaws.com","oblf.org"],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'encrypted-tbn0.gstatic.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.gstatic.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.googleusercontent.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.amazonaws.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.s3.amazonaws.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '**.s3.*.amazonaws.com',
+        pathname: '/**',
+      },
+    ],
+  },
+  basePath: "",
+  webpack: (config, { isServer }) => {
+    // Fix for FormData polyfill issue
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        net: false,
+        tls: false,
+        crypto: false,
+        stream: false,
+        url: false,
+        zlib: false,
+        http: false,
+        https: false,
+        assert: false,
+        os: false,
+        path: false,
+        "form-data": false,
+      };
+    }
+    return config;
   },
   async rewrites() {
     return [
       {
-        source: '/action/data/v3/telemetry',
+        source: "/data/v3/telemetry",
         destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
       },
       {
-        source: '/action/v1/telemetry',
+        source: "/v1/telemetry",
         destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
       },
       {
-        source: '/data/v3/telemetry',
+        source: "/data/v3/telemetry",
         destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
       },
       {
-        source: '/assets/public/:path*', // Match any URL starting with /assets/public/
+        source: "/assets/public/:path*", // Match any URL starting with /assets/public/
         destination: `${process.env.NEXT_PUBLIC_CLOUD_STORAGE_URL}/:path*`, // Forward to S3, stripping "/assets/public"
       },
       //for player content v1

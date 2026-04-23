@@ -104,7 +104,7 @@ const CollectionEditor: React.FC = () => {
       uid: getLocalStoredUserId(),
       additionalCategories: [],
       pdata: {
-        id: "pratham.admin.portal",
+        id: "shiksha.learner.portal",
         ver: "1.0.0",
         pid: "pratham-portal",
       },
@@ -160,11 +160,10 @@ const CollectionEditor: React.FC = () => {
       loadJQuery();
       if (!document.getElementById("collection-editor-js")) {
         const script = document.createElement("script");
-        console.log("Hello");
 
         script.id = "collection-editor-js";
         script.src =
-          "https://cdn.jsdelivr.net/npm/@tekdi/sunbird-collection-editor-web-component@6.1.0-beta.4/sunbird-collection-editor.js";
+          "https://cdn.jsdelivr.net/npm/@tekdi/sunbird-collection-editor-web-component@6.1.0-beta.3/sunbird-collection-editor.js";
         script.async = true;
         script.onload = () => setAssetsLoaded(true);
         document.body.appendChild(script);

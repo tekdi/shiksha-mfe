@@ -112,6 +112,7 @@
       "login_title": "లాగిన్",
       "username_label": "యూజర్‌నేమ్",
       "password_label": "పాస్‌వర్డ్",
+      "LOG_IN_AS_LEARNER_SUBTITLE": "Log in as a learner",
       "remember_me": "నన్ను గుర్తుంచుకో",
       "forgot_password": "పాస్‌వర్డ్ మర్చిపోయారా?",
       "login_button": "లాగిన్",
@@ -122,7 +123,12 @@
       "POINT_CAMERA": "ఇక్కడ కెమెరాను సూచించండి",
       "OR": "లేదా",
       "SEARCH_PLAYSTORE": "ప్లేస్టోర్‌లో \"ప్రథమ్ మైలెర్నింగ్\" శోధించండి",
-      "ON_PLAYSTORE": "ప్లేస్టోర్‌లో"
+      "ON_PLAYSTORE": "ప్లేస్టోర్‌లో",
+      "CHOOSE_MODE": "మీరు ఎలా కొనసాగాలనుకుంటున్నారో ఎంచుకోండి",
+      "LEARNER_OR_WORKSPACE": "లెర్నర్‌గా లాగిన్ చేయండి లేదా వర్క్‌స్పేస్ పోర్టల్‌కు వెళ్లండి।",
+      "CONTINUE_LEARNER": "లెర్నర్‌గా లాగిన్ చేయండి",
+      "GO_TO_WORKSPACE": "వర్క్‌స్పేస్‌కు వెళ్లండి",
+      "LOGIN": "లాగిన్"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "పురోగతిలో",

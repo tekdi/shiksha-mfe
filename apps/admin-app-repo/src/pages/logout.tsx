@@ -29,7 +29,7 @@ function Logout() {
      preserveLocalStorage();
     }
     queryClient.clear();
-   router.replace("/login");
+  router.replace("/home");
   }, []);
 
   return <Loader showBackdrop={true} loadingText={t("COMMON.LOADING")} />;

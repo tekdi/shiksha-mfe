@@ -15,26 +15,3 @@ export const fetchContent = async (identifier: any) => {
         throw error;
     }
 };
-
-export const getHierarchy = async (identifier: any) => {
-    try {
-      const API_URL = `${URL_CONFIG.API.HIERARCHY_API}${identifier}`;
-      const response = await axios.get(API_URL);
-      return response?.data?.result?.content || response?.data?.result;
-    } catch (error) {
-      console.error("Error fetching content:", error);
-      throw error;
-    }
-  };
-
-  export const getQumlData = async (identifier: any) => {
-    try {
-      const API_URL = `${URL_CONFIG.API.QUESTIONSET_READ}${identifier}`;
-      const FIELDS = URL_CONFIG.PARAMS.HIERARCHY_FEILDS;
-      const response = await axios.get(`${API_URL}?fields=${FIELDS}`);
-      return response?.data?.result?.content || response?.data?.result;
-    } catch (error) {
-      console.error("Error fetching content:", error);
-      throw error;
-    }
-  };

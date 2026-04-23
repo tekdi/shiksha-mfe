@@ -37,7 +37,7 @@ export const fetchForm = async (readForm: any) => {
   await axios
     .request(config)
     .then((response) => {
-      console.log(JSON.stringify(response.data));
+      // console.log(JSON.stringify(response.data));
       if (response.data?.schema && response.data?.uiSchema) {
         // console.log(`schema`, response.data?.schema);
         responseForm = response.data;

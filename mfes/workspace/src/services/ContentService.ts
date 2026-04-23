@@ -1,20 +1,29 @@
-import {
-  getLocalStoredUserId,
-  getLocalStoredUserRole,
-} from './LocalStorageService';
-import { delApi, get, post, patch } from './RestClient';
-import { MIME_TYPE } from '@workspace/utils/app.config';
+import { getLocalStoredUserId } from './LocalStorageService';
+import { delApi, get, post } from './RestClient';
+import { MIME_TYPE } from '../utils/app.config';
 import { v4 as uuidv4 } from 'uuid';
-import { PrimaryCategoryValue, Role } from '@workspace/utils/app.constant';
-const userId = getLocalStoredUserId();
-console.log('userId ==>', userId);
+import { PrimaryCategoryValue } from '../utils/app.constant';
+// Remove module-level localStorage access to prevent SSR issues
+// const userId = getLocalStoredUserId();
+// console.log('userId ==>', userId);
 
-export const getPrimaryCategory = async (channelId: any) => {
-  const apiURL = `/api/channel/v1/read/${channelId}`;
+export const getPrimaryCategory = async (channelId: string) => {
+  console.log('getPrimaryCategory called with channelId:', channelId);
+
+  if (!channelId) {
+    console.error('getPrimaryCategory: channelId is empty or undefined');
+    throw new Error('Channel ID is required');
+  }
+
+  const apiURL = `/action/channel/v1/read/${channelId}`;
+  console.log('getPrimaryCategory API URL:', apiURL);
+
   try {
     const response = await get(apiURL);
+    console.log('getPrimaryCategory response:', response?.data);
     return response?.data?.result;
   } catch (error) {
+    console.error('getPrimaryCategory error:', error);
     throw error;
   }
 };
@@ -32,16 +41,16 @@ export const getPrimaryCategory = async (channelId: any) => {
 //   return PrimaryCategory;
 // };
 
-const defaultReqBody = {
+const getDefaultReqBody = () => ({
   request: {
     filters: {
-      createdBy: userId,
+      createdBy: getLocalStoredUserId(),
     },
     sort_by: {
       lastUpdatedOn: 'desc',
     },
   },
-};
+});
 const upForReviewReqBody = {
   request: {
     filters: {
@@ -57,22 +66,21 @@ const getReqBodyWithStatus = (
   query: string,
   limit: number,
   offset: number,
-  primaryCategory: any,
-  sort_by: any,
+  primaryCategory: string[],
+  sort_by: Record<string, string>,
   channel: string,
   contentType?: string,
   state?: string
 ) => {
+  let PrimaryCategory = PrimaryCategoryValue;
   if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
-    var PrimaryCategory =
+    PrimaryCategory =
       JSON.parse(localStorage.getItem('PrimaryCategory') as string) ||
       PrimaryCategoryValue;
   }
   primaryCategory =
     primaryCategory.length === 0 ? PrimaryCategory : primaryCategory;
   if (contentType === 'discover-contents') {
-    const userRole = getLocalStoredUserRole();
-
     if (state) {
       return {
         ...upForReviewReqBody,
@@ -132,11 +140,11 @@ const getReqBodyWithStatus = (
   }
 
   return {
-    ...defaultReqBody,
+    ...getDefaultReqBody(),
     request: {
-      ...defaultReqBody.request,
+      ...getDefaultReqBody().request,
       filters: {
-        ...defaultReqBody.request.filters,
+        ...getDefaultReqBody().request.filters,
         status,
         primaryCategory,
         channel: channel,
@@ -155,75 +163,61 @@ export const getContent = async (
   limit: number,
   offset: number,
   primaryCategory: string[],
-  sort_by: any,
-  channel: any,
+  sort_by: Record<string, string>,
+  channel: string,
   contentType?: string,
   state?: string
 ) => {
   const apiURL = '/action/composite/v3/search';
-  try {
-    const reqBody = getReqBodyWithStatus(
-      status,
-      query,
-      limit,
-      offset,
-      primaryCategory,
-      sort_by,
-      channel,
-      contentType,
-      state
-    );
-    const response = await post(apiURL, reqBody);
-    return response?.data?.result;
-  } catch (error) {
-    throw error;
-  }
+  const reqBody = getReqBodyWithStatus(
+    status,
+    query,
+    limit,
+    offset,
+    primaryCategory,
+    sort_by,
+    channel,
+    contentType,
+    state
+  );
+  const response = await post(apiURL, reqBody);
+  return response?.data?.result;
 };
+export const createResourceContent = async (
+  userId: string,
+  contentType: string,
+  channelId: string,
+  contentFW: string
+) => {
+  const apiURL = `/action/content/v3/create`;
 
-export const getContentPDF = async ({
-  query,
-  limit,
-  offset,
-  sort_by,
-  filters,
-}: {
-  query: string;
-  limit: number;
-  offset: number;
-  sort_by: any;
-  filters: {
-    status?: string[];
-    primaryCategory?: string[];
-    channel?: any;
-    contentType?: string;
-    state?: string;
-    [key: string]: any; // Allow additional dynamic filters if needed
-  };
-}) => {
-  const apiURL = '/action/composite/v3/search';
-
-  try {
-    const reqBody = {
-      request: {
-        query,
-        filters: {
-          ...filters,
-          mimeType: 'application/pdf',
-        },
-        sort_by,
-        limit,
-        offset,
+  const reqBody = {
+    request: {
+      content: {
+        code: '123456', // Generate a unique ID for 'code'
+        name: 'Untitled Resource',
+        createdBy: userId,
+        createdFor: [channelId],
+        mimeType: MIME_TYPE.ECML_MIME_TYPE,
+        resourceType: 'Learn',
+        contentType: contentType,
+        framework: contentFW,
+        ...(contentType !== 'SelfAssess' && {
+          primaryCategory: 'Learning Resource',
+        }),
       },
-    };
+    },
+  };
 
+  try {
     const response = await post(apiURL, reqBody);
-    return response?.data?.result;
+    return response?.data;
   } catch (error) {
+    console.error('Error creating Resource:', error);
     throw error;
   }
 };
-
-export const createQuestionSet = async (frameworkId: any) => {
+export const createQuestionSet = async (frameworkId: string) => {
   const apiURL = `/action/questionset/v2/create`;
   const reqBody = {
     request: {
@@ -232,114 +226,13 @@ export const createQuestionSet = async (frameworkId: any) => {
         mimeType: 'application/vnd.sunbird.questionset',
         primaryCategory: 'Practice Question Set',
         code: uuidv4(),
-        createdBy: userId,
+        createdBy: getLocalStoredUserId(),
         framework: frameworkId,
       },
     },
   };
 
-  try {
-    const response = await post(apiURL, reqBody);
-    return response?.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const createAIQuestionsSet = async (payload: {
-  questionSetId: string;
-  framework: string;
-  channel: string;
-  difficulty_level: string;
-  question_types: string[];
-  metadata: {
-    name: string;
-    board: string;
-    medium: string[];
-    gradeLevel: string[];
-    subject: string[];
-    courseType: string[];
-    program: string[];
-    author: string;
-    description: string;
-    instructions: string;
-    contentLanguage: string;
-    assessmentType: string;
-  };
-  questionsDetails: Array<{
-    type: string;
-    no: number;
-  }>;
-  content: Array<{
-    id: string;
-    url: string;
-  }>;
-  token: string;
-}) => {
-  const apiURL = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/ai-assessment/create`;
-  try {
-    const response = await post(
-      apiURL,
-      {
-        ...payload,
-        createdBy: userId,
-      },
-      {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${payload.token}`,
-      }
-    );
-    return response?.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const getAIQuestionSetStatus = async (
-  questionSetId: string,
-  token: string
-) => {
-  const apiURL = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/ai-assessment/read/${questionSetId}`;
-  try {
-    const response = await get(apiURL, {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-    });
-    return response?.data;
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const updateQuestionSet = async ({ identifier, ...metadata }: any) => {
-  const apiURL = '/mfe_workspace/action/questionset/v2/hierarchy/update';
-  const reqBody = {
-    request: {
-      data: {
-        lastUpdatedBy: userId,
-        nodesModified: {
-          [identifier]: {
-            root: true,
-            objectType: 'QuestionSet',
-            isNew: false,
-            metadata,
-          },
-        },
-        hierarchy: {
-          [identifier]: {
-            name: 'Untitled QuestionSet',
-            children: [],
-            root: true,
-          },
-        },
-      },
-    },
-  };
-  const response = await patch(apiURL, reqBody, {
-    Accept: 'application/json, text/plain, */*',
-    'Content-Type': 'application/json',
-    // Add more headers if needed, e.g., authorization, channel, etc.
-  });
+  const response = await post(apiURL, reqBody);
   return response?.data;
 };
 
@@ -355,19 +248,15 @@ export const deleteContent = async (identifier: string, mimeType: string) => {
   ) {
     apiURL = contentRetireURL;
   }
-  try {
-    const response = await delApi(apiURL); // Assuming you have a 'del' method that handles DELETE
-    return response?.data?.result;
-  } catch (error) {
-    throw error;
-  }
+  const response = await delApi(apiURL); // Assuming you have a 'del' method that handles DELETE
+  return response?.data?.result;
 };
 
 export const createCourse = async (
-  userId: any,
-  channelId: any,
-  contentFW: any,
-  targetFW: any
+  userId: string,
+  channelId: string,
+  contentFW: string,
+  targetFW: string
 ) => {
   const apiURL = `/action/content/v3/create`;
 
@@ -398,13 +287,13 @@ export const createCourse = async (
 };
 
 export const publishContent = async (
-  identifier: any,
-  publishChecklist?: any
+  identifier: string,
+  publishChecklist?: Record<string, unknown>
 ) => {
   const requestBody = {
     request: {
       content: {
-        lastPublishedBy: userId,
+        lastPublishedBy: getLocalStoredUserId(),
         publishChecklist: publishChecklist,
       },
     },
@@ -423,9 +312,9 @@ export const publishContent = async (
 };
 
 export const submitComment = async (
-  identifier: any,
-  comment: any,
-  rejectReasons?: any
+  identifier: string,
+  comment: string,
+  rejectReasons?: Record<string, unknown>
 ) => {
   const requestBody = {
     request: {
@@ -450,39 +339,36 @@ export const submitComment = async (
 
 export const getContentHierarchy = async ({
   doId,
-  contentMode,
 }: {
   doId: string;
-  contentMode: string;
-}): Promise<any> => {
-  let apiUrl: string = `/action/content/v3/hierarchy/${doId}`;
-  if (contentMode == 'edit') {
-    apiUrl = `/action/content/v3/hierarchy/${doId}?mode=edit`;
-  }
+}): Promise<Record<string, unknown>> => {
+  const apiUrl = `/action/content/v3/hierarchy/${doId}`;
 
   try {
     console.log('Request data', apiUrl);
     const response = await get(apiUrl);
     // console.log('response', response);
-    return response;
+    return response as unknown as Record<string, unknown>;
   } catch (error) {
     console.error('Error in getContentHierarchy Service', error);
     throw error;
   }
 };
-export const getFrameworkDetails = async (frameworkId: any): Promise<any> => {
-  const apiUrl: string = `/api/framework/v1/read/${frameworkId}`;
+export const getFrameworkDetails = async (
+  frameworkId: string
+): Promise<Record<string, unknown>> => {
+  const apiUrl = `/action/framework/v3/read/${frameworkId}`;
 
   try {
     const response = await get(apiUrl);
-    return response?.data;
+    return response?.data as Record<string, unknown>;
   } catch (error) {
     console.error('Error in getting Framework Details', error);
-    return error;
+    return error as Record<string, unknown>;
   }
 };
-export const getFormFields = async (): Promise<any> => {
-  const apiUrl: string = `/action/data/v1/form/read`;
+export const getFormFields = async (): Promise<Record<string, unknown>> => {
+  const apiUrl = `/action/data/v1/form/read`;
 
   try {
     const response = await post(apiUrl, {
@@ -492,9 +378,9 @@ export const getFormFields = async (): Promise<any> => {
         subType: 'resource',
       },
     });
-    return response?.data;
+    return response?.data as Record<string, unknown>;
   } catch (error) {
     console.error('Error in getting Framework Details', error);
-    return error;
+    return error as Record<string, unknown>;
   }
 };

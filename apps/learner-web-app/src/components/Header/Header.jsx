@@ -1,16 +1,16 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Box, Select, MenuItem } from '@mui/material';
-import LanguageIcon from '@mui/icons-material/Language';
-import Image from 'next/image';
-import appLogo from '../../../public/images/appLogo.svg';
-import { useTranslation } from '@shared-lib';
+import React, { useState } from "react";
+import { Box, Select, MenuItem } from "@mui/material";
+import LanguageIcon from "@mui/icons-material/Language";
+import Image from "next/image";
+import appLogo from "../../../public/logo.png";
+import { useTranslation } from "@shared-lib";
 
 const Header = () => {
   const { t, setLanguage } = useTranslation();
   const [lang, setLang] = useState(
-    typeof window !== 'undefined' ? localStorage.getItem('lang') || 'en' : 'en'
+    typeof window !== "undefined" ? localStorage.getItem("lang") || "en" : "en"
   ); // state for selected language
 
   const handleLanguageChange = (event) => {
@@ -31,7 +31,7 @@ const Header = () => {
     >
       {/* Logo */}
       <Box display="flex" alignItems="center" gap={2}>
-        <Image src={appLogo} alt="Pratham Logo" width={200} height={40} />
+        <Image src={appLogo} alt="Shiksha" width={60} height={60} style={{ objectFit: "contain" }} />
       </Box>
 
       {/* Language Selector */}
@@ -43,10 +43,10 @@ const Header = () => {
           variant="standard"
           disableUnderline
           sx={{
-            fontFamily: 'Poppins',
+            fontFamily: "Poppins",
             fontWeight: 400,
-            fontSize: '14px',
-            minWidth: '80px',
+            fontSize: "14px",
+            minWidth: "80px",
           }}
         >
           <MenuItem value="en">English</MenuItem>

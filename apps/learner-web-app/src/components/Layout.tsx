@@ -1,28 +1,29 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   LayoutProps,
   Layout,
   useTranslation,
   DrawerItemProp,
-} from '@shared-lib';
+} from "@shared-lib";
 import {
   AccountCircleOutlined,
   Home,
   AssignmentOutlined,
   Logout,
-} from '@mui/icons-material';
-import { useRouter, usePathname } from 'next/navigation';
-import { Box, useMediaQuery, useTheme } from '@mui/material';
-import ProfileMenu from './ProfileMenu/ProfileMenu';
-import ConfirmationModal from './ConfirmationModal/ConfirmationModal';
-import { checkAuth } from '@shared-lib-v2/utils/AuthService';
-import MuiThemeProvider from '@learner/assets/theme/MuiThemeProvider';
+} from "@mui/icons-material";
+import { useRouter, usePathname } from "next/navigation";
+import { Box, useMediaQuery, useTheme } from "@mui/material";
+import ProfileMenu from "./ProfileMenu/ProfileMenu";
+import ConfirmationModal from "./ConfirmationModal/ConfirmationModal";
+import { checkAuth } from "@shared-lib-v2/utils/AuthService";
+import MuiThemeProvider from "@learner/assets/theme/MuiThemeProvider";
+import { useTenant } from "@learner/context/TenantContext";
 
 // Custom DrawerItem interface
 interface NewDrawerItemProp extends DrawerItemProp {
-  variant?: 'contained' | 'text';
+  variant?: "contained" | "text";
   isActive?: boolean;
   customStyle?: React.CSSProperties;
 }
@@ -43,18 +44,18 @@ const getClubStyleNavConfig = ({
 }): NewDrawerItemProp[] => {
   const navLinks: NewDrawerItemProp[] = [
     {
-      title: t('LEARNER_APP.COMMON.COURSES'),
+      title: t("LEARNER_APP.COMMON.COURSES"),
       icon: <AssignmentOutlined sx={{ width: 28, height: 28 }} />,
-      to: () => handleNavClick(() => router.push('/courses-contents')),
-      isActive: currentPage === '/courses-contents',
-      customStyle: getLinkStyle(currentPage === '/courses-contents'),
+      to: () => handleNavClick(() => router.push("/courses-contents")),
+      isActive: currentPage === "/courses-contents",
+      customStyle: getLinkStyle(currentPage === "/courses-contents"),
     },
     {
-      title: t('LEARNER_APP.COMMON.PROFILE'),
+      title: t("LEARNER_APP.COMMON.PROFILE"),
       icon: <AccountCircleOutlined sx={{ width: 28, height: 28 }} />,
-      to: () => setAnchorEl(true),
-      isActive: currentPage === '/profile',
-      customStyle: getLinkStyle(currentPage === '/profile'),
+      to: () => handleProfileMenuOpen(),
+      isActive: currentPage === "/profile",
+      customStyle: getLinkStyle(currentPage === "/profile"),
     },
   ];
 
@@ -91,24 +92,24 @@ const NAV_CONFIG: Record<
   }) => {
     const navLinks: NewDrawerItemProp[] = [
       {
-        title: t('LEARNER_APP.COMMON.L1_COURSES'),
+        title: t("LEARNER_APP.COMMON.L1_COURSES"),
         icon: <Home sx={{ width: 28, height: 28 }} />,
-        to: () => handleNavClick(() => router.push('/content')),
-        isActive: currentPage === '/content',
-        customStyle: getLinkStyle(currentPage === '/content'),
+        to: () => handleNavClick(() => router.push("/content")),
+        isActive: currentPage === "/content",
+        customStyle: getLinkStyle(currentPage === "/content"),
       },
     ];
 
     const isVolunteer = JSON.parse(
-      localStorage.getItem('isVolunteer') || 'false'
+      localStorage.getItem("isVolunteer") || "false"
     );
     if (isVolunteer) {
       navLinks.push({
-        title: t('LEARNER_APP.COMMON.SURVEYS'),
+        title: t("LEARNER_APP.COMMON.SURVEYS"),
         icon: <AssignmentOutlined sx={{ width: 28, height: 28 }} />,
-        to: () => handleNavClick(() => router.push('/observations')),
-        isActive: currentPage === '/observations',
-        customStyle: getLinkStyle(currentPage === '/observations'),
+        to: () => handleNavClick(() => router.push("/observations")),
+        isActive: currentPage === "/observations",
+        customStyle: getLinkStyle(currentPage === "/observations"),
       });
     }
 
@@ -116,14 +117,14 @@ const NAV_CONFIG: Record<
       if (isMobile) {
         navLinks.push(
           {
-            title: t('LEARNER_APP.COMMON.PROFILE'),
+            title: t("LEARNER_APP.COMMON.PROFILE"),
             icon: <AccountCircleOutlined sx={{ width: 28, height: 28 }} />,
             to: () => handleNavClick(handleProfileClick),
-            isActive: currentPage === '/profile',
-            customStyle: getLinkStyle(currentPage === '/profile'),
+            isActive: currentPage === "/profile",
+            customStyle: getLinkStyle(currentPage === "/profile"),
           },
           {
-            title: t('COMMON.LOGOUT'),
+            title: t("COMMON.LOGOUT"),
             icon: <Logout sx={{ width: 28, height: 28 }} />,
             to: () => handleNavClick(handleLogoutModal),
             isActive: false,
@@ -131,65 +132,115 @@ const NAV_CONFIG: Record<
           }
         );
       } else {
-        navLinks.push(
-          {
-            title: t('COMMON.SKILLING_CENTERS'),
-            icon: (
-              <img
-                src="/images/engineering.png"
-                alt="Skill Center"
-                style={{ width: 28, height: 28 }}
-              />
-            ),
-            to: () => handleNavClick(() => router.push('/skill-center')),
-            isActive: currentPage === '/skill-center',
-            customStyle: {},
-          }
-        );
+        navLinks.push({
+          title: t("COMMON.SKILLING_CENTERS"),
+          icon: (
+            <img
+              src="/images/engineering.png"
+              alt="Skill Center"
+              style={{ width: 28, height: 28 }}
+            />
+          ),
+          to: () => handleNavClick(() => router.push("/skill-center")),
+          isActive: currentPage === "/skill-center",
+          customStyle: {},
+        });
       }
     }
 
     // Always add Profile link at the end
     navLinks.push({
-      title: t('LEARNER_APP.COMMON.PROFILE'),
+      title: t("LEARNER_APP.COMMON.PROFILE"),
       icon: <AccountCircleOutlined sx={{ width: 28, height: 28 }} />,
-      to: () => setAnchorEl(true),
-      isActive: currentPage === '/profile',
-      customStyle: getLinkStyle(currentPage === '/profile'),
+      to: () => handleProfileMenuOpen(),
+      isActive: currentPage === "/profile",
+      customStyle: getLinkStyle(currentPage === "/profile"),
     });
 
     return navLinks;
   },
 
-'Camp to Club': ({ router, t, handleNavClick, getLinkStyle, currentPage, setAnchorEl }) =>
-    getClubStyleNavConfig({ router, t, handleNavClick, getLinkStyle, currentPage, setAnchorEl }),
+  "Camp to Club": ({
+    router,
+    t,
+    handleNavClick,
+    getLinkStyle,
+    currentPage,
+    setAnchorEl,
+  }) =>
+    getClubStyleNavConfig({
+      router,
+      t,
+      handleNavClick,
+      getLinkStyle,
+      currentPage,
+      setAnchorEl,
+    }),
 
-  Pragyanpath: ({ router, t, handleNavClick, getLinkStyle, currentPage, setAnchorEl }) =>
-    getClubStyleNavConfig({ router, t, handleNavClick, getLinkStyle, currentPage, setAnchorEl }),
+  Pragyanpath: ({
+    router,
+    t,
+    handleNavClick,
+    getLinkStyle,
+    currentPage,
+    setAnchorEl,
+  }) =>
+    getClubStyleNavConfig({
+      router,
+      t,
+      handleNavClick,
+      getLinkStyle,
+      currentPage,
+      setAnchorEl,
+    }),
 };
 
-const App: React.FC<LayoutProps> = ({ children, ...props }) => {
+const App: React.FC<LayoutProps> = ({ children, onlyHideElements, ...props }) => {
   const router = useRouter();
   const pathname = usePathname();
   const { t, setLanguage } = useTranslation();
+  const { tenant, contentFilter } = useTenant();
+
+  // Get tenant colors
+  const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
+  const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
+  const backgroundColor = contentFilter?.theme?.backgroundColor || "#F5F5F5";
+  const tenantName =
+    contentFilter?.title ||
+    tenant?.name ||
+    (typeof window !== "undefined"
+      ? localStorage.getItem("userProgram") || ""
+      : "");
+  const tenantIcon = contentFilter?.icon || "/logo.png";
 
   const [defaultNavLinks, setDefaultNavLinks] = useState<NewDrawerItemProp[]>(
     []
   );
   const [anchorEl, setAnchorEl] = useState<any>(null);
   const [modalOpen, setModalOpen] = useState<boolean>(false);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
 
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const handleClose = () => setAnchorEl(null);
   const handleProfileClick = () => {
-    if (pathname !== '/profile') {
-      router.push('/profile');
+    if (pathname !== "/profile") {
+      router.push("/profile");
     }
     handleClose();
   };
-  const handleLogoutClick = () => router.push('/logout');
+  const handleProfileMenuOpen = (event?: React.MouseEvent<HTMLElement>) => {
+    // For desktop, try to open menu if we have an anchor
+    // For mobile or if no event, directly navigate
+    if (event && !isMobile) {
+      setAnchorEl(event.currentTarget);
+    } else {
+      // Directly navigate to profile
+      handleProfileClick();
+    }
+  };
+  const handleLogoutClick = () => router.push("/logout");
   const handleLogoutModal = () => setModalOpen(true);
   const handleCloseModel = () => setModalOpen(false);
   const handleNavClick = (callback: () => void) => {
@@ -197,64 +248,66 @@ const App: React.FC<LayoutProps> = ({ children, ...props }) => {
   };
 
   const getLinkStyle = (isActive: boolean): React.CSSProperties => ({
-    backgroundColor: isActive ? '#e0f7fa' : 'transparent',
+    backgroundColor: isActive ? `${primaryColor}20` : "transparent",
     borderRadius: 8,
+    color: isActive ? primaryColor : secondaryColor,
   });
 
-  const getMessage = () => (modalOpen ? t('COMMON.SURE_LOGOUT') : '');
-useEffect(() => {
-  let currentPage = '';
-  if (typeof window !== 'undefined') {
-    const searchParams = new URLSearchParams(window.location.search);
-    const activeLink = searchParams.get('activeLink');
-    currentPage = activeLink || window.location.pathname || '';
-  }
-
-  const program = localStorage.getItem('userProgram') || '';
-
-  const disallowedPathsMap: Record<string, string[]> = {
-    YouthNet: ['/courses-contents'],
-    'Camp to Club': ['/content', '/observations', '/skill-center'],
-    'Pragyanpath': ['/content', '/observations', '/skill-center'],
-  };
-
-  const disallowedPaths = disallowedPathsMap[program] || [];
-
-  if (disallowedPaths.includes(currentPage)) {
-    // Redirect to a safe/default page
-    const fallbackPath = program === 'Camp to Club' ? '/courses-contents' : '/content';
-    router.push('/unauthorized');
-    return;
-  }
-
-  const configFn = NAV_CONFIG[program];
-  const navLinks = configFn
-    ? configFn({
-        router,
-        isMobile,
-        t,
-        handleNavClick,
-        handleProfileClick,
-        handleLogoutModal,
-        setAnchorEl,
-        getLinkStyle,
-        currentPage,
-        checkAuth: checkAuth(),
-      })
-    : [];
-
-  setDefaultNavLinks(navLinks);
-}, [t, router, isMobile]);
-
+  const getMessage = () => (modalOpen ? t("COMMON.SURE_LOGOUT") : "");
   useEffect(() => {
-    let currentPage = '';
-    if (typeof window !== 'undefined') {
+    let currentPage = "";
+    if (typeof window !== "undefined") {
       const searchParams = new URLSearchParams(window.location.search);
-      const activeLink = searchParams.get('activeLink');
-      currentPage = activeLink || window.location.pathname || '';
+      const activeLink = searchParams.get("activeLink");
+      currentPage = activeLink || window.location.pathname || "";
     }
 
-    const program = localStorage.getItem('userProgram') || '';
+    const program = localStorage.getItem("userProgram") || "";
+
+    const disallowedPathsMap: Record<string, string[]> = {
+      YouthNet: ["/courses-contents"],
+      "Camp to Club": ["/content", "/observations", "/skill-center"],
+      Pragyanpath: ["/content", "/observations", "/skill-center"],
+    };
+
+    const disallowedPaths = disallowedPathsMap[program] || [];
+
+    if (disallowedPaths.includes(currentPage)) {
+      // Redirect to a safe/default page
+      const fallbackPath =
+        program === "Camp to Club" ? "/courses-contents" : "/content";
+      router.push("/unauthorized");
+      return;
+    }
+
+    const configFn = NAV_CONFIG[program];
+    const navLinks = configFn
+      ? configFn({
+          router,
+          isMobile,
+          t,
+          handleNavClick,
+          handleProfileClick,
+          handleLogoutModal,
+          setAnchorEl,
+          getLinkStyle,
+          currentPage,
+          checkAuth: checkAuth(),
+        })
+      : [];
+
+    setDefaultNavLinks(navLinks);
+  }, [t, router, isMobile]);
+
+  useEffect(() => {
+    let currentPage = "";
+    if (typeof window !== "undefined") {
+      const searchParams = new URLSearchParams(window.location.search);
+      const activeLink = searchParams.get("activeLink");
+      currentPage = activeLink || window.location.pathname || "";
+    }
+
+    const program = localStorage.getItem("userProgram") || "";
     const configFn = NAV_CONFIG[program];
 
     const navLinks = configFn
@@ -277,73 +330,76 @@ useEffect(() => {
 
   const onLanguageChange = (val: string) => setLanguage(val);
 
+  const computedHideElements =
+    onlyHideElements && onlyHideElements.length > 0
+      ? onlyHideElements
+      : ["footer"];
+
   return (
     <Layout
-      onlyHideElements={['footer']}
+      onlyHideElements={computedHideElements}
       {...props}
       _topAppBar={{
         _brand: {
-          name:
-            typeof window !== 'undefined'
-              ? localStorage.getItem('userProgram') ?? ''
-              : '',
+          name: tenantName,
+          icon: tenantIcon,
           _box: {
-            onClick: () =>
-              {
-                const tenantName = localStorage.getItem('userProgram') || '';
-                if(tenantName=== 'YouthNet') {
-          router.push('/content');
-        }
-        else if (tenantName==="Camp to Club")
-        {
-          router.push('/courses-contents');
-        }
-        else if(tenantName==="Pragyanpath")
-        {
-          router.push('/courses-contents');
-        }
-             },
+            onClick: () => {
+              const programName =
+                tenant?.name ||
+                (typeof window !== "undefined"
+                  ? localStorage.getItem("userProgram") || ""
+                  : "");
+              if (programName === "YouthNet") {
+                router.push("/content");
+              } else if (programName === "Camp to Club") {
+                router.push("/courses-contents");
+              } else if (programName === "Pragyanpath") {
+                router.push("/courses-contents");
+              }
+            },
 
             sx: {
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
               gap: 1,
             },
             _text: {
               fontWeight: 400,
-              fontSize: '22px',
-              lineHeight: '28px',
-              textAlign: 'center',
+              fontSize: "22px",
+              lineHeight: "28px",
+              textAlign: "center",
             },
           },
         },
         navLinks: defaultNavLinks,
-        _navLinkBox: { gap: 5 },
+        // Push nav links (including Profile icon) to the right side of the header
+        _navLinkBox: { gap: 5, marginLeft: "auto" },
         onLanguageChange,
         ...props?._topAppBar,
       }}
     >
       <Box>
         {children}
-        {!isMobile && (
-          <Box sx={{ marginTop: '20px' }}>
-            <ProfileMenu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={handleClose}
-              onProfileClick={handleProfileClick}
-              onLogout={handleLogoutModal}
-            />
-          </Box>
-        )}
+        {/* {!isMobile && ( */}
+        <Box sx={{ marginTop: "20px" }}>
+          <ProfileMenu
+            anchorEl={anchorEl}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+            onProfileClick={handleProfileClick}
+            onLogout={handleLogoutModal}
+          />
+        </Box>
+        {/* )} */}
       </Box>
       <ConfirmationModal
         message={getMessage()}
         handleAction={handleLogoutClick}
         buttonNames={{
-          primary: t('COMMON.LOGOUT'),
-          secondary: t('COMMON.CANCEL'),
+          primary: t("COMMON.LOGOUT"),
+          secondary: t("COMMON.CANCEL"),
         }}
         handleCloseModal={handleCloseModel}
         modalOpen={modalOpen}

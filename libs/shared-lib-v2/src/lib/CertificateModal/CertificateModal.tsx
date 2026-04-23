@@ -1,6 +1,6 @@
-'use client';
-import React, { useEffect, useState } from 'react';
-import { CheckboxProps } from '@mui/material/Checkbox';
+"use client";
+import React, { useEffect, useState } from "react";
+import { CheckboxProps } from "@mui/material/Checkbox";
 import {
   Modal,
   Box,
@@ -8,29 +8,29 @@ import {
   IconButton,
   Stack,
   Tooltip,
-} from '@mui/material';
+} from "@mui/material";
 
-import DownloadIcon from '@mui/icons-material/Download';
-import CloseIcon from '@mui/icons-material/Close';
-import ShareIcon from '@mui/icons-material/Share';
+import DownloadIcon from "@mui/icons-material/Download";
+import CloseIcon from "@mui/icons-material/Close";
+import ShareIcon from "@mui/icons-material/Share";
 import {
   downloadCertificate,
   renderCertificate,
-} from '../../utils/CertificateService/coursesCertificates';
+} from "../../utils/CertificateService/coursesCertificates";
 
 const style = {
-  position: 'absolute' as const,
-  top: '50%',
-  left: '50%',
-  transform: 'translate(-50%, -50%)',
-  width: { xs: '90vw', sm: '85vw', md: '80vw', lg: 900 },
-  maxHeight: '90vh',
-  bgcolor: 'background.paper',
+  position: "absolute" as const,
+  top: "50%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  width: { xs: "90vw", sm: "85vw", md: "80vw", lg: 900 },
+  maxHeight: "90vh",
+  bgcolor: "background.paper",
   borderRadius: 2,
   boxShadow: 24,
   p: { xs: 2, sm: 3 },
-  display: 'flex',
-  flexDirection: 'column',
+  display: "flex",
+  flexDirection: "column",
 };
 interface CommonCheckboxProps extends CheckboxProps {
   label: string;
@@ -51,26 +51,51 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
 }) => {
   // certificateId = 'did:rcw:20f5fe82-4912-401a-a33a-09b46413b9cf'; // temporaory hardcoded
   const handleCloseCertificate = async () => {};
-  const [certificateHtml, setCertificateHtml] = useState('');
+  const [certificateHtml, setCertificateHtml] = useState("");
   const [showShareOptions, setShowShareOptions] = useState(false);
-  const [certificateSite, setCertificateSite] = useState('');
-  const [deviceType, setDeviceType] = useState<'mobile' | 'desktop'>('desktop');
+  const [certificateSite, setCertificateSite] = useState("");
+  const [deviceType, setDeviceType] = useState<"mobile" | "desktop">("desktop");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchCertificate = async () => {
-      if (!certificateId) return;
+      if (!certificateId) {
+        console.log("No certificateId provided");
+        return;
+      }
 
       try {
+        setLoading(true);
+        console.log("Fetching certificate with ID:", certificateId);
+        const templateId = localStorage.getItem("templtateId") || "";
+        console.log("Using template ID:", templateId);
+
         const response = await renderCertificate({
           credentialId: certificateId,
-          templateId: localStorage.getItem('templtateId') || '',
+          templateId: templateId,
         });
+        console.log("Certificate response:", response);
         setCertificateHtml(response);
-        //setShowCertificate(true);
       } catch (e) {
-        // if (selectedRowData.courseStatus === Status.ISSUED) {
-        //   showToastMessage(t('CERTIFICATES.RENDER_CERTIFICATE_FAILED'), 'error');
-        // }
+        console.error("Error fetching certificate:", e);
+        // Show a fallback certificate if rendering fails
+        setCertificateHtml(`
+          <div style="font-family: 'Segoe UI', sans-serif; text-align: center; padding: 40px; background: linear-gradient(to bottom, #fff, #f9f9f9); border: 2px solid #0b3d91; border-radius: 12px; width: 600px; margin: auto;">
+            <h1 style="color: #0b3d91; margin-bottom: 0;">CERTIFICATE</h1>
+            <h2 style="color: #1565c0; margin-top: 5px;">OF COMPLETION</h2>
+            <p style="margin-top: 40px; font-size: 18px;">This Certificate is presented to</p>
+            <h2 style="color: #8b0000; font-family: cursive; margin: 16px 0;">Certificate Holder</h2>
+            <hr style="width: 60%; margin: 20px auto; border: 1px solid #ccc;" />
+            <p style="font-size: 14px; color: #555;">
+              for successfully completing the course requirements
+            </p>
+            <div style="margin-top: 40px;">
+              <p style="font-size: 12px; color: #666;">Certificate ID: ${certificateId}</p>
+            </div>
+          </div>
+        `);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -82,9 +107,9 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
 
     // Check for mobile or tablet in the userAgent string
     if (/mobile|android|touch|webos|iphone|ipad|ipod/i.test(userAgent)) {
-      setDeviceType('mobile');
+      setDeviceType("mobile");
     } else {
-      setDeviceType('desktop');
+      setDeviceType("desktop");
     }
   }, []);
 
@@ -95,14 +120,14 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     const dataUri = `data:text/html;charset=utf-8,${encodedHtml}`;
     setCertificateSite(dataUri);
     return (
-      <Box sx={{ width: '100%', height: '100%', display: 'flex' }}>
+      <Box sx={{ width: "100%", height: "100%", display: "flex" }}>
         <iframe
           src={dataUri}
           style={{
-            width: '100%',
-            height: '1200px',
+            width: "100%",
+            height: "1200px",
             // minHeight: '800px',
-            border: 'none',
+            border: "none",
           }}
         />
       </Box>
@@ -112,7 +137,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     try {
       const response = await renderCertificate({
         credentialId: rowData.certificateId,
-        templateId: localStorage.getItem('templtateId') || '',
+        templateId: localStorage.getItem("templtateId") || "",
       });
       // setCertificateHtml(response);
       // setShowCertificate(true);
@@ -126,18 +151,18 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     try {
       const response = await downloadCertificate({
         credentialId: certificateId,
-        templateId: localStorage.getItem('templtateId') || '',
+        templateId: localStorage.getItem("templtateId") || "",
       });
 
       if (!response) {
-        throw new Error('No response from server');
+        throw new Error("No response from server");
       }
 
-      const blob = new Blob([response], { type: 'application/pdf' });
+      const blob = new Blob([response], { type: "application/pdf" });
 
       const url = window.URL.createObjectURL(blob);
 
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
       a.download = `certificate_${certificateId}.pdf`; // Set filename
       document.body.appendChild(a);
@@ -154,18 +179,18 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
       {
         // showToastMessage(t('CERTIFICATES.RENDER_CERTIFICATE_FAILED'), 'error');
       }
-      console.error('Error downloading certificate:', e);
+      console.error("Error downloading certificate:", e);
     }
   };
   // const [open, setOpen] = useState(true);
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
   const onDownload = () => {
-    console.log('Download clicked');
+    console.log("Download clicked");
   };
 
   const onClose = () => {
-    console.log('Close clicked');
+    console.log("Close clicked");
   };
 
   // const onShare = () => {
@@ -175,18 +200,18 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     try {
       const response = await downloadCertificate({
         credentialId: certificateId,
-        templateId: localStorage.getItem('templtateId') || '',
+        templateId: localStorage.getItem("templtateId") || "",
       });
 
-      const blob = new Blob([response], { type: 'application/pdf' });
+      const blob = new Blob([response], { type: "application/pdf" });
       const file = new File([blob], `certificate_${certificateId}.pdf`, {
-        type: 'application/pdf',
+        type: "application/pdf",
       });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: 'Certificate of Completion',
-          text: 'Here is your certificate!',
+          title: "Certificate of Completion",
+          text: "Here is your certificate!",
           files: [file],
         });
       } else {
@@ -198,8 +223,8 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
         setShowShareOptions(true);
       }
     } catch (error) {
-      console.error('Sharing failed:', error);
-      alert('Unable to share certificate.');
+      console.error("Sharing failed:", error);
+      alert("Unable to share certificate.");
     }
   };
   const handleNativeShare = async () => {
@@ -207,26 +232,26 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     try {
       const response = await downloadCertificate({
         credentialId: certificateId,
-        templateId: localStorage.getItem('templtateId') || '',
+        templateId: localStorage.getItem("templtateId") || "",
       });
 
-      const blob = new Blob([response], { type: 'application/pdf' });
+      const blob = new Blob([response], { type: "application/pdf" });
       const file = new File([blob], `certificate_${certificateId}.pdf`, {
-        type: 'application/pdf',
+        type: "application/pdf",
       });
 
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: 'Certificate',
-          text: 'Here is your certificate!',
+          title: "Certificate",
+          text: "Here is your certificate!",
           files: [file],
         });
       } else {
-        alert('Your browser does not support file sharing.');
+        alert("Your browser does not support file sharing.");
       }
     } catch (error) {
-      console.error('Native sharing failed:', error);
-      alert('Unable to share.');
+      console.error("Native sharing failed:", error);
+      alert("Unable to share.");
     }
   };
   const shareViaEmail = async () => {
@@ -234,25 +259,25 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
       // Fetching the certificate PDF
       const response = await downloadCertificate({
         credentialId: certificateId,
-        templateId: localStorage.getItem('templtateId') || '',
+        templateId: localStorage.getItem("templtateId") || "",
       });
 
-      const blob = new Blob([response], { type: 'application/pdf' });
+      const blob = new Blob([response], { type: "application/pdf" });
       const file = new File([blob], `certificate_${certificateId}.pdf`, {
-        type: 'application/pdf',
+        type: "application/pdf",
       });
 
       // Create a downloadable URL for the PDF
       const fileUrl = URL.createObjectURL(file);
 
       // Generate a mailto link with the PDF link as the body
-      const subject = encodeURIComponent('Certificate of Completion');
+      const subject = encodeURIComponent("Certificate of Completion");
       const body = encodeURIComponent(`Here is your certificate: ${fileUrl}`);
 
       window.open(`mailto:?subject=${subject}&body=${body}`);
     } catch (error) {
-      console.error('Error generating certificate:', error);
-      alert('Unable to share certificate via email.');
+      console.error("Error generating certificate:", error);
+      alert("Unable to share certificate via email.");
     }
   };
 
@@ -260,7 +285,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     setShowShareOptions(false);
     const url = `https://example.com/certificate/${certificateId}`;
     await navigator.clipboard.writeText(url);
-    alert('Certificate link copied to clipboard!');
+    alert("Certificate link copied to clipboard!");
   };
 
   const handleShareWhatsApp = () => {
@@ -269,7 +294,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     const whatsappUrl = `https://wa.me/?text=Check%20this%20certificate:%20${encodeURIComponent(
       url
     )}`;
-    window.open(whatsappUrl, '_blank');
+    window.open(whatsappUrl, "_blank");
   };
 
   //   const certificateHtml = `
@@ -309,7 +334,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
         <Box
           sx={{
             ...style,
-            overflow: 'auto',
+            overflow: "auto",
             // display: 'flex',
             // flexDirection: 'column',
           }}
@@ -327,7 +352,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
                   <DownloadIcon />
                 </IconButton>
               </Tooltip>
-              {deviceType === 'mobile' && (
+              {deviceType === "mobile" && (
                 <Tooltip title="Share">
                   <IconButton onClick={onShare}>
                     <ShareIcon />
@@ -342,8 +367,34 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
             </Stack>
           </Stack>
 
-          <Box sx={{ maxHeight: '80vh', overflowY: 'auto' }}>
-            <CertificatePage htmlContent={certificateHtml} />
+          <Box sx={{ maxHeight: "80vh", overflowY: "auto" }}>
+            {loading ? (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  height: "400px",
+                }}
+              >
+                <Typography variant="h6">Loading Certificate...</Typography>
+              </Box>
+            ) : certificateHtml ? (
+              <CertificatePage htmlContent={certificateHtml} />
+            ) : (
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  height: "400px",
+                }}
+              >
+                <Typography variant="h6" color="text.secondary">
+                  Certificate not available
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Box>
       </Modal>

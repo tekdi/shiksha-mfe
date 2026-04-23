@@ -108,7 +108,6 @@ const StepperForm: React.FC<StepperFormProps> = ({
   UpdateSuccessCallback,
   editPrefilledFormData,
 }) => {
-  console.log('selectedCohortId', selectedCohortId);
   
   const [selectedChild, setSelectedChild] = useState<{
     id: string;
@@ -154,11 +153,7 @@ const StepperForm: React.FC<StepperFormProps> = ({
 
   const handleFinish = async () => {
     try {
-      console.log(formData);
-      console.log(sdbvFieldData);
-      console.log(selectedChild, 'selectedChild');
-      console.log(villages, 'villages');
-      console.log(selectedVillages);
+   
 
       const assignedObject = Object.entries(selectedVillages).map(
         ([parentId, childId]) => ({
@@ -330,8 +325,7 @@ const StepperForm: React.FC<StepperFormProps> = ({
     // const stateResult = userData.customFields.find(
     //   (item: any) => item.label === cohortHierarchy.STATE
     // );
-    console.log(Data);
-    console.log(fieldMapping);
+  
     if (role === 'mentor')
       return [
         {

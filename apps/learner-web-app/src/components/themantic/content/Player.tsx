@@ -23,10 +23,23 @@ import { fetchContent } from '@learner/utils/API/contentService';
 import BreadCrumb from '@content-mfes/components/BreadCrumb';
 import { hierarchyAPI } from '@content-mfes/services/Hierarchy';
 import { CardComponent } from './List';
+import { transformImageUrl } from '@learner/utils/imageUtils';
 
 const CourseUnitDetails = dynamic(() => import('@CourseUnitDetails'), {
   ssr: false,
 });
+const getSbPlayerBaseUrl = () => {
+  if (typeof window !== "undefined") {
+    const origin = window.location.origin.replace(/\/$/, "");
+    return `${origin}/sbplayer`;
+  }
+  const fallback = process.env.NEXT_PUBLIC_LEARNER_SBPLAYER || "";
+  if (!fallback) return "/sbplayer";
+  return fallback.endsWith("/sbplayer")
+    ? fallback
+    : `${fallback.replace(/\/$/, "")}/sbplayer`;
+};
+
 const App = ({
   userIdLocalstorageName,
   contentBaseUrl,
@@ -154,7 +167,7 @@ const App = ({
                 <Box sx={{ margin: '8px', px: 3 }}>
                   <img
                     height={'200px'}
-                    src={item?.content?.posterImage || '/images/image_ver.png'}
+                    src={transformImageUrl(item?.content?.posterImage || item?.content?.appIcon) || '/images/image_ver.png'}
                     alt={
                       item?.content?.name || item?.content?.title || 'Content'
                     }
@@ -262,7 +275,7 @@ const PlayerBox = ({
           }}
         >
           <Avatar
-            src={item?.posterImage ?? `/images/image_ver.png`}
+            src={transformImageUrl(item?.posterImage || item?.appIcon) ?? `/images/image_ver.png`}
             alt={item?.identifier}
             style={{
               height: 'calc(100vh - 235px)',
@@ -298,13 +311,17 @@ const PlayerBox = ({
               trackable: trackable,
             })}
             src={`${
-              process.env.NEXT_PUBLIC_LEARNER_SBPLAYER
+              getSbPlayerBaseUrl()
             }?identifier=${identifier}${
               courseId && unitId ? `&courseId=${courseId}&unitId=${unitId}` : ''
             }${
               userIdLocalstorageName
                 ? `&userId=${localStorage.getItem(userIdLocalstorageName)}`
                 : ''
+            }${
+              localStorage.getItem("tenantId")
+                ? `&tenantId=${localStorage.getItem("tenantId")}`
+                : ""
             }`}
             style={{
               border: 'none',
@@ -318,7 +335,9 @@ const PlayerBox = ({
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
             frameBorder="0"
             scrolling="no"
-            sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation"
+            // Allow downloads and popups (needed for player download / open-in-new-window buttons)
+            // Chrome blocks these from sandboxed iframes unless `allow-downloads` / `allow-popups` are set
+            sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation allow-downloads allow-popups"
           />
         </Box>
       )}

@@ -1,16 +1,16 @@
-import 'react-toastify/dist/ReactToastify.css';
-import POSMuiThemeProvider from '@learner/assets/theme/POSMuiThemeProvider';
-import { GlobalProvider } from '@learner/components/Provider/GlobalProvider';
-import GoogleAnalyticsTracker from '@learner/components/GoogleAnalyticsTracker/GoogleAnalyticsTracker';
+import "react-toastify/dist/ReactToastify.css";
+import POSMuiThemeProvider from "@learner/assets/theme/POSMuiThemeProvider";
+import { GlobalProvider } from "@learner/components/Provider/GlobalProvider";
+import GoogleAnalyticsTracker from "@learner/components/GoogleAnalyticsTracker/GoogleAnalyticsTracker";
 
 export const metadata = {
-  title: 'Welcome to learner-web-app',
+  title: "Welcome to ",
   description:
-    'Learner web app is a platform for users to learn and grow by consuming educational content',
+    "Shiksha-app is a platform for users to learn and grow by consuming educational content",
   openGraph: {
-    title: 'Welcome to learner-web-app',
+    title: "Welcome to",
     description:
-      'Learner web app is a platform for users to learn and grow by consuming educational content',
+      "Shiksha-app is a platform for users to learn and grow by consuming educational content",
     images: [
       {
         url: `/logo.png`,
@@ -18,7 +18,7 @@ export const metadata = {
         height: 600,
       },
     ],
-    type: 'website',
+    type: "website",
   },
 };
 

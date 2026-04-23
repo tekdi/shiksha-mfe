@@ -1,13 +1,14 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { Box, Typography, Grid } from '@mui/material';
-import Image from 'next/image';
-import welcomeGIF from '../../../public/images/welcome.gif';
-import playstoreIcon from '../../../public/images/playstore.png';
-import prathamQRCode from '../../../public/images/prathamQR.png';
-import { useTranslation } from '@shared-lib';
-import { useRouter } from 'next/navigation';
+import React from "react";
+import { Box, Typography, Grid } from "@mui/material";
+import Image from "next/image";
+// import welcomeGIF from "../../../public/images/welcome.gif";
+import welcomeGIF from "../../../public/logo.png";
+import playstoreIcon from "../../../public/images/playstore.png";
+import prathamQRCode from "../../../public/images/prathamQR.png";
+import { useTranslation } from "@shared-lib";
+import { useRouter } from "next/navigation";
 
 const WelcomeScreen = () => {
   const { t } = useTranslation();
@@ -15,7 +16,7 @@ const WelcomeScreen = () => {
 
   return (
     <Box
-      minHeight="100vh"
+   
       display="flex"
       flexDirection="column"
       alignItems="center"
@@ -23,15 +24,15 @@ const WelcomeScreen = () => {
       px={2}
       textAlign="center"
       sx={{
-        minHeight: { xs: 'auto', sm: '100vh' },
+        minHeight: { xs: "auto", sm: "100vh" },
       }}
     >
       <Image
         src={welcomeGIF}
-        alt={t('LEARNER_APP.LOGIN.welcome_image_alt')}
-        width={60}
-        height={60}
-        style={{ marginBottom: '16px' }}
+        alt={t("LEARNER_APP.LOGIN.welcome_image_alt")}
+        width={120}
+        height={120}
+        style={{ marginBottom: "24px" }}
       />
 
       <Typography
@@ -39,21 +40,21 @@ const WelcomeScreen = () => {
         component="h2"
         fontWeight={400}
         textAlign="center"
-        sx={{ verticalAlign: 'middle' }}
+        sx={{ verticalAlign: "middle" }}
       >
-        {t('LEARNER_APP.LOGIN.welcome_title')}
+        {t("LEARNER_APP.LOGIN.welcome_title")}
       </Typography>
       <Typography
         variant="h1"
         fontWeight={400}
         textAlign="center"
-        sx={{ verticalAlign: 'middle' }}
+        sx={{ verticalAlign: "middle" }}
         mb={4}
       >
-        {t('LEARNER_APP.LOGIN.welcome_subtitle')}
+        {t("LEARNER_APP.LOGIN.welcome_subtitle")}
       </Typography>
 
-      <Grid
+      {/* <Grid
         container
         alignItems="center"
         justifyContent="center"
@@ -149,7 +150,7 @@ const WelcomeScreen = () => {
             </Box>
           </Box>
         </Grid>
-      </Grid>
+      </Grid> */}
     </Box>
   );
 };

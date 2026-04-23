@@ -15,6 +15,7 @@ const SunbirdPdfPlayer = ({
   relatedData: { courseId, unitId, userId },
   configFunctionality,
 }: PlayerConfigProps) => {
+  
   const sunbirdPdfPlayerRef = useRef<HTMLIFrameElement | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [bottom, setBottom] = useState(10);
@@ -60,7 +61,7 @@ const SunbirdPdfPlayer = ({
             pdfElement.addEventListener(
               'telemetryEvent',
               async (event: any) => {
-                console.log('On telemetryEvent', event);
+              
                 try {
                   await getTelemetryEvents(event.detail, 'pdf', {
                     courseId,

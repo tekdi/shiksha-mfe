@@ -3,17 +3,23 @@ import { Dialog, DialogContent, DialogTitle, IconButton } from '@mui/material';
 import { FilterForm } from '@shared-lib';
 import React from 'react';
 
+interface FilterDialogProps {
+  open: boolean;
+  onClose: () => void;
+  onApply?: (data: any) => void;
+  filterValues: any;
+  filterFramework?: any;
+  staticFilter?: any;
+}
+
 const FilterDialog = ({
   open,
   onClose,
   onApply,
   filterValues,
-}: {
-  open: boolean;
-  onClose: () => void;
-  onApply?: (data: any) => void;
-  filterValues: any;
-}) => {
+  filterFramework,
+  staticFilter,
+}: FilterDialogProps) => {
   const handleFilterChange = (data: any) => {
     onApply?.(data);
   };

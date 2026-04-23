@@ -11,6 +11,7 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useTranslation } from '@shared-lib';
 import { showToastMessage } from '../ToastComponent/Toastify';
+import { useTenant } from '@learner/context/TenantContext';
 
 interface ResetPasswordFormProps {
   onResetPassword: (
@@ -26,6 +27,9 @@ const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
   onForgotPassword,
 }) => {
   const { t } = useTranslation();
+  const { contentFilter } = useTenant();
+  const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#000000";
+  const primaryColor = contentFilter?.theme?.primaryColor || "#FFC107";
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -187,11 +191,12 @@ const ResetPasswordForm: React.FC<ResetPasswordFormProps> = ({
         onClick={handleSubmit}
         disabled={!(allValid && confirmPassword)}
         sx={{
-          backgroundColor: '#FFC107',
-          color: '#000',
+          backgroundColor: primaryColor,
+          color: buttonTextColor,
           fontWeight: 'bold',
           '&:hover': {
-            backgroundColor: '#FFB300',
+            backgroundColor: primaryColor,
+            opacity: 0.9,
           },
           mb: 2,
         }}

@@ -1,20 +1,22 @@
-import { ContentCreate } from '../utils/Interface';
-import { URL_CONFIG } from '../utils/url.config';
-import axios from 'axios';
-import { v4 as uuidv4 } from 'uuid';
+import { log } from "console";
+import { ContentCreate } from "../utils/Interface";
+import { URL_CONFIG } from "../utils/url.config";
+import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
+
 export const fetchContent = async (identifier: any) => {
   try {
     const API_URL = `${URL_CONFIG.API.CONTENT_READ}${identifier}`;
     const FIELDS = URL_CONFIG.PARAMS.CONTENT_GET;
     const LICENSE_DETAILS = URL_CONFIG.PARAMS.LICENSE_DETAILS;
-    const MODE = 'edit';
+    const MODE = "edit";
     const response = await axios.get(
       `${API_URL}?fields=${FIELDS}&mode=${MODE}&licenseDetails=${LICENSE_DETAILS}`
     );
 
     return response?.data?.result?.content;
   } catch (error) {
-    console.error('Error fetching content:', error);
+    console.error("Error fetching content:", error);
     throw error;
   }
 };
@@ -27,18 +29,18 @@ export const fetchBulkContents = async (identifiers: string[]) => {
           identifier: identifiers,
         },
         fields: [
-          'name',
-          'appIcon',
-          'medium',
-          'subject',
-          'resourceType',
-          'contentType',
-          'organisation',
-          'topic',
-          'mimeType',
-          'trackable',
-          'gradeLevel',
-          'leafNodes',
+          "name",
+          "appIcon",
+          "medium",
+          "subject",
+          "resourceType",
+          "contentType",
+          "organisation",
+          "topic",
+          "mimeType",
+          "trackable",
+          "gradeLevel",
+          "leafNodes",
         ],
       },
     };
@@ -51,10 +53,10 @@ export const fetchBulkContents = async (identifiers: string[]) => {
         : [...result.QuestionSet];
       result.content = contents;
     }
-
+    console.log("Bulk contents fetched:", result.content);
     return result.content;
   } catch (error) {
-    console.error('Error fetching content:', error);
+    console.error("Error fetching content:", error);
     throw error;
   }
 };
@@ -66,7 +68,7 @@ export const getHierarchy = async (identifier: any) => {
 
     return response?.data?.result?.content || response?.data?.result;
   } catch (error) {
-    console.error('Error fetching content:', error);
+    console.error("Error fetching content:", error);
     throw error;
   }
 };
@@ -79,18 +81,47 @@ export const getQumlData = async (identifier: any) => {
 
     return response?.data?.result?.content || response?.data?.result;
   } catch (error) {
-    console.error('Error fetching content:', error);
+    console.error("Error fetching content:", error);
     throw error;
   }
 };
 
 export const createContentTracking = async (reqBody: ContentCreate) => {
+  console.log("reqBody player service", reqBody);
   const apiUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/content/create`;
+  
   try {
-    const response = await axios.post(apiUrl, reqBody);
+    // Validate required fields
+    const requiredFields = [
+      "userId",
+      "contentId",
+      "courseId",
+      "unitId",
+      "contentType",
+      "contentMime",
+      "lastAccessOn",
+      "detailsObject",
+    ];
+    const missingFields = requiredFields.filter(
+      (field) => !reqBody[field as keyof ContentCreate]
+    );
+
+    if (missingFields.length > 0) {
+      throw new Error(`Missing required fields: ${missingFields.join(", ")}`);
+    }
+
+    const response = await axios.post(apiUrl, reqBody, {
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        tenantId: localStorage.getItem("tenantId")
+      },
+      timeout: 10000, // 10 second timeout
+    });
+
     return response?.data;
-  } catch (error) {
-    console.log(error);
+  } catch (error: any) {
+    console.error("🔍 Full Error:", error);
     throw error;
   }
 };
@@ -105,11 +136,11 @@ export const createAssessmentTracking = async ({
   seconds,
 }: any) => {
   try {
-    let userId = '';
+    let userId = "";
     if (propUserId) {
       userId = propUserId;
-    } else if (typeof window !== 'undefined' && window.localStorage) {
-      userId = localStorage.getItem('userId') ?? '';
+    } else if (typeof window !== "undefined" && window.localStorage) {
+      userId = localStorage.getItem("userId") ?? "";
     }
     const attemptId = uuidv4();
     let totalScore = 0;
@@ -124,11 +155,11 @@ export const createAssessmentTracking = async ({
         return sectionTotal + sectionScore;
       }, 0);
     } else {
-      console.error('Parsed scoreDetails is not an array');
-      throw new Error('Invalid scoreDetails format');
+      console.error("Parsed scoreDetails is not an array");
+      throw new Error("Invalid scoreDetails format");
     }
     const lastAttemptedOn = new Date().toISOString();
-    if (userId !== undefined || userId !== '') {
+    if (userId !== undefined || userId !== "") {
       const data: any = {
         userId: userId,
         contentId: identifierWithoutImg,
@@ -144,11 +175,11 @@ export const createAssessmentTracking = async ({
       const apiUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/assessment/create`;
 
       const response = await axios.post(apiUrl, data);
-      console.log('Assessment tracking created:', response.data);
+      console.log("Assessment tracking created:", response.data);
       return response.data;
     }
   } catch (error) {
-    console.error('Error in contentWithTelemetryData:', error);
+    console.error("Error in contentWithTelemetryData:", error);
   }
 };
 
@@ -168,22 +199,23 @@ export const updateCOurseAndIssueCertificate = async ({
     courseId: [course?.identifier],
     userId: [userId],
   };
-
+  console.log("data 198", data);
   try {
     const response = await axios.post(apiUrl, data);
+    console.log("Course status updated:", response.data);
     const courseStatus = calculateCourseStatus({
       statusData: response?.data?.data?.[0]?.course?.[0],
-      allCourseIds: course.leafNodes ?? [],
+      allCourseIds: course?.leafNodes ?? [],
       courseId: course?.identifier,
     });
 
-    if (courseStatus?.status === 'in progress') {
+    if (courseStatus?.status === "in progress") {
       updateUserCourseStatus({
         userId,
         courseId: course?.identifier,
-        status: 'inprogress',
+        status: "inprogress",
       });
-    } else if (courseStatus?.status === 'completed' && isGenerateCertificate) {
+    } else if (courseStatus?.status === "completed" && isGenerateCertificate) {
       const userResponse: any = await getUserId();
       await issueCertificate({
         userId: userId,
@@ -194,20 +226,20 @@ export const updateCOurseAndIssueCertificate = async ({
           new Date().setFullYear(new Date().getFullYear() + 20)
         ).toISOString(),
         // credentialId: data?.result?.usercertificateId,
-        firstName: userResponse?.firstName ?? '',
-        middleName: userResponse?.middleName ?? '',
-        lastName: userResponse?.lastName ?? '',
-        courseName: course?.name ?? '',
+        firstName: userResponse?.firstName ?? "",
+        middleName: userResponse?.middleName ?? "",
+        lastName: userResponse?.lastName ?? "",
+        courseName: course?.name ?? "",
       });
     } else {
       updateUserCourseStatus({
         userId,
         courseId: course?.identifier,
-        status: 'completed',
+        status: "completed",
       });
     }
   } catch (error) {
-    console.error('Error in updateCOurseAndIssueCertificate:', error);
+    console.error("Error in updateCOurseAndIssueCertificate:", error);
     throw error;
   }
 };
@@ -240,12 +272,12 @@ export function calculateCourseStatus({
   }
 
   const total = allCourseIds.length;
-  let status = 'not started';
+  let status = "not started";
 
   if (completedCount === total && total > 0) {
-    status = 'completed';
+    status = "completed";
   } else if (completedCount > 0 || inProgressCount > 0) {
-    status = 'in progress';
+    status = "in progress";
   }
 
   const percentage = total > 0 ? Math.round((completedCount / total) * 100) : 0;
@@ -271,6 +303,18 @@ export const updateUserCourseStatus = async ({
   status: string;
 }) => {
   const apiUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/user_certificate/status/update`;
+
+  // Get tenantId safely
+  const tenantId = localStorage.getItem("tenantId");
+
+  if (!tenantId) {
+    console.error("tenantId is missing from localStorage");
+    throw new Error("Tenant ID is required");
+  }
+
+  console.log("apiUrl", apiUrl);
+  console.log("Request payload:", { userId, courseId, status, tenantId });
+
   try {
     const response = await axios.post(
       apiUrl,
@@ -281,13 +325,21 @@ export const updateUserCourseStatus = async ({
       },
       {
         headers: {
-          tenantId: localStorage.getItem('tenantId'),
+          tenantId: tenantId,
         },
       }
     );
     return response?.data?.result;
   } catch (error) {
-    console.error('error in updating user course status', error);
+    console.error("Error in updating user course status:", error);
+
+    // Enhanced error logging
+    if (axios.isAxiosError(error)) {
+      console.error("Response data:", error.response?.data);
+      console.error("Response status:", error.response?.status);
+      console.error("Response headers:", error.response?.headers);
+    }
+
     throw error;
   }
 };
@@ -297,7 +349,7 @@ export const issueCertificate = async (reqBody: any) => {
   try {
     const response = await axios.post(apiUrl, reqBody, {
       headers: {
-        tenantId: localStorage.getItem('tenantId'),
+        tenantId: localStorage.getItem("tenantId"),
       },
     });
     return response?.data;
@@ -311,9 +363,9 @@ export const getUserId = async (): Promise<any> => {
   const apiUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/user/auth`;
 
   try {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem("token");
     if (!token) {
-      throw new Error('Authorization token not found');
+      throw new Error("Authorization token not found");
     }
 
     const response = await axios.get(apiUrl, {
@@ -324,7 +376,7 @@ export const getUserId = async (): Promise<any> => {
 
     return response?.data?.result;
   } catch (error) {
-    console.error('Error in fetching user details', error);
+    console.error("Error in fetching user details", error);
     throw error;
   }
 };

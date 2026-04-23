@@ -52,19 +52,16 @@ const CertificatesPage = () => {
               <CommonCard
                 minheight="100%"
                 title={(item?.name || '').trim()}
-                image={
-                  item?.posterImage && item?.posterImage !== 'undefined'
-                    ? item?.posterImage
-                    : `${AppConst.BASEPATH}/assests/images/image_ver.png`
-                }
+                image={item?.posterImage && item?.posterImage !== 'undefined'
+                  ? item?.posterImage
+                  : `${AppConst.BASEPATH}/assests/images/image_ver.png`}
                 content={item?.description || '-'}
                 actions={item?.contentType}
                 // subheader={item?.contentType}
                 orientation="horizontal"
                 item={item}
                 TrackData={[]}
-                type={'Course'}
-                // onClick={() => handleCardClick(item)}
+                type={'Course'} description={undefined}                // onClick={() => handleCardClick(item)}
               />
             </Grid>
           ))}

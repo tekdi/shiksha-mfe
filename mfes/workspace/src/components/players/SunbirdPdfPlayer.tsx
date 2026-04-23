@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
+/* eslint-disable @nx/enforce-module-boundaries */
 import "reflect-metadata";
 import React, { useEffect } from "react";
 import { useRef } from "react";
@@ -58,7 +60,7 @@ const SunbirdPdfPlayer = ({ playerConfig }: PlayerConfigProps) => {
   }, []);
 
   return (
-    <div className="player-grid" style={{ height: '100vh' }}>
+    <div className="player-grid">
       {/* @ts-ignore */}
       <sunbird-pdf-player
         player-config={JSON.stringify(playerConfig)}

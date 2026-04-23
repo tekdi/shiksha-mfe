@@ -26,6 +26,7 @@
       "@ContentEnrollDetails": [
         "mfes/content/src/components/Content/ContentEnroll.tsx"
       ],
+      "@teacher/*": ["mfes/scp-teacher-repo/src/*"],
       "@CourseUnitDetails": [
         "mfes/content/src/components/Content/CourseUnitDetails.tsx"
       ],

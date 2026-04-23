@@ -15,7 +15,7 @@ export const API_ENDPOINTS = {
     `${baseurl}/form/read?context=${context}&contextType=${contextType}`,
   issueCertificate: `${baseurl}/tracking/certificate/issue`,
   renderCertificate: `${baseurl}/tracking/certificate/render`,
-  downloadCertificate: `${baseurl}/tracking/certificate/render-PDF`,
+  downloadCertificate: `${baseurl}/tracking/certificate/render`,
   userCheck: `${baseurl}/user/check`,
   sendOTP: `${baseurl}/user/send-otp`,
   verifyOTP: `${baseurl}/user/verify-otp`,

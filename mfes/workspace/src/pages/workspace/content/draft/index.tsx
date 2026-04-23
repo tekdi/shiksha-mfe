@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Layout from '../../../../components/Layout';
 import {
@@ -42,12 +43,6 @@ const columns = [
     width: '200px',
   },
   {
-    key: 'language',
-    title: 'Content Language',
-    dataType: DataType.String,
-    width: '200px',
-  },
-  {
     key: 'lastUpdatedOn',
     title: 'LAST MODIFIED',
     dataType: DataType.String,
@@ -56,35 +51,20 @@ const columns = [
   { key: 'action', title: 'ACTION', dataType: DataType.String, width: '100px' },
 ];
 const DraftPage = () => {
-  const tenantConfig = useTenantConfig();
+  const { tenantConfig, isLoading, error } = useTenantConfig();
   const [selectedKey, setSelectedKey] = useState('draft');
   const router = useRouter();
   const [showHeader, setShowHeader] = useState<boolean | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
   const [searchTerm, setSearchTerm] = useState('');
-  // const filterOption: string[] = router.query.filterOptions
-  //   ? JSON.parse(router.query.filterOptions as string)
-  //   : [];
-  const { filterOptions, sort } = router.query;
-
-  const [filter, setFilter] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (typeof filterOptions === 'string') {
-      try {
-        const parsed = JSON.parse(filterOptions);
-        setFilter(parsed);
-      } catch (error) {
-        console.error('Failed to parse filterOptions:', error);
-      }
-    }
-  }, [filterOptions]); // Update filter when router query changes
-
-  const [sortBy, setSortBy] = useState('');
-  useEffect(() => {
-    setSortBy(sort?.toString() || 'Modified On');
-  }, [sort]);
+  const filterOption: string[] = router.query.filterOptions
+    ? JSON.parse(router.query.filterOptions as string)
+    : [];
+  const [filter, setFilter] = useState<string[]>(filterOption);
+  const sort: string =
+    typeof router.query.sort === 'string' ? router.query.sort : 'Modified On';
+  const [sortBy, setSortBy] = useState(sort);
   const [contentList, setContentList] = React.useState([]);
   const [contentDeleted, setContentDeleted] = React.useState(false);
   const [loading, setLoading] = useState(false);
@@ -113,18 +93,24 @@ const DraftPage = () => {
 
   useEffect(() => {
     const filteredArray = contentList.map((item: any) => ({
-      image: item?.appIcon,
-
-      name: item?.name,
-      description: item?.description,
-
+      image: item?.appIcon || item?.posterImage || item?.appicon,
       contentType: item.primaryCategory,
-      language: item.contentLanguage ? item.contentLanguage : item.language,
+      name: item.name,
+      primaryCategory: item.primaryCategory,
       lastUpdatedOn: timeAgo(item.lastUpdatedOn),
       status: item.status,
       identifier: item.identifier,
       mimeType: item.mimeType,
       mode: item.mode,
+      creator: item.creator,
+      description: item?.description,
+      state: item?.state,
+      author: item.author,
+      access: item.access,
+      url: item.url,
+      posterImage: item.posterImage,
+      appicon: item.appicon,
+      resource: item.resource,
     }));
     setData(filteredArray);
     console.log(filteredArray);

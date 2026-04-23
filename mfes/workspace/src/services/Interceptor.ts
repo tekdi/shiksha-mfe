@@ -1,19 +1,22 @@
 import axios from 'axios';
+import Cookies from 'js-cookie';
 import { refresh } from './LoginService';
 import TenantService from './TenantService';
 
-const instance = axios.create();
+const instance = axios.create({
+  baseURL: typeof window !== 'undefined' ? window.location.origin : '',
+});
 
 const refreshToken = async () => {
-  const refresh_token = localStorage.getItem('refreshToken');
-  if (refresh_token !== '' && refresh_token !== null) {
+  const refresh_token = Cookies.get('refreshToken');
+  if (refresh_token && refresh_token !== '') {
     try {
       const response = await refresh({ refresh_token });
       if (response) {
         const accessToken = response?.result?.access_token;
         const newRefreshToken = response?.result?.refresh_token;
-        localStorage.setItem('token', accessToken);
-        localStorage.setItem('refreshToken', newRefreshToken);
+        Cookies.set('token', accessToken, { expires: 7 });
+        Cookies.set('refreshToken', newRefreshToken, { expires: 7 });
         return accessToken;
       }
     } catch (error) {
@@ -25,13 +28,20 @@ const refreshToken = async () => {
 
 instance.interceptors.request.use(
   (config) => {
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const token = localStorage.getItem('token');
+    if (typeof window !== 'undefined') {
+      const token = Cookies.get('token');
       if (token && config.url && !config.url.endsWith('user/v1/auth/login')) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+       const academicYearId = localStorage.getItem("academicYearId");
+      if (academicYearId) {
+        config.headers.academicyearid = academicYearId;
+      }
     }
-    config.headers.tenantid = TenantService.getTenantId();
+    // Only set tenant ID on client side
+    if (typeof window !== 'undefined') {
+      config.headers.tenantid = TenantService.getTenantId();
+    }
     return config;
   },
   (error) => {

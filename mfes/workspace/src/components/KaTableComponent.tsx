@@ -1,27 +1,72 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @next/next/no-img-element */
+/* eslint-disable @nx/enforce-module-boundaries */
 import React, { useState } from 'react';
 import { Table as KaTable } from 'ka-table';
 import { DataType, EditingMode, SortingMode } from 'ka-table/enums';
-import {
-  Typography,
-  useTheme,
-  IconButton,
-  Box,
-  Grid,
-  Tooltip,
-} from '@mui/material';
+import { Typography, useTheme, IconButton, Box, Grid } from '@mui/material';
 import UpReviewTinyImage from '@mui/icons-material/LibraryBooks';
 import 'ka-table/style.css';
 import DeleteIcon from '@mui/icons-material/Delete';
 import router from 'next/router';
-import { MIME_TYPE } from '../utils/app.config';
+import { MIME_TYPE } from '@workspace/utils/app.config';
 import Image from 'next/image';
 import ActionIcon from './ActionIcon';
 import { Padding } from '@mui/icons-material';
-import QrCode2Icon from '@mui/icons-material/QrCode2';
-import QrModal from './QrModal';
-import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import Checkbox from '@mui/material/Checkbox';
+import Cookies from 'js-cookie';
 
+// Utility function to transform image URL from Azure blob to AWS S3
+const transformImageUrl = (imageUrl: string): string => {
+  if (!imageUrl) return '/logo.png';
+
+  if (imageUrl.includes('https://sunbirdsaaspublic.blob.core.windows.net')) {
+    // Handle double domain pattern
+    if (
+      imageUrl.includes(
+        'https://sunbirdsaaspublic.blob.core.windows.net/https://sunbirdsaaspublic.blob.core.windows.net'
+      )
+    ) {
+      // Extract everything after the second domain
+      const urlParts = imageUrl.split(
+        'https://sunbirdsaaspublic.blob.core.windows.net/https://sunbirdsaaspublic.blob.core.windows.net/'
+      );
+      if (urlParts.length > 1) {
+        const pathAfterSecondDomain = urlParts[1];
+        // Remove any existing content/content prefix to avoid duplication
+        let cleanPath = pathAfterSecondDomain.replace(
+          /^content\/content\//,
+          ''
+        );
+        // Remove sunbird-content-prod/schemas/content/ if present
+        cleanPath = cleanPath.replace(
+          /^sunbird-content-prod\/schemas\/content\//,
+          ''
+        );
+        // Transform to AWS S3 URL with content/content prefix
+        return `https://s3.ap-south-1.amazonaws.com/saas-prod/content/content/${cleanPath}`;
+      }
+    } else {
+      // Handle single domain pattern
+      const urlParts = imageUrl.split(
+        'https://sunbirdsaaspublic.blob.core.windows.net/'
+      );
+      if (urlParts.length > 1) {
+        const pathAfterDomain = urlParts[1];
+        // Remove any existing content/content prefix to avoid duplication
+        let cleanPath = pathAfterDomain.replace(/^content\/content\//, '');
+        // Remove sunbird-content-prod/schemas/content/ if present
+        cleanPath = cleanPath.replace(
+          /^sunbird-content-prod\/schemas\/content\//,
+          ''
+        );
+        // Transform to AWS S3 URL with content/content prefix
+        return `https://s3.ap-south-1.amazonaws.com/saas-prod/content/content/${cleanPath}`;
+      }
+    }
+  }
+
+  return imageUrl;
+};
 interface CustomTableProps {
   data: any[]; // Define a more specific type for your data if needed
   columns: Array<{
@@ -31,44 +76,35 @@ interface CustomTableProps {
   }>;
   handleDelete?: any;
   tableTitle?: string;
-  showQrCodeButton?: boolean;
-  selectable?: boolean;
-  selected?: string[];
-  onSelect?: (id: string) => void;
 }
 
 const KaTableComponent: React.FC<CustomTableProps> = ({
   data,
   columns,
   tableTitle,
-  showQrCodeButton = false,
-  selectable = false,
-  selected = [],
-  onSelect,
 }) => {
   const theme = useTheme<any>();
   const [open, setOpen] = useState(false);
-  const [openQrCodeModal, setOpenQrCodeModal] = useState(false);
-  const [selectedQrValue, setSelectedQrValue] = useState<string>('');
+
+  // Ensure data has unique identifiers for React keys
+  const processedData = data?.map((item: any, index: number) => ({
+    ...item,
+    // Ensure each item has a unique identifier for React keys
+    identifier: item.identifier || item.id || `row-${index}`,
+  })) || [];
 
   const handleClose = () => {
     setOpen(false);
   };
   const handleOpen = () => setOpen(true);
-  const handleOpenQrModal = (qrValue: string) => {
-    setSelectedQrValue(qrValue);
-    setOpenQrCodeModal(true);
-  };
 
   const openEditor = (content: any) => {
-    console.log('content', content);
     const identifier = content?.identifier;
     let mode = content?.mode; // default mode from content, can be overwritten by tableTitle
-
     switch (tableTitle) {
       case 'draft':
         mode = !mode ? 'edit' : mode;
-        localStorage.setItem('contentMode', mode);
+        Cookies.set('contentMode', mode);
 
         // Use draft-specific routing
         if (content?.mimeType === MIME_TYPE.QUESTIONSET_MIME_TYPE) {
@@ -84,6 +120,12 @@ const KaTableComponent: React.FC<CustomTableProps> = ({
           MIME_TYPE.COLLECTION_MIME_TYPE.includes(content?.mimeType)
         ) {
           router.push({ pathname: `/collection`, query: { identifier } });
+        } else if (
+          content?.mimeType &&
+          MIME_TYPE.ECML_MIME_TYPE.includes(content?.mimeType) &&
+          mode !== 'review'
+        ) {
+          router.push({ pathname: `/resource-editor`, query: { identifier } });
         }
         return; // Exit early since draft has specific routing logic
 
@@ -109,9 +151,8 @@ const KaTableComponent: React.FC<CustomTableProps> = ({
         break;
     }
 
-    // Save mode in localStorage
-    localStorage.setItem('contentMode', mode);
-
+    // Save mode in cookies
+    Cookies.set('contentMode', mode);
     // Generic routing for cases other than 'draft'
     if (content?.mimeType === MIME_TYPE.QUESTIONSET_MIME_TYPE) {
       router.push({ pathname: `/editor`, query: { identifier } });
@@ -153,8 +194,7 @@ const KaTableComponent: React.FC<CustomTableProps> = ({
       content?.mimeType &&
       MIME_TYPE.GENERIC_MIME_TYPE.includes(content?.mimeType)
     ) {
-      localStorage.setItem('contentCreatedBy', content?.createdBy);
-      console.log(content);
+      Cookies.set('contentCreatedBy', content?.createdBy);
       const pathname =
         tableTitle === 'upForReview'
           ? `/workspace/content/review`
@@ -162,54 +202,31 @@ const KaTableComponent: React.FC<CustomTableProps> = ({
       router.push({ pathname, query: { identifier } });
     } else if (
       content?.mimeType &&
+      MIME_TYPE.ECML_MIME_TYPE.includes(content?.mimeType)
+    ) {
+      Cookies.set('contentCreatedBy', content?.createdBy);
+      const pathname =
+        tableTitle === 'upForReview'
+          ? `/workspace/content/review`
+          : `/resource-editor`;
+      router.push({ pathname, query: { identifier } });
+      // router.push({ pathname: `/resource-editor`, query: { identifier } });
+    } else if (
+      content?.mimeType &&
       MIME_TYPE.COLLECTION_MIME_TYPE.includes(content?.mimeType)
     ) {
       router.push({ pathname: `/collection`, query: { identifier } });
     }
   };
-
   return (
     <>
       <KaTable
-        columns={
-          selectable
-            ? [
-                {
-                  key: '__select__',
-                  title: '',
-                  dataType: DataType.Boolean,
-                  style: { width: 40 },
-                },
-                ...columns,
-              ]
-            : columns
-        }
-        data={data}
+        columns={columns}
+        data={processedData}
+        // editingMode={EditingMode.Cell}
         rowKeyField={'identifier'}
         sortingMode={SortingMode.Single}
         childComponents={{
-          cell: selectable
-            ? {
-                content: (props) => {
-                  if (props.column.key === '__select__') {
-                    return (
-                      <Checkbox
-                        checked={selected.includes(props.rowData.identifier)}
-                        disabled={
-                          !selected.includes(props.rowData.identifier) &&
-                          selected.length >= 3
-                        }
-                        onChange={() =>
-                          onSelect && onSelect(props.rowData.identifier)
-                        }
-                        size="small"
-                      />
-                    );
-                  }
-                  return undefined;
-                },
-              }
-            : undefined,
           cellText: {
             content: (props) => {
               if (
@@ -217,108 +234,133 @@ const KaTableComponent: React.FC<CustomTableProps> = ({
                 props.column.key === 'title_and_description'
               ) {
                 return (
-                  <Tooltip
-                    title={
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {props.rowData.name}
-                        </Typography>
-                      </Box>
-                    }
-                    arrow
-                    placement="top"
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => openEditor(props.rowData)}
                   >
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        cursor: selectable ? 'default' : 'pointer',
-                      }}
-                      onClick={() => !selectable && openEditor(props.rowData)}
-                    >
-                      <Grid container alignItems="center" spacing={1}>
-                        <Grid item xs={3} md={3} lg={3} xl={2}>
-                          {props.rowData.image ? (
-                            <Box
+                    <Grid container alignItems="center" spacing={1}>
+                      <Grid item xs={3} md={3} lg={3} xl={2}>
+                        {props.rowData.image ? (
+                          <Box
+                            style={{
+                              width: '60px',
+                              height: '40px',
+                              padding: '10px',
+                              borderRadius: '8px',
+                              overflow: 'hidden',
+                              // background: '#F1E6D6'
+                            }}
+                          >
+                            <img
+                              src={transformImageUrl(props.rowData.image)}
+                              alt="Image"
                               style={{
-                                width: '60px',
-                                height: '40px',
-                                padding: '10px',
+                                maxWidth: '100%',
+                                height: 'auto%',
+                                objectFit: 'cover',
                                 borderRadius: '8px',
-                                overflow: 'hidden',
                               }}
-                            >
-                              <img
-                                src={props.rowData.image || '/logo.png'}
-                                alt="Image"
-                                style={{
-                                  maxWidth: '100%',
-                                  height: 'auto%',
-                                  objectFit: 'cover',
-                                  borderRadius: '8px',
-                                }}
-                              />
-                            </Box>
-                          ) : (
-                            <Box
+                              onError={(e) => {
+                                e.currentTarget.src = '/logo.png';
+                              }}
+                              onLoad={() => {}}
+                            />
+                          </Box>
+                        ) : props.column.key === 'name' ? (
+                          <Box
+                            style={{
+                              width: '60px',
+                              height: '40px',
+                              padding: '10px',
+                              borderRadius: '8px',
+
+                              overflow: 'hidden',
+                              // background: '#F1E6D6'
+                            }}
+                          >
+                            <img
+                              src={'/logo.png'}
+                              height="25px"
+                              alt="Image"
                               style={{
-                                width: '60px',
-                                height: '40px',
-                                padding: '10px',
+                                maxWidth: '100%',
+                                height: 'auto%',
+                                objectFit: 'cover',
                                 borderRadius: '8px',
-                                overflow: 'hidden',
                               }}
-                            >
-                              <img
-                                src={'/logo.png'}
-                                height="25px"
-                                alt="Image"
-                                style={{
-                                  maxWidth: '100%',
-                                  height: 'auto%',
-                                  objectFit: 'cover',
-                                  borderRadius: '8px',
-                                }}
-                              />
-                            </Box>
-                          )}
-                        </Grid>
-                        <Grid item xs={9} md={9} lg={9} xl={10}>
-                          <div>
-                            <div>
-                              <Typography
-                                variant="body1"
-                                sx={{
-                                  fontWeight: 500,
-                                  color: '#1F1B13',
-                                  fontSize: '14px',
-                                }}
-                                className="one-line-text"
-                              >
-                                {props.rowData.name}
-                              </Typography>
-                            </div>
-                            <div>
-                              <Typography
-                                variant="body2"
-                                sx={{
-                                  fontWeight: 400,
-                                  color: '#635E57',
-                                  fontSize: '12px',
-                                }}
-                                className="two-line-text"
-                                color={theme.palette.warning['A200']}
-                              >
-                                {props.column.key === 'name'
-                                  ? props.rowData.primaryCategory
-                                  : props.rowData.description}
-                              </Typography>
-                            </div>
-                          </div>
-                        </Grid>
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </Box>
+                        ) : (
+                          <Box
+                            style={{
+                              width: '60px',
+                              height: '40px',
+                              padding: '10px', // Fixed casing
+                              borderRadius: '8px',
+
+                              overflow: 'hidden', // Ensures content doesn't overflow the box
+                              // background: '#F1E6D6'
+                            }}
+                          >
+                            <img
+                              src={'/logo.png'}
+                              height="25px"
+                              alt="Image"
+                              style={{
+                                maxWidth: '100%',
+                                height: 'auto',
+                                objectFit: 'cover',
+                                borderRadius: '8px',
+                              }}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          </Box>
+                        )}
                       </Grid>
-                    </div>
-                  </Tooltip>
+                      <Grid item xs={9} md={9} lg={9} xl={10}>
+                        <div>
+                          <div>
+                            <Typography
+                              variant="body1"
+                              sx={{
+                                fontWeight: 500,
+                                color: '#1F1B13',
+                                fontSize: '14px',
+                              }}
+                              className="one-line-text"
+                            >
+                              {props.rowData.name}
+                            </Typography>
+                          </div>
+                          <div>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: 400,
+                                color: '#635E57',
+                                fontSize: '12px',
+                              }}
+                              className="two-line-text"
+                              color={theme.palette.warning['A200']}
+                            >
+                              {props.column.key === 'name'
+                                ? props.rowData.primaryCategory
+                                : props.rowData.description}
+                            </Typography>
+                          </div>
+                        </div>
+                      </Grid>
+                    </Grid>
+                  </div>
                 );
               } else if (props.column.key === 'status') {
                 if (props.rowData.status === 'Draft') {
@@ -381,95 +423,15 @@ const KaTableComponent: React.FC<CustomTableProps> = ({
               } else if (props.column.key === 'contentAction') {
                 {
                   return (
-                    <Box display="flex">
+                    <>
                       <ActionIcon rowData={props.rowData} />
-                      {showQrCodeButton && props.rowData.status === 'Live' && (
-                        <>
-                          <IconButton
-                            onClick={() => {
-                              // console.log('rowData', props.rowData);
-                              handleOpenQrModal(
-                                props.rowData.contentType === 'Course'
-                                  ? `${process.env.NEXT_PUBLIC_POS_URL}/pos/content/${props.rowData.identifier}?activeLink=/pos/program`
-                                  : `${process.env.NEXT_PUBLIC_POS_URL}/pos/player/${props.rowData.identifier}?activeLink=/pos/program`
-                              );
-                            }}
-                          >
-                            <QrCode2Icon />{' '}
-                          </IconButton>
-
-                          {/* ✅ Copy to Clipboard Button */}
-                          <IconButton
-                            onClick={() => {
-                              const link =
-                                props.rowData.contentType === 'Course'
-                                  ? `${process.env.NEXT_PUBLIC_POS_URL}/pos/content/${props.rowData.identifier}?activeLink=/pos/program`
-                                  : `${process.env.NEXT_PUBLIC_POS_URL}/pos/player/${props.rowData.identifier}?activeLink=/pos/program`;
-
-                              navigator.clipboard.writeText(link).then(() => {
-                                // Optional: show a tooltip or alert
-                                console.log('Link copied to clipboard');
-                              });
-                            }}
-                          >
-                            <ContentCopyIcon />
-                          </IconButton>
-
-                          <QrModal
-                            open={openQrCodeModal}
-                            onClose={() => setOpenQrCodeModal(false)}
-                            qrValue={selectedQrValue}
-                          />
-                        </>
-                      )}
-                    </Box>
+                    </>
                   );
                 }
               } else if (props.column.key === 'action') {
                 return (
-                  <Box display={'flex'}>
-                    <Box onClick={handleOpen}>
-                      <ActionIcon rowData={props.rowData} />
-                    </Box>
-                    {showQrCodeButton && (
-                      <>
-                        <IconButton
-                          onClick={() => {
-                            // console.log('rowData', props.rowData);
-                            handleOpenQrModal(
-                              props.rowData.contentType === 'Course'
-                                ? `${process.env.NEXT_PUBLIC_POS_URL}/pos/content/${props.rowData.identifier}?activeLink=/pos/program`
-                                : `${process.env.NEXT_PUBLIC_POS_URL}/pos/player/${props.rowData.identifier}?activeLink=/pos/program`
-                            );
-                          }}
-                        >
-                          <QrCode2Icon />{' '}
-                        </IconButton>
-
-                        {/* ✅ Copy to Clipboard Button */}
-                        <IconButton
-                          onClick={() => {
-                            const link =
-                              props.rowData.contentType === 'Course'
-                                ? `${process.env.NEXT_PUBLIC_POS_URL}/pos/content/${props.rowData.identifier}?activeLink=/pos/program`
-                                : `${process.env.NEXT_PUBLIC_POS_URL}/pos/player/${props.rowData.identifier}?activeLink=/pos/program`;
-
-                            navigator.clipboard.writeText(link).then(() => {
-                              // Optional: show a tooltip or alert
-                              console.log('Link copied to clipboard');
-                            });
-                          }}
-                        >
-                          <ContentCopyIcon />
-                        </IconButton>
-
-                        <QrModal
-                          open={openQrCodeModal}
-                          onClose={() => setOpenQrCodeModal(false)}
-                          qrValue={selectedQrValue}
-                        />
-                      </>
-                    )}
+                  <Box onClick={handleOpen}>
+                    <ActionIcon rowData={props.rowData} />
                   </Box>
                 );
               } else if (props.column.key === 'contentType') {

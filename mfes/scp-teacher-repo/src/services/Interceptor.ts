@@ -35,9 +35,14 @@ instance.interceptors.request.use(
         config.headers.academicyearid = academicYearId;
       }
     }
-    // config.headers.tenantid = '4783a636-1191-487a-8b09-55eca51b5036';
-    // config.headers.tenantid = 'fbe108db-e236-48a7-8230-80d34c370800';
-    config.headers.tenantid = tenantId;
+    // Get tenantId from localStorage
+    const tenantIdFromStorage = localStorage.getItem('tenantId');
+    if (tenantIdFromStorage) {
+      config.headers.tenantId = tenantIdFromStorage;
+    } else {
+      // Fallback to config tenantId if localStorage doesn't have it
+      config.headers.tenantId = tenantId;
+    }
     return config;
   },
   (error) => {

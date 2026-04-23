@@ -28,9 +28,8 @@ export * from './lib/Progress/Circular';
 export * from './lib/Progress/Progress';
 export * from './lib/Progress/CircularProgressWithLabel';
 export * from './lib/Loader/Loader';
-import Image from '../images/default.png';
 export const IMAGES = {
-  DEFAULT_PLACEHOLDER: Image,
+  DEFAULT_PLACEHOLDER: '/assets/images/default.png',
 };
 
 //utils

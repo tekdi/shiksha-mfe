@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/ban-ts-comment */
 import "reflect-metadata";
 import React, { useEffect } from "react";
 import { useRef } from "react";
 import $ from "jquery";
+// eslint-disable-next-line @nx/enforce-module-boundaries
 import { getTelemetryEvents, handleExitEvent } from "@workspace/utils/Helper";
 interface PlayerConfigProps {
   playerConfig: any;

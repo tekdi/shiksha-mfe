@@ -1,20 +1,20 @@
-import React, { useRef } from 'react';
+import React, { useRef } from "react";
 import {
   Box,
   Button,
   Typography,
   CircularProgress,
   IconButton,
-} from '@mui/material';
-import { Swiper, SwiperSlide } from 'swiper/react';
-import { Autoplay, Navigation } from 'swiper/modules';
-import 'swiper/css';
-import 'swiper/css/navigation';
-import { ContentItem, useTranslation } from '@shared-lib';
-import ContentCard from './ContentCard';
-import { ContentSearchResponse } from '@content-mfes/services/Search';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+} from "@mui/material";
+import { Swiper, SwiperSlide } from "swiper/react";
+import { Autoplay, Navigation } from "swiper/modules";
+import "swiper/css";
+import "swiper/css/navigation";
+import { ContentItem, useTranslation } from "@shared-lib";
+import ContentCard from "./ContentCard";
+import { ContentSearchResponse } from "@content-mfes/services/Search";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 const ContentCardCarousel = ({
   contentData,
@@ -25,6 +25,8 @@ const ContentCardCarousel = ({
   hasMoreData,
   handleLoadMore,
   isLoadingMoreData,
+  pageName,
+  isHideEmptyDataMessage,
 }: {
   contentData: ContentSearchResponse[];
   _config: any;
@@ -34,6 +36,8 @@ const ContentCardCarousel = ({
   hasMoreData: boolean;
   handleLoadMore: (e: any) => void;
   isLoadingMoreData: boolean;
+  pageName?: string;
+  isHideEmptyDataMessage?: boolean;
 }) => {
   const { t } = useTranslation();
   const { default_img, _subBox, _carousel, _card, isHideNavigation } =
@@ -46,14 +50,14 @@ const ContentCardCarousel = ({
       {!isHideNavigation && (
         <IconButton
           sx={{
-            bgcolor: 'white',
-            borderRadius: '16px',
-            position: 'absolute',
-            top: '50%',
+            bgcolor: "white",
+            borderRadius: "16px",
+            position: "absolute",
+            top: "50%",
             left: 0,
             zIndex: 2,
-            transform: 'translateY(-50%)',
-            color: 'primary.main',
+            transform: "translateY(-50%)",
+            color: "primary.main",
           }}
           ref={prevRef}
         >
@@ -63,14 +67,14 @@ const ContentCardCarousel = ({
       {!isHideNavigation && (
         <IconButton
           sx={{
-            bgcolor: 'white',
-            borderRadius: '16px',
-            position: 'absolute',
-            top: '50%',
+            bgcolor: "white",
+            borderRadius: "16px",
+            position: "absolute",
+            top: "50%",
             right: 0,
             zIndex: 2,
-            transform: 'translateY(-50%)',
-            color: 'primary.main',
+            transform: "translateY(-50%)",
+            color: "primary.main",
           }}
           ref={nextRef}
         >
@@ -96,7 +100,8 @@ const ContentCardCarousel = ({
         {contentData?.map((item: any) => (
           <SwiperSlide
             key={item?.identifier}
-            style={{ height: 'auto', paddingBottom: '8px' }}
+            style={{ height: "auto", paddingBottom: "8px" }}
+            id={`${pageName}-${item?.identifier}`}
           >
             <ContentCard
               item={item}
@@ -104,7 +109,7 @@ const ContentCardCarousel = ({
               default_img={default_img}
               _card={{
                 ..._card,
-                sx: { ...(_card?.sx ?? {}), height: '100%' },
+                sx: { ...(_card?.sx ?? {}), height: "100%" },
               }}
               handleCardClick={handleCardClick}
               trackData={trackData as [] | undefined}
@@ -113,7 +118,7 @@ const ContentCardCarousel = ({
         ))}
       </Swiper>
 
-      <Box sx={{ textAlign: 'center', mt: 4 }}>
+      <Box sx={{ textAlign: "center", mt: 4 }}>
         {hasMoreData && (
           <Button
             variant="contained"
@@ -123,7 +128,7 @@ const ContentCardCarousel = ({
             {isLoadingMoreData ? (
               <CircularProgress size={20} />
             ) : (
-              t('LEARNER_APP.CONTENT_TABS.LOAD_MORE')
+              t("LEARNER_APP.CONTENT_TABS.LOAD_MORE")
             )}
           </Button>
         )}
@@ -133,13 +138,14 @@ const ContentCardCarousel = ({
         <Typography
           variant="body1"
           sx={{
-            minHeight: '100px',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
+            minHeight: "100px",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            ...(_config?._noData?.sx ?? {}),
           }}
         >
-          {t('LEARNER_APP.CONTENT_TABS.NO_MORE_DATA')}
+          {_config?.noDataText || t("LEARNER_APP.CONTENT_TABS.NO_MORE_DATA")}
         </Typography>
       )}
     </Box>

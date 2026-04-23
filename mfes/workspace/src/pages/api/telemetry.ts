@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import Cors from "cors";
 import initMiddleware from "@workspace/utils/init-middleware";
 import type { NextApiRequest, NextApiResponse } from "next";

@@ -154,7 +154,7 @@
       "EXPLORE_ADDITIONAL_COURSES": "અતિરિક્ત કોર્સ શોધો"
     },
     "HOME": {
-      "WELCOME_TITLE": "Pratham myLearning માં આપનું સ્વાગત છે!",
+      "WELCOME_TITLE": "Shiksha myLearning માં આપનું સ્વાગત છે!",
       "WELCOME_SUBTITLE": "અહીંથી તમારી લર્નિંગ મુસાફરી શરૂ થાય છે",
       "SIGN_UP_BUTTON": "હવે કાર્યક્રમ માટે સાઇન અપ કરો!",
       "ALREADY_SIGNED_UP": "પહેલેથી સાઇન અપ કરેલું?",
@@ -162,14 +162,14 @@
       "GET_THE_APP": "એપ્લિકેશન મેળવો",
       "POINT_CAMERA": "તમારો ફોન કેમેરા અહીંેણો",
       "OR": "અથવા",
-      "SEARCH_PLAYSTORE": "\"Pratham myLearning\" પ્લેસ્ટોર પર શોધો",
-      "ABOUT_PRATHAM_TITLE": "Pratham વિશે",
-      "ABOUT_PRATHAM_DESC": "Pratham શિક્ષણ સિસ્ટમોમાં ખોટોને નવીન, ઓછી કિંમતે, પુનરાવર્તનક્ષમ હસ્તક્ષેપો દ્વારા પૂરી કરે છે જે વયસ્પેક્ટ્રમમાં ફેલાયેલી છે. “પ્રત્યક્ષ” કાર્યમાં, Pratham પ્રદર્દે બાળકો સાથે શાળા અથવા સમુદાયમાં કામ કરે છે, જ્યારે “ભાગીદારી” મોડેલમાં Pratham ટિમો રાજ્ય, જિલ્લા અથવા શહેર સ્તરે સરકારે ટીમ સાથે મળી કાર્યક્રમોની રचना અને અમલ કરે છે. શિક્ષણમાં સુધારા માટે Pratham નું દૃષ્ટિકોણ ભારત અને વિદેશમાં એક મોડેલ તરીકે કાર્ય કરે છે.",
+      "SEARCH_PLAYSTORE": "\"Shiksha myLearning\" પ્લેસ્ટોર પર શોધો",
+      "ABOUT_PRATHAM_TITLE": "Shiksha વિશે",
+      "ABOUT_PRATHAM_DESC": "Shiksha શિક્ષણ સિસ્ટમોમાં ખોટોને નવીન, ઓછી કિંમતે, પુનરાવર્તનક્ષમ હસ્તક્ષેપો દ્વારા પૂરી કરે છે જે વયસ્પેક્ટ્રમમાં ફેલાયેલી છે. “પ્રત્યક્ષ” કાર્યમાં, Shiksha પ્રદર્દે બાળકો સાથે શાળા અથવા સમુદાયમાં કામ કરે છે, જ્યારે “ભાગીદારી” મોડેલમાં Shiksha ટિમો રાજ્ય, જિલ્લા અથવા શહેર સ્તરે સરકારે ટીમ સાથે મળી કાર્યક્રમોની રचना અને અમલ કરે છે. શિક્ષણમાં સુધારા માટે Shiksha નું દૃષ્ટિકોણ ભારત અને વિદેશમાં એક મોડેલ તરીકે કાર્ય કરે છે.",
       "OUR_PROGRAMS": "અમારા કાર્યક્રમો",
       "SIGN_UP": "સાઇન અપ કરો"
     },
     "LOGIN": {
-      "welcome_title": "Pratham myLearning માં આપનું સ્વાગત છે!",
+      "welcome_title": "Shiksha myLearning માં આપનું સ્વાગત છે!",
       "welcome_subtitle": "અહીંથી તમારી લર્નિંગ મુસાફરી શરૂ થાય છે",
       "welcome_image_alt": "હસતું ચહેરું",
       "qr_get_app": "એપ્લિકેશન મેળવો",
@@ -177,11 +177,12 @@
       "qr_image_alt": "QR કોડ",
       "or": "અથવા",
       "playstore_image_alt": "પ્લેસ્ટોર પર મેળવો",
-      "playstore_instruction": "\"Pratham myLearning\" પ્લેસ્ટોર પર શોધો",
+      "playstore_instruction": "\"Shiksha myLearning\" પ્લેસ્ટોર પર શોધો",
       "on_playstore": "પ્લેસ્ટોર પર",
       "login_title": "લોગિન",
       "username_label": "યુઝર્નેમ",
       "password_label": "પાસવર્ડ",
+      "LOG_IN_AS_LEARNER_SUBTITLE": "Log in as a learner",
       "remember_me": "મને યાદ રાખો",
       "forgot_password": "પાસવર્ડ ભૂલી ગયા?",
       "login_button": "લોગિન",
@@ -191,8 +192,13 @@
       "POINT_YOUR_PHONE": "તમારો ફોન અહીંેણો",
       "POINT_CAMERA": "કેમેરા અહીંેણો",
       "OR": "અથવા",
-      "SEARCH_PLAYSTORE": "\"Pratham myLearning\" પ્લેસ્ટોર પર શોધો",
-      "ON_PLAYSTORE": "પ્લેસ્ટોર પર"
+      "SEARCH_PLAYSTORE": "\"Shiksha myLearning\" પ્લેસ્ટોર પર શોધો",
+      "ON_PLAYSTORE": "પ્લેસ્ટોર પર",
+      "CHOOSE_MODE": "તમે કેવી રીતે આગળ વધવા માંગો છો તે પસંદ કરો",
+      "LEARNER_OR_WORKSPACE": "લર્નર તરીકે લૉગિન કરો અથવા વર્કસ્પેસ પોર્ટલ પર જાઓ।",
+      "CONTINUE_LEARNER": "લર્નર તરીકે લૉગિન કરો",
+      "GO_TO_WORKSPACE": "વર્કસ્પેસ પર જાઓ",
+      "LOGIN": "લૉગિન"
     },
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "પ્રગતિ પર",
@@ -316,7 +322,7 @@
       "CAMERA_HERE": "કેમેરા અહીંેણો",
       "OR": "અથવા",
       "SEARCH_TEXT": "શોધો",
-      "APP_NAME": "Pratham myLearning",
+      "APP_NAME": "Shiksha myLearning",
       "ON_PLAYSTORE": "પ્લેસ્ટોર પર"
     }
   },
@@ -429,7 +435,7 @@
     "ENTER_CONTACT_NUMBER": "સંપર્ક નંબર દાખલ કરો",
     "HOW_WAS_LEARNER_MOBILISED": "શીખનારની ગતિવિધિ કેવી રીતે થઈ?",
     "SECOND_CHANCE_ALUMNI": "સેકન્ડ ચાન્સ પૂર્વ વિદ્યાર્થી",
-    "PRATHAM_TEAM_MEMBER": "Pratham ટીમ સભ્ય",
+    "PRATHAM_TEAM_MEMBER": "Shiksha ટીમ સભ્ય",
     "OTHER": "અન્ય",
     "AGE": "ઉમ્ર",
     "GENDER": "જાતિ",

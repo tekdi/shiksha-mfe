@@ -1,0 +1,209 @@
+.attendance-dashboard {
+  padding: 20px;
+  background-color: #f5f5f5;
+  min-height: 100vh;
+}
+
+.attendance-dashboard h1 {
+  color: #333;
+  margin-bottom: 24px;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.attendance-card {
+  margin-bottom: 24px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.attendance-card .ant-card-head-title {
+  font-weight: 600;
+  color: #333;
+}
+
+.days-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding: 0 8px;
+}
+
+.day-label {
+  font-weight: 600;
+  color: #666;
+  width: 40px;
+  text-align: center;
+}
+
+.dates-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.date-cell {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 40px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background-color: #fff;
+}
+
+.date-number {
+  font-weight: 500;
+  color: #333;
+}
+
+.dashboard-row {
+  margin-bottom: 0;
+}
+
+.status-card {
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  height: 100%;
+}
+
+.status-card .ant-card-body {
+  padding: 16px;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-icon {
+  font-size: 18px;
+  margin-right: 8px;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.not-marked-icon {
+  color: #ff4d4f;
+  background-color: #fff2f0;
+}
+
+.mark-icon {
+  color: #1890ff;
+  background-color: #f0f8ff;
+}
+
+.low-attendance-icon {
+  color: #faad14;
+  background-color: #fffbe6;
+}
+
+.card-title {
+  font-weight: 600;
+  color: #333;
+  font-size: 16px;
+}
+
+.card-content {
+  padding: 8px 0;
+}
+
+.overview-section {
+  margin-bottom: 16px;
+}
+
+.overview-label {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.period {
+  color: #666;
+  font-size: 12px;
+}
+
+.attendance-percentage {
+  text-align: center;
+  margin: 20px 0;
+  padding: 16px;
+  background-color: #fafafa;
+  border-radius: 4px;
+}
+
+.percentage-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #ff4d4f;
+  line-height: 1;
+}
+
+.percentage-label {
+  color: #666;
+  font-size: 14px;
+  margin-top: 4px;
+}
+
+.center-info {
+  margin-top: 16px;
+}
+
+.center-name {
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+}
+
+.batch-name {
+  color: #666;
+  font-size: 14px;
+}
+
+.more-details-link {
+  text-align: center;
+  margin: 40px 0;
+}
+
+.more-details-link a {
+  color: #1890ff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.more-details-link a:hover {
+  color: #40a9ff;
+}
+
+.learners-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.learner-tag {
+  background-color: #fffbe6;
+  border: 1px solid #ffe58f;
+  color: #faad14;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .dashboard-row .ant-col {
+    margin-bottom: 16px;
+  }
+
+  .dates-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .dates-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}

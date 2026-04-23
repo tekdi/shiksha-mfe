@@ -16,7 +16,7 @@ const ProtectedRoute = ({ children }) => {
     }
 
     if (!loading && !user) {
-      router.push("/login");
+      router.push("/home");
     }
   }, [loading, router]);
 

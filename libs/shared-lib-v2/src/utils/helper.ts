@@ -16,15 +16,24 @@ export function calculateCourseStatus({
   allCourseIds: string[];
   courseId: string;
 }): trackDataPorps {
-  const completedList = new Set(statusData.completed_list || []);
-  const inProgressList = new Set(statusData.in_progress_list || []);
+  // Convert to Sets for faster lookup
+  const completedList = new Set(
+    statusData.completed_list?.map((id) => id.trim()) || []
+  );
+  const inProgressList = new Set(
+    statusData.in_progress_list?.map((id) => id.trim()) || []
+  );
 
+  // Initialize counters
   let completedCount = 0;
   let inProgressCount = 0;
   const completed_list: string[] = [];
   const in_progress_list: string[] = [];
 
-  for (const id of allCourseIds) {
+
+
+  // Check each course ID
+  for (const id of allCourseIds.map((id) => id.trim())) {
     if (completedList.has(id)) {
       completedCount++;
       completed_list.push(id);
@@ -35,15 +44,48 @@ export function calculateCourseStatus({
   }
 
   const total = allCourseIds.length;
-  let status = 'not started';
-
-  if (completedCount === total && total > 0) {
-    status = 'completed';
+  let status = "";
+  
+  console.log("[calculateCourseStatus] Input:", {
+    courseId,
+    totalCourseIds: total,
+    allCourseIds: allCourseIds.slice(0, 5), // Show first 5 for debugging
+    statusDataCompleted: statusData.completed_list?.length || 0,
+    statusDataInProgress: statusData.in_progress_list?.length || 0,
+    statusDataCompletedList: statusData.completed_list?.slice(0, 5),
+    statusDataInProgressList: statusData.in_progress_list?.slice(0, 5),
+  });
+  
+  // Determine status
+  if (total === 0) {
+    status = "not started";
+  } else if (completedCount === total) {
+    status = "completed";
   } else if (completedCount > 0 || inProgressCount > 0) {
-    status = 'in progress';
+    status = "in progress";
   }
 
-  const percentage = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+  // Calculate percentage - include both completed and in-progress items
+  // For in-progress items, count them as 50% progress
+  // Formula: (completed * 100 + in_progress * 50) / total
+  let percentage = 0;
+  if (total > 0) {
+    const completedPercentage = (completedCount / total) * 100;
+    const inProgressPercentage = (inProgressCount / total) * 50; // In-progress counts as 50%
+    percentage = Math.round(completedPercentage + inProgressPercentage);
+    // Ensure percentage doesn't exceed 100%
+    percentage = Math.min(100, percentage);
+  }
+
+  // console.log("[calculateCourseStatus] Output:", {
+  //   status,
+  //   completed: completedCount,
+  //   in_progress: inProgressCount,
+  //   total,
+  //   percentage,
+  //   completed_list: completed_list.slice(0, 5),
+  //   in_progress_list: in_progress_list.slice(0, 5),
+  // });
 
   return {
     completed_list,
@@ -52,10 +94,9 @@ export function calculateCourseStatus({
     in_progress: inProgressCount,
     courseId,
     status,
-    percentage: percentage,
+    percentage,
   };
 }
-
 export const calculateTrackData = (newTrack: any, children: any) => {
   const newTrackData = children?.map((item: any) => {
     return calculateTrackDataItem(newTrack, item);
@@ -64,19 +105,56 @@ export const calculateTrackData = (newTrack: any, children: any) => {
 };
 
 export const calculateTrackDataItem = (newTrack: any, item: any) => {
-  if (item?.mimeType === 'application/vnd.ekstep.content-collection') {
+  // console.log("[calculateTrackDataItem] Input:", {
+  //   newTrack: {
+  //     courseId: newTrack?.courseId,
+  //     hasCompletedList: !!newTrack?.completed_list,
+  //     hasInProgressList: !!newTrack?.in_progress_list,
+  //     completedListLength: newTrack?.completed_list?.length || 0,
+  //     inProgressListLength: newTrack?.in_progress_list?.length || 0,
+  //     completedListSample: newTrack?.completed_list?.slice(0, 3),
+  //     inProgressListSample: newTrack?.in_progress_list?.slice(0, 3),
+  //   },
+  //   item: {
+  //     identifier: item?.identifier,
+  //     mimeType: item?.mimeType,
+  //     hasLeafNodes: !!item?.leafNodes,
+  //     leafNodesLength: item?.leafNodes?.length || 0,
+  //     leafNodesSample: item?.leafNodes?.slice(0, 3),
+  //   },
+  // });
+
+  // Ensure newTrack has the expected structure
+  const statusData = {
+    completed_list: newTrack?.completed_list || [],
+    in_progress_list: newTrack?.in_progress_list || [],
+  };
+
+  if (item?.mimeType === "application/vnd.ekstep.content-collection") {
+    const allCourseIds = item?.leafNodes ?? [];
     const result = calculateCourseStatus({
-      statusData: newTrack,
-      allCourseIds: item?.leafNodes ?? [],
+      statusData,
+      allCourseIds,
       courseId: item.identifier,
     });
+    // console.log("[calculateTrackDataItem] Course result:", {
+    //   courseId: item.identifier,
+    //   percentage: result.percentage,
+    //   status: result.status,
+    // });
     return result;
   } else {
+    const allCourseIds = item.identifier ? [item.identifier] : [item.id];
     const result = calculateCourseStatus({
-      statusData: newTrack,
-      allCourseIds: item.identifier ? [item.identifier] : [],
-      courseId: item.identifier,
+      statusData,
+      allCourseIds,
+      courseId: item.identifier ? item.identifier : item.id,
     });
+    // console.log("[calculateTrackDataItem] Content result:", {
+    //   courseId: item.identifier || item.id,
+    //   percentage: result.percentage,
+    //   status: result.status,
+    // });
     return result;
   }
 };
@@ -98,22 +176,22 @@ export function findCourseUnitPath({
 }): any[] | null {
   // Build current node's object by processing keyArray
   const currentObj = keyArray.reduce((acc, keyItem) => {
-    if (typeof keyItem === 'string') {
+    if (typeof keyItem === "string") {
       // simple key, just pick the value if exists
       if (node[keyItem] !== undefined) acc[keyItem] = node[keyItem];
-    } else if (typeof keyItem === 'object' && keyItem.key) {
-      let formattedValue = '';
-      if (keyItem.key === 'link') {
+    } else if (typeof keyItem === "object" && keyItem.key) {
+      let formattedValue = "";
+      if (keyItem.key === "link") {
         if (
           path?.length > 0 &&
-          node.mimeType === 'application/vnd.ekstep.content-collection'
+          node.mimeType === "application/vnd.ekstep.content-collection"
         ) {
-          formattedValue = `${contentBaseUrl ?? '/content'}/${
+          formattedValue = `${contentBaseUrl ?? "/content"}/${
             path?.[0]?.identifier
-          }/${node.identifier}${keyItem?.suffix ?? ''}`;
+          }/${node.identifier}${keyItem?.suffix ?? ""}`;
         } else {
-          formattedValue = `${contentBaseUrl ?? '/content'}/${node.identifier}${
-            keyItem?.suffix ?? ''
+          formattedValue = `${contentBaseUrl ?? "/content"}/${node.identifier}${
+            keyItem?.suffix ?? ""
           }`;
         }
       }
@@ -121,7 +199,7 @@ export function findCourseUnitPath({
         // Replace ${id} or any ${key} in format with node[key]
         formattedValue = keyItem.format.replace(
           /\$\{(\w+)\}/g,
-          (_, k) => node[k] ?? ''
+          (_, k) => node[k] ?? ""
         );
       }
       acc[keyItem.key] = formattedValue;
@@ -158,7 +236,7 @@ type NameMapEntry = string | { key: string; replaceCode: string };
 export function sortJsonByArray({
   jsonArray,
   nameArray,
-  key = 'code',
+  key = "code",
   onlyMatched = true,
 }: {
   jsonArray: any[];
@@ -169,7 +247,7 @@ export function sortJsonByArray({
   if (nameArray === undefined || nameArray.length === 0) return jsonArray;
   const orderMap = new Map<string, { index: number; replaceCode?: string }>();
   nameArray.forEach((entry, index) => {
-    if (typeof entry === 'string') {
+    if (typeof entry === "string") {
       orderMap.set(entry, { index });
     } else {
       orderMap.set(entry.key, { index, replaceCode: entry.replaceCode });
@@ -193,7 +271,7 @@ export function sortJsonByArray({
       if (entry?.replaceCode) {
         return {
           ...item,
-          [key]: entry.replaceCode.replace('{code}', val),
+          [key]: entry.replaceCode.replace("{code}", val),
           [`old_${key}`]: val,
         };
       }

@@ -59,7 +59,7 @@ org.ekstep.contentrenderer.baseLauncher.extend({
                 }
                 var eventData = JSON.parse(event.data)
                 switch (eventData.eid) {
-                    case 'paly':
+                    case 'play':
                         instance.play(eventData);
                         break;
                     case 'pause':

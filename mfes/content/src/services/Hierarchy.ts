@@ -1,5 +1,6 @@
 import axios, { AxiosRequestConfig } from 'axios';
-interface ContentSearchResponse {
+export interface ContentSearchResponse {
+  relational_metadata: any;
   ownershipType?: string[];
   publish_type?: string;
   copyright?: string;
@@ -49,7 +50,24 @@ interface ContentSearchResponse {
   author?: string;
   consumerId?: string;
   childNodes?: string[];
-  children?: string[];
+  children?: Array<{
+    identifier: string;
+    name: string;
+    mimeType: string;
+    contentType: string;
+    description: string;
+    appIcon?: string;
+    posterImage?: string;
+    children?: Array<{
+      identifier: string;
+      name: string;
+      mimeType: string;
+      contentType: string;
+      description: string;
+      appIcon?: string;
+      posterImage?: string;
+    }>;
+  }>;
   discussionForum?: {
     enabled?: string;
   };

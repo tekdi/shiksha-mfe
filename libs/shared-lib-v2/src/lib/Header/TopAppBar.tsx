@@ -1,5 +1,5 @@
-'use client';
-import React, { useEffect, useRef, useState } from 'react';
+"use client";
+import React, { useEffect, useRef, useState } from "react";
 import {
   AppBar,
   Box,
@@ -13,16 +13,16 @@ import {
   MenuItem,
   Paper,
   Popper,
-} from '@mui/material';
-import MenuIcon from '@mui/icons-material/Menu';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { CommonDrawer } from '../Drawer/CommonDrawer';
-import type { DrawerItemProp } from '../Drawer/CommonDrawer';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import SpeakableText from '../textToSpeech/SpeakableText';
+} from "@mui/material";
+import MenuIcon from "@mui/icons-material/Menu";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { CommonDrawer } from "../Drawer/CommonDrawer";
+import type { DrawerItemProp } from "../Drawer/CommonDrawer";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import SpeakableText from "../textToSpeech/SpeakableText";
 
 interface NewDrawerItemProp extends DrawerItemProp {
-  variant?: 'contained' | 'text';
+  variant?: "contained" | "text";
   isActive?: boolean;
   customStyle?: React.CSSProperties;
   child?: NewDrawerItemProp[];
@@ -33,9 +33,9 @@ export interface AppBarProps {
   backIconClick?: () => void;
   actionButtonLabel?: string;
   actionButtonClick?: () => void;
-  actionButtonColor?: 'inherit' | 'primary' | 'secondary' | 'default';
-  position?: 'fixed' | 'absolute' | 'sticky' | 'static' | 'relative';
-  color?: 'primary' | 'secondary' | 'default' | 'transparent' | 'inherit';
+  actionButtonColor?: "inherit" | "primary" | "secondary" | "default";
+  position?: "fixed" | "absolute" | "sticky" | "static" | "relative";
+  color?: "primary" | "secondary" | "default" | "transparent" | "inherit";
   bgcolor?: string;
   navLinks?: NewDrawerItemProp[];
   rightComponent?: React.ReactNode;
@@ -48,15 +48,15 @@ export interface AppBarProps {
 }
 
 export const withoutQueryString = () => {
-  if (typeof window !== 'undefined') {
+  if (typeof window !== "undefined") {
     const parsedUrl = new URL(window.location.href);
     return parsedUrl?.pathname + parsedUrl?.search;
   }
-  return '';
+  return "";
 };
 
 export const TopAppBar: React.FC<AppBarProps> = ({
-  title = 'Title',
+  title = "Title",
   showBackIcon = false,
   backIconClick,
   navLinks = [],
@@ -68,7 +68,7 @@ export const TopAppBar: React.FC<AppBarProps> = ({
   return (
     <Box sx={{ flexGrow: 1 }}>
       <AppBar position="static">
-        <Toolbar sx={{ justifyContent: 'space-between' }}>
+        <Toolbar sx={{ justifyContent: "space-between" }}>
           <MobileTopBar
             {...props}
             navLinks={navLinks}
@@ -98,10 +98,10 @@ const LanguageSelect = ({
   onLanguageChange?: (value: string) => void;
 }) => {
   const theme = useTheme();
-  const [selectedLanguage, setSelectedLanguage] = useState('en');
+  const [selectedLanguage, setSelectedLanguage] = useState("en");
 
   useEffect(() => {
-    const storedLanguage = localStorage.getItem('lang');
+    const storedLanguage = localStorage.getItem("lang");
     if (storedLanguage) {
       setSelectedLanguage(storedLanguage);
     }
@@ -113,7 +113,7 @@ const LanguageSelect = ({
     if (onLanguageChange) {
       onLanguageChange(newLanguage);
     } else {
-      localStorage.setItem('lang', newLanguage);
+      localStorage.setItem("lang", newLanguage);
     }
   };
 
@@ -123,19 +123,19 @@ const LanguageSelect = ({
       size="small"
       onChange={handleChange}
       sx={{
-        width: 'auto',
-        '& .MuiSelect-select': {
-          padding: '2px 0px 3px 8px',
-          paddingRight: '20px !important',
+        width: "auto",
+        "& .MuiSelect-select": {
+          padding: "2px 0px 3px 8px",
+          paddingRight: "20px !important",
         },
-        '& .MuiSelect-icon': {
-          width: '20px',
+        "& .MuiSelect-icon": {
+          width: "20px",
         },
         color: theme.palette.text.primary,
-        borderRadius: '8px',
+        borderRadius: "8px",
         borderWidth: 1,
-        '& .Mui-selected': {
-          backgroundColor: 'transparent',
+        "& .Mui-selected": {
+          backgroundColor: "transparent",
           color: theme.palette.text.primary,
         },
       }}
@@ -192,49 +192,49 @@ export const DesktopBar = ({
 
   const handleClickLeaf = (to: any) => {
     setMenus([]);
-    if (typeof to === 'function') to();
+    if (typeof to === "function") to();
   };
 
   return (
     <Box
       sx={{
-        display: { xs: 'none', md: 'flex' },
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        width: '100%',
+        display: { xs: "none", md: "flex" },
+        justifyContent: "space-between",
+        alignItems: "center",
+        width: "100%",
       }}
     >
       <Brand {..._brand} />
       {_config?.middleComponent && _config.middleComponent}
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
+          display: "flex",
+          alignItems: "center",
           gap: 2,
-          justifyContent: 'center',
+          justifyContent: "center",
           ..._navLinkBox,
         }}
       >
         {navLinks.map((link, index) => (
           <Box key={`${link.title}-${index}`} onMouseLeave={handleLeave}>
             <Box
-              sx={{ display: 'flex', alignItems: 'center' }}
+              sx={{ display: "flex", alignItems: "center" }}
               onMouseEnter={(e) =>
                 openMenuAtLevel(0, e.currentTarget, link.child ?? [])
               }
             >
               <Button
-                component={typeof link.to === 'string' ? 'a' : 'button'}
-                href={typeof link.to === 'string' ? link.to : undefined}
+                component={typeof link.to === "string" ? "a" : "button"}
+                href={typeof link.to === "string" ? link.to : undefined}
                 // @ts-ignore
                 variant={
                   link.isActive
-                    ? 'top-bar-link-button'
-                    : link.variant ?? 'top-bar-link-text'
+                    ? "top-bar-link-button"
+                    : link.variant ?? "top-bar-link-text"
                 }
                 startIcon={link?.icon && link.icon}
                 onClick={(e: any) => {
-                  typeof link.to !== 'string' && link.to !== undefined
+                  typeof link.to !== "string" && link.to !== undefined
                     ? link.to(e)
                     : openMenuAtLevel(0, e.currentTarget, link.child ?? []);
                 }}
@@ -243,8 +243,8 @@ export const DesktopBar = ({
                   variant="body1"
                   sx={{
                     fontWeight: 500,
-                    color: '#1F1B13',
-                    cursor: 'pointer',
+                    color: "#1F1B13",
+                    cursor: "pointer",
                   }}
                   data-speech-control="true"
                 >
@@ -261,7 +261,7 @@ export const DesktopBar = ({
                 >
                   <ArrowDropDownIcon
                     fontSize="small"
-                    sx={{ color: isColorInverted ? '#fff' : 'inherit' }}
+                    sx={{ color: isColorInverted ? "#fff" : "inherit" }}
                   />
                 </IconButton>
               )}
@@ -270,7 +270,7 @@ export const DesktopBar = ({
         ))}
 
         {(rightComponent || isShowLang) && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             {rightComponent}
             {isShowLang && (
               <LanguageSelect onLanguageChange={onLanguageChange} />
@@ -290,7 +290,7 @@ export const DesktopBar = ({
           onMouseLeave={handleLeave}
           modifiers={[
             {
-              name: 'offset',
+              name: "offset",
               options: {
                 offset: [0, 0],
               },
@@ -318,14 +318,14 @@ export const DesktopBar = ({
                     }}
                     sx={{
                       bgcolor:
-                        typeof item.isActive === 'boolean'
+                        typeof item.isActive === "boolean"
                           ? item.isActive
                             ? theme.palette.primary.main
-                            : 'inherit'
-                          : item?.isActive?.replaceAll(' ', '%20') ===
+                            : "inherit"
+                          : item?.isActive?.replaceAll(" ", "%20") ===
                             withoutQueryString()
                           ? theme.palette.primary.main
-                          : 'inherit',
+                          : "inherit",
                     }}
                   >
                     <MenuItem
@@ -333,8 +333,8 @@ export const DesktopBar = ({
                         if (!hasChild) handleClickLeaf(item.to);
                       }}
                       sx={{
-                        justifyContent: 'space-between',
-                        whiteSpace: 'nowrap',
+                        justifyContent: "space-between",
+                        whiteSpace: "nowrap",
                         py: 3,
                       }}
                     >
@@ -342,8 +342,8 @@ export const DesktopBar = ({
                         variant="body1"
                         sx={{
                           fontWeight: 500,
-                          color: '#1F1B13',
-                          cursor: 'pointer',
+                          color: "#1F1B13",
+                          cursor: "pointer",
                         }}
                         data-speech-control="true"
                       >
@@ -354,7 +354,7 @@ export const DesktopBar = ({
                       {hasChild && (
                         <ArrowDropDownIcon
                           fontSize="small"
-                          sx={{ color: isColorInverted ? '#fff' : 'inherit' }}
+                          sx={{ color: isColorInverted ? "#fff" : "inherit" }}
                         />
                       )}
                     </MenuItem>
@@ -383,11 +383,11 @@ const MobileTopBar = ({
   return (
     <Box
       sx={{
-        display: { xs: 'flex', md: 'none' },
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        width: '100%',
-        color: '#1F1B13',
+        display: { xs: "flex", md: "none" },
+        justifyContent: "space-between",
+        alignItems: "center",
+        width: "100%",
+        color: "#1F1B13",
       }}
     >
       {!showBackIcon ? (
@@ -399,9 +399,9 @@ const MobileTopBar = ({
             aria-label="menu"
             onClick={(e) => setIsDrawerOpen(true)}
           >
-            <MenuIcon sx={{ cursor: 'pointer', color: '#1F1B13' }} />
+            <MenuIcon sx={{ cursor: "pointer", color: "#1F1B13" }} />
           </IconButton>
-          <Brand {..._brand} name={''} />
+          <Brand {..._brand} name={""} />
           {/* {!isShowLang && <Box />} */}
         </>
       ) : (
@@ -418,7 +418,7 @@ const MobileTopBar = ({
           <Typography
             variant="body1"
             component="div"
-            sx={{ flexGrow: 1, textAlign: 'left', fontWeight: 500 }}
+            sx={{ flexGrow: 1, textAlign: "left", fontWeight: 500 }}
           >
             <SpeakableText>{title}</SpeakableText>
           </Typography>
@@ -437,8 +437,8 @@ const MobileTopBar = ({
 
 const Brand = ({
   _box,
-  name = 'Pratham',
-  logo = '/logo.png',
+  name = "Pratham",
+  logo = "/logo.png",
 }: {
   _box?: any;
   name?: string;
@@ -446,10 +446,10 @@ const Brand = ({
 }) => {
   const theme = useTheme();
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} {..._box}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} {..._box}>
       {_box?.brandlogo ?? (
         <>
-          <img src={logo} alt="YouthNet" style={{ height: '40px' }} />
+          <img src={logo} alt="YouthNet" style={{ height: "40px" }} />
           {name && (
             <Typography
               variant="body1"

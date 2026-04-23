@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import React, { useEffect, useRef, useState } from 'react';
 import Layout from '../../../../components/Layout';
 import {
@@ -40,12 +41,6 @@ const columns = [
     dataType: DataType.String,
     width: '200px',
   },
-  {
-    key: 'language',
-    title: 'Content Language',
-    dataType: DataType.String,
-    width: '200px',
-  },
   // { key: 'status', title: 'STATUS', dataType: DataType.String, width: "100px" },
   {
     key: 'lastUpdatedOn',
@@ -56,29 +51,17 @@ const columns = [
   { key: 'action', title: 'ACTION', dataType: DataType.String, width: '100px' },
 ];
 const SubmittedForReviewPage = () => {
-  const tenantConfig = useTenantConfig();
+  const { tenantConfig, isLoading, error } = useTenantConfig();
   const router = useRouter();
 
   const [selectedKey, setSelectedKey] = useState('submitted');
-  const { filterOptions, sort } = router.query;
-
-  const [filter, setFilter] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (typeof filterOptions === 'string') {
-      try {
-        const parsed = JSON.parse(filterOptions);
-        setFilter(parsed);
-      } catch (error) {
-        console.error('Failed to parse filterOptions:', error);
-      }
-    }
-  }, [filterOptions]); // Update filter when router query changes
-
-  const [sortBy, setSortBy] = useState('');
-  useEffect(() => {
-    setSortBy(sort?.toString() || 'Modified On');
-  }, [sort]);
+  const filterOption: string[] = router.query.filterOptions
+    ? JSON.parse(router.query.filterOptions as string)
+    : [];
+  const [filter, setFilter] = useState<string[]>(filterOption);
+  const sort: string =
+    typeof router.query.sort === 'string' ? router.query.sort : 'Modified On';
+  const [sortBy, setSortBy] = useState(sort);
   const [searchTerm, setSearchTerm] = useState('');
   const [contentList, setContentList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -111,7 +94,6 @@ const SubmittedForReviewPage = () => {
 
       name: item?.name,
       description: item?.description,
-      language: item.contentLanguage ? item.contentLanguage : item?.language,
 
       contentType: item.primaryCategory,
       lastUpdatedOn: timeAgo(item.lastUpdatedOn),

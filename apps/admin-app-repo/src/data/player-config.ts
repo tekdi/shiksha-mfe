@@ -15,7 +15,7 @@ export const V2PlayerConfig: PlayerConfig = {
     mode: "play",
     partner: [],
     pdata: {
-      id: "pratham.admin.portal",
+      id: "shiksha.learner.portal",
       ver: "1.0.0",
       pid: "admin-portal",
     },
@@ -117,7 +117,7 @@ export const V1PlayerConfig: PlayerConfig = {
     mode: "play",
     // partner: [],
     pdata: {
-      id: "pratham.admin.portal",
+      id: "shiksha.learner.portal",
       ver: "1.0.0",
       pid: "admin-portal",
     },

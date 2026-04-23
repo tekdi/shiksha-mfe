@@ -1,9 +1,9 @@
 export const URL_CONFIG = {
   PARAMS: {
     CONTENT_GET:
-      'transcripts,ageGroup,appIcon,artifactUrl,attributions,attributions,audience,author,badgeAssertions,body,channel,code,concepts,contentCredits,contentType,contributors,copyright,copyrightYear,createdBy,createdOn,creator,creators,description,displayScore,domain,editorState,flagReasons,flaggedBy,flags,framework,identifier,itemSetPreviewUrl,keywords,language,languageCode,lastUpdatedOn,license,mediaType,mimeType,name,originData,osId,owner,pkgVersion,publisher,questions,resourceType,scoreDisplayConfig,status,streamingUrl,template,templateId,totalQuestions,totalScore,versionKey,visibility,year,primaryCategory,additionalCategories,interceptionPoints,interceptionType',
-    LICENSE_DETAILS: 'name,description,url',
-    HIERARCHY_FEILDS: 'instructions,outcomeDeclaration',
+      "transcripts,ageGroup,appIcon,artifactUrl,attributions,attributions,audience,author,badgeAssertions,body,channel,code,concepts,contentCredits,contentType,contributors,copyright,copyrightYear,createdBy,createdOn,creator,creators,description,displayScore,domain,editorState,flagReasons,flaggedBy,flags,framework,identifier,itemSetPreviewUrl,keywords,language,languageCode,lastUpdatedOn,license,mediaType,mimeType,name,originData,osId,owner,pkgVersion,publisher,questions,resourceType,scoreDisplayConfig,status,streamingUrl,template,templateId,totalQuestions,totalScore,versionKey,visibility,year,primaryCategory,additionalCategories,interceptionPoints,interceptionType",
+    LICENSE_DETAILS: "name,description,url",
+    HIERARCHY_FEILDS: "instructions,outcomeDeclaration",
   },
   API: {
     CONTENT_READ: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/api/content/v1/read/`,
@@ -103,53 +103,53 @@ export interface PlayerConfig {
 }
 
 export const MIME_TYPE = {
-  QUESTION_SET_MIME_TYPE: 'application/vnd.sunbird.questionset',
+  QUESTION_SET_MIME_TYPE: "application/vnd.sunbird.questionset",
   INTERACTIVE_MIME_TYPE: [
-    'application/vnd.ekstep.h5p-archive',
-    'application/vnd.ekstep.html-archive',
-    'application/vnd.ekstep.ecml-archive',
+    "application/vnd.ekstep.h5p-archive",
+    "application/vnd.ekstep.html-archive",
+    "application/vnd.ekstep.ecml-archive",
   ],
 };
 
 export const getTelemetryConfig = (): Context => {
   let localStorageData = {
-    userName: '',
-    accToken: '',
-    tenantId: '',
-    tenantCode: '',
-    did: '',
-    sid: '',
-    uid: '',
+    userName: "",
+    accToken: "",
+    tenantId: "",
+    tenantCode: "",
+    did: "",
+    sid: "",
+    uid: "",
   };
-  if (typeof window !== 'undefined' && window.localStorage) {
+  if (typeof window !== "undefined" && window.localStorage) {
     const ls = window.localStorage;
     localStorageData = {
-      userName: ls.getItem('userIdName') ?? '',
-      accToken: ls.getItem('token') ?? '',
-      sid: ls.getItem('token') ?? '',
-      uid: ls.getItem('userId') ?? '',
-      tenantId: ls.getItem('tenantId') ?? '',
-      tenantCode: ls.getItem('channelId') ?? '',
-      did: ls.getItem('did') ?? '',
+      userName: ls.getItem("userIdName") ?? "",
+      accToken: ls.getItem("token") ?? "",
+      sid: ls.getItem("token") ?? "",
+      uid: ls.getItem("userId") ?? "",
+      tenantId: ls.getItem("tenantId") ?? "",
+      tenantCode: ls.getItem("channelId") ?? "",
+      did: ls.getItem("did") ?? "",
     };
   }
   return {
-    mode: 'play',
+    mode: "play",
     partner: [],
     pdata: {
-      id: 'pratham.admin.portal',
-      ver: '1.0.0',
-      pid: 'admin-portal',
+      id: "shiksha.learner.portal",
+      ver: "1.0.0",
+      pid: "admin-portal",
     },
-    contentId: '',
+    contentId: "",
     timeDiff: -0.089,
     channel: localStorageData.tenantCode,
     tags: [localStorageData.tenantCode],
     contextRollup: { l1: localStorageData.tenantCode },
     objectRollup: {},
-    userData: { firstName: localStorageData.userName || 'Guest', lastName: '' },
-    host: '',
-    endpoint: '/v1/telemetry',
+    userData: { firstName: localStorageData.userName || "Guest", lastName: "" },
+    host: "",
+    endpoint: "/v1/telemetry",
     ...localStorageData,
   };
 };
@@ -158,21 +158,51 @@ export const V2PlayerConfig: PlayerConfig = {
   context: getTelemetryConfig(),
   config: {
     showEndPage: false,
-    endPage: [{ template: 'assessment', contentType: ['SelfAssess'] }],
+    endPage: [{ template: "assessment", contentType: ["SelfAssess"] }],
     showStartPage: true,
-    host: '',
+    host: "",
     overlay: { showUser: false },
     splash: {
-      text: '',
-      icon: '',
-      bgImage: 'assets/icons/splacebackground_1.png',
-      webLink: '',
+      text: "",
+      icon: "",
+      bgImage: "assets/icons/splacebackground_1.png",
+      webLink: "",
     },
-    apislug: '',
-    repos: ['/sunbird-plugins/renderer'],
+    apislug: "",
+    repos: ["/sunbird-plugins/renderer"],
     plugins: [
-      { id: 'org.sunbird.iframeEvent', ver: 1, type: 'plugin' },
-      { id: 'org.sunbird.player.endpage', ver: 1.1, type: 'plugin' },
+      { id: "org.sunbird.iframeEvent", ver: 1, type: "plugin" },
+      { id: "org.sunbird.player.endpage", ver: 1.1, type: "plugin" },
+      {
+        id: "org.ekstep.questionset",
+        ver: 1, // Or 1.0, verify exact version from your ECML manifest if available
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.questionunit",
+        ver: 1.2, // Or 1.0, verify exact version from your ECML manifest if available
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.questionunit.mcq",
+        ver: 1.3, // Or 1.0, verify exact version from your ECML manifest if available
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.navigation", // Appears in your media manifest
+        ver: 1,
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.questionset.quiz", // Appears in your media manifest
+        ver: 1,
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.iterator", // Appears in your media manifest
+        ver: 1,
+        type: "plugin",
+      },
     ],
     sideMenu: {
       showShare: false,
@@ -191,13 +221,13 @@ export const V1PlayerConfig: PlayerConfig = {
     showEndPage: true,
     endPage: [
       {
-        template: 'assessment',
-        contentType: ['SelfAssess'],
+        template: "assessment",
+        contentType: ["SelfAssess"],
       },
     ],
     showStartPage: true,
-    host: '',
-    endpoint: '/v1/telemetry',
+    host: "",
+    endpoint: "/v1/telemetry",
     overlay: {
       enableUserSwitcher: true,
       showOverlay: true,
@@ -212,23 +242,53 @@ export const V1PlayerConfig: PlayerConfig = {
       },
     },
     splash: {
-      text: '',
-      icon: '',
-      bgImage: 'assets/icons/splacebackground_1.png',
-      webLink: '',
+      text: "",
+      icon: "",
+      bgImage: "assets/icons/splacebackground_1.png",
+      webLink: "",
     },
-    apislug: '',
-    repos: ['/sunbird-plugins/renderer'],
+    apislug: "",
+    repos: ["/sunbird-plugins/renderer", "/sunbird-plugins/content-plugins"],
     plugins: [
       {
-        id: 'org.sunbird.iframeEvent',
-        ver: 1,
-        type: 'plugin',
+        id: "org.sunbird.iframeEvent",
+        ver: 1.0,
+        type: "plugin",
       },
       {
-        id: 'org.sunbird.player.endpage',
+        id: "org.sunbird.player.endpage",
         ver: 1.1,
-        type: 'plugin',
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.questionset",
+        ver: 1, // Or 1.0, verify exact version from your ECML manifest if available
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.questionunit",
+        ver: 1.2, // Or 1.0, verify exact version from your ECML manifest if available
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.questionunit.mcq",
+        ver: 1.3, // Or 1.0, verify exact version from your ECML manifest if available
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.navigation", // Appears in your media manifest
+        ver: 1,
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.questionset.quiz", // Appears in your media manifest
+        ver: 1,
+        type: "plugin",
+      },
+      {
+        id: "org.ekstep.iterator", // Appears in your media manifest
+        ver: 1,
+        type: "plugin",
       },
     ],
     sideMenu: {

@@ -6,3 +6,7 @@ if (!tenantId && typeof window !== 'undefined') {
     'NEXT_PUBLIC_TENANT_ID is not set in the environment variables.'
   );
 }
+
+export const ShowSelfAttendance = true;
+
+export const AttendanceAPILimit = 300;

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { refresh } from '../services/LoginService';
+import { refresh } from '../lib/Services/LoginService';
 import { tenantId } from '../app.config';
 
 const instance = axios.create();

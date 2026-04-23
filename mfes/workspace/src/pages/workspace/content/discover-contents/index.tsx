@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import KaTableComponent from '@workspace/components/KaTableComponent';
 import Loader from '@workspace/components/Loader';
 import PaginationComponent from '@workspace/components/PaginationComponent';
@@ -42,12 +43,6 @@ const columns = [
     dataType: DataType.String,
     width: '100px',
   },
-  {
-    key: 'language',
-    title: 'Content Language',
-    dataType: DataType.String,
-    width: '200px',
-  },
   { key: 'state', title: 'STATE', dataType: DataType.String, width: '100px' },
 
   { key: 'status', title: 'STATUS', dataType: DataType.String, width: '100px' },
@@ -59,7 +54,7 @@ const columns = [
   },
 ];
 const ContentsPage = () => {
-  const tenantConfig = useTenantConfig();
+  const { tenantConfig, isLoading, error } = useTenantConfig();
   const theme = useTheme<any>();
   const router = useRouter();
   const [showHeader, setShowHeader] = useState<boolean | null>(null);
@@ -68,25 +63,33 @@ const ContentsPage = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { filterOptions, sort } = router.query;
+  const filterOption: string[] = router.query.filterOptions
+    ? JSON.parse(router.query.filterOptions as string)
+    : [];
+  const [filter, setFilter] = useState<string[]>(filterOption);
+  const sort: string =
+    typeof router.query.sort === 'string' ? router.query.sort : 'Modified On';
+  const [sortBy, setSortBy] = useState(sort);
+  interface content {
+  appIcon?: string;
+  appicon?: string;
+  posterImage?: string;
+  primaryCategory?: string;
+  name: string;
+  lastUpdatedOn?: string;
+  status?: string;
+  identifier?: string;
+  mimeType?: string;
+  mode?: string;
+  creator?: string;
+  description?: string;
+  state?: string;
+  author?: string;
+  access?: string;
+  url?: string;
+  resource?: string;
+}
 
-  const [filter, setFilter] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (typeof filterOptions === 'string') {
-      try {
-        const parsed = JSON.parse(filterOptions);
-        setFilter(parsed);
-      } catch (error) {
-        console.error('Failed to parse filterOptions:', error);
-      }
-    }
-  }, [filterOptions]); // Update filter when router query changes
-
-  const [sortBy, setSortBy] = useState('');
-  useEffect(() => {
-    setSortBy(sort?.toString() || 'Modified On');
-  }, [sort]);
   const [contentList, setContentList] = React.useState<content[]>([]);
   const [data, setData] = React.useState<any[]>([]);
   const prevFilterRef = useRef(filter);
@@ -205,14 +208,13 @@ const ContentsPage = () => {
   ]);
 
   useEffect(() => {
-    const filteredArray = contentList.map((item: any) => ({
-      image: item?.appIcon,
+    console.log('contentList 193', contentList);
+    const filteredArray = contentList.map((item) => ({
+      image: item?.appIcon || item?.posterImage || item?.appicon,
       contentType: item.primaryCategory,
       name: item.name,
       primaryCategory: item.primaryCategory,
-      language: item.contentLanguage ? item.contentLanguage : item?.language,
-
-      lastUpdatedOn: timeAgo(item.lastUpdatedOn),
+      lastUpdatedOn: timeAgo(item.lastUpdatedOn || ""),
       status: item.status,
       identifier: item.identifier,
       mimeType: item.mimeType,
@@ -221,6 +223,11 @@ const ContentsPage = () => {
       description: item?.description,
       state: item?.state,
       author: item.author,
+      access: item.access,
+      url: item.url,
+      posterImage: item.posterImage,
+      appicon: item.appicon,
+      resource: item.resource,
     }));
     setData(filteredArray);
     console.log(filteredArray);
@@ -239,7 +246,7 @@ const ContentsPage = () => {
     page * rowsPerPage + rowsPerPage
   );
 
-  console.log('contentList', contentList);
+  console.log('data 227', data);
   return (
     <>
       {showHeader && <WorkspaceHeader />}

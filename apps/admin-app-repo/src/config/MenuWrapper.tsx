@@ -18,7 +18,7 @@ const MenuWrapper = ({ children }: { children: React.ReactNode }) => {
       setUser({ role: storedRole, program: storedProgram });
     } else if (!PUBLIC_ROUTES.includes(router.pathname)) {
       // Redirect only if the route is NOT public
-      router.replace('/login');
+      router.replace('/home');
     }
     setLoading(false);
   }, []);

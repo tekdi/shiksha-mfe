@@ -1,3 +1,4 @@
+/* eslint-disable @nx/enforce-module-boundaries */
 import React, {
   useEffect,
   useMemo,
@@ -57,12 +58,6 @@ const columns = [
     dataType: DataType.String,
     width: '200px',
   },
-  {
-    key: 'language',
-    title: 'Content Language',
-    dataType: DataType.String,
-    width: '200px',
-  },
   { key: 'status', title: 'STATUS', dataType: DataType.String, width: '100px' },
   {
     key: 'lastUpdatedOn',
@@ -74,11 +69,11 @@ const columns = [
     key: 'contentAction',
     title: 'ACTION',
     dataType: DataType.String,
-    width: '140px',
+    width: '100px',
   },
 ];
 const AllContentsPage = () => {
-  const tenantConfig = useTenantConfig();
+  const { tenantConfig, isLoading, error } = useTenantConfig();
   const theme = useTheme<any>();
   const router = useRouter();
 
@@ -86,31 +81,36 @@ const AllContentsPage = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchTerm, setSearchTerm] = useState('');
-  const { filterOptions, sort, status } = router.query;
+  const filterOption: string[] = router.query.filterOptions
+    ? JSON.parse(router.query.filterOptions as string)
+    : [];
+  const [filter, setFilter] = useState<string[]>(filterOption);
+  const sort: string =
+    typeof router.query.sort === 'string' ? router.query.sort : 'Modified On';
+  const [sortBy, setSortBy] = useState(sort);
+  const statusQuery: string =
+    typeof router.query.status === 'string' ? router.query.status : 'All';
+  const [statusBy, setStatusBy] = useState<string>(statusQuery);
+interface content {
+  appIcon?: string;
+  appicon?: string;
+  posterImage?: string;
+  primaryCategory?: string;
+  name: string;
+  lastUpdatedOn?: string;
+  status?: string;
+  identifier?: string;
+  mimeType?: string;
+  mode?: string;
+  creator?: string;
+  description?: string;
+  state?: string;
+  author?: string;
+  access?: string;
+  url?: string;
+  resource?: string;
+}
 
-  const [filter, setFilter] = useState<any[]>([]);
-
-  useEffect(() => {
-    if (typeof filterOptions === 'string') {
-      try {
-        const parsed = JSON.parse(filterOptions);
-        setFilter(parsed);
-      } catch (error) {
-        console.error('Failed to parse filterOptions:', error);
-      }
-    }
-  }, [filterOptions]); // Update filter when router query changes
-
-  const [sortBy, setSortBy] = useState('');
-  useEffect(() => {
-    setSortBy(sort?.toString() || 'Modified On');
-  }, [sort]);
-  // const statusQuery: string =
-  //   typeof router.query.status === 'string' ? router.query.status : 'All';
-  const [statusBy, setStatusBy] = useState<string>('');
-  useEffect(() => {
-    setStatusBy(status?.toString() || 'All');
-  }, [status]);
 
   const [contentList, setContentList] = React.useState<content[]>([]);
   const [data, setData] = React.useState<any[]>([]);
@@ -247,6 +247,7 @@ const AllContentsPage = () => {
         const contentList = (response?.content || []).concat(
           response?.QuestionSet || []
         );
+        console.log('contentList', contentList);
         setContentList(contentList);
         setTotalCount(response?.count);
         setLoading(false);
@@ -266,19 +267,25 @@ const AllContentsPage = () => {
   ]);
 
   useEffect(() => {
-    const filteredArray = contentList.map((item: any) => ({
-      image: item?.appIcon,
+    const filteredArray = contentList.map((item) => ({
+      image: item?.appIcon || item?.posterImage || item?.appicon,
       contentType: item.primaryCategory,
-      language: item.contentLanguage ? item.contentLanguage : item?.language,
-
       name: item.name,
       primaryCategory: item.primaryCategory,
-      lastUpdatedOn: timeAgo(item.lastUpdatedOn),
+      lastUpdatedOn: timeAgo(item.lastUpdatedOn || ""),
       status: item.status,
       identifier: item.identifier,
       mimeType: item.mimeType,
       mode: item.mode,
+      creator: item.creator,
       description: item?.description,
+      state: item?.state,
+      author: item.author,
+      access: item.access,
+      url: item.url,
+      posterImage: item.posterImage,
+      appicon: item.appicon,
+      resource: item.resource,
     }));
     setData(filteredArray);
     console.log(filteredArray);
@@ -342,7 +349,6 @@ const AllContentsPage = () => {
                     columns={columns}
                     tableTitle="all-content"
                     data={data}
-                    showQrCodeButton={true}
                   />
                 </Box>
               </>

@@ -102,11 +102,23 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
               localStorage.removeItem('refreshToken');
             }
 
-            const userResponse = await getUserId();
+            try {
+              const userResponse = await getUserId();
 
-            if (onLoginSuccess) {
-              onLoginSuccess(userResponse);
-              setLoading(false)
+              if (onLoginSuccess) {
+                onLoginSuccess(userResponse);
+                setLoading(false)
+              }
+            } catch (userError: any) {
+              console.error('Error fetching user details:', userError);
+              // If getUserId fails with 401, redirect to logout
+              if (userError?.response?.status === 401 || userError?.response?.data?.responseCode === 401) {
+                console.log('401 error in getUserId, redirecting to logout');
+                window.location.href = '/logout';
+                return;
+              }
+              // For other errors, re-throw to be caught by outer catch
+              throw userError;
             }
           }
         }

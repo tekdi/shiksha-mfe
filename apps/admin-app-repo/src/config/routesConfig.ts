@@ -3,7 +3,7 @@ import { Role, TenantName } from '@/utils/app.constant';
 export const PUBLIC_ROUTES = [
   '/',
   '/404',
-  '/login',
+  '/home',
   '/demo',
   '/logout',
   '/unauthorized',

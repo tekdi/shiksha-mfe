@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   Box,
   Typography,
@@ -6,16 +6,18 @@ import {
   Card,
   CardContent,
   CardMedia,
-} from '@mui/material';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+} from "@mui/material";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
+import { transformImageUrl } from "../../utils/imageUtils";
 
 interface CertificateCardProps {
   title: string;
   description: string;
-  imageUrl: string;
+  imageUrl?: string;
   completionDate: string;
   onPreviewCertificate: () => void;
+  variant?: "default" | "compact";
 }
 
 const CourseCertificateCard: React.FC<CertificateCardProps> = ({
@@ -24,114 +26,165 @@ const CourseCertificateCard: React.FC<CertificateCardProps> = ({
   imageUrl,
   completionDate,
   onPreviewCertificate,
+  variant = "default",
 }) => {
+  // Debug logging
+  console.log("CourseCertificateCard props:", {
+    title,
+    description,
+    imageUrl,
+    completionDate,
+  });
+
+  // Ensure we have valid data
+  const safeTitle = title || "Untitled Course";
+  const safeDescription = description || "No description available";
+  const safeImageUrl = transformImageUrl(imageUrl) || "/images/image_ver.png";
+  const safeCompletionDate = completionDate || new Date().toISOString();
+  const isCompact = variant === "compact";
+  const imageHeight = isCompact ? 110 : 160;
+  const titleFontSize = isCompact ? "16px" : "18px";
+  const descClamp = isCompact ? 2 : 3;
+  const cardPadding = isCompact ? "12px" : "16px";
+  const cardMinHeight = isCompact ? "auto" : "2.6em";
+  const descMinHeight = isCompact ? "2.8em" : "4.2em";
+
   return (
     <Card
       sx={{
-        borderRadius: '12px',
-        boxShadow: 3,
-        overflow: 'hidden',
-        mb: 3,
-        width: '100%',
-        bgcolor: '#fff',
-        maxWidth: '231px',
-        //  width: '231px',
-        //height: '380px', // Ensure consistent height
-        display: 'flex',
-        flexDirection: 'column',
+        borderRadius: "12px",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        overflow: "hidden",
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        transition: "transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
+        },
+        // border: "2px solid red", // Temporary border to make it visible
       }}
     >
       {/* Image with overlay bar */}
-      <Box sx={{ position: 'relative' }}>
+      <Box sx={{ position: "relative", flexShrink: 0 }}>
         <CardMedia
           component="img"
-          height="200"
-          image={imageUrl || '/images/image_ver.png'}
-          alt={title}
+          height={imageHeight}
+          image={safeImageUrl}
+          alt={safeTitle}
           sx={{
-            width: '100%',
-            objectFit: 'cover',
+            width: "100%",
+            objectFit: "cover",
           }}
         />
 
         {/* Overlay bar */}
         <Box
           sx={{
-            position: 'absolute',
+            position: "absolute",
             top: 0,
             left: 0,
-            width: '100%',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 8px',
+            right: 0,
+            backgroundColor: "rgba(0,0,0,0.7)",
+            display: "flex",
+            alignItems: "center",
+            padding: "8px 12px",
+            minHeight: "40px",
           }}
         >
-          <CheckCircleIcon sx={{ color: '#00C853', fontSize: 18, mr: 0.5 }} />
+          <CheckCircleIcon
+            sx={{ color: "#00C853", fontSize: 16, mr: 1, flexShrink: 0 }}
+          />
           <Typography
-            variant="h5"
+            variant="caption"
             sx={{
-              color: '#00C853',
+              color: "#00C853",
               fontWeight: 600,
+              fontSize: "12px",
+              lineHeight: 1.2,
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
             }}
           >
-            Issued certificate on{' '}
-            {new Date(completionDate)
-              .toLocaleDateString('en-US', {
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })
-              .replace(',', ',')}
+            Issued on{" "}
+            {new Date(safeCompletionDate).toLocaleDateString("en-US", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
           </Typography>
         </Box>
       </Box>
 
-      {/* Content with button at bottom */}
+      {/* Content */}
       <CardContent
         sx={{
-          padding: 2,
-          display: 'flex',
-          flexDirection: 'column',
+          padding: cardPadding,
+          display: "flex",
+          flexDirection: "column",
           flexGrow: 1,
+          "&:last-child": { paddingBottom: cardPadding },
         }}
       >
-        <Box sx={{ flexGrow: 1 }}>
-          <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
-            {title}
-          </Typography>{' '}
-        </Box>
+        {/* Title */}
+        <Typography
+          variant="subtitle1"
+          fontWeight={700}
+          sx={{
+            mb: 1,
+            fontSize: titleFontSize,
+            lineHeight: 1.3,
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            minHeight: cardMinHeight,
+          }}
+        >
+          {safeTitle}
+        </Typography>
 
-        <Box sx={{ flexGrow: 2 }}>
-          <Typography
-            variant="body2"
-            color="text.secondary"
-            sx={{
-              display: '-webkit-box',
-              overflow: 'hidden',
-              WebkitBoxOrient: 'vertical',
-              WebkitLineClamp: 2,
-            }}
-          >
-            {description}
-          </Typography>
-        </Box>
+        {/* Description */}
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{
+            flexGrow: 1,
+            display: "-webkit-box",
+            WebkitLineClamp: descClamp,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+            lineHeight: 1.4,
+            mb: 2,
+            minHeight: descMinHeight,
+            fontSize: isCompact ? "11px" : "12px",
+          }}
+        >
+          {safeDescription}
+        </Typography>
 
+        {/* Button */}
         <Button
           variant="text"
           onClick={onPreviewCertificate}
           sx={{
-            fontSize: '14px',
-            fontWeight: 700,
-            textTransform: 'none',
-            color: '#1976D2',
-            pl: 0,
-            mt: 'auto', // Push button to the bottom
-            alignSelf: 'flex-start',
+            fontSize: isCompact ? "11px" : "12px",
+            fontWeight: 600,
+            textTransform: "none",
+            color: "#1976D2",
+            padding: "8px 0",
+            minHeight: "auto",
+            alignSelf: "flex-start",
+            "&:hover": {
+              backgroundColor: "rgba(25, 118, 210, 0.04)",
+            },
           }}
-          endIcon={<ArrowForwardIcon sx={{ fontSize: '18px' }} />}
+          endIcon={<ArrowForwardIcon sx={{ fontSize: "16px" }} />}
         >
-          Preview Certificate
+          View Certificate
         </Button>
       </CardContent>
     </Card>

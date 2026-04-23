@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-inferrable-types */
 import { post } from './RestClient';
 
 interface RefreshParams {

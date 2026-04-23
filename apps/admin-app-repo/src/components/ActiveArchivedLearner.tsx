@@ -34,7 +34,6 @@ const getCountLabel = async (cohortId: any, type: any) => {
       },
     };
     const response = await fetchCohortMemberList(data);
-    console.log("########## fetchCohortMemberList", response)
 
     let totalCount = response?.result?.totalCount;
 

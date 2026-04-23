@@ -55,7 +55,7 @@ export const CommonSearch: React.FC<SearchBarProps> = ({
         sx={{ ml: 1, flex: 1 }}
         placeholder={placeholder}
         inputProps={{ 'aria-label': placeholder }}
-        value={inputValue}
+        value={inputValue || ''}
         onChange={onInputChange}
         onKeyDown={onKeyPress}
       />

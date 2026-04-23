@@ -111,7 +111,7 @@ Port : `4107`
 
 Next JS, run:
 
-```sh
+```sh web
 nx dev players --port=4108 --verbose
 ```
 
@@ -168,7 +168,7 @@ Port : `4112`
 
 Next JS, run:
 
-```sh
+```sh web
 nx dev content --port=4113 --verbose
 ```
 

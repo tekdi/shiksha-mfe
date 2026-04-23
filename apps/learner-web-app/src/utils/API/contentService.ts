@@ -1,6 +1,6 @@
-import { post, get } from '@shared-lib';
-import { API_ENDPOINTS, COURSE_L2_ENDPOINTS } from './EndUrls';
-import { AxiosHeaderValue } from 'axios';
+import { post, get } from "@shared-lib";
+import { API_ENDPOINTS, COURSE_L2_ENDPOINTS } from "./EndUrls";
+import axios, { AxiosHeaderValue, AxiosRequestConfig } from "axios";
 export interface courseWiseLernerListParam {
   limit?: number;
   offset?: number;
@@ -9,25 +9,41 @@ export interface courseWiseLernerListParam {
     userId?: string[];
   };
 }
+export interface ContentCreate {
+  userId: string;
+  contentId: string;
+  courseId: string;
+  unitId: string;
+  contentType: string;
+  contentMime: string;
+  lastAccessOn: string;
+  detailsObject: any[];
+}
 
 export const hierarchyAPI = async (doId: string, params?: object) => {
   try {
     // Ensure the environment variable is defined
     const searchApiUrl = process.env.NEXT_PUBLIC_MIDDLEWARE_URL;
     if (!searchApiUrl) {
-      throw new Error('Search API URL environment variable is not configured');
+      throw new Error("Search API URL environment variable is not configured");
     }
-
+    const tenantId = localStorage.getItem("tenantId");
     // Execute the request
-    const response = await get(
-      `${searchApiUrl}/api/course/v1/hierarchy/${doId}`,
-      { params: params as AxiosHeaderValue, maxBodyLength: Infinity }
+    const response = await axios.get(
+      `${searchApiUrl}/action/content/v3/hierarchy/${doId}`,
+      {
+        params: params as AxiosHeaderValue,
+        maxBodyLength: Infinity,
+        headers: {
+          tenantId: tenantId || "",
+        },
+      }
     );
     const res = response?.data?.result?.content;
 
     return res;
   } catch (error) {
-    console.error('Error in ContentSearch:', error);
+    console.error("Error in ContentSearch:", error);
     return { error };
   }
 };
@@ -35,17 +51,38 @@ export const hierarchyAPI = async (doId: string, params?: object) => {
 export const fetchContent = async (identifier: any) => {
   try {
     const API_URL = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/api/content/v1/read/${identifier}`;
-    const FIELDS = 'description,name,appIcon,posterImage';
-    const LICENSE_DETAILS = 'name,description,url';
-    const MODE = 'edit';
+    const FIELDS = "description,name,appIcon,posterImage";
+    const LICENSE_DETAILS = "name,description,url";
+    const MODE = "edit";
     const response = await get(
       `${API_URL}?fields=${FIELDS}&mode=${MODE}&licenseDetails=${LICENSE_DETAILS}`
     );
 
     return response?.data?.result?.content;
   } catch (error) {
-    console.error('Error fetching content:', error);
-    return error;
+    console.error("Error fetching content:", error);
+
+    // Return a more structured error object
+    if (error && typeof error === "object" && "response" in error) {
+      const axiosError = error as any;
+      return {
+        name: "AxiosError",
+        message: axiosError.message || "Request failed",
+        code: axiosError.code || "ERR_BAD_RESPONSE",
+        status: axiosError.response?.status || 500,
+        config: axiosError.config,
+        isAxiosError: true,
+      };
+    }
+
+    return {
+      name: "Error",
+      message:
+        error instanceof Error ? error.message : "Unknown error occurred",
+      code: "UNKNOWN_ERROR",
+      status: 500,
+      isAxiosError: false,
+    };
   }
 };
 
@@ -64,7 +101,7 @@ export const ContentSearch = async ({
     // Ensure the environment variable is defined
     const searchApiUrl = process.env.NEXT_PUBLIC_MIDDLEWARE_URL;
     if (!searchApiUrl) {
-      throw new Error('Search API URL environment variable is not configured');
+      throw new Error("Search API URL environment variable is not configured");
     }
     // Axios request configuration
     const data = {
@@ -79,16 +116,16 @@ export const ContentSearch = async ({
           //   ],
           //   channel: localStorage.getItem('channelId'),
         },
-        fields: [
-          'name',
-          'appIcon',
-          'description',
-          'posterImage',
-          'mimeType',
-          'identifier',
-          'leafNodes',
-          'se_subjects',
-        ],
+        // fields: [
+        //   "name",
+        //   "appIcon",
+        //   "description",
+        //   "posterImage",
+        //   "mimeType",
+        //   "identifier",
+        //   "leafNodes",
+        //   "se_subjects",
+        // ],
         query,
         limit,
         offset,
@@ -101,10 +138,9 @@ export const ContentSearch = async ({
       data
     );
     const res = response?.data;
-
     return res;
   } catch (error) {
-    console.error('Error in ContentSearch:', error);
+    console.error("Error in ContentSearch:", error);
     throw error;
   }
 };
@@ -119,7 +155,7 @@ export const fetchUserCoursesWithContent = async (
 
     const response = await post(API_URL, {
       filters: {
-        status: ['completed', 'viewCertificate'],
+        status: ["completed", "viewCertificate"],
         tenantId,
         userId,
       },
@@ -132,14 +168,14 @@ export const fetchUserCoursesWithContent = async (
       const resultCourses = await ContentSearch({
         filters: {
           identifier: courseIds.map((c: any) => c.courseId),
-          status: ['live'],
+          status: ["live"],
           primaryCategory: [
-            'Course',
-            'Learning Resource',
-            'Practice Question Set',
+            "Course",
+            "Learning Resource",
+            "Practice Question Set",
           ],
-          channel: localStorage.getItem('channelId'),
-          ...(JSON.parse(localStorage.getItem('filter') ?? '{}') ?? {}),
+          channel: localStorage.getItem("channelId"),
+          ...(JSON.parse(localStorage.getItem("filter") ?? "{}") ?? {}),
         },
       });
 
@@ -190,7 +226,7 @@ export const fetchUserCoursesWithContent = async (
     }
     return topicGroups;
   } catch (error) {
-    console.error('Error fetching user courses with content:', error);
+    console.error("Error fetching user courses with content:", error);
     throw error;
   }
 };
@@ -219,7 +255,7 @@ export const createL2Course = async (userData: {
     const response = await post(COURSE_L2_ENDPOINTS, userData);
     return response?.data;
   } catch (error) {
-    console.error('Error saving user to Salesforce:', error);
+    console.error("Error saving user to Salesforce:", error);
     throw error;
   }
 };
@@ -238,7 +274,33 @@ export const courseWiseLernerList = async ({
     });
     return response?.data?.result;
   } catch (error) {
-    console.error('error in getting user list', error);
+    console.error("error in getting user list", error);
     throw error;
   }
 };
+export const createContentTracking = async (reqBody: ContentCreate) => {
+  const apiUrl: string = API_ENDPOINTS.contentCreate;
+  try {
+  
+    
+    // Get tenantId from localStorage
+    const tenantId = localStorage.getItem("tenantId");
+    
+    // Prepare headers with tenantId
+    const headers = {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(tenantId && { "tenantId": tenantId }),
+    };
+    
+   
+    
+    const response = await post(apiUrl, reqBody, headers);
+    return response?.data;
+  } catch (error) {
+    console.error("🔍 Learner Web App - createContentTracking error:", error);
+    throw error;
+  }
+};
+
+

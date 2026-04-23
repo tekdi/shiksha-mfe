@@ -20,6 +20,7 @@ const HomePage: React.FC = () => {
   return (
     <Layout sx={{ backgroundImage: 'url(/images/energy-background.png)' }}>
       <Player
+        userIdLocalstorageName="userId"
         contentBaseUrl="/themantic"
         _config={{
           player: {

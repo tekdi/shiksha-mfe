@@ -1,5 +1,6 @@
 export const gredientStyle = {
-  backgroundImage: 'linear-gradient(#FFFDF7, #F8EFDA)',
+  backgroundImage:
+    'linear-gradient(var(--background-color, #FFFFFF), var(--background-color, #F5F5F5))',
   backgroundRepeat: 'no-repeat',
   backgroundAttachment: 'fixed',
   backgroundSize: 'cover',

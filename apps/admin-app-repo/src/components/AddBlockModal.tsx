@@ -358,7 +358,6 @@ export const AddBlockModal: React.FC<AddBlockModalProps> = ({
     }
   };
   if (formData.controllingField === "") {
-    console.log("trueeee")
   }
   const isEditing = !!initialValues.name;
   const buttonText = isEditing ? t("COMMON.UPDATE") : t("COMMON.SUBMIT");

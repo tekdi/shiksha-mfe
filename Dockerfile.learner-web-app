@@ -3,25 +3,30 @@ FROM node:20
 # Set the working directory
 WORKDIR /workspace
 
+# Set npm configuration to handle memory issues
+ENV NODE_OPTIONS="--max-old-space-size=8192"
+ENV npm_config_cache="/tmp/.npm"
+ENV npm_config_prefer-offline=true
+ENV npm_config_maxsockets=1
+ENV npm_config_fetch_retries=3
+ENV npm_config_fetch_retry_mintimeout=5000
+ENV npm_config_fetch_retry_maxtimeout=60000
+
 # Copy package.json and package-lock.json to the working directory
 COPY package*.json ./
 
-# Install dependencies
-RUN npm install --legacy-peer-deps
+# Install dependencies in stages to avoid memory issues
+RUN npm install --legacy-peer-deps --no-audit --no-fund --cache /tmp/.npm --prefer-offline --no-optional --production=false
 
 # Copy the entire NX workspace
 COPY . .
 
-# Build all applications
-# RUN npx nx run-many --target=build --all
-
 # Build Specific Application
 # Build only specific applications
-RUN npx nx run-many --target=build --projects=learner-web-app,players,forget-password
+RUN npx nx run-many --target=build --projects=learner-web-app,players
 
 # Install PM2 to manage multiple apps
-RUN npm install -g pm2
-
+RUN npm install -g pm2@6.0.8
 # Expose the ports for all apps
 EXPOSE 3003 4108 4109
 

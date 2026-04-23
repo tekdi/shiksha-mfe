@@ -109,9 +109,7 @@ const AssessmentList = () => {
       setClassId(storedClassId);
       if (token) {
         setIsAuthenticated(true);
-        console.log('✅ User authenticated');
       } else {
-        console.log('❌ No token found, redirecting to login');
         router.push('/login');
       }
       setUserId(storedUserId);
@@ -122,28 +120,18 @@ const AssessmentList = () => {
   useEffect(() => {
     const newAssessmentType =
       query.type === 'post' ? 'post' : query.type === 'other' ? 'other' : 'pre';
-    console.log('📝 Assessment type useEffect:', {
-      queryType: query.type,
-      newAssessmentType,
-    });
+   
     setAssessmentType(newAssessmentType);
   }, [query.type]);
 
   // Extract center data from cohorts (following /assessments/index.tsx pattern)
   useEffect(() => {
-    console.log('🔍 Center data useEffect triggered:', {
-      classId,
-      cohortsDataLength: cohortsData?.length,
-      assessmentType,
-    });
+    
 
     if (classId && cohortsData?.length) {
-      console.log('📊 CohortsData:', cohortsData);
       const cohort = cohortsData.find((item: any) => item.cohortId === classId);
-      console.log('🎯 Found cohort:', cohort);
 
       if (!cohort?.customField) {
-        console.log('❌ No custom field found in cohort');
         return;
       }
 

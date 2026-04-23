@@ -44,10 +44,10 @@ export const GlobalProvider: React.FC<GlobalProviderProps> = ({ children }) => {
         });
         setGlobalData({ tenantInfo, filterFramework });
         setLoading(false);
-      }
-      if (!channelId || !tenantId || !collectionFramework) {
-        // All values are set now, reload page
-        window.location.reload();
+      } else {
+        // If no tenant info found, just set loading to false to prevent infinite reload
+        console.warn('No tenant info found, but not reloading to prevent loop');
+        setLoading(false);
       }
     };
     init();

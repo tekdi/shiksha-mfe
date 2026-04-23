@@ -1,6 +1,5 @@
-import { Collection } from '@shared-lib';
-
 import React from 'react';
+import { Collection } from '@shared-lib';
 
 const collection = () => {
   return <Collection />;

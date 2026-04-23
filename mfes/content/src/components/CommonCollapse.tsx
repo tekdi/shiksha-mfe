@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   Box,
   Typography,
@@ -7,19 +7,19 @@ import {
   AccordionSummary,
   AccordionDetails,
   Stack,
-} from '@mui/material';
-import { useRouter } from 'next/navigation'; // Use Next.js router for navigation
-import TextSnippetOutlinedIcon from '@mui/icons-material/TextSnippetOutlined';
-import LensOutlinedIcon from '@mui/icons-material/LensOutlined';
-import LensIcon from '@mui/icons-material/Lens';
-import ArrowForwardOutlinedIcon from '@mui/icons-material/ArrowForwardOutlined';
-import { useTheme } from '@mui/material/styles';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
-import ArrowDropUpIcon from '@mui/icons-material/ArrowDropUp';
-import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
-import { CircularProgressWithLabel, getLeafNodes } from '@shared-lib';
-import Image from 'next/image';
+} from "@mui/material";
+import { useRouter } from "next/navigation"; // Use Next.js router for navigation
+import TextSnippetOutlinedIcon from "@mui/icons-material/TextSnippetOutlined";
+import LensOutlinedIcon from "@mui/icons-material/LensOutlined";
+import LensIcon from "@mui/icons-material/Lens";
+import ArrowForwardOutlinedIcon from "@mui/icons-material/ArrowForwardOutlined";
+import { useTheme } from "@mui/material/styles";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ErrorIcon from "@mui/icons-material/Error";
+import ArrowDropUpIcon from "@mui/icons-material/ArrowDropUp";
+import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
+import { CircularProgressWithLabel, getLeafNodes } from "@shared-lib";
+import Image from "next/image";
 
 // Types for nested data structure and actions
 interface NestedItem {
@@ -45,59 +45,65 @@ const GetIconByMimeType = React.memo(function GetIconByMimeTypeComponent({
   _box?: any;
 }): React.ReactNode {
   const icons = {
-    'application/pdf': {
+    "application/pdf": {
       icon: <Image src="/images/PDF.svg" alt="PDF" width="18" height="18" />,
-      text: 'PDF',
+      text: "PDF",
     },
-    'video/mp4': {
+    "video/mp4": {
       icon: (
         <Image src="/images/video.svg" alt="videoMp4" width="18" height="18" />
       ),
-      text: 'Video',
+      text: "Video",
     },
-    'video/webm': {
+    "video/webm": {
       icon: (
         <Image src="/images/video.svg" alt="videoWebm" width="18" height="18" />
       ),
-      text: 'Video',
+      text: "Video",
     },
-    'video/x-youtube': {
+    "video/x-youtube": {
       icon: (
         <Image src="/images/youtube.svg" alt="youtube" width="18" height="18" />
       ),
-      text: 'Youtube',
+      text: "Youtube",
     },
-    'application/vnd.sunbird.questionset': {
+    "application/vnd.sunbird.questionset": {
       icon: <Image src="/images/Qml.svg" alt="quml" width="18" height="18" />,
-      text: 'QUML',
+      text: "QUML",
     },
-    'application/vnd.ekstep.h5p-archive': {
+    "application/vnd.ekstep.h5p-archive": {
       icon: <Image src="/images/HTML.svg" alt="h5p" width="18" height="18" />,
-      text: 'H5P',
+      text: "H5P",
     },
-    'application/vnd.ekstep.html-archive': {
+    "application/vnd.ekstep.html-archive": {
       icon: <Image src="/images/HTML.svg" alt="html" width="18" height="18" />,
-      text: 'HTML',
+      text: "HTML",
     },
-    'application/epub': {
+    "application/epub": {
       icon: <Image src="/images/Epub.svg" alt="epub" width="18" height="18" />,
-      text: 'Epub',
+      text: "Epub",
     },
-    'application/unit': {
+    "application/unit": {
       icon: (
         <Image src="/images/unitIcon.svg" alt="unit" width="18" height="18" />
       ),
-      text: 'Unit',
+      text: "Unit",
+    },
+    "application/vnd.ekstep.content-collection": {
+      icon: (
+        <Image src="/images/unitIcon.svg" alt="unit" width="18" height="18" />
+      ),
+      text: "Unit",
     },
   };
   if (isShowText) {
     return (
       <Box
         sx={{
-          display: 'flex',
-          flexDirection: 'row',
-          gap: '4px',
-          alignItems: 'center',
+          display: "flex",
+          flexDirection: "row",
+          gap: "4px",
+          alignItems: "center",
           ..._box,
         }}
       >
@@ -106,16 +112,16 @@ const GetIconByMimeType = React.memo(function GetIconByMimeTypeComponent({
         )}
         <Typography
           sx={{
-            fontFamily: 'Poppins',
+            fontFamily: "Poppins",
             fontWeight: 500,
             fontSize: 14,
-            lineHeight: '20px',
-            letterSpacing: '0.1px',
-            textAlign: 'center',
-            verticalAlign: 'middle',
+            lineHeight: "20px",
+            letterSpacing: "0.1px",
+            textAlign: "center",
+            verticalAlign: "middle",
           }}
         >
-          {icons?.[mimeType as keyof typeof icons]?.text || 'unknown'}
+          {icons?.[mimeType as keyof typeof icons]?.text || "unknown"}
         </Typography>
       </Box>
     );
@@ -142,7 +148,7 @@ const RenderNestedData: React.FC<{
     let progress = 0;
     // const isExpanded = expandedItems.has(item.identifier);
     const isUnit =
-      item.mimeType === 'application/vnd.ekstep.content-collection';
+      item.mimeType === "application/vnd.ekstep.content-collection";
     if (isUnit) {
       const leafNodes = getLeafNodes(item);
       const completedTrackData = trackData?.filter(
@@ -158,10 +164,10 @@ const RenderNestedData: React.FC<{
     const childrenCount = item.children?.length || 0;
     const newTrack = trackData?.find((e) => e?.courseId == item?.identifier);
     const handleItemClick = (identifier: string) => {
-      localStorage.setItem('unitId', identifier);
+      localStorage.setItem("unitId", identifier);
       const path =
         childrenCount >= 1 &&
-        item.mimeType === 'application/vnd.ekstep.content-collection'
+        item.mimeType === "application/vnd.ekstep.content-collection"
           ? `/details/${identifier}`
           : `/player/${item.identifier}`;
       router.push(path);
@@ -171,19 +177,19 @@ const RenderNestedData: React.FC<{
       <Stack
         key={item.identifier}
         sx={{
-          borderBottom: '1px solid #ccc',
-          borderRadius: '4px',
-          padding: '12px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          width: '100%',
-          cursor: 'pointer',
-          gap: '16px',
+          borderBottom: "1px solid #ccc",
+          borderRadius: "4px",
+          padding: "12px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          width: "100%",
+          cursor: "pointer",
+          gap: "16px",
         }}
         onClick={() => handleItemClick(item.identifier)}
       >
-        <Stack sx={{ width: '100%' }}>
+        <Stack sx={{ width: "100%" }}>
           <RowContent
             title={item.name}
             data={item.children || []}
@@ -212,7 +218,7 @@ const RenderNestedData: React.FC<{
   });
 });
 
-RenderNestedData.displayName = 'RenderNestedData';
+RenderNestedData.displayName = "RenderNestedData";
 
 export const CommonCollapse: React.FC<CommonAccordionProps> = ({
   item,
@@ -251,7 +257,7 @@ export const CommonCollapse: React.FC<CommonAccordionProps> = ({
           }
         }
       } catch (e) {
-        console.log('error', e);
+        console.log("error", e);
       }
     };
     init();
@@ -288,20 +294,20 @@ export const CommonCollapse: React.FC<CommonAccordionProps> = ({
       ) : (
         <Stack
           sx={{
-            borderBottom: '1px solid #ccc',
-            borderRadius: '4px',
-            padding: '12px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            width: '100%',
-            cursor: 'pointer',
-            gap: '16px',
-            backgroundColor: '#fff',
+            borderBottom: "1px solid #ccc",
+            borderRadius: "4px",
+            padding: "12px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            width: "100%",
+            cursor: "pointer",
+            gap: "16px",
+            backgroundColor: "#fff",
           }}
           onClick={() => handleItemClick(item.identifier)}
         >
-          <Stack sx={{ width: '100%' }}>
+          <Stack sx={{ width: "100%" }}>
             <RowContent
               title={item?.name}
               data={item?.children || []}
@@ -315,7 +321,7 @@ export const CommonCollapse: React.FC<CommonAccordionProps> = ({
       )}
 
       {actions.length > 0 && (
-        <Box sx={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+        <Box sx={{ marginTop: "16px", display: "flex", gap: "8px" }}>
           {actions.map((action) => (
             <Button
               key={action.label}
@@ -376,9 +382,9 @@ const AccordionWrapper = ({
         }}
         expandIcon={
           expandedItems.has(item?.identifier) ? (
-            <ArrowDropDownIcon sx={{ fontSize: '2rem' }} />
+            <ArrowDropDownIcon sx={{ fontSize: "2rem" }} />
           ) : (
-            <ArrowDropUpIcon sx={{ fontSize: '2rem' }} />
+            <ArrowDropUpIcon sx={{ fontSize: "2rem" }} />
           )
         }
       >
@@ -426,12 +432,12 @@ export const RowContent = ({
 }) => {
   return (
     <Stack
-      width={'100%'}
+      width={"100%"}
       direction="row"
       justifyContent="space-between"
-      alignItems={'center'}
+      alignItems={"center"}
     >
-      <Stack direction="row" spacing={1} alignItems={'center'}>
+      <Stack direction="row" spacing={1} alignItems={"center"}>
         <StatusIcon
           showLenseIcon={expandedItems.has(data?.[0]?.identifier)}
           showMimeTypeIcon={showStatus && !data?.length}
@@ -445,10 +451,10 @@ export const RowContent = ({
             variant="caption"
             color="textSecondary"
             sx={{
-              color: '#65558F',
-              textDecoration: 'underline',
-              display: 'flex',
-              alignItems: 'center',
+              color: "#65558F",
+              textDecoration: "underline",
+              display: "flex",
+              alignItems: "center",
             }}
           >
             {data.length} Units <ArrowForwardOutlinedIcon />
@@ -457,23 +463,23 @@ export const RowContent = ({
       </Stack>
       {showProgress && (
         <CircularProgressWithLabel
-          color2={'#e8d7b4'}
+          color2={"#e8d7b4"}
           value={trackProgress ?? 0}
           _text={{
             sx: {
-              color: trackCompleted === 100 ? '#21A400' : '#FFB74D',
+              color: trackCompleted === 100 ? "#21A400" : "#FFB74D",
             },
           }}
           sx={{
-            color: trackCompleted === 100 ? '#21A400' : '#FFB74D',
+            color: trackCompleted === 100 ? "#21A400" : "#FFB74D",
           }}
         />
       )}
       {showStatus &&
         (trackCompleted === 100 ? (
-          <CheckCircleIcon sx={{ color: '#21A400' }} />
+          <CheckCircleIcon sx={{ color: "#21A400" }} />
         ) : (
-          <ErrorIcon sx={{ color: '#FFB74D' }} />
+          <ErrorIcon sx={{ color: "#FFB74D" }} />
         ))}
     </Stack>
   );
@@ -494,9 +500,9 @@ export const StatusIcon = React.memo(
     if (showMimeTypeIcon) {
       return <GetIconByMimeType mimeType={mimeType} {..._icon} />;
     } else if (showLenseIcon) {
-      return <LensIcon sx={{ fontSize: '1.5rem' }} />;
+      return <LensIcon sx={{ fontSize: "1.5rem" }} />;
     }
-    return <LensOutlinedIcon sx={{ fontSize: '1.5rem' }} />;
+    return <LensOutlinedIcon sx={{ fontSize: "1.5rem" }} />;
   }
 );
-StatusIcon.displayName = 'StatusIcon';
+StatusIcon.displayName = "StatusIcon";

@@ -1,0 +1,76 @@
+@font-face {
+    font-family: 'NotoSans';
+    src: url('fonts/NotoSans-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansDevanagari';
+    src: url('fonts/NotoSansDevanagari-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansTelugu';
+    src: url('fonts/NotoSansTelugu-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansKannada';
+    src: url('fonts/NotoSansKannada-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansOriya';
+    src: url('fonts/NotoSansOriya-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansGujarati';
+    src: url('fonts/NotoSansGujarati-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansBengali';
+    src: url('fonts/NotoSansBengali-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansMalayalam';
+    src: url('fonts/NotoSansMalayalam-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoNastaliqUrdu';
+    src: url('fonts/NotoNastaliqUrdu-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansGurmukhi';
+    src: url('fonts/NotoSansGurmukhi-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}
+
+@font-face {
+    font-family: 'NotoSansTamil';
+    src: url('fonts/NotoSansTamil-Regular.woff') format('woff');
+    font-style: normal;
+    font-weight: normal;
+}

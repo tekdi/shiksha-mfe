@@ -1,5 +1,7 @@
+/* eslint-disable @typescript-eslint/no-inferrable-types */
+
 import { getLocalStoredToken } from './LocalStorageService';
-import axios from "axios";
+import axios from 'axios';
 import TenantService from './TenantService';
 export interface SendCredentialsRequest {
   isQueue: boolean;
@@ -14,7 +16,6 @@ export interface SendCredentialsRequest {
   };
 }
 
-
 export const sendCredentialService = async ({
   isQueue,
   context,
@@ -23,31 +24,28 @@ export const sendCredentialService = async ({
   email,
   push,
 }: SendCredentialsRequest): Promise<any> => {
-  console.log("sendcred");
+  console.log('sendcred');
 
-  const apiUrl: string = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/notification/send`;
+  const apiUrl: string = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/notification`;
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${getLocalStoredToken()}`,
     tenantid: TenantService.getTenantId(),
-    "Content-Type": "application/json", 
+    'Content-Type': 'application/json',
   };
 
   try {
     const response = await axios.post(
       apiUrl,
       { isQueue, context, key, replacements, email, push },
-      { headers } 
+      { headers }
     );
 
     return response?.data;
   } catch (error) {
-    console.log("sendcrederror");
+    console.log('sendcrederror');
 
-    console.error("Error in sending credential service request", error);
-    throw error; 
+    console.error('Error in sending credential service request', error);
+    throw error;
   }
 };
-
-
-

@@ -210,13 +210,47 @@ export const FilterForm = ({
 const RenderCategories = React.memo(
   ({ categories, selectedValues, handleChange, _formControl }: any) => {
     const componentKey = `multi-checkbox-label_${categories?.identifier}`;
-    const options = categories?.terms.map((term: any) => ({
+    
+    // Debug: Log original terms
+    
+    // Aggressive filtering for template placeholders and invalid terms
+    const filteredTerms = categories?.terms?.filter((term: any) => {
+      // Check for template placeholders
+      const hasTemplate = term.code?.includes('{{') || 
+                          term.name?.includes('{{') || 
+                          term.code?.includes('}}') || 
+                          term.name?.includes('}}');
+      
+      // Check for live status (allow undefined status to pass through)
+      const isLive = term.status === 'Live' || term.status === undefined || term.status === null;
+      
+      // Additional checks for empty or invalid terms
+      const hasValidName = term.name && term.name.trim() !== '';
+      const hasValidCode = term.code && term.code.trim() !== '';
+      
+      const isValid = !hasTemplate && isLive && hasValidName && hasValidCode;
+      
+      if (!isValid) {
+        console.log(`🚫 FilterForm - Filtering out term: "${term.name}" ("${term.code}") - Template: ${hasTemplate}, Live: ${isLive}, ValidName: ${hasValidName}, ValidCode: ${hasValidCode}`);
+      }
+      
+      return isValid;
+    }) || [];
+    
+    
+    const options = filteredTerms.map((term: any) => ({
       label: term.name,
       value: term.code,
     }));
 
     const currentSelectedValues =
       selectedValues[`se_${categories?.code}s`] ?? [];
+
+    // Skip rendering if no valid terms
+    if (filteredTerms.length === 0) {
+      return null;
+    }
+
 
     return (
       <FormControl
@@ -242,6 +276,32 @@ const RenderCategories = React.memo(
           }
           onChange={(event) => handleChange(event, `se_${categories?.code}s`)}
           sx={{ maxWidth: '100%' }}
+          MenuProps={{
+            PaperProps: {
+              style: {
+                maxHeight: 'none', // Remove all height restrictions
+                overflow: 'visible',
+              },
+            },
+            disableScrollLock: true,
+            variant: 'menu',
+            anchorOrigin: {
+              vertical: 'bottom',
+              horizontal: 'left',
+            },
+            transformOrigin: {
+              vertical: 'top',
+              horizontal: 'left',
+            },
+          }}
+          slotProps={{
+            root: {
+              style: {
+                maxHeight: 'none', // Remove all height restrictions
+                overflow: 'visible',
+              },
+            },
+          }}
         >
           {options.map((option: any) => (
             <MenuItem value={option.value} key={option.value}>
