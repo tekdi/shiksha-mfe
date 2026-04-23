@@ -22,13 +22,13 @@ const getSelectedValueName = (fields: any, label: any) => {
 };
 export const mapUserData = (userData: any) => {
   console.log(userData, 'userData');
-  
+
   // Safety check: if userData is undefined or null, return empty object
   if (!userData || typeof userData !== 'object') {
     console.warn('mapUserData: userData is undefined or invalid');
     return {};
   }
-  
+
   try {
     const getSelectedValue = (label: any) =>
       userData.customFields
@@ -52,16 +52,16 @@ export const mapUserData = (userData: any) => {
       mobile: userData.mobile ? userData.mobile?.toString() : '',
       dob: userData.dob || '',
       gender: userData.gender || '',
-       mother_name: getSingleTextValue('MOTHER_NAME'),
-              father_name: getSingleTextValue('FATHER_NAME'),
-                            spouse_name: getSingleTextValue('SPOUSE_NAME'),
+      mother_name: getSingleTextValue('MOTHER_NAME'),
+      father_name: getSingleTextValue('FATHER_NAME'),
+      spouse_name: getSingleTextValue('SPOUSE_NAME'),
 
 
       marital_status: getSelectedValue('MARITAL_STATUS'),
       phone_type_accessible
-: getSingleSelectedValue('TYPE_OF_PHONE_ACCESSIBLE'),
-    family_member_details
-: getSingleSelectedValue('FAMILY_MEMBER_DETAILS'),
+        : getSingleSelectedValue('TYPE_OF_PHONE_ACCESSIBLE'),
+      family_member_details
+        : getSingleSelectedValue('FAMILY_MEMBER_DETAILS'),
       own_phone_check: getSingleSelectedValue('DOES_THIS_PHONE_BELONG_TO_YOU'),
       state: getSelectedValue('STATE'),
       district: getSelectedValue('DISTRICT'),
@@ -237,18 +237,18 @@ export const getMissingFields = (schema: any, userData: any) => {
     //     }
     //   });
     // }
-    if(mappedUserData.spouse_name) {
+    if (mappedUserData.spouse_name) {
       delete result.properties.mother_name;
-            delete result.properties.father_name;
+      delete result.properties.father_name;
 
     }
-   else if(mappedUserData.father_name ) {
-    delete result.properties.mother_name;
-            delete result.properties.spouse_name;
+    else if (mappedUserData.father_name) {
+      delete result.properties.mother_name;
+      delete result.properties.spouse_name;
     }
-   else if(mappedUserData.mother_name) {
-    delete result.properties.spouse_name;
-            delete result.properties.father_name;
+    else if (mappedUserData.mother_name) {
+      delete result.properties.spouse_name;
+      delete result.properties.father_name;
     }
 
 
@@ -268,6 +268,8 @@ export const maskMobileNumber = (mobile: string) => {
   }
 };
 export const preserveLocalStorage = () => {
+  if (typeof window === 'undefined') return;
+
   const keysToKeep = [
     'preferredLanguage',
     'mui-mode',

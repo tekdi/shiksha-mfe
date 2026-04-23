@@ -813,7 +813,7 @@ const MyClassesPage = () => {
                                             "Remove the student from this class"
                                           )}
                                         >
-                                          <IconButton
+                                          {/* <IconButton
                                             size="small"
                                             onClick={(e) =>
                                               handleRemoveStudentClick(e, member)
@@ -821,9 +821,9 @@ const MyClassesPage = () => {
                                             sx={{ ml: 0.5 }}
                                           >
                                             <MoreVert fontSize="small" />
-                                          </IconButton>
+                                          </IconButton> */}
                                         </Tooltip>
-                                        {selectedUser?.userId === member.userId && (
+                                        {/* {selectedUser?.userId === member.userId && (
                                           <Box
                                             sx={{
                                               width: 8,
@@ -832,7 +832,7 @@ const MyClassesPage = () => {
                                               backgroundColor: primaryColor,
                                             }}
                                           />
-                                        )}
+                                        )} */}
                                       </Box>
                                     </Box>
                                   ))}

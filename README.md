@@ -1,200 +1,258 @@
-# Pratham 2.0
 
-## Host App
+# 📘 LMS AI Content, Assessment & Micro-Learning Engine
 
-### teachers
+## 🧾 Project Description
+This project delivers a **pluggable, open-source-first AI microservice platform** for a multi-tenant SaaS LMS.
 
-Next JS, run:
+It automates the full educational content lifecycle:
+- PDF, PPT, Video, Audio ingestion
+- AI processing using local models
+- Output as interactive micro-learning content
+
+### 🔑 Key Highlights
+- Fully **local AI (Llama 3, Mistral, Whisper)**
+- No dependency on external APIs
+- Output formats: **HTML5, H5P, SCORM**
+- LMS compatible (Moodle, Open edX)
+
+---
+
+## 🧩 Modules
+
+### Module A — Intelligent Document Ingestion
+- PDF / PPT parsing
+- Structured JSON output
+- Key Takeaways & Glossary
+- Narration scripts
+
+### Module B — Automated Assessment Suite
+- MCQ generation
+- Match-the-Pair
+- Fill-in-the-Blanks
+- H5P & SCORM packaging
+
+### Module C — Multimedia Intelligence
+- Whisper transcription
+- Speaker diarisation
+- Auto-chaptering
+- Interactive video generation
+
+### Module D — AI Micro-Learning Studio
+- HTML5 / H5P / SCORM lessons
+- Branding support
+- Human-in-the-loop (HITL) review
+
+---
+
+## 🎯 Goals
+
+1. Fully automated content lifecycle
+2. Local LLM-based generation
+3. LMS-ready outputs
+4. Fast processing (<10 min per lesson)
+
+---
+
+## 🚀 Mid-Point Milestone (Week 6)
+
+### ✅ Completed
+- Module A: Fully operational
+- Module B: MCQ + H5P working
+- Module C: Whisper transcription + VTT
+- LLM Gateway (Ollama) live
+- Async queue (Redis/Celery) operational
+
+---
+
+## ⚙️ Setup / Installation
+
+### Prerequisites
+- Docker
+- Docker Compose
+- Node.js 20+
+- Python 3.11+
+
+### Steps
+```sh
+docker compose up -d
+````
+
+### Services
+
+* API Gateway: [http://localhost:8000](http://localhost:8000)
+* UI Builder: [http://localhost:3000](http://localhost:3000)
+
+---
+
+## 📦 Expected Outcome
+
+* Fully deployable AI platform
+* Micro-lesson generation in < 10 minutes
+* Local inference only (no external API)
+* WCAG 2.1 AA compliant content
+* xAPI tracking enabled
+
+---
+
+## ✅ Acceptance Criteria
+
+### Module A
+
+* JSON extraction from PDF/PPT
+* Key Takeaways + Glossary
+* ≤ 30 sec processing
+
+### Module B
+
+* Accurate quiz generation (no hallucination)
+* SCORM + H5P compatibility
+* Works with Moodle & Open edX
+
+### Module C
+
+* Whisper transcription
+* Speaker labels
+* Chapter markers
+* Interactive video packaging
+
+### Module D
+
+* Multi-format lesson generation
+* Branding support
+* HITL approval workflow
+* ≤ 2 min generation time
+
+---
+
+## 🏗️ Implementation Details
+
+### Architecture
+
+* Microservices (Docker / Kubernetes)
+
+### Services
+
+* Ingestion: Python (PyMuPDF, python-pptx)
+* LLM Gateway: FastAPI + Ollama
+* Assessment: H5P + SCORM
+* Multimedia: Whisper + pyannote
+* UI Builder: Node.js + Reveal.js
+* Queue: Redis + Celery
+* DB: PostgreSQL
+
+### AI Stack
+
+* LLM: Llama 3, Mistral
+* Transcription: Whisper
+* Embeddings: nomic-embed-text
+* Diagrams: Mermaid.js
+
+---
+
+## 🖥️ Host Apps
+
+### Teachers
 
 ```sh
 nx dev teachers --port=3001 --verbose
 ```
 
-### admin
-
-Next JS, run:
+### Admin
 
 ```sh
 nx dev admin-app-repo --port=3002 --verbose
 ```
 
-### learner-web-app
-
-Next JS, run:
+### Learner
 
 ```sh
 nx dev learner-web-app --port=3003 --verbose
 ```
 
-##
+---
 
-## Micro Frontend List
+## 🧱 Micro Frontends
 
-### authentication
+| App                 | Port | Base Path         |
+| ------------------- | ---- | ----------------- |
+| authentication      | 4101 | /authentication   |
+| scp-teacher-repo    | 4102 | /scp-teacher-repo |
+| youthNet            | 4103 | /youthnet         |
+| workspace           | 4104 | /workspace        |
+| notification        | 4105 | /                 |
+| players (admin)     | 4106 | /                 |
+| players (teacher)   | 4107 | /                 |
+| players (learner)   | 4108 | /                 |
+| forget-password     | 4109 | /                 |
+| login               | 4110 | /                 |
+| profile-manage      | 4111 | /                 |
+| survey-observations | 4112 | /                 |
+| content             | 4113 | /mfe_content      |
 
-Next JS, run:
+---
 
-```sh
-nx dev authentication --port=4101 --verbose
-```
+## 🛠️ NX Commands
 
-basePath : `http://localhost:4101/authentication/`
-Port : `4101`
-
-### scp-teacher-repo
-
-Next JS, run:
-
-```sh
-nx dev scp-teacher-repo --port=4102 --verbose
-```
-
-basePath : `http://localhost:4102/scp-teacher-repo/`
-Port : `4102`
-
-### youthNet
-
-Next JS, run:
+### View Graph
 
 ```sh
-nx dev youthNet --port=4103 --verbose
+nx graph
 ```
 
-basePath : `http://localhost:4103/youthnet/`
-Port : `4103`
-
-### workspace
-
-Next JS, run:
+### Build All
 
 ```sh
-nx dev workspace --port=4104 --verbose
+npx nx run-many --target=build --all
 ```
 
-basePath : `http://localhost:4104/workspace/`
-Port : `4104`
-
-### notification
-
-Next JS, run:
+### Install NX
 
 ```sh
-nx dev notification --port=4105 --verbose
+npm install -g nx
 ```
 
-basePath : `http://localhost:4105`
-Port : `4105`
+---
 
-### sbplayer admin
+## 📌 Notes
 
-Next JS, run:
+### Use Shared Library
 
-```sh
-nx dev players --port=4106 --verbose
-```
-
-basePath : `http://localhost:4106`
-Port : `4106`
-
-### sbplayer teacher
-
-Next JS, run:
-
-```sh
-nx dev players --port=4107 --verbose
-```
-
-basePath : `http://localhost:4107`
-Port : `4107`
-
-### sbplayer learner
-
-Next JS, run:
-
-```sh web
-nx dev players --port=4108 --verbose
-```
-
-basePath : `http://localhost:4108`
-Port : `4108`
-
-### forget-password
-
-Next JS, run:
-
-```sh
-nx dev forget-password --port=4109 --verbose
-```
-
-basePath : `http://localhost:4109`
-Port : `4109`
-
-### login
-
-Next JS, run:
-
-```sh
-nx dev login --port=4110 --verbose
-```
-
-basePath : `http://localhost:4110`
-Port : `4110`
-
-### profile-manage
-
-Next JS, run:
-
-```sh
-nx dev profile-manage --port=4111 --verbose
-```
-
-basePath : `http://localhost:4111`
-Port : `4111`
-
-### survey-observations
-
-Next JS, run:
-
-```sh
-nx dev survey-observations --port=4112 --verbose
-```
-
-basePath : `http://localhost:4112`
-Port : `4112`
-
-##
-
-### content
-
-Next JS, run:
-
-```sh web
-nx dev content --port=4113 --verbose
-```
-
-basePath : `http://localhost:4113/mfe_content/`
-Port : `4113`
-
-## NX Command
-
-### View Nx Graph
-
-` nx graph`
-
-### Build All Project
-
-`npx nx run-many --target=build --all`
-
-### Install NX Globally
-
-`npm install -g nx`
-
-## Notes
-
-## use shared library in any project
-
-```sh
+```js
 import { SharedLib } from '@shared-lib';
 ```
 
+### Docker Command
+
+```sh
 docker-compose -f docker-compose.admin-app-repo.yml up -d --force-recreate --no-deps
+```
+
+---
+
+## 🏢 Organisation
+
+**Tekdi Technologies Pvt. Ltd.**
+
+## 🧑‍🏫 Mentors
+
+* [Siddhi Shinde](https://github.com/siddhishinde0723)
+* [Dnyanesh Kulkarni](https://github.com/dnyaneshkulkarni-sudo) 
+
+## 🧠 Domain
+
+EdTech / LMS / AI / Open Source
+
+## 🛠️ Skills Required
+
+* Python
+* Node.js
+* FastAPI
+* React
+* Ollama
+* Whisper
+* H5P / SCORM
+* Redis
+* PostgreSQL
+* Docker
+
+
