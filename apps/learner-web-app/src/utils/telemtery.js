@@ -18,7 +18,7 @@ const sessionId =
   (typeof window !== 'undefined' && localStorage.getItem('sid')) ||
   generateUUID();
 if (typeof window !== 'undefined') localStorage.setItem('sid', sessionId);
-const tenantName = localStorage.getItem('channelId') || '';
+const tenantName = (typeof window !== 'undefined' && localStorage.getItem('channelId')) || '';
 const telemetryConfig = {
   apislug: '',
   pdata: {
@@ -50,12 +50,10 @@ export const telemetryFactory = {
     if (typeof window !== 'undefined' && !CsTelemetryModule.instance.isInitialised) {
       // Check if device ID already exists in localStorage
       const deviceId = localStorage.getItem('did');
-      
       if (deviceId && deviceId !== 'pending-device-id') {
         // Use existing device ID
         telemetryConfig.did = deviceId;
         console.log('Telemetry Device ID (did):', deviceId);
-        
         // Initialize telemetry with existing device ID
         CsTelemetryModule.instance.init({});
         CsTelemetryModule.instance.telemetryService.initTelemetry({
@@ -269,7 +267,7 @@ function getEventContext(eventInput) {
     pdata: eventInput.context?.pdata || telemetryConfig.pdata,
     env: eventInput.context?.env || telemetryConfig.env,
     sid: telemetryConfig.sid,
-    uid: localStorage.getItem('userId') || telemetryConfig.uid,
+    uid: (typeof window !== 'undefined' && localStorage.getItem('userId')) || telemetryConfig.uid,
     cdata: eventInput.context?.cdata || [],
   };
 

@@ -443,13 +443,13 @@ const DashboardContent = () => {
               }}
               onClick={() => router.push("/dashboard?tab=1")}
             >
-                <Image
-                               src={tenantIcon}
-                               alt={tenantAlt}
-                               width={32}
-                               height={32}
-                               style={{ objectFit: "contain" }}
-                             />
+              <Image
+                src={tenantIcon}
+                alt={tenantAlt}
+                width={48}
+                height={48}
+                style={{ objectFit: "contain" }}
+              />
             </Box>
 
             {/* Tenant Name - Hidden on mobile */}

@@ -36,7 +36,7 @@ const nextConfig = {
   transpilePackages: ["@shared-lib-v2/*"],
 
   images: {
-    domains: ["program-image-dev.s3.ap-south-1.amazonaws.com", "oblf.org"],
+    domains: ["program-image-dev.s3.ap-south-1.amazonaws.com","oblf.org"],
     remotePatterns: [
       {
         protocol: 'https',
