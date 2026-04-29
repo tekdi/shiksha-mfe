@@ -837,7 +837,7 @@ setUsername(
         primaryActionHandler={onSigin}
       >
         <Box p="10px">
-          <SignupSuccess/>
+          <SignupSuccess />
         </Box>
       </SimpleModal>
 
