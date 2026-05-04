@@ -1,0 +1,10 @@
+services:
+  ai-engine:
+    build:
+      context: ./services/ai-engine
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./services/ai-engine:/app
+    environment:
+      - ENVIRONMENT=development
