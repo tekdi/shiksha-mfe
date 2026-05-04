@@ -9,24 +9,48 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="AI Engine API")
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+_CHUNK_SIZE = 64 * 1024  # 64 KB read chunks
+
+
+async def _read_bounded(file: UploadFile, max_bytes: int) -> bytes:
+    """Read an UploadFile in chunks, raising 413 if it exceeds *max_bytes*.
+
+    Using chunked reads avoids loading an arbitrarily large file into memory
+    before we can check its size — the underlying issue SonarQube flags when
+    ``file.file.seek()`` is called on a SpooledTemporaryFile.
+    """
+    chunks: list[bytes] = []
+    total = 0
+    while True:
+        chunk = await file.read(_CHUNK_SIZE)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail="File too large. Maximum size is 10MB.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
 
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
 
+
 @app.post("/ingest")
 async def ingest_pdf(file: UploadFile = File(...)):
-    if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="Unsupported file type. Only PDF is allowed.")
-    
-    # Check file size before reading into memory to prevent potential DoS
-    file.file.seek(0, 2)
-    file_size = file.file.tell()
-    file.file.seek(0)
-    if file_size > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
-        
-    content = await file.read()
+    # Strip optional charset suffix (e.g. "application/pdf; charset=binary")
+    content_type = (file.content_type or "").split(";")[0].strip()
+    if content_type != "application/pdf":
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported file type. Only PDF is allowed.",
+        )
+
+    content = await _read_bounded(file, MAX_FILE_SIZE)
     if len(content) == 0:
         raise HTTPException(status_code=400, detail="Empty file uploaded.")
         
