@@ -8,7 +8,7 @@ The `ai-engine` is a Python-based FastAPI backend service responsible for proces
 ### Content MFE
 The Content MFE acts as the primary interface for content creation and management.
 - **Upload**: When a user uploads a PDF document via the Content MFE, it will make a `POST` request to the `/ingest` endpoint of the `ai-engine`.
-- **Processing**: The `ai-engine` processes the document, extracting headers, body text, images, metadata, key takeaways, glossary terms, and a generated narration script.
+- **Processing**: The `ai-engine` processes the document, extracting headers, body text, images, and metadata. Fields `key_takeaways`, `glossary`, and `narration_script` are included in the response schema as empty placeholders pending future AI enrichment.
 - **Response**: The structured JSON response is returned to the Content MFE, where the user can review and edit the parsed content before saving it to the main application database.
 
 ### Teacher App
