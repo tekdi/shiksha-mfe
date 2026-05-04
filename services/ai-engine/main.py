@@ -1,6 +1,10 @@
 import base64
+import logging
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import fitz  # PyMuPDF
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="AI Engine API")
 
@@ -86,7 +90,7 @@ async def ingest_pdf(file: UploadFile = File(...)):
     except HTTPException:
         raise
     except Exception:
-        # Log the error internally here for debugging
+        logger.exception("Unexpected error while parsing PDF")
         raise HTTPException(status_code=400, detail="Failed to parse PDF. Please ensure it is a valid document.")
     
     body_text = " ".join(body_text_parts)
