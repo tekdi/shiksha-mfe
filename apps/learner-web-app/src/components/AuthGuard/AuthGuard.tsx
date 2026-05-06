@@ -18,7 +18,6 @@ const publicRoutes = [
   "/password-forget",
   "/reset-Password",
   "/logout",
-  "/",
   "/home",
   "/faqs",
   "/explore",
@@ -37,7 +36,9 @@ const isPublicRoute = (pathname: string): boolean => {
   }
 
   // Check if pathname starts with any public route
-  return publicRoutes.some((route) => pathname.startsWith(route));
+  return publicRoutes.some(
+    (route) => pathname === route || pathname.startsWith(route + "/")
+  );
 };
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
