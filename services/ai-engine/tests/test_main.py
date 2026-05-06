@@ -1,27 +1,30 @@
 """
 Tests for services/ai-engine/main.py
 
-All PDF fixtures are generated in-memory using PyMuPDF (fitz) so no binary
+All PDF fixtures are generated in-memory using PyMuPDF (fitz) — no binary
 files are committed to the repository.
 
 Coverage targets
 ----------------
-GET  /health          — always returns {"status": "healthy"}
-POST /ingest          — happy path: text + headings + images extracted
-POST /ingest          — 400 when content-type is not application/pdf
-POST /ingest          — 400 when content-type has charset suffix (e.g. text/plain; charset=utf-8)
-POST /ingest          — 400 when file is empty (0 bytes)
-POST /ingest          — 400 when bytes don't form a valid PDF
-POST /ingest          — 413 when file exceeds MAX_FILE_SIZE
-POST /ingest          — response schema contains all required keys
-POST /ingest          — headings heuristic: bold / large-font text is classified as heading
-POST /ingest          — duplicate image xrefs are deduplicated
+GET  /health            — always returns {"status": "healthy"}
+POST /ingest            — happy path: text + headings + images extracted
+POST /ingest            — response has page_count and pages array
+POST /ingest            — per-page structure: page_num, text, headings, images
+POST /ingest            — multi-page PDFs produce one entry per page
+POST /ingest            — 400 when content-type is not application/pdf
+POST /ingest            — 400 when content-type has charset suffix
+POST /ingest            — 400 when file is empty (0 bytes)
+POST /ingest            — 400 when bytes are not a valid PDF
+POST /ingest            — 400 when PDF has no pages
+POST /ingest            — 413 when file exceeds MAX_FILE_SIZE
+POST /ingest            — headings heuristic: bold / large-font text classified
+POST /ingest            — duplicate image xrefs are deduplicated across pages
+POST /ingest            — error detail does not leak internal stack traces
 """
 
 from __future__ import annotations
 
 import io
-import struct
 
 import fitz  # PyMuPDF
 import pytest
@@ -33,6 +36,7 @@ from main import MAX_FILE_SIZE, app
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_pdf(
     *,
     body_text: str = "Body text line.",
@@ -40,13 +44,13 @@ def _make_pdf(
     heading_font_size: float = 18.0,
     num_pages: int = 1,
 ) -> bytes:
-    """Create a minimal, valid PDF in memory using PyMuPDF.
+    """Create a minimal, valid in-memory PDF using PyMuPDF.
 
     Parameters
     ----------
-    body_text:         Regular body text inserted at normal size (12 pt).
-    heading_text:      Optional text inserted at *heading_font_size*.
-    heading_font_size: Font size for the heading span (>14 triggers heuristic).
+    body_text:         Regular body text inserted at 12 pt.
+    heading_text:      Optional heading inserted at *heading_font_size*.
+    heading_font_size: Font size for heading spans (> 14 triggers heuristic).
     num_pages:         Number of pages to generate.
     """
     doc = fitz.open()
@@ -70,15 +74,8 @@ def _make_pdf(
     return pdf_bytes
 
 
-def _make_pdf_file(
-    content: bytes,
-    filename: str = "test.pdf",
-    content_type: str = "application/pdf",
-) -> dict:
-    """Return a ``files`` dict accepted by Starlette/httpx TestClient.
-
-    Format: ``{"field_name": (filename, file_obj, content_type)}``
-    """
+def _upload(content: bytes, filename: str = "test.pdf", content_type: str = "application/pdf") -> dict:
+    """Return a ``files`` dict ready for TestClient.post()."""
     return {"file": (filename, io.BytesIO(content), content_type)}
 
 
@@ -86,167 +83,208 @@ def _make_pdf_file(
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def client() -> TestClient:
-    """A shared synchronous TestClient for the FastAPI app."""
+    """Shared synchronous TestClient for the FastAPI app."""
     return TestClient(app)
 
 
 @pytest.fixture(scope="module")
 def valid_pdf() -> bytes:
-    """A well-formed PDF with heading + body text."""
+    """Well-formed PDF with a heading and body text."""
     return _make_pdf()
 
 
+@pytest.fixture(scope="module")
+def valid_pdf_data(client: TestClient, valid_pdf: bytes) -> dict:
+    """Parsed JSON response for a valid PDF upload."""
+    return client.post("/ingest", files=_upload(valid_pdf)).json()
+
+
 # ---------------------------------------------------------------------------
-# Health endpoint
+# /health
 # ---------------------------------------------------------------------------
+
 
 class TestHealthEndpoint:
     def test_returns_200(self, client: TestClient):
-        response = client.get("/health")
-        assert response.status_code == 200
+        assert client.get("/health").status_code == 200
 
     def test_returns_healthy_status(self, client: TestClient):
-        data = client.get("/health").json()
-        assert data == {"status": "healthy"}
+        assert client.get("/health").json() == {"status": "healthy"}
 
     def test_content_type_is_json(self, client: TestClient):
-        response = client.get("/health")
-        assert "application/json" in response.headers["content-type"]
+        assert "application/json" in client.get("/health").headers["content-type"]
 
 
 # ---------------------------------------------------------------------------
-# Ingest endpoint — happy path
+# /ingest — happy path
 # ---------------------------------------------------------------------------
+
 
 class TestIngestHappyPath:
     def test_returns_200(self, client: TestClient, valid_pdf: bytes):
-        response = client.post("/ingest", files=_make_pdf_file(valid_pdf))
-        assert response.status_code == 200
+        assert client.post("/ingest", files=_upload(valid_pdf)).status_code == 200
 
-    def test_response_has_required_keys(self, client: TestClient, valid_pdf: bytes):
-        data = client.post("/ingest", files=_make_pdf_file(valid_pdf)).json()
-        required_keys = {
-            "headers",
-            "body_text",
-            "images",
-            "metadata",
-            "key_takeaways",
-            "glossary",
-            "narration_script",
+    def test_response_has_all_required_keys(self, valid_pdf_data: dict):
+        required = {
+            "page_count", "metadata", "pages",
+            "body_text", "headers", "images",
+            "key_takeaways", "glossary", "narration_script",
         }
-        assert required_keys.issubset(data.keys())
+        assert required.issubset(valid_pdf_data.keys())
 
-    def test_body_text_is_non_empty(self, client: TestClient, valid_pdf: bytes):
-        data = client.post("/ingest", files=_make_pdf_file(valid_pdf)).json()
-        assert len(data["body_text"].strip()) > 0
+    def test_page_count_is_integer(self, valid_pdf_data: dict):
+        assert isinstance(valid_pdf_data["page_count"], int)
+
+    def test_single_page_pdf_has_page_count_one(self, valid_pdf_data: dict):
+        assert valid_pdf_data["page_count"] == 1
+
+    def test_pages_is_a_list(self, valid_pdf_data: dict):
+        assert isinstance(valid_pdf_data["pages"], list)
+
+    def test_pages_length_matches_page_count(self, valid_pdf_data: dict):
+        assert len(valid_pdf_data["pages"]) == valid_pdf_data["page_count"]
+
+    def test_page_entry_has_required_keys(self, valid_pdf_data: dict):
+        page = valid_pdf_data["pages"][0]
+        assert {"page_num", "text", "headings", "images"}.issubset(page.keys())
+
+    def test_page_num_starts_at_one(self, valid_pdf_data: dict):
+        assert valid_pdf_data["pages"][0]["page_num"] == 1
+
+    def test_body_text_is_non_empty(self, valid_pdf_data: dict):
+        assert len(valid_pdf_data["body_text"].strip()) > 0
 
     def test_body_text_contains_inserted_content(self, client: TestClient):
-        pdf = _make_pdf(body_text="Unique body sentence XYZ123", heading_text=None)
-        data = client.post("/ingest", files=_make_pdf_file(pdf)).json()
-        assert "Unique body sentence XYZ123" in data["body_text"]
+        pdf = _make_pdf(body_text="UniqueBodySentenceABC789", heading_text=None)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        assert "UniqueBodySentenceABC789" in data["body_text"]
 
-    def test_placeholder_fields_are_empty(self, client: TestClient, valid_pdf: bytes):
-        data = client.post("/ingest", files=_make_pdf_file(valid_pdf)).json()
-        assert data["key_takeaways"] == []
-        assert data["glossary"] == {}
-        assert data["narration_script"] == ""
+    def test_page_text_contains_body_content(self, client: TestClient):
+        pdf = _make_pdf(body_text="PageLevelTextCheck", heading_text=None)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        assert "PageLevelTextCheck" in data["pages"][0]["text"]
 
-    def test_images_list_is_list(self, client: TestClient, valid_pdf: bytes):
-        data = client.post("/ingest", files=_make_pdf_file(valid_pdf)).json()
-        assert isinstance(data["images"], list)
+    def test_metadata_is_dict(self, valid_pdf_data: dict):
+        assert isinstance(valid_pdf_data["metadata"], dict)
 
-    def test_metadata_is_dict(self, client: TestClient, valid_pdf: bytes):
-        data = client.post("/ingest", files=_make_pdf_file(valid_pdf)).json()
-        assert isinstance(data["metadata"], dict)
+    def test_images_is_list(self, valid_pdf_data: dict):
+        assert isinstance(valid_pdf_data["images"], list)
+
+    def test_placeholder_fields_are_empty(self, valid_pdf_data: dict):
+        assert valid_pdf_data["key_takeaways"] == []
+        assert valid_pdf_data["glossary"] == {}
+        assert valid_pdf_data["narration_script"] == ""
 
 
 # ---------------------------------------------------------------------------
-# Ingest endpoint — heading heuristic
+# /ingest — multi-page PDFs
 # ---------------------------------------------------------------------------
+
+
+class TestMultiPagePDF:
+    def test_three_page_pdf_has_correct_page_count(self, client: TestClient):
+        pdf = _make_pdf(num_pages=3)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        assert data["page_count"] == 3
+
+    def test_three_page_pdf_has_three_page_entries(self, client: TestClient):
+        pdf = _make_pdf(num_pages=3)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        assert len(data["pages"]) == 3
+
+    def test_page_nums_are_sequential(self, client: TestClient):
+        pdf = _make_pdf(num_pages=3)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        assert [p["page_num"] for p in data["pages"]] == [1, 2, 3]
+
+    def test_body_text_contains_content_from_all_pages(self, client: TestClient):
+        pdf = _make_pdf(body_text="RepeatPerPage.", num_pages=3)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        assert data["body_text"].count("RepeatPerPage.") == 3
+
+    def test_body_text_equals_joined_page_texts(self, client: TestClient):
+        pdf = _make_pdf(num_pages=2)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        expected = " ".join(p["text"] for p in data["pages"])
+        assert data["body_text"] == expected
+
+
+# ---------------------------------------------------------------------------
+# /ingest — heading heuristic
+# ---------------------------------------------------------------------------
+
 
 class TestHeadingHeuristic:
-    def test_large_font_text_classified_as_heading(self, client: TestClient):
-        heading = "Section Alpha"
+    def test_large_font_text_is_a_heading(self, client: TestClient):
+        heading = "Large Section Title"
         pdf = _make_pdf(heading_text=heading, heading_font_size=18.0)
-        data = client.post("/ingest", files=_make_pdf_file(pdf)).json()
+        data = client.post("/ingest", files=_upload(pdf)).json()
         assert heading in data["headers"]
 
-    def test_small_font_text_not_classified_as_heading(self, client: TestClient):
-        body = "Just a normal sentence."
+    def test_large_font_heading_also_in_page_headings(self, client: TestClient):
+        heading = "Page Level Heading"
+        pdf = _make_pdf(heading_text=heading, heading_font_size=18.0)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        assert heading in data["pages"][0]["headings"]
+
+    def test_normal_font_text_not_classified_as_heading(self, client: TestClient):
+        body = "Just a regular sentence."
         pdf = _make_pdf(body_text=body, heading_text=None)
-        data = client.post("/ingest", files=_make_pdf_file(pdf)).json()
-        # With no heading inserted, headers list should be empty
+        data = client.post("/ingest", files=_upload(pdf)).json()
         assert data["headers"] == []
 
-    def test_multipage_pdf_extracts_content(self, client: TestClient):
-        pdf = _make_pdf(body_text="Per-page content.", num_pages=3)
-        data = client.post("/ingest", files=_make_pdf_file(pdf)).json()
-        # Body text should contain content from all pages
-        assert data["body_text"].count("Per-page content.") == 3
+    def test_headers_list_is_deduplicated_across_pages(self, client: TestClient):
+        """Same heading on every page must appear only once in the global list."""
+        heading = "Repeated Heading"
+        pdf = _make_pdf(heading_text=heading, heading_font_size=18.0, num_pages=3)
+        data = client.post("/ingest", files=_upload(pdf)).json()
+        assert data["headers"].count(heading) == 1
 
 
 # ---------------------------------------------------------------------------
-# Ingest endpoint — validation errors
+# /ingest — error handling
 # ---------------------------------------------------------------------------
 
-class TestIngestValidation:
+
+class TestIngestErrorHandling:
     def test_rejects_non_pdf_content_type(self, client: TestClient):
-        response = client.post(
-            "/ingest",
-            files={"file": ("doc.txt", io.BytesIO(b"hello"), "text/plain")},
-        )
-        assert response.status_code == 400
-        assert "Only PDF" in response.json()["detail"]
+        resp = client.post("/ingest", files={"file": ("doc.txt", io.BytesIO(b"hello"), "text/plain")})
+        assert resp.status_code == 400
+        assert "Only PDF" in resp.json()["detail"]
 
     def test_rejects_content_type_with_charset_suffix(self, client: TestClient):
-        """Clients may send 'text/plain; charset=utf-8' — must still be rejected."""
-        response = client.post(
+        resp = client.post(
             "/ingest",
             files={"file": ("doc.txt", io.BytesIO(b"hello"), "text/plain; charset=utf-8")},
         )
-        assert response.status_code == 400
+        assert resp.status_code == 400
 
     def test_rejects_empty_file(self, client: TestClient):
-        response = client.post(
-            "/ingest",
-            files={"file": ("empty.pdf", io.BytesIO(b""), "application/pdf")},
-        )
-        assert response.status_code == 400
-        assert "Empty" in response.json()["detail"]
+        resp = client.post("/ingest", files={"file": ("empty.pdf", io.BytesIO(b""), "application/pdf")})
+        assert resp.status_code == 400
+        assert "Empty" in resp.json()["detail"]
 
     def test_rejects_corrupted_bytes(self, client: TestClient):
-        """Random bytes that are not a valid PDF must return 400, not 500."""
         garbage = b"\x00\x01\x02\x03" * 256
-        response = client.post(
-            "/ingest",
-            files={"file": ("bad.pdf", io.BytesIO(garbage), "application/pdf")},
-        )
-        assert response.status_code == 400
-        # Generic message — no internal details leaked
-        assert "Failed to parse PDF" in response.json()["detail"]
+        resp = client.post("/ingest", files={"file": ("bad.pdf", io.BytesIO(garbage), "application/pdf")})
+        assert resp.status_code == 400
+        assert "Failed to parse PDF" in resp.json()["detail"]
 
     def test_rejects_file_exceeding_size_limit(self, client: TestClient):
-        """Uploading more than MAX_FILE_SIZE bytes must return 413."""
         oversized = b"A" * (MAX_FILE_SIZE + 1)
-        response = client.post(
-            "/ingest",
-            files={"file": ("big.pdf", io.BytesIO(oversized), "application/pdf")},
-        )
-        assert response.status_code == 413
-        assert "too large" in response.json()["detail"].lower()
+        resp = client.post("/ingest", files={"file": ("big.pdf", io.BytesIO(oversized), "application/pdf")})
+        assert resp.status_code == 413
+        assert "too large" in resp.json()["detail"].lower()
 
     def test_error_detail_does_not_leak_stack_trace(self, client: TestClient):
-        """The error detail for bad PDFs must be a generic user-safe string."""
         garbage = b"not a pdf at all"
-        data = client.post(
+        detail = client.post(
             "/ingest",
             files={"file": ("bad.pdf", io.BytesIO(garbage), "application/pdf")},
-        ).json()
-        detail = data.get("detail", "")
-        # Ensure no Python exception class names are in the response
+        ).json().get("detail", "")
         assert "Traceback" not in detail
         assert "Exception" not in detail
         assert "fitz" not in detail.lower()
-
