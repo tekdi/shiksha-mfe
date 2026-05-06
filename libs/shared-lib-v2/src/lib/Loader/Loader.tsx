@@ -32,7 +32,6 @@ export const Loader: React.FC<LoaderProps> = memo(
             role="status"
             aria-live="polite"
             aria-busy="true"
-            aria-label={loadingLabel}
             sx={{
               width: '100%',
               minHeight: `calc(100vh - ${layoutHeight || 0}px)`,

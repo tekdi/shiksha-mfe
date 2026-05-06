@@ -2,7 +2,7 @@
 import React from "react";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
-import { useTheme } from "@mui/material/styles";
+import { useTheme, SxProps, Theme } from "@mui/material/styles";
 import {
   TenantBranding,
   useTenantBranding,
@@ -21,13 +21,16 @@ export interface BrandLogoProps {
   logoHeight?: number;
   /** Optional href — when set, the logo becomes a link. */
   href?: string;
-  /** Inline styles on the wrapper Box. */
-  sx?: React.CSSProperties;
-  /** Inline styles on the brand-name Typography. */
-  nameSx?: React.CSSProperties;
+  /** MUI sx overrides for the wrapper Box. */
+  sx?: SxProps<Theme>;
+  /** MUI sx overrides for the brand-name Typography. */
+  nameSx?: SxProps<Theme>;
   /** Optional click handler for the wrapper. */
   onClick?: (event: React.MouseEvent<HTMLElement>) => void;
 }
+
+const toSxArray = <T,>(value?: SxProps<T>): ReadonlyArray<unknown> =>
+  Array.isArray(value) ? value : value ? [value] : [];
 
 const buildAlt = (branding: Pick<TenantBranding, "name" | "logoAlt">) =>
   branding.logoAlt ?? `${branding.name} logo`;
@@ -61,18 +64,19 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   return (
     <Box
       onClick={onClick}
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        gap: 1,
-        cursor: href || onClick ? "pointer" : "default",
-        ...sx,
-      }}
+      sx={[
+        {
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          cursor: href || onClick ? "pointer" : "default",
+        },
+        ...toSxArray(sx),
+      ] as SxProps<Theme>}
     >
       {href ? (
         <a
           href={href}
-          aria-label={resolvedAlt}
           style={{ display: "inline-flex", textDecoration: "none" }}
         >
           {image}
@@ -83,12 +87,14 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
       {!hideName && resolvedName && (
         <Typography
           variant="body1"
-          sx={{
-            color: theme.palette.text.primary,
-            fontWeight: 600,
-            fontFamily: branding.fontFamily,
-            ...nameSx,
-          }}
+          sx={[
+            {
+              color: theme.palette.text.primary,
+              fontWeight: 600,
+              fontFamily: branding.fontFamily,
+            },
+            ...toSxArray(nameSx),
+          ] as SxProps<Theme>}
         >
           {resolvedName}
         </Typography>

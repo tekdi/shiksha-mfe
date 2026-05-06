@@ -21,6 +21,7 @@ import type { DrawerItemProp } from "../Drawer/CommonDrawer";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import SpeakableText from "../textToSpeech/SpeakableText";
 import { BrandLogo } from "../Branding/BrandLogo";
+import { useTenantBranding } from "../context/TenantBrandingContext";
 
 interface NewDrawerItemProp extends DrawerItemProp {
   variant?: "contained" | "text";
@@ -446,18 +447,22 @@ const Brand = ({
   logo?: string;
 }) => {
   const theme = useTheme();
+  const branding = useTenantBranding();
+  const { brandlogo, _text, ...restBox } = _box ?? {};
 
-  if (_box?.brandlogo) {
+  if (brandlogo) {
     return (
-      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} {..._box}>
-        {_box.brandlogo}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} {...restBox}>
+        {brandlogo}
       </Box>
     );
   }
 
   const showName = name !== "";
+  const resolvedName = name || branding.name;
+
   return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} {..._box}>
+    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} {...restBox}>
       <BrandLogo logoHeight={40} name={name} logo={logo} hideName />
       {showName && (
         <Typography
@@ -465,10 +470,10 @@ const Brand = ({
           sx={{
             color: theme.palette.text.primary,
             fontWeight: 600,
-            ...(_box?._text ?? {}),
+            ...(_text ?? {}),
           }}
         >
-          <SpeakableText>{name ?? "Pratham"}</SpeakableText>
+          <SpeakableText>{resolvedName}</SpeakableText>
         </Typography>
       )}
     </Box>
