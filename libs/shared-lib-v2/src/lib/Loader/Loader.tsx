@@ -10,6 +10,8 @@ interface LoaderProps {
   _children?: React.CSSProperties;
   _childrenBox?: any;
   isHideMaxHeight?: boolean;
+  /** Accessible label announced by screen readers while loading. */
+  loadingLabel?: string;
 }
 
 export const Loader: React.FC<LoaderProps> = memo(
@@ -21,26 +23,26 @@ export const Loader: React.FC<LoaderProps> = memo(
     _childrenBox,
     children,
     isHideMaxHeight,
+    loadingLabel = 'Loading',
   }) => {
     return (
       <>
         {isLoading && (
           <Box
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
             sx={{
               width: '100%',
               minHeight: `calc(100vh - ${layoutHeight || 0}px)`,
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              // position: 'absolute',
-              // zIndex: 9999,
-              // left: 0,
-              // right: 0,
               backgroundColor: 'transparent',
               ..._loader,
             }}
           >
-            <CircularProgress />
+            <CircularProgress aria-label={loadingLabel} />
           </Box>
         )}
         <Box
