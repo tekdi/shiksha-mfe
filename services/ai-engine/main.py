@@ -26,7 +26,9 @@ from __future__ import annotations
 
 import base64
 import logging
-from typing import Any
+import os
+import tempfile
+from typing import Any, Annotated
 
 import fitz  # PyMuPDF
 from fastapi import FastAPI, File, HTTPException, UploadFile
@@ -96,54 +98,41 @@ class IngestResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-async def _read_bounded(file: UploadFile, max_bytes: int) -> bytes:
-    """Read *file* in chunks, raising HTTP 413 if it exceeds *max_bytes*.
+async def _read_bounded_to_disk(file: UploadFile, max_bytes: int) -> str:
+    """Read *file* in chunks to a temporary file on disk, raising HTTP 413 if it exceeds *max_bytes*.
 
+    Returns the path to the temporary file.
     Chunked reading avoids loading an arbitrarily large file into memory before
-    the size can be checked — the pattern SonarQube flags with ``file.file.seek()``.
+    the size can be checked.
     """
-    chunks: list[bytes] = []
     total = 0
-    while True:
-        chunk = await file.read(_CHUNK_SIZE)
-        if not chunk:
-            break
-        total += len(chunk)
-        if total > max_bytes:
-            raise HTTPException(
-                status_code=413,
-                detail=f"File too large. Maximum allowed size is {max_bytes // (1024 * 1024)} MB.",
-            )
-        chunks.append(chunk)
-    return b"".join(chunks)
+    # Use delete=False because we need to close the file before PyMuPDF can open it on some OSs (like Windows)
+    # and we want to manually control the lifecycle.
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        while True:
+            chunk = await file.read(_CHUNK_SIZE)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                tmp.close()
+                if os.path.exists(tmp.name):
+                    os.unlink(tmp.name)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"File too large. Maximum allowed size is {max_bytes // (1024 * 1024)} MB.",
+                )
+            tmp.write(chunk)
+        return tmp.name
 
 
-def _extract_page(
-    doc: fitz.Document,
-    page_num: int,
-    seen_xrefs: set[int],
-) -> tuple[PageResult, list[str]]:
-    """Extract text, headings, and images from a single PDF page.
-
-    Parameters
-    ----------
-    doc:        Open PyMuPDF document.
-    page_num:   Zero-based page index.
-    seen_xrefs: Mutable set used to deduplicate images across pages.
-
-    Returns
-    -------
-    (PageResult, new_headings)
-        PageResult  — structured data for this page.
-        new_headings — heading strings not yet seen on previous pages.
-    """
-    page = doc.load_page(page_num)
-
+def _extract_text_and_headings(
+    page: fitz.Page,
+) -> tuple[str, list[str]]:
+    """Extract text and heuristics-based headings from a single page."""
     page_texts: list[str] = []
     page_headings: list[str] = []
-    page_images: list[PageImage] = []
 
-    # ── Text & heading extraction ────────────────────────────────────────────
     blocks = page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE).get("blocks", [])
     for block in blocks:
         if block.get("type") != 0:   # 0 = text block, 1 = image block
@@ -164,7 +153,18 @@ def _extract_page(
 
                 page_texts.append(text)
 
-    # ── Embedded image extraction ────────────────────────────────────────────
+    return " ".join(page_texts), page_headings
+
+
+def _extract_images(
+    doc: fitz.Document,
+    page: fitz.Page,
+    page_num: int,
+    seen_xrefs: set[int],
+) -> list[PageImage]:
+    """Extract and deduplicate embedded images as base64 strings."""
+    page_images: list[PageImage] = []
+
     for img_index, img_info in enumerate(page.get_images(full=True)):
         xref: int = img_info[0]
         if xref in seen_xrefs:
@@ -188,11 +188,24 @@ def _extract_page(
                     data=base64.b64encode(image_bytes).decode("utf-8"),
                 )
             )
+    return page_images
+
+
+def _extract_page(
+    doc: fitz.Document,
+    page_num: int,
+    seen_xrefs: set[int],
+) -> tuple[PageResult, list[str]]:
+    """Extract text, headings, and images from a single PDF page."""
+    page = doc.load_page(page_num)
+
+    text, page_headings = _extract_text_and_headings(page)
+    page_images = _extract_images(doc, page, page_num, seen_xrefs)
 
     return (
         PageResult(
             page_num=page_num + 1,
-            text=" ".join(page_texts),
+            text=text,
             headings=page_headings,
             images=page_images,
         ),
@@ -213,7 +226,6 @@ def health_check() -> dict[str, str]:
 
 @app.post(
     "/ingest",
-    response_model=IngestResponse,
     tags=["Ingestion"],
     summary="Ingest a PDF and extract structured content",
     responses={
@@ -221,7 +233,7 @@ def health_check() -> dict[str, str]:
         413: {"description": "File exceeds the 10 MB size limit"},
     },
 )
-async def ingest_pdf(file: UploadFile = File(...)) -> IngestResponse:
+async def ingest_pdf(file: Annotated[UploadFile, File(...)]) -> IngestResponse:
     """Upload a PDF and receive fully structured extracted content.
 
     The endpoint performs:
@@ -242,19 +254,20 @@ async def ingest_pdf(file: UploadFile = File(...)) -> IngestResponse:
             detail="Unsupported file type. Only PDF files (application/pdf) are accepted.",
         )
 
-    # ── Bounded read ─────────────────────────────────────────────────────────
-    content = await _read_bounded(file, MAX_FILE_SIZE)
-    if not content:
-        raise HTTPException(status_code=400, detail="Empty file uploaded.")
-
-    # ── PDF parsing ──────────────────────────────────────────────────────────
-    all_pages: list[PageResult] = []
-    all_headings: list[str]     = []
-    seen_xrefs: set[int]        = set()
-    metadata: dict[str, Any]    = {}
+    # ── Bounded read to disk ──────────────────────────────────────────────────
+    temp_path = await _read_bounded_to_disk(file, MAX_FILE_SIZE)
 
     try:
-        with fitz.open(stream=content, filetype="pdf") as doc:
+        if os.path.getsize(temp_path) == 0:
+            raise HTTPException(status_code=400, detail="Empty file uploaded.")
+
+        # ── PDF parsing ──────────────────────────────────────────────────────────
+        all_pages: list[PageResult] = []
+        all_headings: list[str]     = []
+        seen_xrefs: set[int]        = set()
+        metadata: dict[str, Any]    = {}
+
+        with fitz.open(temp_path) as doc:
             if doc.page_count == 0:
                 raise HTTPException(status_code=400, detail="PDF has no pages.")
 
@@ -275,6 +288,10 @@ async def ingest_pdf(file: UploadFile = File(...)) -> IngestResponse:
             status_code=400,
             detail="Failed to parse PDF. Please ensure it is a valid, non-encrypted document.",
         )
+    finally:
+        # ── Cleanup ─────────────────────────────────────────────────────────────
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
 
     # ── Aggregate fields ─────────────────────────────────────────────────────
     body_text  = " ".join(p.text for p in all_pages)
