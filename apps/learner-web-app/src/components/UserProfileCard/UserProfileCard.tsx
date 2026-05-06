@@ -32,13 +32,12 @@ import { isUndefined } from 'lodash';
 // Example: const fetchUserData = async () => { ... };
 
 const getCustomFieldValue = (customFields: any, label: string) => {
-  if (!Array.isArray(customFields) || customFields.length === 0) return '-';
+  console.log(customFields);
   const field = customFields.find((f: any) => f.label === label);
   return field?.selectedValues?.[0]?.value || field?.selectedValues?.[0] || '-';
 };
-
 const getCustomField = (customFields: any, label: string) => {
-  if (!Array.isArray(customFields) || customFields.length === 0) return '-';
+  console.log(customFields);
   const field = customFields.find((f: any) => f.label === label);
   return field?.selectedValues?.[0]?.label || field?.selectedValues?.[0] || '-';
 };
