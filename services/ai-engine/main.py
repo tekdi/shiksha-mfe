@@ -134,24 +134,26 @@ def _extract_text_and_headings(
     page_headings: list[str] = []
 
     blocks = page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE).get("blocks", [])
-    for block in blocks:
-        if block.get("type") != 0:   # 0 = text block, 1 = image block
+    
+    # Flatten spans to avoid deep nesting and reduce cognitive complexity
+    text_blocks = (b for b in blocks if b.get("type") == 0)
+    lines = (line for b in text_blocks for line in b.get("lines", []))
+    spans = (span for line in lines for span in line.get("spans", []))
+
+    for span in spans:
+        text = span.get("text", "").strip()
+        if not text:
             continue
-        for line in block.get("lines", []):
-            for span in line.get("spans", []):
-                text = span.get("text", "").strip()
-                if not text:
-                    continue
 
-                font_size: float = span.get("size", 0)
-                flags: int       = span.get("flags", 0)
-                is_bold: bool    = bool(flags & _HEADING_FLAG_BOLD)
+        font_size: float = span.get("size", 0)
+        flags: int       = span.get("flags", 0)
+        is_bold: bool    = bool(flags & _HEADING_FLAG_BOLD)
 
-                if font_size > _HEADING_FONT_SIZE_THRESHOLD or is_bold:
-                    if text not in page_headings:
-                        page_headings.append(text)
+        if font_size > _HEADING_FONT_SIZE_THRESHOLD or is_bold:
+            if text not in page_headings:
+                page_headings.append(text)
 
-                page_texts.append(text)
+        page_texts.append(text)
 
     return " ".join(page_texts), page_headings
 
@@ -245,13 +247,15 @@ async def ingest_pdf(file: Annotated[UploadFile, File(...)]) -> IngestResponse:
     - PDF document metadata extraction
     """
 
-    # ── Content-type guard ───────────────────────────────────────────────────
+    # ── Content-type & Extension guard ───────────────────────────────────────
     # Strip optional parameters such as "; charset=binary"
-    content_type = (file.content_type or "").split(";")[0].strip()
-    if content_type != "application/pdf":
+    content_type = (file.content_type or "").split(";")[0].strip().lower()
+    filename = (file.filename or "").lower()
+    
+    if content_type != "application/pdf" or not filename.endswith(".pdf"):
         raise HTTPException(
             status_code=400,
-            detail="Unsupported file type. Only PDF files (application/pdf) are accepted.",
+            detail="Unsupported file type. Only PDF files (.pdf) are accepted.",
         )
 
     # ── Bounded read to disk ──────────────────────────────────────────────────
@@ -282,6 +286,12 @@ async def ingest_pdf(file: Annotated[UploadFile, File(...)]) -> IngestResponse:
 
     except HTTPException:
         raise   # re-raise our own HTTP errors unchanged
+    except fitz.FileDataError:
+        logger.error("PyMuPDF failed to open the file — corrupted or invalid PDF structure.")
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded file is not a valid PDF or is corrupted.",
+        )
     except Exception:
         logger.exception("Unexpected error while parsing PDF.")
         raise HTTPException(
