@@ -12,6 +12,8 @@ export * from './lib/Progress/Progress';
 export * from './lib/Progress/CircularProgressWithLabel';
 export * from './lib/Loader/Loader';
 export * from './lib/context/LanguageContext';
+export * from './lib/context/TenantBrandingContext';
+export * from './lib/Branding/BrandLogo';
 export * from './utils/API/Interceptor';
 export * from './utils/API/RestClient';
 export * from './utils/DataClient';

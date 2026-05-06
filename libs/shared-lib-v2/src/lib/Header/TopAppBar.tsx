@@ -20,6 +20,7 @@ import { CommonDrawer } from "../Drawer/CommonDrawer";
 import type { DrawerItemProp } from "../Drawer/CommonDrawer";
 import ArrowDropDownIcon from "@mui/icons-material/ArrowDropDown";
 import SpeakableText from "../textToSpeech/SpeakableText";
+import { BrandLogo } from "../Branding/BrandLogo";
 
 interface NewDrawerItemProp extends DrawerItemProp {
   variant?: "contained" | "text";
@@ -437,32 +438,38 @@ const MobileTopBar = ({
 
 const Brand = ({
   _box,
-  name = "Pratham",
-  logo = "/logo.png",
+  name,
+  logo,
 }: {
   _box?: any;
   name?: string;
   logo?: string;
 }) => {
   const theme = useTheme();
+
+  if (_box?.brandlogo) {
+    return (
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} {..._box}>
+        {_box.brandlogo}
+      </Box>
+    );
+  }
+
+  const showName = name !== "";
   return (
     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }} {..._box}>
-      {_box?.brandlogo ?? (
-        <>
-          <img src={logo} alt="YouthNet" style={{ height: "40px" }} />
-          {name && (
-            <Typography
-              variant="body1"
-              sx={{
-                color: theme.palette.text.primary,
-                fontWeight: 600,
-                ...(_box?._text ?? {}),
-              }}
-            >
-              <SpeakableText>{name}</SpeakableText>
-            </Typography>
-          )}
-        </>
+      <BrandLogo logoHeight={40} name={name} logo={logo} hideName />
+      {showName && (
+        <Typography
+          variant="body1"
+          sx={{
+            color: theme.palette.text.primary,
+            fontWeight: 600,
+            ...(_box?._text ?? {}),
+          }}
+        >
+          <SpeakableText>{name ?? "Pratham"}</SpeakableText>
+        </Typography>
       )}
     </Box>
   );
