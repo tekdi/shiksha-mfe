@@ -46,7 +46,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
   const branding = useTenantBranding();
   const theme = useTheme();
 
-  const resolvedName = name ?? branding.name;
+  const resolvedName = name || branding.name;
   const resolvedLogo = logo ?? branding.logo;
   const resolvedAlt = alt ?? buildAlt({ name: resolvedName, logoAlt: branding.logoAlt });
 
