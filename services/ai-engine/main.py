@@ -1,4 +1,6 @@
 import base64
+import os
+import tempfile
 from fastapi import FastAPI, UploadFile, File, HTTPException
 import uvicorn
 import fitz  # PyMuPDF
@@ -11,22 +13,37 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 def health_check():
     return {"status": "healthy"}
 
+async def _read_bounded_to_disk(file: UploadFile, max_bytes: int) -> str:
+    total = 0
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+        while True:
+            chunk = await file.read(64 * 1024)
+            if not chunk:
+                break
+            total += len(chunk)
+            if total > max_bytes:
+                tmp.close()
+                if os.path.exists(tmp.name):
+                    os.unlink(tmp.name)
+                raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
+            tmp.write(chunk)
+        return tmp.name
+
 @app.post("/ingest")
 async def ingest_pdf(file: UploadFile = File(...)):
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="Unsupported file type. Only PDF is allowed.")
     
-    content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large. Maximum size is 10MB.")
-        
-    if len(content) == 0:
-        raise HTTPException(status_code=400, detail="Empty file uploaded.")
-        
+    temp_path = await _read_bounded_to_disk(file, MAX_FILE_SIZE)
+    
     try:
-        doc = fitz.open(stream=content, filetype="pdf")
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse PDF: {str(e)}")
+        if os.path.getsize(temp_path) == 0:
+            raise HTTPException(status_code=400, detail="Empty file uploaded.")
+            
+        try:
+            doc = fitz.open(temp_path)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to parse PDF: {str(e)}")
         
     if doc.page_count == 0:
         raise HTTPException(status_code=400, detail="PDF has no pages.")
@@ -91,6 +108,9 @@ async def ingest_pdf(file: UploadFile = File(...)):
         "glossary": {},
         "narration_script": ""
     }
+    finally:
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
