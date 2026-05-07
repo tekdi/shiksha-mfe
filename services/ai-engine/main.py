@@ -138,17 +138,12 @@ async def ingest_pdf(file: Annotated[UploadFile, File(...)]) -> dict:
             "narration_script": "",
         }
 
-    except HTTPException:
-        raise
     except (fitz.FileDataError, fitz.EmptyFileError):
         logger.error("PyMuPDF failed to open file — corrupted or invalid PDF.")
         raise HTTPException(
             status_code=400,
             detail="Failed to parse PDF. Ensure the file is a valid, non-encrypted PDF.",
         )
-    except Exception:
-        logger.exception("Unexpected error during PDF processing.")
-        raise HTTPException(status_code=500, detail="Internal server error.")
     finally:
         # Always clean up the temp file — temp_path=None means streaming failed
         if temp_path and os.path.exists(temp_path):
