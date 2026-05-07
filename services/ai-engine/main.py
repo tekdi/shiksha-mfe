@@ -99,31 +99,32 @@ class IngestResponse(BaseModel):
 
 
 async def _read_bounded_to_disk(file: UploadFile, max_bytes: int) -> str:
-    """Read *file* in chunks to a temporary file on disk, raising HTTP 413 if it exceeds *max_bytes*.
+    """Stream upload in chunks to a temp file; raise 413 if limit exceeded.
 
-    Returns the path to the temporary file.
-    Chunked reading avoids loading an arbitrarily large file into memory before
-    the size can be checked.
+    Uses try/except around the write loop so the temp file is always
+    cleaned up on unexpected I/O or network failures.
     """
     total = 0
-    # Use delete=False because we need to close the file before PyMuPDF can open it on some OSs (like Windows)
-    # and we want to manually control the lifecycle.
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-        while True:
-            chunk = await file.read(_CHUNK_SIZE)
-            if not chunk:
-                break
-            total += len(chunk)
-            if total > max_bytes:
-                tmp.close()
-                if os.path.exists(tmp.name):
-                    os.unlink(tmp.name)
-                raise HTTPException(
-                    status_code=413,
-                    detail=f"File too large. Maximum allowed size is {max_bytes // (1024 * 1024)} MB.",
-                )
-            tmp.write(chunk)
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
+    try:
+        with tmp:
+            while True:
+                chunk = await file.read(_CHUNK_SIZE)
+                if not chunk:
+                    break
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"File too large. Maximum allowed size is {max_bytes // (1024 * 1024)} MB.",
+                    )
+                tmp.write(chunk)
         return tmp.name
+    except Exception:
+        # Clean up orphaned temp file on any failure (network error, disk full, etc.)
+        if os.path.exists(tmp.name):
+            os.unlink(tmp.name)
+        raise
 
 
 def _extract_text_and_headings(
@@ -258,10 +259,12 @@ async def ingest_pdf(file: Annotated[UploadFile, File(...)]) -> IngestResponse:
             detail="Unsupported file type. Only PDF files (.pdf) are accepted.",
         )
 
-    # ── Bounded read to disk ──────────────────────────────────────────────────
-    temp_path = await _read_bounded_to_disk(file, MAX_FILE_SIZE)
+    # Initialize to None so the finally block is always safe
+    temp_path: str | None = None
 
     try:
+        temp_path = await _read_bounded_to_disk(file, MAX_FILE_SIZE)
+
         if os.path.getsize(temp_path) == 0:
             raise HTTPException(status_code=400, detail="Empty file uploaded.")
 
@@ -292,15 +295,9 @@ async def ingest_pdf(file: Annotated[UploadFile, File(...)]) -> IngestResponse:
             status_code=400,
             detail="The uploaded file is not a valid PDF or is corrupted.",
         )
-    except Exception:
-        logger.exception("Unexpected error while parsing PDF.")
-        raise HTTPException(
-            status_code=400,
-            detail="Failed to parse PDF. Please ensure it is a valid, non-encrypted document.",
-        )
     finally:
         # ── Cleanup ─────────────────────────────────────────────────────────────
-        if os.path.exists(temp_path):
+        if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
 
     # ── Aggregate fields ─────────────────────────────────────────────────────
