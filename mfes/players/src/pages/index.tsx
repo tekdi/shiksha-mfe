@@ -45,6 +45,8 @@ const Players: React.FC<SunbirdPlayerProps> = ({
      
       const queryUserId = router.query.userId as string;
       const queryTenantId = router.query.tenantId as string;
+      const queryToken = router.query.token as string;
+      const queryAcademicYearId = router.query.academicYearId as string;
      
       
       if (queryUserId) {
@@ -64,6 +66,14 @@ const Players: React.FC<SunbirdPlayerProps> = ({
         if (!storedTenantId) {
           console.warn("❌ No tenantId found in URL parameters or localStorage!");
         }
+      }
+
+      if (queryToken) {
+        localStorage.setItem("token", queryToken);
+      }
+
+      if (queryAcademicYearId) {
+        localStorage.setItem("academicYearId", queryAcademicYearId);
       }
     }
   }, [router.isReady, router.query.userId, router.query.tenantId]);

@@ -19,6 +19,7 @@ export interface issueCertificateParam {
   userId?: string;
   courseId?: string;
   courseName?: string;
+  credentialId?: string;
 }
 export interface renderCertificateParam {
   credentialId?: string;
@@ -112,10 +113,11 @@ export const downloadCertificate = async ({
 }: renderCertificateParam): Promise<Blob> => {
   const apiUrl: string = API_ENDPOINTS.downloadCertificate;
 
-  // Validate inputs
-  if (!credentialId || !templateId) {
+  // Validate inputs — only credentialId is strictly required;
+  // templateId is optional tenant config and may be absent.
+  if (!credentialId) {
     throw new Error(
-      "Missing required parameters: credentialId and templateId are required"
+      "Missing required parameters: credentialId is required"
     );
   }
 
@@ -137,7 +139,7 @@ export const downloadCertificate = async ({
     });
 
     // Try different request body formats
-    const requestBody = { credentialId, templateId };
+    const requestBody = { credentialId, templateId, format: 'pdf' };
     console.log("Request body:", requestBody);
 
     // Also try alternative request body format
@@ -145,6 +147,7 @@ export const downloadCertificate = async ({
       request: {
         credentialId,
         templateId,
+        format: 'pdf',
       },
     };
     console.log("Alternative request body:", alternativeRequestBody);

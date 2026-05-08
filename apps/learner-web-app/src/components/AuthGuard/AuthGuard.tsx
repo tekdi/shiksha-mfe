@@ -19,10 +19,20 @@ const publicRoutes = [
   "/reset-Password",
   "/logout",
   "/",
+  "/splash",
+  "/language-selection",
   "/home",
   "/faqs",
   "/explore",
   "/unauthorized",
+  // Swadhaar onboarding routes
+  "/splash",
+  "/language-selection",
+  "/swadhaar-login",
+  "/swadhaar-home",
+  "/learn",
+  "/alerts",
+  "/swadhar-profile",
   // POS routes (public)
   "/pos",
   // Thematic routes (public)
@@ -31,13 +41,22 @@ const publicRoutes = [
 
 // Check if route is public
 const isPublicRoute = (pathname: string): boolean => {
-  // Check exact matches
+  // Exact match for the root path
+  if (pathname === "/") {
+    return true;
+  }
+
+  // Check exact matches for all public routes
   if (publicRoutes.includes(pathname)) {
     return true;
   }
 
-  // Check if pathname starts with any public route
-  return publicRoutes.some((route) => pathname.startsWith(route));
+  // Check if pathname starts with any public route (prefix match)
+  // Skip "/" for prefix matching to avoid matching everything
+  return publicRoutes.some((route) => {
+    if (route === "/") return false;
+    return pathname.startsWith(route + "/") || pathname === route;
+  });
 };
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
@@ -62,7 +81,12 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
           sessionStorage.setItem("redirectAfterLogin", fullPath);
         }
         // Immediately redirect - this will prevent any rendering
-        window.location.replace("/login");
+        const isSwadhaar = currentPath.startsWith("/swadhaar") || 
+                          currentPath.startsWith("/swadhar") || 
+                          currentPath.startsWith("/learn") || 
+                          currentPath.startsWith("/alerts");
+        
+        window.location.replace(isSwadhaar ? "/swadhaar-login" : "/login");
         // Return loading spinner while redirecting
         return (
           <Box

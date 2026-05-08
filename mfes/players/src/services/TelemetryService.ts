@@ -155,13 +155,14 @@ export const getTelemetryEvents = async (
        // Filter keys for relevant telemetry events based on identifier
        const relevantKeys = keys.filter((key) => key.includes(identifier));
 
+       let maxProgress = 0;
 
        relevantKeys.forEach((key) => {
          const telemetryEvent = localStorage.getItem(key);
          if (telemetryEvent) {
            const parsedTelemetryEvent = JSON.parse(telemetryEvent);
-           let progressFromSummary = null;
-           let progressFromExtra = null;
+           let progressFromSummary: number | null = null;
+           let progressFromExtra: number | null = null;
 
 
            // Check `summary` for progress
@@ -194,8 +195,20 @@ export const getTelemetryEvents = async (
 
            // Push parsed telemetry event
            detailsObject.push(parsedTelemetryEvent);
+
+           // Track max progress
+           const currentProgress = Math.max(
+             progressFromSummary || 0,
+             progressFromExtra || 0
+           );
+           if (currentProgress > maxProgress) {
+             maxProgress = currentProgress;
+           }
          }
        });
+
+       // Store maxProgress for use in reqBody
+       (window as any)._currentMaxProgress = maxProgress;
 
 
        // After processing all keys, check if an END event exists in detailsObject for html or h5p
@@ -436,7 +449,7 @@ export const contentWithTelemetryData = async ({
      contentMime: resolvedMimeType,
      lastAccessOn: lastAccessOn,
      detailsObject: detailsObject,
-   };
+   } as ContentCreate;
 
 
    console.log("🎯 Calling createContentTracking with reqBody:", reqBody);

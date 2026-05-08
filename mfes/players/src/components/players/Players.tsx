@@ -268,6 +268,7 @@ const SunbirdPlayers = ({
       );
     case "video/mp4":
     case "video/webm":
+    case "video/ogg":
     case "audio/mp3":
     case "audio/wav":
       console.log("Routing to Video Player");
@@ -286,6 +287,7 @@ const SunbirdPlayers = ({
           configFunctionality={configFunctionality}
         />
       );
+    case "application/epub+zip":
     case "application/epub":
       console.log("Routing to EPUB Player");
       return (

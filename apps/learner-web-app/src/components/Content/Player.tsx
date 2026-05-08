@@ -46,15 +46,27 @@ const App = ({
   userIdLocalstorageName,
   contentBaseUrl,
   _config,
+  identifier: propIdentifier,
+  courseId: propCourseId,
+  unitId: propUnitId,
+  isEmbedded = false,
 }: {
   userIdLocalstorageName?: string;
   contentBaseUrl?: string;
   _config?: any;
+  identifier?: string;
+  courseId?: string;
+  unitId?: string;
+  isEmbedded?: boolean;
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
   const params = useParams();
-  const { identifier, courseId, unitId } = params || {}; // string | string[] | undefined
+  
+  const identifier = propIdentifier || params?.identifier;
+  const courseId = propCourseId || params?.courseId;
+  const unitId = propUnitId || params?.unitId;
+
   const [item, setItem] = useState<{ [key: string]: any }>({});
   const [breadCrumbs, setBreadCrumbs] = useState<any>();
   const [isShowMoreContent, setIsShowMoreContent] = useState(false);
@@ -155,131 +167,138 @@ const App = ({
         lg={isShowMoreContent ? 8 : 12}
         xl={isShowMoreContent ? 8 : 12}
       >
-        <Box
-          sx={{
-            display: "flex",
-            alignItems: "center",
-            gap: 1,
-          }}
-        >
-          <IconButton
-            aria-label="back"
-            onClick={onBackClick}
-            sx={{ width: "24px", height: "24px" }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <BreadCrumb breadCrumbs={breadCrumbs} isShowLastLink />
-        </Box>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "column",
-            // pb: 2,
-          }}
-        >
-          <Typography
-            variant="body8"
-            component="h2"
+        {!isEmbedded && (
+          <Box
             sx={{
-              fontWeight: 700,
-              // fontSize: '24px',
-              // lineHeight: '44px',
+              display: "flex",
+              alignItems: "center",
+              gap: 1,
             }}
           >
-            {item?.content?.name ?? "-"}
-          </Typography>
-          {item?.content?.description && (
-            <ExpandableText
-              text={item?.content?.description}
-              maxWords={60}
-              maxLines={2}
-              _text={{
-                fontSize: { xs: "14px", sm: "16px", md: "18px" },
-                lineHeight: { xs: "20px", sm: "22px", md: "26px" },
+            <IconButton
+              aria-label="back"
+              onClick={onBackClick}
+              sx={{ width: "24px", height: "24px" }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            <BreadCrumb breadCrumbs={breadCrumbs} isShowLastLink />
+          </Box>
+        )}
+        {!isEmbedded && (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              // pb: 2,
+            }}
+          >
+            <Typography
+              variant="body8"
+              component="h2"
+              sx={{
+                fontWeight: 700,
+                // fontSize: '24px',
+                // lineHeight: '44px',
               }}
-            />
-          )}
-        </Box>
+            >
+              {item?.content?.name ?? "-"}
+            </Typography>
+            {item?.content?.description && (
+              <ExpandableText
+                text={item?.content?.description}
+                maxWords={60}
+                maxLines={2}
+                _text={{
+                  fontSize: { xs: "14px", sm: "16px", md: "18px" },
+                  lineHeight: { xs: "20px", sm: "22px", md: "26px" },
+                }}
+              />
+            )}
+          </Box>
+        )}
         <PlayerBox
-          isShowMoreContent={isShowMoreContent}
+          isShowMoreContent={isEmbedded ? false : isShowMoreContent}
           userIdLocalstorageName={userIdLocalstorageName}
           item={item}
           identifier={identifier}
           courseId={courseId}
           unitId={unitId}
           mimeType={mimeType}
+          isEmbedded={isEmbedded}
           {..._config?.player}
         />
       </Grid>
 
-      <Grid
-        sx={{
-          display: isShowMoreContent ? "flex" : "none",
-          flexDirection: "column",
-          flex: { xs: 1, sm: 1, md: 9 },
-        }}
-        xs={12}
-        sm={12}
-        md={isShowMoreContent ? 4 : 12}
-        lg={isShowMoreContent ? 4 : 12}
-        xl={isShowMoreContent ? 4 : 12}
-      >
-        <Box
+      {!isEmbedded && (
+        <Grid
           sx={{
-            mb: 2,
-            px: {
-              xs: 2,
-              sm: 3,
-              md: 4,
-              lg: 0,
-              xl: 0,
-            },
+            display: isShowMoreContent ? "flex" : "none",
+            flexDirection: "column",
+            flex: { xs: 1, sm: 1, md: 9 },
           }}
+          xs={12}
+          sm={12}
+          md={isShowMoreContent ? 4 : 12}
+          lg={isShowMoreContent ? 4 : 12}
+          xl={isShowMoreContent ? 4 : 12}
         >
-          <Typography
-            variant="body5"
-            component="h2"
+          <Box
             sx={{
               mb: 2,
-              fontWeight: 500,
-              // fontSize: '18px',
-              // lineHeight: '24px',
-              mt: 3,
+              px: {
+                xs: 2,
+                sm: 3,
+                md: 4,
+                lg: 0,
+                xl: 0,
+              },
             }}
           >
-            {t("LEARNER_APP.PLAYER.MORE_RELATED_RESOURCES")}
-          </Typography>
+            <Typography
+              variant="body5"
+              component="h2"
+              sx={{
+                mb: 2,
+                fontWeight: 500,
+                // fontSize: '18px',
+                // lineHeight: '24px',
+                mt: 3,
+              }}
+            >
+              {t("LEARNER_APP.PLAYER.MORE_RELATED_RESOURCES")}
+            </Typography>
 
-          <CourseUnitDetails
-            isShowLayout={false}
-            isHideInfoCard={true}
-            _box={{
-              pt: 1,
-              pb: 1,
-              px: { md: 1 },
-              height: "calc(100vh - 185px)",
-            }}
-            _config={{
-              ...(_config?.courseUnitDetails || {}),
-              getContentData: (item: any) => {
-                setIsShowMoreContent(
-                  item.children.filter(
-                    (item: any) => item.identifier !== identifier
-                  )?.length > 0
-                );
-              },
-              _parentGrid: { pb: 2 },
-              default_img: "/images/image_ver.png",
-              _grid: { xs: 6, sm: 4, md: 6, lg: 6, xl: 6 },
-              _card: {
-                isHideProgress: true,
-                ...(_config?.courseUnitDetails?._card || {}),
-              },
-            }}
-          />
-        </Box>
-      </Grid>
+            <CourseUnitDetails
+              isShowLayout={false}
+              isHideInfoCard={true}
+              _box={{
+                pt: 1,
+                pb: 1,
+                px: { md: 1 },
+                height: "calc(100vh - 185px)",
+              }}
+              _config={{
+                ...(_config?.courseUnitDetails || {}),
+                getContentData: (item: any) => {
+                  setIsShowMoreContent(
+                    item.children.filter(
+                      (item: any) => item.identifier !== identifier
+                    )?.length > 0
+                  );
+                },
+                _parentGrid: { pb: 2 },
+                default_img: "/images/image_ver.png",
+                _grid: { xs: 6, sm: 4, md: 6, lg: 6, xl: 6 },
+                _card: {
+                  isHideProgress: true,
+                  ...(_config?.courseUnitDetails?._card || {}),
+                },
+              }}
+            />
+          </Box>
+        </Grid>
+      )}
     </Grid>
   );
 };
@@ -296,6 +315,7 @@ const PlayerBox = ({
   trackable,
   isShowMoreContent,
   mimeType,
+  isEmbedded = false,
 }: any) => {
   const router = useRouter();
   const { t } = useTranslation();
@@ -353,11 +373,8 @@ const PlayerBox = ({
     if (checkAuth() || userIdLocalstorageName) {
       setPlay(true);
     } else {
-      router.push(
-        `/login?redirectUrl=${
-          courseId ? `/content-details/${courseId}` : `/player/${identifier}`
-        }`
-      );
+      const redirectPath = isEmbedded ? window.location.pathname : (courseId ? `/content-details/${courseId}` : `/player/${identifier}`);
+      router.push(`/login?redirectUrl=${redirectPath}`);
     }
   };
   return (
@@ -406,7 +423,7 @@ const PlayerBox = ({
       {play && (
         <Box
           sx={{
-            width: isShowMoreContent
+            width: (isShowMoreContent && !isEmbedded)
               ? "100%"
               : { xs: "100%", sm: "100%", md: "90%", lg: "80%", xl: "70%" },
           }}
@@ -419,11 +436,15 @@ const PlayerBox = ({
             src={(() => {
               const tenantId = localStorage.getItem("tenantId");
               const userId = userIdLocalstorageName ? localStorage.getItem(userIdLocalstorageName) : "";
+              const token = localStorage.getItem("token");
+              const academicYearId = localStorage.getItem("academicYearId");
              
               const baseUrl = getSbPlayerBaseUrl();
               const url = `${baseUrl}?identifier=${identifier}${
                 courseId && unitId ? `&courseId=${courseId}&unitId=${unitId}` : ""
-              }${userId ? `&userId=${userId}` : ""}${tenantId ? `&tenantId=${tenantId}` : ""}`;
+              }${userId ? `&userId=${userId}` : ""}${tenantId ? `&tenantId=${tenantId}` : ""}${
+                token ? `&token=${token}` : ""
+              }${academicYearId ? `&academicYearId=${academicYearId}` : ""}`;
              
               return url;
             })()}

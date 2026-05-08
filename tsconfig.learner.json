@@ -20,6 +20,9 @@
       "@login/*": ["mfes/login/src/*"],
       "@forget-password/*": ["mfes/forget-password/src/*"],
       "@collection": ["mfes/editors/src/components/CollectionEditor.tsx"],
+      "@generic-editor": ["mfes/editors/src/components/GenericEditor.tsx"],
+      "@questionSet": ["mfes/editors/src/components/QuestionSetEditor.tsx"],
+      "@players": ["mfes/players/src/pages/play.tsx"],
 
       "@shared-lib": ["libs/shared-lib-v2/src/index.ts"],
       "@Content": ["mfes/content/src/components/Content/List.tsx"],

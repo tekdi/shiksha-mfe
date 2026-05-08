@@ -86,6 +86,21 @@ export const getQumlData = async (identifier: any) => {
   }
 };
 
+const getHeaders = () => {
+  if (typeof window === "undefined") return {};
+  const token = localStorage.getItem("token");
+  const tenantId = localStorage.getItem("tenantId");
+  const academicYearId = localStorage.getItem("academicYearId");
+
+  return {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(tenantId ? { tenantId, tenantid: tenantId } : {}),
+    ...(academicYearId ? { academicyearid: academicYearId } : {}),
+  };
+};
+
 export const createContentTracking = async (reqBody: ContentCreate) => {
   console.log("reqBody player service", reqBody);
   const apiUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/content/create`;
@@ -111,11 +126,7 @@ export const createContentTracking = async (reqBody: ContentCreate) => {
     }
 
     const response = await axios.post(apiUrl, reqBody, {
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        tenantId: localStorage.getItem("tenantId")
-      },
+      headers: getHeaders(),
       timeout: 10000, // 10 second timeout
     });
 
@@ -174,7 +185,9 @@ export const createAssessmentTracking = async ({
       };
       const apiUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/assessment/create`;
 
-      const response = await axios.post(apiUrl, data);
+      const response = await axios.post(apiUrl, data, {
+        headers: getHeaders(),
+      });
       console.log("Assessment tracking created:", response.data);
       return response.data;
     }
@@ -201,7 +214,9 @@ export const updateCOurseAndIssueCertificate = async ({
   };
   console.log("data 198", data);
   try {
-    const response = await axios.post(apiUrl, data);
+    const response = await axios.post(apiUrl, data, {
+      headers: getHeaders(),
+    });
     console.log("Course status updated:", response.data);
     const courseStatus = calculateCourseStatus({
       statusData: response?.data?.data?.[0]?.course?.[0],
@@ -324,9 +339,7 @@ export const updateUserCourseStatus = async ({
         status,
       },
       {
-        headers: {
-          tenantId: tenantId,
-        },
+        headers: getHeaders(),
       }
     );
     return response?.data?.result;
@@ -348,9 +361,7 @@ export const issueCertificate = async (reqBody: any) => {
   const apiUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/certificate/issue`;
   try {
     const response = await axios.post(apiUrl, reqBody, {
-      headers: {
-        tenantId: localStorage.getItem("tenantId"),
-      },
+      headers: getHeaders(),
     });
     return response?.data;
   } catch (error) {

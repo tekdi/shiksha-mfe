@@ -109,6 +109,10 @@ export const MIME_TYPE = {
     "application/vnd.ekstep.html-archive",
     "application/vnd.ekstep.ecml-archive",
   ],
+  PDF_MIME_TYPE: "application/pdf",
+  VIDEO_MIME_TYPE: ["video/mp4", "video/webm", "video/ogg"],
+  EPUB_MIME_TYPE: "application/epub+zip",
+  COLLECTION_MIME_TYPE: "application/vnd.ekstep.content-collection"
 };
 
 export const getTelemetryConfig = (): Context => {

@@ -1,5 +1,6 @@
 {
   "LANGUAGE": "Language en",
+  "OTP_SENT_SUCCESSFULLY": "OTP sent successfully!",
   "ENGLISH": "English",
   "HINDI": "Hindi",
   "MARATHI": "Marathi",
@@ -193,7 +194,6 @@
       "MOBILE_NUMBER": "Mobile Number",
       "SURE_LOGOUT": "Are you sure you want to Logout?",
       "LOGOUT": "Logout",
-      "OK": "OK",
       "OKAY": "Okay",
       "SAVE": "Save",
       "MY_CLASSES": "My Classes",
@@ -211,7 +211,6 @@
       "CREATED_AT": "Created At",
       "UPDATED_AT": "Updated At",
       "ERROR_FETCHING_MEMBERS": "Error fetching members",
-      "LEARNER": "Learner",
       "REMOVE_STUDENT_TOOLTIP": "Remove the student from this class",
       "REMOVE_STUDENT_CONFIRM": "Do you want to remove this student from this class?",
       "REMOVE_STUDENT_MEMBERSHIP_NOT_FOUND": "Unable to remove student: membership ID not found.",
@@ -219,21 +218,89 @@
       "REMOVE_STUDENT_FAILED": "Failed to remove student from this class.",
       "REMOVE_STUDENT_ERROR": "An error occurred while removing the student from this class."
     },
-    "COURSE": {
-      "COMPLETED_ON": "Completed on",
-      "STARTED_ON": "Started on",
-      "GET_STARTED": "Get Started",
-      "GET_STARTED_CLUB_COURSES": "Get Started with Camp to Club Courses",
-      "FILTER_BY": "Filter by",
-      "CLEAR_FILTER": "Clear Filter",
-      "APPLY_FILTER": "Apply Filter",
-      "DONE": "Done",
-      "LOADING_CONTENT": "Loading your lessons..."
+    "SPLASH": {
+      "TITLE": "Swadhaar Training Platform",
+      "TAGLINE": "Learn. Grow.",
+      "POWERED_BY": "Powered by Swadhaar FinAccess"
     },
-    "EXPLORE": {
-      "EXPLORE_ADDITIONAL_COURSES": "Explore Additional Courses"
+    "LANGUAGE_SELECTION": {
+      "TITLE": "Choose Language",
+      "SUBTITLE": "Select the language you're most comfortable with",
+      "CONTINUE": "Continue"
+    },
+    "LOGIN": {
+      "WELCOME": "Welcome!",
+      "SUBTITLE": "Sign in to continue",
+      "MOBILE_LABEL": "Mobile Number",
+      "MOBILE_PLACEHOLDER": "Enter mobile number",
+      "OTP_LABEL": "OTP",
+      "OTP_PLACEHOLDER": "Enter OTP",
+      "SEND_RESEND_OTP": "Send OTP",
+      "RESEND_IN": "Resend in {{seconds}}",
+      "SIGN_IN": "Sign In",
+      "USER_ARCHIVED": "Your account is not active. Please contact your administrator.",
+      "SEND_OTP_ERROR": "Failed to send OTP. Please try again."
+    },
+    "LEARN": {
+      "PAGE_TITLE": "Your Learning Path",
+      "LEVEL_PROGRESS": "Continue Learning",
+      "SUBTOPIC_PROGRESS": "Subtopic Progress",
+      "MODULE_SUBTOPIC_PROGRESS": "Subtopic Progress",
+      "COMPLETED_LESSONS": "Completed {{completed}}/{{total}} Lessons",
+      "COMPLETED_SUBTOPICS": "Completed {{completed}}/{{total}} Subtopics",
+      "COMPLETED_MODULES": "Completed {{completed}}/{{total}} Modules",
+      "LESSONS_TITLE": "Lessons",
+      "START_LEARNING": "Start Learning",
+      "COMPLETED": "Completed",
+      "TITLE": "Learn",
+      "LESSON_PROGRESS": "Lesson Progress",
+      "SUBTOPIC_COMPLETE": "Subtopic Complete!",
+      "NEW_CONTENT_AVAILABLE": "New Content Available",
+      "CONGRATULATIONS": "Congratulations!",
+      "FINISHED_COURSE": "You have finished {{courseName}}!",
+      "FINISHED_MODULE": "You have finished {{moduleName}}!",
+      "LEVEL_UNLOCKED": "{{levelName}} Unlocked",
+      "START_MODULE": "Start {{moduleName}}",
+      "GO_TO_LEVEL": "Go to {{levelName}}",
+      "DOWNLOAD_CERTIFICATE": "Download Certificate",
+      "TOTAL_SCORE": "Total Score: {{score}}/{{total}}",
+      "NEXT": "Next",
+      "PREVIOUS": "Previous",
+      "QUIZ": "Quiz",
+      "CONTENT": "Content",
+      "COMPLETED_MODULES_COUNT": "Completed {{completed}}/{{total}} modules",
+      "COMPLETED_SUBTOPICS_COUNT": "Completed {{completed}}/{{total}} Subtopics",
+      "UP_NEXT": "Up Next",
+      "NEXT_MODULE_DESC": "Next module in your path",
+      "GENERATING_CERTIFICATE": "Generating certificate...",
+      "DOWNLOADING_CERTIFICATE": "Downloading certificate...",
+      "CERTIFICATE_DOWNLOAD_SUCCESS": "Certificate downloaded successfully!",
+      "CERTIFICATE_DOWNLOAD_FAILED": "Failed to download certificate. Please try again.",
+      "START_NEXT_LEVEL": "Start Next Level",
+      "CURRENT_LABEL": "Current: {{name}}",
+      "LESSON_LABEL": "Lesson: {{name}}",
+      "LESSON": "Lesson",
+      "BACK_TO_LEARNING": "Back to Learning"
+    },
+    "MODULE_COMPLETE": "Module Complete",
+    "ALERTS": {
+      "TITLE": "Alerts",
+      "NO_NOTIFICATIONS": "No notifications yet",
+      "LOCKED_MESSAGE": "Complete previous course to unlock."
     },
     "HOME": {
+      "GREETING": "Namaste, {{name}}!",
+      "TITLE": "Home",
+      "PROGRESS_TEXT": "Progress: {{percent}}% Completed",
+      "ALERTS_TITLE": "Alerts and Updates",
+      "CONTINUE_LEARNING": "Continue Learning",
+      "START_LEARNING": "Start Learning",
+      "VIEW_MORE": "View More",
+      "VIEW_LESS": "View Less",
+      "COMPLETED": "Completed",
+      "LOCKED": "Locked",
+      "NO_ALERTS": "No new alerts",
+      "LOAD_ERROR": "Could not load course data. Pull to refresh.",
       "WELCOME_TITLE": "Welcome to Shiksha",
       "WELCOME_SUBTITLE": "Your Learning Journey begins here",
       "MAIN_DESCRIPTION": "Learn simple, practical finance skills in your language, at your own pace",
@@ -269,95 +336,7 @@
       "ABOUT_Shiksha_TITLE": "About Shiksha",
       "ABOUT_Shiksha_DESC": "Shiksha addresses gaps in education systems with innovative, low-cost, replicable interventions that span the age spectrum. Working both directly and through government systems, these programs collectively reach millions of children and thousands of school dropouts each year. In “direct” work, a Shiksha instructor works with children either in the school or in the community, whereas the “partnership” model involves Shiksha teams working closely with government teams at the state, district or city level to design and implement programs. Shiksha’s approach to improving learning outcomes continues to serve as a model, both within India and beyond.",
       "OUR_PROGRAMS": "Our Programs",
-      "SIGN_UP": "Sign Up",
-      "SIGN_IN": "Sign In",
-      "CHOOSE_LANGUAGE": "Choose your language",
-      "CONTINUE": "Continue to Login",
-      "APP_NAME": "Welcome to"
-    },
-    "LOGIN": {
-      "welcome_title": "Welcome to Shiksha",
-      "welcome_subtitle": "Your Learning Journey Begins here",
-      "welcome_image_alt": "Smiley face",
-      "qr_get_app": "Get the App",
-      "qr_instruction": "Point your phone \n camera here",
-      "qr_image_alt": "QR Code",
-      "or": "OR",
-      "playstore_image_alt": "Get it on Google Play",
-      "playstore_instruction": "Search “Shiksha myLearning” on Playstore",
-      "login_title": "Login",
-      "username_label": "Username",
-      "password_label": "Password",
-      "LOG_IN_AS_LEARNER_SUBTITLE": "Log in as a learner",
-      "remember_me": "Remember Me",
-      "forgot_password": "Forgot Password?",
-      "login_button": "Login",
-      "no_account": "I don’t have an Account",
-      "make_sure_to_cross_check_the_state_district_block_village": "Make sure to cross check the State, District, Block, Village",
-      "GET_THE_APP": "Get the App",
-      "POINT_YOUR_PHONE": "Point your phone",
-      "POINT_CAMERA": "camera here",
-      "OR": "OR",
-      "SEARCH_PLAYSTORE": "Search “Shiksha myLearning” on Playstore",
-      "ON_PLAYSTORE": "on Playstore",
-      "otp_label": "Enter OTP",
-      "verify_otp_button": "Verify OTP",
-      "PHONE_INSTRUCTION": "Hi there! Log in with your registered phone number to continue.",
-      "PHONE_NUMBER": "Phone Number",
-      "SENDING": "Sending...",
-      "SEND_OTP": "Send OTP",
-      "OTP_INSTRUCTION": "We've sent a 6-digit OTP to your WhatsApp. Enter the code below to continue learning",
-      "ENTER_OTP": "Verify OTP",
-      "RESEND_OTP_DISABLED": "Resend OTP (Limit Reached)",
-      "RESEND_OTP_HINT": "Didn’t receive the code? You can request a new OTP in a few seconds",
-      "RESEND_OTP": "Resend OTP",
-      "CHOOSE_MODE": "Choose how you want to continue",
-      "LEARNER_OR_WORKSPACE": "Login as a learner or go to the workspace portal.",
-      "CONTINUE_LEARNER": "Login as Learner",
-      "GO_TO_WORKSPACE": "Go to Workspace",
-      "LOGIN": "Login",
-      "USER_ARCHIVED": "Your account is not active. Please contact your administrator."
-        },
-    "L_ONE_COURSE": {
-      "IN_PROGRESS_TITLE": "In Progress",
-      "ONGOING_COURSES": "You have {count} Ongoing Courses",
-      "VIEW_ALL_BUTTON": "View All"
-    },
-    "L_TWO_COURSE": {
-      "TITLE": "L2 Course",
-      "DESCRIPTION": "You can boost your skills and unlock new job opportunities with our L2 course.",
-      "SUB_DESCRIPTION": "Show your interest to receive personalized guidance from our expert!",
-      "INTEREST_BUTTON": "I'm interested",
-      "SUBMIT_BUTTON": "Submit",
-      "OKAY_BUTTON": "Okay"
-    },
-    "LEVEL_UP": {
-      "TITLE": "Great! We're Excited to Help You Level Up!",
-      "SUB_TITLE": "Which topic are you most interested in?",
-      "TOPICS_PLACEHOLDER": "Topics",
-      "TOPIC_PLUMBING": "Plumbing",
-      "TOPIC_ELECTRICAL": "Electrical",
-      "TOPIC_CARPENTRY": "Carpentry",
-      "TOPIC_MASONRY": "Masonry",
-      "TOPIC_PAINTING": "Painting",
-      "FOOTER_TEXT": "Once you select a course, our expert will contact you with more information!"
-    },
-    "POS": {
-      "SCHOOL": "School",
-      "WORK": "Work",
-      "LIFE": "Life",
-      "PROGRAM": "Program",
-      "ABOUT_US": "About Us",
-      "THEMATIC_REPOSITORY": "Thematic Repository"
-    },
-    "RESPONSE_RECORDED": {
-      "TITLE": "Your response has been recorded",
-      "SUB_TITLE": "Our expert will reach out to you soon",
-      "FOOTER_TEXT": "In the meantime, feel free to explore more courses or continue building your skills!"
-    },
-    "CONTENT": {
-      "DEFAULT_IMAGE_ALT": "Default course image",
-      "FILTERS": "Filters"
+      "SIGN_UP": "Sign Up"
     },
     "IN_PROGRESS": {
       "ALL_COURSES": "All In Progress Courses"
@@ -444,6 +423,17 @@
       "ON_PLAYSTORE": "on Playstore"
     },
     "PROFILE": {
+      "TITLE": "Profile",
+      "NAME_REQUIRED": "Name cannot be empty",
+      "NAME_UPDATED_SUCCESS": "Name updated successfully!",
+      "UPDATE_FAILED": "Failed to update name",
+      "FIELD_LANGUAGE": "Language",
+      "FIELD_NAME": "Name",
+      "FIELD_DESIGNATION": "Designation",
+      "FIELD_CFL_LOCATION": "CFL Location",
+      "FIELD_MOBILE": "Mobile Number",
+      "FIELD_EMAIL": "Email",
+      "FIELD_JOINING_DATE": "Joining Date",
       "CERTIFICATION_ID_NOT_FOUND": "Certification ID not found",
       "ERROR_OPENING_CERTIFICATE": "Error opening certificate. Please try again.",
       "COURSE_COMPLETION_CERTIFICATE": "Course completion certificate",
@@ -467,7 +457,13 @@
       "NEED_HELP": "Need Help?",
       "GET_IN_TOUCH_SUPPORT": "Get in touch with our Support Officers",
       "SUPPORT_PHONE": "+91 8754911609",
-      "SUPPORT_LINK": "https://www.tekdi.net/"
+      "SUPPORT_LINK": "https://www.tekdi.net/",
+      "PHOTO_UPLOADED_SUCCESS": "Profile photo uploaded successfully!",
+      "ERROR_UPLOADING_PHOTO": "Failed to upload photo. Please try again.",
+      "FILE_TOO_LARGE": "File is too large. Please select a file smaller than 5MB.",
+      "INVALID_FILE_TYPE": "Invalid file type. Please select an image file.",
+      "PHOTO_UPLOADED_SUCCESS": "Profile photo uploaded successfully!",
+      "ERROR_UPLOADING_PHOTO": "Failed to upload photo. Please try again."
     },
     "ATTENDANCE": {
       "DAY_WISE_ATTENDANCE": "Day-Wise Attendance",
@@ -506,10 +502,6 @@
       "OVERALL_ATTENDANCE": "Overall attendance",
       "SEARCH_STUDENT": "Search student..",
       "LEARNER_NAME": "Learner Name"
-    },
-    "CONTENT": {
-      "VIEWING_CONTENT": "Viewing content",
-      "FILTERS": "Filters"
     }
   },
   "LOGIN_PAGE": {

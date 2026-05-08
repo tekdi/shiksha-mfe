@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * API route to proxy downloads with Content-Disposition: attachment
  * This forces browsers to download files instead of opening them in a new tab

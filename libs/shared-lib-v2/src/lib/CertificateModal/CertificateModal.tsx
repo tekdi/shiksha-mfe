@@ -12,7 +12,6 @@ import {
 
 import DownloadIcon from "@mui/icons-material/Download";
 import CloseIcon from "@mui/icons-material/Close";
-import ShareIcon from "@mui/icons-material/Share";
 import {
   downloadCertificate,
   renderCertificate,
@@ -40,12 +39,16 @@ interface CommonCheckboxProps extends CheckboxProps {
 
 interface CertificateModalProps {
   certificateId?: string;
+  userName?: string;
+  courseName?: string;
   open: any;
   setOpen: any;
 }
 
 export const CertificateModal: React.FC<CertificateModalProps> = ({
   certificateId,
+  userName,
+  courseName,
   open,
   setOpen,
 }) => {
@@ -67,7 +70,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
       try {
         setLoading(true);
         console.log("Fetching certificate with ID:", certificateId);
-        const templateId = localStorage.getItem("templtateId") || "";
+        const templateId = localStorage.getItem("templateId") || localStorage.getItem("templtateId") || "";
         console.log("Using template ID:", templateId);
 
         const response = await renderCertificate({
@@ -75,7 +78,224 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           templateId: templateId,
         });
         console.log("Certificate response:", response);
-        setCertificateHtml(response);
+
+        // Check if it's Swadhaar tenant
+        const isSwadhaar = typeof window !== 'undefined' && 
+          (window.location.hostname.includes('swadhaar') || 
+           localStorage.getItem('tenantName')?.toLowerCase().includes('swadhaar') ||
+           localStorage.getItem('userProgram')?.toLowerCase().includes('swadhaar'));
+
+        if (isSwadhaar) {
+          const isValid = (val: any) => {
+            if (!val) return false;
+            const s = val.toString().trim();
+            return s !== "" && s !== "null" && s !== "undefined";
+          };
+          
+          const lFirstName = typeof window !== 'undefined' ? localStorage.getItem('firstName') : null;
+          const lLastName = typeof window !== 'undefined' ? localStorage.getItem('lastName') : null;
+          const lName = typeof window !== 'undefined' ? localStorage.getItem('name') : null;
+          
+          let holderName = 'Learner';
+          
+          if (isValid(userName)) {
+            holderName = userName!.toString().trim();
+          } else if (isValid(lFirstName)) {
+            holderName = lFirstName!.toString().trim();
+            if (isValid(lLastName)) {
+              holderName += " " + lLastName!.toString().trim();
+            }
+          } else if (isValid(lName)) {
+            holderName = lName!.toString().trim();
+          }
+          
+          if (!isValid(holderName)) {
+            holderName = 'Learner';
+          }
+          
+          const levelName = courseName || 'Swadhaar Course';
+          const certNo = certificateId || 'N/A';
+          
+          console.log("Swadhaar Certificate Final Data:", { holderName, levelName, certNo, raw: { userName, lFirstName, lLastName, lName } });
+          
+    const logoUrl = typeof window !== 'undefined' ? (window.location.origin + "/images/swadhar_logo.png") : "/images/swadhar_logo.png";
+    
+    const swadhaarTemplate = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+    :root {
+        --brown: #53331F;
+        --orange: #F7941D;
+        --beige: #F5E6D3;
+    }
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #f0f0f0;
+        margin: 0;
+        padding: 20px;
+        font-family: 'Montserrat', sans-serif;
+        box-sizing: border-box;
+    }
+    .certificate {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        aspect-ratio: 800 / 560;
+        background-color: #fff;
+        border-top: 5vw solid var(--brown);
+        padding: 5% 7%;
+        box-sizing: border-box;
+        box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        text-align: left;
+        color: #333;
+        display: flex;
+        flex-direction: column;
+    }
+    @media (min-width: 800px) {
+        .certificate {
+            border-top-width: 40px;
+        }
+    }
+    .logo-container {
+        margin-bottom: 5%;
+    }
+    .logo-container img {
+        height: 10vw;
+        max-height: 80px;
+        object-fit: contain;
+    }
+    h1 {
+        font-size: 5.5vw;
+        margin: 0 0 4% 0;
+        font-weight: 500;
+        color: var(--brown);
+    }
+    @media (min-width: 800px) {
+        h1 { font-size: 44px; }
+    }
+    .presentation-text {
+        text-transform: uppercase;
+        letter-spacing: 0.25em;
+        font-size: 2vw;
+        margin-bottom: 3%;
+        color: #666;
+    }
+    @media (min-width: 800px) {
+        .presentation-text { font-size: 16px; }
+    }
+    .holder-name {
+        position: relative;
+        z-index: 10;
+        font-size: 48px;
+        font-style: italic;
+        font-family: 'Montserrat', Arial, sans-serif;
+        border-bottom: 3px solid var(--orange);
+        display: block;
+        width: 90%;
+        margin-bottom: 30px;
+        padding-bottom: 5px;
+        font-weight: 700;
+        color: #53331F !important;
+        line-height: 1.2;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+    @media (max-width: 800px) {
+        .holder-name { 
+            font-size: 6vw;
+            margin-bottom: 4vw;
+        }
+    }
+    .course-details {
+        margin-top: 2%;
+        font-size: 2.5vw;
+        color: #444;
+    }
+    @media (min-width: 800px) {
+        .course-details { font-size: 20px; }
+    }
+    .course-level {
+        font-size: 3.5vw;
+        font-weight: 700;
+        border-bottom: 1px solid #ddd;
+        display: inline-block;
+        min-width: 50%;
+        margin-top: 1.5%;
+        padding-bottom: 0.5%;
+        color: var(--orange);
+    }
+    @media (min-width: 800px) {
+        .course-level { font-size: 28px; }
+    }
+    .cert-no {
+        margin-top: auto;
+        padding-bottom: 12%;
+        font-size: 1.8vw;
+        color: #888;
+        font-family: monospace;
+    }
+    @media (min-width: 800px) {
+        .cert-no { font-size: 12px; }
+    }
+    .bottom-accent {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 18%;
+        background: var(--brown);
+        clip-path: polygon(0 40%, 100% 0, 100% 100%, 0 100%);
+    }
+    .orange-shape {
+        position: absolute;
+        bottom: -3%;
+        right: -3%;
+        width: 18%;
+        aspect-ratio: 1;
+        background: var(--orange);
+        border-radius: 50%;
+        opacity: 0.8;
+        z-index: 1;
+    }
+</style>
+</head>
+<body>
+    <div class="certificate">
+        <div class="logo-container">
+            <img src="${logoUrl}" alt="Swadhaar Logo">
+        </div>
+
+        <h1>Certificate of Completion</h1>
+        
+        <div class="presentation-text">This certificate is presented to</div>
+        
+        <div class="holder-name">${holderName}</div>
+
+        <div class="course-details">
+            <div>For successfully completing the</div>
+            <div class="course-level">${levelName}</div>
+        </div>
+
+        <div class="cert-no">Certificate No. ${certNo}</div>
+
+        <div class="orange-shape"></div>
+        <div class="bottom-accent"></div>
+    </div>
+</body>
+</html>
+`;
+          setCertificateHtml(swadhaarTemplate);
+        } else {
+          setCertificateHtml(response);
+        }
       } catch (e) {
         console.error("Error fetching certificate:", e);
         // Show a fallback certificate if rendering fails
@@ -120,14 +340,16 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     const dataUri = `data:text/html;charset=utf-8,${encodedHtml}`;
     setCertificateSite(dataUri);
     return (
-      <Box sx={{ width: "100%", height: "100%", display: "flex" }}>
+      <Box sx={{ width: "100%", height: "auto", display: "flex", justifyContent: "center" }}>
         <iframe
           src={dataUri}
           style={{
             width: "100%",
-            height: "1200px",
-            // minHeight: '800px',
+            aspectRatio: "800 / 560",
+            maxHeight: "75vh",
             border: "none",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
           }}
         />
       </Box>
@@ -137,7 +359,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     try {
       const response = await renderCertificate({
         credentialId: rowData.certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
+        templateId: localStorage.getItem("templateId") || localStorage.getItem("templtateId") || "",
       });
       // setCertificateHtml(response);
       // setShowCertificate(true);
@@ -148,37 +370,111 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     }
   };
   const onDownloadCertificate = async () => {
+    // Check if it's Swadhaar tenant
+    const isSwadhaar = typeof window !== 'undefined' && 
+      (window.location.hostname.includes('swadhaar') || 
+       localStorage.getItem('tenantName')?.toLowerCase().includes('swadhaar') ||
+       localStorage.getItem('userProgram')?.toLowerCase().includes('swadhaar'));
+
+    // For Swadhaar, we prefer printing the custom design we've built for the preview
+    if (isSwadhaar && certificateHtml) {
+      const iframe = document.createElement("iframe");
+      iframe.style.display = "none";
+      document.body.appendChild(iframe);
+      iframe.contentWindow?.document.open();
+      iframe.contentWindow?.document.write(certificateHtml);
+      
+      // Add print-specific styles to make it look perfect in the print dialog
+      const printStyles = `
+        <style>
+          @media print {
+            body { margin: 0; padding: 0; background: #fff; }
+            .certificate { 
+              box-shadow: none !important; 
+              border-top-width: 40px !important;
+              width: 100% !important;
+              height: 100% !important;
+              max-width: none !important;
+              aspect-ratio: 800 / 560 !important;
+            }
+            .orange-shape, .bottom-accent { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          }
+        </style>
+      `;
+      iframe.contentWindow?.document.write(printStyles);
+      iframe.contentWindow?.document.close();
+
+      const triggerPrint = () => {
+        if (document.body.contains(iframe)) {
+          iframe.contentWindow?.focus();
+          iframe.contentWindow?.print();
+          setTimeout(() => {
+            if (document.body.contains(iframe)) document.body.removeChild(iframe);
+          }, 1000);
+        }
+      };
+
+      iframe.onload = triggerPrint;
+      setTimeout(triggerPrint, 500);
+      return;
+    }
+
     try {
       const response = await downloadCertificate({
         credentialId: certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
+        templateId: localStorage.getItem("templateId") || localStorage.getItem("templtateId") || "",
       });
 
       if (!response) {
         throw new Error("No response from server");
       }
 
-      const blob = new Blob([response], { type: "application/pdf" });
+      // Check if the response is actually a PDF
+      if (response.type === "application/pdf") {
+        const url = window.URL.createObjectURL(response);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `certificate_${certificateId}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // Fallback: If server returns HTML instead of PDF, use the print dialog
+        const text = await response.text();
+        // Extract HTML if it's wrapped in a JSON result object (common for some APIs)
+        let htmlContent = text;
+        try {
+          const json = JSON.parse(text);
+          if (json.result) htmlContent = json.result;
+        } catch (e) {
+          // Not JSON, use as is
+        }
 
-      const url = window.URL.createObjectURL(blob);
+        if (htmlContent.includes("<") && htmlContent.includes(">")) {
+          const iframe = document.createElement("iframe");
+          iframe.style.display = "none";
+          document.body.appendChild(iframe);
+          iframe.contentWindow?.document.open();
+          iframe.contentWindow?.document.write(htmlContent);
+          iframe.contentWindow?.document.close();
 
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `certificate_${certificateId}.pdf`; // Set filename
-      document.body.appendChild(a);
-      a.click();
+          const triggerPrint = () => {
+            if (document.body.contains(iframe)) {
+              iframe.contentWindow?.focus();
+              iframe.contentWindow?.print();
+              document.body.removeChild(iframe);
+            }
+          };
 
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      //  showToastMessage(
-      //   t('CERTIFICATES.DOWNLOAD_CERTIFICATE_SUCCESSFULLY'),
-      //   'success'
-      // );
-    } catch (e) {
-      // if (rowData.courseStatus === Status.ISSUED)
-      {
-        // showToastMessage(t('CERTIFICATES.RENDER_CERTIFICATE_FAILED'), 'error');
+          iframe.onload = triggerPrint;
+          setTimeout(triggerPrint, 1000); // Fallback for resources
+        } else {
+          console.error("Invalid certificate content:", text);
+          // showToastMessage("Invalid certificate format received", "error");
+        }
       }
+    } catch (e) {
       console.error("Error downloading certificate:", e);
     }
   };
@@ -200,7 +496,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     try {
       const response = await downloadCertificate({
         credentialId: certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
+        templateId: localStorage.getItem("templateId") || localStorage.getItem("templtateId") || "",
       });
 
       const blob = new Blob([response], { type: "application/pdf" });
@@ -232,7 +528,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     try {
       const response = await downloadCertificate({
         credentialId: certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
+        templateId: localStorage.getItem("templateId") || localStorage.getItem("templtateId") || "",
       });
 
       const blob = new Blob([response], { type: "application/pdf" });
@@ -259,7 +555,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
       // Fetching the certificate PDF
       const response = await downloadCertificate({
         credentialId: certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
+        templateId: localStorage.getItem("templateId") || localStorage.getItem("templtateId") || "",
       });
 
       const blob = new Blob([response], { type: "application/pdf" });
@@ -352,13 +648,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
                   <DownloadIcon />
                 </IconButton>
               </Tooltip>
-              {deviceType === "mobile" && (
-                <Tooltip title="Share">
-                  <IconButton onClick={onShare}>
-                    <ShareIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
+
               <Tooltip title="Close">
                 <IconButton onClick={handleClose}>
                   <CloseIcon />

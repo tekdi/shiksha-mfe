@@ -23,20 +23,63 @@ const OtpVerificationComponent = ({
     return () => clearInterval(interval);
   }, [timer]);
 
+  const focusInput = (index: number) => {
+    if (index < 0 || index >= otp.length) return;
+    const nextInput = document.getElementById(`otp-${index}`);
+    if (nextInput) (nextInput as HTMLInputElement).focus();
+  };
+
   const handleChange = (index: number, value: string) => {
-    if (!/^[0-9]?$/.test(value)) return;
+    const digits = value.replace(/\D/g, '');
     const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
-    if (value && index < otp.length - 1) {
-      const nextInput = document.getElementById(`otp-${index + 1}`);
-      if (nextInput) (nextInput as HTMLInputElement).focus();
+
+    // Clearing current box
+    if (!digits) {
+      newOtp[index] = '';
+      setOtp(newOtp);
+      return;
     }
+
+    // Support typing/autofill/paste where multiple digits arrive at once
+    let pos = index;
+    digits
+      .slice(0, otp.length - index)
+      .split('')
+      .forEach((d) => {
+        newOtp[pos] = d;
+        pos += 1;
+      });
+
+    setOtp(newOtp);
+    // Focus first box after inserted digits
+    const nextPos = index + digits.length;
+    if (nextPos < otp.length) focusInput(nextPos);
+  };
+
+  const handlePaste = (index: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text') || '';
+    const digits = pasted.replace(/\D/g, '');
+    if (!digits) return;
+
+    const newOtp = [...otp];
+    let pos = index;
+    for (const d of digits) {
+      if (pos >= otp.length) break;
+      newOtp[pos] = d;
+      pos += 1;
+    }
+    setOtp(newOtp);
+
+    // Focus next empty, otherwise last filled
+    const nextEmpty = newOtp.findIndex((v, i) => i >= index && v === '');
+    if (nextEmpty !== -1) focusInput(nextEmpty);
+    else focusInput(otp.length - 1);
   };
 
   const handleResend = () => {
     setTimer(120);
-    setOtp(['', '', '', '']);
+    setOtp(new Array(otp.length).fill(''));
     onResend?.();
   };
 
@@ -54,14 +97,13 @@ const OtpVerificationComponent = ({
             value={digit}
             onChange={(e) => handleChange(idx, e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Backspace' && otp[idx] === '' && idx > 0) {
-                const prevInput = document.getElementById(`otp-${idx - 1}`);
-                if (prevInput) (prevInput as HTMLInputElement).focus();
-              }
+              if (e.key === 'Backspace' && otp[idx] === '' && idx > 0) focusInput(idx - 1);
             }}
             inputProps={{
               maxLength: 1,
+              inputMode: 'numeric',
               style: { textAlign: 'center', fontSize: '20px' },
+              onPaste: (e: any) => handlePaste(idx, e),
             }}
             sx={{ width: 50 }}
           />

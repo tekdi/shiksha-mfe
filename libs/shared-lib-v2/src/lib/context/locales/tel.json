@@ -97,7 +97,9 @@
       "ABOUT_PRATHAM_TITLE": "ప్రథమ్ గురించి",
       "ABOUT_PRATHAM_DESC": "ప్రథమ్ విద్యా వ్యవస్థలలోని అంతరాలను సృజనాత్మక, తక్కువ ఖర్చుతో కూడిన, పునరావృతం చేయదగిన జోక్యాలతో పరిష్కరిస్తుంది, ఇవి వయస్సు స్పెక్ట్రమ్‌ను కవర్ చేస్తాయి. నేరుగా మరియు ప్రభుత్వ వ్యవస్థల ద్వారా పనిచేస్తూ, ఈ ప్రోగ్రామ్‌లు ప్రతి సంవత్సరం లక్షలాది పిల్లలు మరియు వేలాది స్కూల్ డ్రాపౌట్‌లను చేరుకుంటాయి. \"డైరెక్ట్\" పనిలో, ప్రథమ్ ఇన్‌స్ట్రక్టర్ స్కూల్‌లో లేదా సమాజంలో పిల్లలతో పనిచేస్తాడు, అయితే \"పార్టనర్‌షిప్\" మోడల్‌లో ప్రథమ్ బృందాలు రాష్ట్ర, జిల్లా లేదా నగర స్థాయిలో ప్రభుత్వ బృందాలతో కలిసి ప్రోగ్రామ్‌లను రూపొందించి, అమలు చేస్తాయి. ప్రథమ్ యొక్క లెర్నింగ్ ఫలితాలను మెరుగుపరిచే విధానం భారతదేశంలో మరియు దానికి మించి ఒక మోడల్‌గా కొనసాగుతుంది.",
       "OUR_PROGRAMS": "మా ప్రోగ్రామ్‌లు",
-      "SIGN_UP": "సైన్ అప్"
+      "SIGN_UP": "సైన్ అప్",
+      "TITLE": "హోమ్",
+      "PROGRESS_TEXT": "పురోగతి: {{percent}}% పూర్తయింది"
     },
     "LOGIN": {
       "welcome_title": "ప్రథమ్ మైలెర్నింగ్‌కు స్వాగతం!",
@@ -228,6 +230,21 @@
       "PASSWORD_NUMBER": "పాస్‌వర్డ్‌లో కనీసం ఒక సంఖ్య ఉండాలి",
       "PASSWORD_SPECIAL": "పాస్‌వర్డ్‌లో కనీసం ఒక ప్రత్యేక అక్షరం ఉండాలి",
       "PASSWORD_LETTER": "పాస్‌వర్డ్‌లో కనీసం ఒక పెద్ద మరియు చిన్న అక్షరం ఉండాలి"
+    },
+    "LEARN": {
+      "PAGE_TITLE": "Your Learning Path",
+      "LEVEL_PROGRESS": "Continue Learning",
+      "SUBTOPIC_PROGRESS": "Subtopic Progress",
+      "COMPLETED_LESSONS": "Completed {{completed}}/{{total}} Lessons",
+      "COMPLETED_SUBTOPICS": "Completed {{completed}}/{{total}} Subtopics",
+      "COMPLETED_MODULES": "Completed {{completed}}/{{total}} Modules",
+      "LESSONS_TITLE": "Lessons",
+      "START_LEARNING": "Start Learning",
+      "COMPLETED": "Completed",
+      "BACK_TO_LEARNING": "Back to Learning"
+    },
+    "ALERTS": {
+      "TITLE": "Alerts"
     }
   },
   "LOGIN_PAGE": {

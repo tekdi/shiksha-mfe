@@ -1499,7 +1499,13 @@ export default function Index() {
             window.location.href = `${window.location.origin}${redirectAfterLogin}`;
           }else {
             
+          // Swadhaar tenant: redirect to Swadhaar home dashboard
+          const isSwadhaarLogin = tenantName?.toLowerCase().includes('swadhaar');
+          if (isSwadhaarLogin) {
+            window.location.href = `${window.location.origin}/swadhaar-home`;
+          } else {
             window.location.href = `${window.location.origin}/dashboard?tab=1`;
+          }
           }
            
           return;

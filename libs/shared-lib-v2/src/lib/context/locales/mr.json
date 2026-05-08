@@ -1,5 +1,6 @@
 {
   "LANGUAGE": "भाषा en",
+  "OTP_SENT_SUCCESSFULLY": "ओटीपी यशस्वीरित्या पाठवला गेला!",
   "ENGLISH": "इंग्रजी",
   "HINDI": "हिंदी",
   "MARATHI": "मराठी",
@@ -178,22 +179,44 @@
       "ROLE": "भूमिका",
       "CREATED_AT": "तयार केले",
       "UPDATED_AT": "अद्यतनित केले",
-      "ERROR_FETCHING_MEMBERS": "सदस्य आणण्यात त्रुटी",
-      "LEARNER": "शिकणारा"
+      "ERROR_FETCHING_MEMBERS": "सदस्य आणण्यात त्रुटी"
     },
-    "COURSE": {
-      "COMPLETED_ON": "पूर्ण झाले",
-      "STARTED_ON": "सुरू झाले",
-      "GET_STARTED": "अभ्यासक्रम सुरू करा",
-      "FILTER_BY": "द्वारे फिल्टर करा",
-      "CLEAR_FILTER": "फिल्टर साफ करा",
-      "APPLY_FILTER": "फिल्टर लागू करा",
-      "DONE": "पूर्ण झाले"
+    "SPLASH": {
+      "TITLE": "स्वधार प्रशिक्षण मंच",
+      "TAGLINE": "शिका. वाढा.",
+      "POWERED_BY": "स्वधार फिनएक्सेसद्वारे समर्थित"
     },
-    "EXPLORE": {
-      "EXPLORE_ADDITIONAL_COURSES": "अतिरिक्त अभ्यासक्रम पाहा"
+    "LANGUAGE_SELECTION": {
+      "TITLE": "भाषा निवडा",
+      "SUBTITLE": "तुम्हाला सोयीस्कर वाटणारी भाषा निवडा",
+      "CONTINUE": "सुरू ठेवा"
+    },
+    "LOGIN": {
+      "WELCOME": "स्वागत आहे!",
+      "SUBTITLE": "सुरू ठेवण्यासाठी साइन इन करा",
+      "MOBILE_LABEL": "मोबाईल नंबर",
+      "MOBILE_PLACEHOLDER": "मोबाईल नंबर प्रविष्ट करा",
+      "OTP_LABEL": "ओटीपी",
+      "OTP_PLACEHOLDER": "ओटीपी प्रविष्ट करा",
+      "SEND_RESEND_OTP": "ओटीपी पाठवा",
+      "RESEND_IN": "{{seconds}} सेकंदात पुन्हा पाठवा",
+      "SIGN_IN": "साइन इन करा",
+      "USER_ARCHIVED": "तुमचे खाते सक्रिय नाही. कृपया तुमच्या प्रशासकाशी संपर्क साधा।",
+      "SEND_OTP_ERROR": "ओटीपी पाठवण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा."
     },
     "HOME": {
+      "GREETING": "नमस्ते, {{name}}!",
+      "TITLE": "मुखपृष्ठ",
+      "PROGRESS_TEXT": "प्रगती: {{percent}}% पूर्ण",
+      "ALERTS_TITLE": "अलर्ट आणि अपडेट्स",
+      "CONTINUE_LEARNING": "शिकणे सुरू ठेवा",
+      "START_LEARNING": "शिकणे सुरू करा",
+      "VIEW_MORE": "अधिक पहा",
+      "VIEW_LESS": "कमी पहा",
+      "COMPLETED": "पूर्ण झाले",
+      "LOCKED": "लॉक केलेले",
+      "NO_ALERTS": "कोणतेही नवीन अलर्ट नाहीत",
+      "LOAD_ERROR": "अभ्यासक्रम डेटा लोड होऊ शकला नाही. रिफ्रेश करण्यासाठी ओढा.",
       "WELCOME_TITLE": "Shiksha myLearning मध्ये तुमचे स्वागत आहे!",
       "WELCOME_SUBTITLE": "येथून तुमची शिकण्याची यात्रा सुरू होते",
       "MAIN_DESCRIPTION": "तुमच्या भाषेत, तुमच्या गतीने सोपी, व्यावहारिक आर्थिक कौशल्ये शिका",
@@ -235,46 +258,74 @@
       "CONTINUE": "लॉगिन वर सुरू ठेवा",
       "APP_NAME": "मध्ये तुमचे स्वागत आहे"
     },
-    "LOGIN": {
-      "welcome_title": "Shiksha myLearning मध्ये तुमचे स्वागत आहे!",
-      "welcome_subtitle": "येथून तुमची शिकण्याची यात्रा सुरू होते",
-      "welcome_image_alt": "हसतलेले चेहरे",
-      "qr_get_app": "अॅप मिळवा",
-      "qr_instruction": "तुमचा फोन कॅमेरा येथे ठेवा",
-      "qr_image_alt": "QR कोड",
-      "or": "किंवा",
-      "playstore_image_alt": "प्लेस्टोअरमध्ये मिळवा",
-      "playstore_instruction": "प्लेस्टोअरमध्ये \"Shiksha myLearning\" शोधा",
-      "on_playstore": "प्लेस्टोअरवर",
-      "login_title": "लॉगिन",
-      "username_label": "वापरकर्तानाव",
-      "password_label": "पासवर्ड",
-      "LOG_IN_AS_LEARNER_SUBTITLE": "Log in as a learner",
-      "remember_me": "माझी आठवण ठेवा",
-      "forgot_password": "पासवर्ड विसरलात?",
-      "login_button": "लॉगिन",
-      "no_account": "माझ्याकडे खाते नाही",
-      "make_sure_to_cross_check_the_state_district_block_village": "राज्य, जिल्हा, ब्लॉक, गाव यांची काटेकोर तपासणी करा",
-      "GET_THE_APP": "अॅप मिळवा",
-      "POINT_YOUR_PHONE": "तुमचा फोन येथे ठेवा",
-      "POINT_CAMERA": "कॅमेरा येथे ठेवा",
-      "OR": "किंवा",
-      "SEARCH_PLAYSTORE": "\"Shiksha myLearning\" प्लेस्टोअरमध्ये शोधा",
-      "ON_PLAYSTORE": "प्लेस्टोअरवर",
-      "PHONE_INSTRUCTION": "नमस्कार! सुरू ठेवण्यासाठी तुमच्या नोंदणीकृत फोन नंबरसह लॉगिन करा।",
-      "PHONE_NUMBER": "फोन नंबर",
-      "SENDING": "पाठवत आहे...",
-      "SEND_OTP": "OTP पाठवा",
-      "OTP_INSTRUCTION": "तुमच्या फोनवर पाठवलेला 6 अंकी OTP प्रविष्ट करा।",
-      "ENTER_OTP": "OTP सत्यापित करा",
-      "RESEND_OTP_DISABLED": "OTP पुन्हा पाठवा (मर्यादा पूर्ण)",
-      "RESEND_OTP": "OTP पुन्हा पाठवा",
-      "CHOOSE_MODE": "तुम्ही कसे पुढे जाऊ इच्छिता ते निवडा",
-      "LEARNER_OR_WORKSPACE": "शिकाऊ म्हणून लॉगिन करा किंवा वर्कस्पेस पोर्टलवर जा।",
-      "CONTINUE_LEARNER": "शिकाऊ म्हणून लॉगिन करा",
-      "GO_TO_WORKSPACE": "वर्कस्पेसवर जा",
-      "LOGIN": "लॉगिन"
+    "LEARN": {
+      "PAGE_TITLE": "तुमचा शिक्षण मार्ग",
+      "LEVEL_PROGRESS": "शिकणे सुरू ठेवा",
+      "SUBTOPIC_PROGRESS": "उपविषय प्रगती",
+      "COMPLETED_LESSONS": "{{completed}}/{{total}} धडे पूर्ण",
+      "COMPLETED_SUBTOPICS": "{{completed}}/{{total}} उपविषय पूर्ण",
+      "COMPLETED_MODULES": "{{completed}}/{{total}} मॉड्यूल पूर्ण",
+      "LESSONS_TITLE": "धडे",
+      "START_LEARNING": "शिकणे सुरू करा",
+      "COMPLETED": "पूर्ण झाले",
+      "TITLE": "शिका",
+      "LESSON_PROGRESS": "धड्याची प्रगती",
+      "SUBTOPIC_COMPLETE": "उपविषय पूर्ण झाला!",
+      "NEW_CONTENT_AVAILABLE": "नवीन कंटेंट उपलब्ध आहे",
+      "CONGRATULATIONS": "अभिनंदन!",
+      "FINISHED_COURSE": "तुम्ही {{courseName}} पूर्ण केले आहे!",
+      "FINISHED_MODULE": "तुम्ही {{moduleName}} पूर्ण केले आहे!",
+      "LEVEL_UNLOCKED": "{{levelName}} अनलॉक झाले",
+      "START_MODULE": "{{moduleName}} सुरू करा",
+      "GO_TO_LEVEL": "{{levelName}} वर जा",
+      "DOWNLOAD_CERTIFICATE": "प्रमाणपत्र डाउनलोड करा",
+      "TOTAL_SCORE": "एकूण गुण: {{score}}/{{total}}",
+      "NEXT": "पुढील",
+      "PREVIOUS": "मागील",
+      "QUIZ": "चाचणी",
+      "CONTENT": "सामग्री",
+      "COMPLETED_MODULES_COUNT": "पूर्ण {{completed}}/{{total}} मॉड्यूल",
+      "COMPLETED_SUBTOPICS_COUNT": "पूर्ण {{completed}}/{{total}} उपविषय",
+      "UP_NEXT": "पुढील",
+      "GENERATING_CERTIFICATE": "प्रमाणपत्र तयार करत आहे...",
+      "DOWNLOADING_CERTIFICATE": "प्रमाणपत्र डाउनलोड होत आहे...",
+      "CERTIFICATE_DOWNLOAD_SUCCESS": "प्रमाणपत्र यशस्वीरित्या डाउनलोड झाले!",
+      "CERTIFICATE_DOWNLOAD_FAILED": "प्रमाणपत्र डाउनलोड करण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा.",
+      "START_NEXT_LEVEL": "पुढील स्तर सुरू करा",
+      "CURRENT_LABEL": "वर्तमान: {{name}}",
+      "LESSON_LABEL": "धडा: {{name}}",
+      "BACK_TO_LEARNING": "शिकण्याकडे परत जा"
     },
+    "MODULE_COMPLETE": "मड्यूल पूर्ण झाले",
+    "ALERTS": {
+      "TITLE": "अलर्ट",
+      "NO_NOTIFICATIONS": "अद्याप कोणतीही सूचना नाही",
+      "LOCKED_MESSAGE": "अनलॉक करण्यासाठी मागील कोर्स पूर्ण करा."
+    },
+    "PROFILE": {
+      "NAME_REQUIRED": "नाव रिकामे असू शकत नाही",
+      "NAME_UPDATED_SUCCESS": "नाव यशस्वीरित्या अपडेट केले!",
+      "UPDATE_FAILED": "नाव अपडेट करण्यात अयशस्वी",
+      "TITLE": "प्रोफाइल"
+    },
+    "LEVEL": {
+      "BEGINNER": "प्रारंभिक स्तर",
+      "INTERMEDIATE": "मध्यवर्ती स्तर",
+      "ADVANCE": "प्रगत स्तर"
+    },
+    "COURSE": {
+      "COMPLETED_ON": "पूर्ण झाले",
+      "STARTED_ON": "सुरू झाले",
+      "GET_STARTED": "अभ्यासक्रम सुरू करा",
+      "FILTER_BY": "द्वारे फिल्टर करा",
+      "CLEAR_FILTER": "फिल्टर साफ करा",
+      "APPLY_FILTER": "फिल्टर लागू करा",
+      "DONE": "पूर्ण झाले"
+    },
+    "EXPLORE": {
+      "EXPLORE_ADDITIONAL_COURSES": "अतिरिक्त अभ्यासक्रम पाहा"
+    },
+
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "चालू",
       "ONGOING_COURSES": "तुमच्याकडे {count} चालू अभ्यासक्रम आहेत",
@@ -401,6 +452,13 @@
       "ON_PLAYSTORE": "प्लेस्टोअरवर"
     },
     "PROFILE": {
+      "FIELD_LANGUAGE": "भाषा",
+      "FIELD_NAME": "नाव",
+      "FIELD_DESIGNATION": "पद",
+      "FIELD_CFL_LOCATION": "CFL स्थान",
+      "FIELD_MOBILE": "मोबाईल नंबर",
+      "FIELD_EMAIL": "ईमेल",
+      "FIELD_JOINING_DATE": "सामील होण्याची तारीख",
       "CERTIFICATION_ID_NOT_FOUND": "प्रमाणपत्र ID सापडले नाही",
       "ERROR_OPENING_CERTIFICATE": "प्रमाणपत्र उघडताना त्रुटी. कृपया पुन्हा प्रयत्न करा.",
       "COURSE_COMPLETION_CERTIFICATE": "अभ्यासक्रम पूर्णता प्रमाणपत्र",
@@ -424,7 +482,9 @@
       "NEED_HELP": "मदद हवी?",
       "GET_IN_TOUCH_SUPPORT": "आमच्या समर्थन अधिकाऱ्यांशी संपर्क साधा",
       "SUPPORT_PHONE": "+91 8754911609",
-      "SUPPORT_LINK": "https://www.tekdi.net/"
+      "SUPPORT_LINK": "https://www.tekdi.net/",
+      "PHOTO_UPLOADED_SUCCESS": "प्रोफाइल फोटो यशस्वीरित्या अपलोड केला गेला!",
+      "ERROR_UPLOADING_PHOTO": "फोटो अपलोड करण्यात अयशस्वी. कृपया पुन्हा प्रयत्न करा."
     },
     "ATTENDANCE": {
       "DAY_WISE_ATTENDANCE": "दिवस-वार उपस्थिती",
@@ -461,12 +521,7 @@
       "LAST_7_DAYS": "गेले 7 दिवस",
       "MORE_DETAILS": "अधिक तपशील →",
       "OVERALL_ATTENDANCE": "एकूण उपस्थिती",
-      "SEARCH_STUDENT": "विद्यार्थी शोधा..",
-      "LEARNER_NAME": "शिकणाऱ्याचे नाव"
-    },
-    "CONTENT": {
-      "VIEWING_CONTENT": "सामग्री पाहत आहात",
-      "FILTERS": "फिल्टर्स"
+      "SEARCH_STUDENT": "विद्यार्थी शोधा.."
     }
   },
   "LOGIN_PAGE": {
