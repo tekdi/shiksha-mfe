@@ -72,7 +72,6 @@ export const getUserId = async (): Promise<any> => {
       },
     });
 
-    console.log('✅ getUserId API success:', response?.data);
     return response?.data?.result;
   } catch (error: any) {
     console.error('❌ Error in fetching user details:', {
