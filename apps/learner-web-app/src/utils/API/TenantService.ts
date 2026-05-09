@@ -150,8 +150,6 @@ let domain = currentDomain;
   }
   
   // Handle hyphenated domains like "swadhaar-learner" -> extract "swadhaar"
-  // This is for multi-environment tenants (e.g., swadhaar-learner, swadhaar-admin)
-  const originalTenantKey = tenantKey;
   if (tenantKey.includes("-")) {
     const hyphenParts = tenantKey.split("-");
     tenantKey = hyphenParts[0];

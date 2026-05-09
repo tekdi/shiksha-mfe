@@ -1,21 +1,18 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { publicRoutes as basePublicRoutes, isPublicRoute } from "@/utils/routeUtils";
 
-// Public routes that don't require authentication
-const publicRoutes = [
-  "/login",
+// Middleware needs a few extra sub-routes on top of the shared base list.
+// Most of these are already covered by prefix matching on /pos and /themantic,
+// but listing them explicitly keeps the allow-list visible.
+const middlewarePublicRoutes = [
+  ...basePublicRoutes,
   "/login-simple",
   "/registration",
   "/password-forget",
   "/reset-Password",
   "/logout",
-  "/",
-  "/home",
-  "/faqs",
-  "/explore",
-  "/unauthorized",
-  // POS routes (public)
-  "/pos",
+  // POS sub-routes
   "/pos/about-us",
   "/pos/content",
   "/pos/search",
@@ -24,24 +21,13 @@ const publicRoutes = [
   "/pos/school",
   "/pos/program",
   "/pos/player",
-  // Thematic routes (public)
-  "/themantic",
+  // Thematic sub-routes
   "/themantic/search",
   "/themantic/player",
   "/themantic/content-details",
   "/themantic/HomeCards",
   "/themantic/themanticCard",
 ];
-
-// Check if route is public
-const isPublicRoute = (pathname: string): boolean => {
-  return publicRoutes.some((route) => {
-    if (route === "/") {
-      return pathname === "/";
-    }
-    return pathname === route || pathname.startsWith(route + "/");
-  });
-};
 
 export function middleware(request: NextRequest) {
   const url = request.nextUrl.clone();
@@ -71,7 +57,7 @@ export function middleware(request: NextRequest) {
   // Check authentication for protected routes
   // Note: Since localStorage is not available in middleware, we check cookies
   // The client-side AuthGuard will provide additional protection
-  if (!isPublicRoute(pathname)) {
+  if (!isPublicRoute(pathname, middlewarePublicRoutes)) {
     const token = request.cookies.get("token")?.value;
     
     // If no token in cookies, redirect to login

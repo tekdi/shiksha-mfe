@@ -40,9 +40,9 @@ export interface GroupContentResponse {
 
 export const getGroupContent = async (cohortId: string): Promise<GroupContentResponse> => {
   try {
-    const token = localStorage.getItem('token');
-    const tenantId = localStorage.getItem('tenantId');
-    const academicYearId = localStorage.getItem('academicYearId');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenantId') : null;
+    const academicYearId = typeof window !== 'undefined' ? localStorage.getItem('academicYearId') : null;
 
     if (!token) {
       throw new Error('User not authenticated');
@@ -80,10 +80,10 @@ export const getGroupContent = async (cohortId: string): Promise<GroupContentRes
 
 export const getMyCohorts = async (): Promise<MyCohortsResponse> => {
   try {
-    const userId = localStorage.getItem('userId');
-    const token = localStorage.getItem('token');
-    const tenantId = localStorage.getItem('tenantId');
-    const academicYearId = localStorage.getItem('academicYearId');
+    const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenantId') : null;
+    const academicYearId = typeof window !== 'undefined' ? localStorage.getItem('academicYearId') : null;
 
     if (!userId || !token) {
       throw new Error('User not authenticated');
@@ -159,10 +159,10 @@ export const getGroupContentDetails = async (cohortId: string): Promise<any[]> =
     }
 
     // Use composite search API to get detailed content information
-    const token = localStorage.getItem('token');
-    const tenantId = localStorage.getItem('tenantId');
-    const channelId = localStorage.getItem('channelId');
-    const academicYearId = localStorage.getItem('academicYearId');
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenantId') : null;
+    const channelId = typeof window !== 'undefined' ? localStorage.getItem('channelId') : null;
+    const academicYearId = typeof window !== 'undefined' ? localStorage.getItem('academicYearId') : null;
 
     if (!token) {
       throw new Error('User not authenticated');

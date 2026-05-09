@@ -6,40 +6,21 @@ import { usePathname } from "next/navigation";
 import { checkAuth } from "@shared-lib-v2/utils/AuthService";
 import { Box, CircularProgress } from "@mui/material";
 
+import { publicRoutes as basePublicRoutes, isPublicRoute } from "@/utils/routeUtils";
+
 interface AuthGuardProps {
   children: React.ReactNode;
 }
 
-// Public routes that don't require authentication
-const publicRoutes = [
-  "/login",
+// Auth-related pages that are only relevant to the guard, not the middleware
+const guardPublicRoutes = [
+  ...basePublicRoutes,
   "/login-simple",
   "/registration",
   "/password-forget",
   "/reset-Password",
   "/logout",
-  "/",
-  "/home",
-  "/faqs",
-  "/explore",
-  "/unauthorized",
-  // POS routes (public)
-  "/pos",
-  // Thematic routes (public)
-  "/themantic",
 ];
-
-// Check if route is public
-const isPublicRoute = (pathname: string): boolean => {
-  return publicRoutes.some((route) => {
-    if (route === "/") {
-      // "/" should only match the root path exactly
-      return pathname === "/";
-    }
-    // For other routes, match exact or as a path prefix (with trailing slash)
-    return pathname === route || pathname.startsWith(route + "/");
-  });
-};
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
   const pathname = usePathname();
@@ -50,7 +31,7 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
     const currentPath = window.location.pathname;
     
     // Check if route is public
-    if (!isPublicRoute(currentPath)) {
+    if (!isPublicRoute(currentPath, guardPublicRoutes)) {
       const authenticated = checkAuth();
       if (!authenticated) {
         // Store the current path to redirect back after login
