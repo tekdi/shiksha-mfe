@@ -42,6 +42,7 @@ export const getGroupContent = async (cohortId: string): Promise<GroupContentRes
   try {
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('tenantId');
+    const academicYearId = localStorage.getItem('academicYearId');
 
     if (!token) {
       throw new Error('User not authenticated');
@@ -55,7 +56,7 @@ export const getGroupContent = async (cohortId: string): Promise<GroupContentRes
         'Accept': '*/*',
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'academicyearid': 'edf1d200-21d8-417e-b844-1d04f92435f4',
+        ...(academicYearId && { 'academicyearid': academicYearId }),
         ...(tenantId && { 'tenantid': tenantId }),
       },
       body: JSON.stringify({
@@ -70,7 +71,6 @@ export const getGroupContent = async (cohortId: string): Promise<GroupContentRes
     }
 
     const data = await response.json();
-    console.log('Group Content API Response:', data); // Debug log
     return data;
   } catch (error) {
     console.error('Error fetching group content:', error);
@@ -95,20 +95,10 @@ export const getMyCohorts = async (): Promise<MyCohortsResponse> => {
       method: 'GET',
       headers: {
         'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8,ur;q=0.7',
         'Authorization': `Bearer ${token}`,
-        'Connection': 'keep-alive',
-        'Origin': 'https://dev-lmp.prathamdigital.org',
-        'Referer': 'https://dev-lmp.prathamdigital.org/',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-site',
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
-        'sec-ch-ua': '"Google Chrome";v="137", "Chromium";v="137", "Not/A)Brand";v="24"',
-        'sec-ch-ua-mobile': '?0',
-        'sec-ch-ua-platform': '"Linux"',
+        'Content-Type': 'application/json',
         ...(tenantId && { 'tenantid': tenantId }),
-        'academicyearid': 'edf1d200-21d8-417e-b844-1d04f92435f4',
+        ...(academicYearId && { 'academicyearid': academicYearId }),
       },
     });
 
@@ -126,9 +116,6 @@ export const getMyCohorts = async (): Promise<MyCohortsResponse> => {
 
 // Transform API response to match our GroupItem interface
 export const transformCohortToGroup = (cohort: any): GroupResponse => {
-  console.log('Cohort data for transformation:', cohort); // Debug log
-  console.log('Available fields:', Object.keys(cohort)); // Debug log
-  
   return {
     id: cohort.cohortId || cohort.id || '',
     name: cohort.cohortName || cohort.name || 'Untitled Group',
@@ -146,10 +133,8 @@ export const transformCohortToGroup = (cohort: any): GroupResponse => {
 // Fetch content count for a specific group
 export const getGroupContentCount = async (cohortId: string): Promise<number> => {
   try {
-    console.log('Fetching content count for group ID:', cohortId); // Debug log
     const response = await getGroupContent(cohortId);
     const count = response.result ? response.result.length : 0;
-    console.log('Content count for group', cohortId, ':', count); // Debug log
     return count;
   } catch (error) {
     console.error('Error fetching content count for group:', cohortId, error);
@@ -160,8 +145,6 @@ export const getGroupContentCount = async (cohortId: string): Promise<number> =>
 // Fetch detailed content information using composite search API
 export const getGroupContentDetails = async (cohortId: string): Promise<any[]> => {
   try {
-    console.log('Fetching content details for group ID:', cohortId); // Debug log
-    
     // First get the content IDs from the group content API
     const response = await getGroupContent(cohortId);
     if (!response.result || response.result.length === 0) {
@@ -170,7 +153,6 @@ export const getGroupContentDetails = async (cohortId: string): Promise<any[]> =
 
     // Extract content IDs
     const contentIds = response.result.map((item: any) => item.contentId).filter(Boolean);
-    console.log('Content IDs to fetch:', contentIds);
 
     if (contentIds.length === 0) {
       return [];
@@ -180,6 +162,7 @@ export const getGroupContentDetails = async (cohortId: string): Promise<any[]> =
     const token = localStorage.getItem('token');
     const tenantId = localStorage.getItem('tenantId');
     const channelId = localStorage.getItem('channelId');
+    const academicYearId = localStorage.getItem('academicYearId');
 
     if (!token) {
       throw new Error('User not authenticated');
@@ -193,7 +176,7 @@ export const getGroupContentDetails = async (cohortId: string): Promise<any[]> =
         'Accept': 'application/json, text/plain, */*',
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'academicyearid': 'edf1d200-21d8-417e-b844-1d04f92435f4',
+        ...(academicYearId && { 'academicyearid': academicYearId }),
         ...(tenantId && { 'tenantid': tenantId }),
         ...(channelId && { 'channelid': channelId }),
       },
@@ -228,8 +211,6 @@ export const getGroupContentDetails = async (cohortId: string): Promise<any[]> =
     }
 
     const searchData = await searchResponse.json();
-    console.log('Composite search response:', searchData);
-    
     return searchData.result?.content || [];
   } catch (error) {
     console.error('Error fetching group content details:', error);
