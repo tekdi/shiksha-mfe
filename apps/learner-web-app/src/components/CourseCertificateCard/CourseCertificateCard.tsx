@@ -28,14 +28,6 @@ const CourseCertificateCard: React.FC<CertificateCardProps> = ({
   onPreviewCertificate,
   variant = "default",
 }) => {
-  // Debug logging
-  console.log("CourseCertificateCard props:", {
-    title,
-    description,
-    imageUrl,
-    completionDate,
-  });
-
   // Ensure we have valid data
   const safeTitle = title || "Untitled Course";
   const safeDescription = description || "No description available";

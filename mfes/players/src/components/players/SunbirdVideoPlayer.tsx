@@ -7,6 +7,7 @@ interface PlayerConfigProps {
   playerConfig: any;
   relatedData?: any;
   configFunctionality?: any;
+  mode?: string;
 }
 
 const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || '/sbplayer';
@@ -128,6 +129,7 @@ const SunbirdVideoPlayer = ({
   playerConfig,
   relatedData: { courseId, unitId, userId },
   configFunctionality,
+  mode,
 }: PlayerConfigProps) => {
   const sunbirdVideoPlayerRef = useRef<HTMLIFrameElement | null>(null);
 

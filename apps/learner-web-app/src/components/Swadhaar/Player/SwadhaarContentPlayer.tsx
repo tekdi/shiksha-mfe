@@ -122,18 +122,25 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
       }
 
       if (blobType === "questionset" && (!children || children.length === 0)) {
-        const questionIds: string[] = data.childNodes || [];
         const fullQuestions: Question[] = [];
+        // Only IDs confirmed to be actual question leaf nodes (not section container IDs)
+        const leafQuestionIds: string[] = [];
         
-        const collect = (nodes: any[]) => {
+        const collect = (nodes: any[], depth = 0) => {
           nodes.forEach(n => {
-            if (n.children && n.children.length > 0) {
-              collect(n.children);
-            } else if (n.objectType === "Question" || n.qType || n.body) {
-              if (n.editorState || n.options) {
-                 fullQuestions.push(n);
-              } else {
-                 questionIds.push(n.identifier);
+            const hasChildren = n.children && n.children.length > 0;
+            if (hasChildren) {
+              // Container node (section) — recurse into it
+              collect(n.children, depth + 1);
+            } else {
+              // Leaf node inside a questionset hierarchy is always a question
+              // (section containers always have children; leaves are questions)
+              if (n.editorState || n.options || n.body) {
+                // Already has full question data
+                fullQuestions.push(n);
+              } else if (n.identifier) {
+                // Stub — needs to be fetched by ID
+                leafQuestionIds.push(n.identifier);
               }
             }
           });
@@ -141,11 +148,17 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
 
         const hierarchyChildren = data.children || [];
         if (Array.isArray(hierarchyChildren) && hierarchyChildren.length > 0) {
+          // Walk the hierarchy to find actual question leaf nodes.
+          // Never use childNodes here — it mixes section IDs and question IDs.
           collect(hierarchyChildren);
+        } else if (data.childNodes && data.childNodes.length > 0) {
+          // No hierarchy children — this is a truly flat questionset (no sections).
+          // In this case childNodes are direct question IDs, not section IDs.
+          leafQuestionIds.push(...data.childNodes);
         }
 
-        if (questionIds.length > 0) {
-          const detailed = await getQuestions(questionIds);
+        if (leafQuestionIds.length > 0) {
+          const detailed = await getQuestions(leafQuestionIds);
           setQuestionItems([...fullQuestions, ...detailed]);
         } else {
           setQuestionItems(fullQuestions);
@@ -159,6 +172,92 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
     }
   }, [identifier, blobType, needsUrl, propContentUrl, propBody, description, children]);
 
+  const [hasStartedAttempt, setHasStartedAttempt] = useState(false);
+  const [prevAttempts, setPrevAttempts] = useState(attempts);
+  const [refreshedAttempts, setRefreshedAttempts] = useState<number | null>(null);
+
+  // Local storage tracking keyed by userId+identifier so it is user-specific.
+  // This means the same device shared by multiple users won't leak attempt counts.
+  // The key also persists across sessions for the SAME user, so re-logging doesn't reset
+  // the locally-tracked attempts when the backend hasn't caught up.
+  const getAttemptKey = () => {
+    const uid = typeof window !== 'undefined' ? (localStorage.getItem('userId') || 'anon') : 'anon';
+    return `quiz_attempts_${uid}_${identifier}`;
+  };
+
+  const [localAttempts, setLocalAttempts] = useState<number>(() => {
+    if (typeof window !== 'undefined') {
+      const uid = localStorage.getItem('userId') || 'anon';
+      const stored = localStorage.getItem(`quiz_attempts_${uid}_${identifier}`);
+      if (stored) {
+        const parsed = parseInt(stored, 10);
+        // Always take the max of local and backend — never go backwards
+        if (!isNaN(parsed)) return Math.max(parsed, attempts || 0);
+      }
+    }
+    return attempts || 0;
+  });
+
+  // Sync: if backend returns a HIGHER count than local (e.g. completed on another device),
+  // update local. Guard against inflating past maxAttempts from an optimistic update.
+  useEffect(() => {
+    if (attempts && attempts > localAttempts && attempts < maxAttempts) {
+      setLocalAttempts(attempts);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(getAttemptKey(), attempts.toString());
+      }
+    }
+  }, [attempts, identifier, localAttempts, maxAttempts]);
+
+  useEffect(() => {
+    if (attempts > prevAttempts) {
+      setHasStartedAttempt(false);
+      setPrevAttempts(attempts);
+    }
+  }, [attempts, prevAttempts]);
+
+  const handleQuizComplete = async (score?: number) => {
+    const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : '';
+    const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenantId') : '';
+    
+    const newCount = (localAttempts || 0) + 1;
+    setLocalAttempts(newCount);
+    setHasStartedAttempt(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(getAttemptKey(), newCount.toString());
+    }
+
+    if (userId && tenantId && courseId) {
+      try {
+        const { updateContentStatus, getContentCourseStatus } = await import('@learner/utils/API/SwadhaarService');
+        
+        // 1. Send update to backend WITH the new attempts count
+        await updateContentStatus({
+          userId,
+          courseId,
+          contentId: identifier,
+          status: 2, // completed
+          completionPercentage: 100,
+          score,
+          attempts: newCount // SOLUTION 2: Send attempts to backend
+        });
+
+        // 2. Refresh status to see if backend accepted our number
+        const afterStatus = await getContentCourseStatus([userId], [courseId, identifier], tenantId);
+        const contentStatus = afterStatus.find(s => s.contentId === identifier);
+        
+        if (contentStatus?.attempts && contentStatus.attempts > newCount) {
+          setLocalAttempts(contentStatus.attempts);
+          localStorage.setItem(getAttemptKey(), contentStatus.attempts.toString());
+        }
+      } catch (e) {
+        console.warn('[QUIZ_PLAYER] Failed to sync status:', e);
+      }
+    }
+    
+    onComplete?.(score);
+  };
+
   if (loading) {
     return (
       <Box sx={{ borderRadius: "12px", border: "1px solid #E5E7EB", bgcolor: "#fff", mb: 2, overflow: "hidden" }}>
@@ -168,12 +267,18 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
     );
   }
 
+  const currentAttemptsValue = refreshedAttempts !== null ? refreshedAttempts : (localAttempts || 0);
+  const effectiveAttempts = hasStartedAttempt ? (currentAttemptsValue || 0) + 1 : (currentAttemptsValue || 0);
+  const isReviewMode = effectiveAttempts >= maxAttempts;
+
   switch (blobType) {
     case "video":
-      if (!contentUrl) return <SunbirdPlayer identifier={identifier} courseId={courseId} unitId={unitId} isEmbedded={true} userIdLocalstorageName="userId" />;
+      if (!contentUrl) {
+        return <SunbirdPlayer identifier={identifier} courseId={courseId} unitId={unitId} isEmbedded={true} userIdLocalstorageName="userId" mode={isReviewMode ? "review" : "play"} />;
+      }
       return <VideoBlob name={name} contentUrl={contentUrl} mimeType={mimeType} posterImage={posterImage || undefined} initialProgress={initialProgress} isCompleted={isCompleted} onProgress={onProgress} onComplete={onComplete} />;
     case "image":
-      if (!contentUrl) return <SunbirdPlayer identifier={identifier} courseId={courseId} unitId={unitId} isEmbedded={true} userIdLocalstorageName="userId" />;
+      if (!contentUrl) return <SunbirdPlayer identifier={identifier} courseId={courseId} unitId={unitId} isEmbedded={true} userIdLocalstorageName="userId" mode={isReviewMode ? "review" : "play"} />;
       return <ImageBlob name={name} contentUrl={contentUrl} description={description} onComplete={onComplete} />;
     case "questionset":
       return (
@@ -181,18 +286,19 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
           name={name} 
           questions={questionItems || []} 
           maxAttempts={maxAttempts} 
-          currentAttempts={attempts} 
+          currentAttempts={effectiveAttempts} 
+          mode={isReviewMode ? 'review' : 'play'}
           onStart={() => {
-            console.log('[QUIZ_PLAYER] Starting quiz. Incrementing attempts via trackCourseClick');
-            import('@learner/utils/API/SwadhaarService').then(m => m.trackCourseClick(identifier));
+            setHasStartedAttempt(true);
+            import('@learner/utils/API/SwadhaarService').then(m => m.trackCourseClick(courseId, identifier));
           }}
-          onComplete={(score) => onComplete(score)} 
+          onComplete={handleQuizComplete} 
         />
       );
     case "text":
       return <TextCardBlob name={name} body={body || description || ""} subheading={subheading} description={description} onComplete={onComplete} />;
     default:
-      if (identifier) return <SunbirdPlayer identifier={identifier} courseId={courseId} unitId={unitId} isEmbedded={true} userIdLocalstorageName="userId" />;
+      if (identifier) return <SunbirdPlayer identifier={identifier} courseId={courseId} unitId={unitId} isEmbedded={true} userIdLocalstorageName="userId" mode={isReviewMode ? "review" : "play"} />;
       return null;
   }
 };

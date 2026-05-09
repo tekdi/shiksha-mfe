@@ -135,6 +135,21 @@ export default function SwadhaarHomePage() {
           status = [...status, ...batchStatus];
         }
       }
+
+      // Apply sessionStorage progress guard so that lessons the backend auto-completed
+      // prematurely still show their locally-tracked in-progress percentage here.
+      try {
+        const raw = sessionStorage.getItem('swadhaar_progress_guard');
+        const guard: Record<string, { percentage: number; status: number }> = raw ? JSON.parse(raw) : {};
+        status = status.map(item => {
+          const sessionEntry = guard[item.contentId];
+          if (sessionEntry && sessionEntry.status === 1 && item.status === 2) {
+            return { ...item, status: 1, completionPercentage: sessionEntry.percentage };
+          }
+          return item;
+        });
+      } catch { /* sessionStorage unavailable (SSR) */ }
+
       setStatusData(status);
 
       // Recursive filter: removes nodes (Levels, Modules, Subtopics) that do not contain any lessons

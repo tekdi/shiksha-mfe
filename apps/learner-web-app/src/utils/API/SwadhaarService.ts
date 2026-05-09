@@ -60,7 +60,6 @@ export const fetchSwadhaarLevelCourses = async (): Promise<any[]> => {
 
     const results = await Promise.all(levelPromises);
     const finalResults = results.filter(Boolean);
-    console.log('[SwadhaarService] fetchSwadhaarLevelCourses results:', finalResults.map(r => r.name));
     return finalResults;
   } catch (error) {
     console.error("Error fetching Swadhaar level courses:", error);
@@ -81,40 +80,54 @@ export const getCourseHierarchy = async (courseId: string): Promise<any> => {
 
 export const getQuestions = async (ids: string[]): Promise<any[]> => {
   const apiUrl = API_ENDPOINTS.questionList;
-  
-  // Attempt batch fetch first
-  const batchBody = {
-    request: {
-      search: {
-        identifier: ids,
-      },
-    },
-  };
 
-  try {
-    const response = await post(apiUrl, batchBody);
-    if (response?.data?.params?.status === 'successful') {
-      return response?.data?.result?.questions || [];
-    }
-    throw new Error(response?.data?.params?.errmsg || 'Batch fetch failed');
-  } catch (error) {
-    console.warn("Batch question fetch failed, falling back to individual requests:", error);
-    
-    // Fallback: Fetch one-by-one to isolate invalid identifiers
-    const fetchOne = async (id: string) => {
-      const body = { request: { search: { identifier: [id] } } };
-      try {
-        const resp = await post(apiUrl, body);
-        return resp?.data?.result?.questions?.[0] || null;
-      } catch (err) {
-        console.warn(`Failed to fetch question ${id}:`, err);
-        return null;
-      }
+  // Deduplicate and filter out empty/falsy IDs
+  const uniqueIds = [...new Set(ids.filter(id => id && typeof id === 'string' && id.trim().length > 0))];
+  if (uniqueIds.length === 0) return [];
+
+  // Attempt batch fetch first (max 25 per batch to avoid 400 errors from large payloads)
+  const BATCH_SIZE = 25;
+  const allQuestions: any[] = [];
+
+  for (let i = 0; i < uniqueIds.length; i += BATCH_SIZE) {
+    const batchIds = uniqueIds.slice(i, i + BATCH_SIZE);
+    const batchBody = {
+      request: {
+        search: {
+          identifier: batchIds,
+        },
+      },
     };
 
-    const results = await Promise.all(ids.map(fetchOne));
-    return results.filter(Boolean);
+    try {
+      const response = await post(apiUrl, batchBody);
+      if (response?.data?.params?.status === 'successful') {
+        const questions = response?.data?.result?.questions || [];
+        allQuestions.push(...questions);
+        continue;
+      }
+      throw new Error(response?.data?.params?.errmsg || 'Batch fetch failed');
+    } catch (error) {
+      console.warn(`Batch question fetch failed for batch starting at ${i}, falling back to individual requests`);
+      
+      // Fallback: Fetch one-by-one to isolate invalid identifiers
+      const fetchOne = async (id: string) => {
+        const body = { request: { search: { identifier: [id] } } };
+        try {
+          const resp = await post(apiUrl, body);
+          return resp?.data?.result?.questions?.[0] || null;
+        } catch (err) {
+          // Silently skip invalid question IDs (e.g. section IDs)
+          return null;
+        }
+      };
+
+      const results = await Promise.all(batchIds.map(fetchOne));
+      allQuestions.push(...results.filter(Boolean));
+    }
   }
+
+  return allQuestions;
 };
 
 export const getUserCourseStatus = async (
@@ -165,7 +178,7 @@ export const createCourseEnrollment = async (
  * Tracks a click on a course, module, or subtopic by creating/updating status.
  * Retrieves required IDs from localStorage.
  */
-export const trackCourseClick = async (courseId: string): Promise<any> => {
+export const trackCourseClick = async (courseId: string, contentId?: string): Promise<any> => {
   if (typeof window === "undefined") return;
 
   const userId = localStorage.getItem("userId");
@@ -178,7 +191,19 @@ export const trackCourseClick = async (courseId: string): Promise<any> => {
   }
 
   try {
-    return await createCourseEnrollment(userId, courseId, academicYearId, tenantId);
+    const res = await createCourseEnrollment(userId, courseId, academicYearId, tenantId);
+    // If a contentId is provided, also track that specific content
+    if (contentId) {
+      await createCourseEnrollment(userId, contentId, academicYearId, tenantId);
+      await updateContentStatus({
+        userId,
+        courseId: courseId,
+        contentId: contentId,
+        status: 1,
+        completionPercentage: 0,
+      }).catch(e => console.warn('Secondary status update failed:', e));
+    }
+    return res;
   } catch (error) {
     console.error(`Status tracking failed for course ${courseId}:`, error);
   }
@@ -201,40 +226,84 @@ export const getContentCourseStatus = async (
     const response = await post(apiUrl, body, headers);
     const rawData = response?.data?.data || response?.data?.result?.data || [];
 
-    console.log('[getContentCourseStatus] raw response:', JSON.stringify(response?.data, null, 2));
+    // Raw response logging removed to reduce console noise
 
     // Transform the response to a flat list of { contentId, status, completionPercentage }
     const transformedStatus: any[] = [];
-    
+
     const processUserItem = (userItem: any) => {
       if (userItem.course && Array.isArray(userItem.course)) {
-        userItem.course.forEach((courseItem: any) => {
-          const cid = courseItem.courseId || courseItem.contentId;
-          if (cid) {
-            let statusVal = 0;
-            if (courseItem.status === 'completed' || courseItem.status === 2) {
-              statusVal = 2;
-            } else if (courseItem.status === 'in-progress' || courseItem.in_progress > 0 || courseItem.completed > 0 || courseItem.status === 1) {
-              statusVal = 1;
-            }
+          userItem.course.forEach((courseItem: any) => {
+            const cid = courseItem.contentId || courseItem.courseId;
+            if (cid) {
+              let statusVal = 0;
+              const statusRaw = String(courseItem.status || '').toLowerCase();
+              if (
+                statusRaw === 'completed' || 
+                courseItem.status === 2 || 
+                courseItem.completed === true ||
+                (typeof courseItem.completed === 'number' && courseItem.completed > 0 && !courseItem.children)
+              ) {
+                statusVal = 2;
+              } else if (
+                statusRaw === 'in-progress' || 
+                courseItem.in_progress > 0 || 
+                courseItem.status === 1 ||
+                courseItem.completed > 0
+              ) {
+                statusVal = 1;
+              }
             
+            // Extract attempts count - Prioritize dedicated fields from backend
+            let attemptsCount = 1;
+            if (courseItem.attempts !== undefined && courseItem.attempts !== null) {
+              attemptsCount = Number(courseItem.attempts);
+            } else if (courseItem.totalAttempts !== undefined && courseItem.totalAttempts !== null) {
+              attemptsCount = Number(courseItem.totalAttempts);
+            } else if (courseItem.attemptCount !== undefined && courseItem.attemptCount !== null) {
+              attemptsCount = Number(courseItem.attemptCount);
+            } else {
+              // Fallback calculation: Sum of in-progress and completed items
+              attemptsCount = (courseItem.in_progress || 0) + (courseItem.completed || 0);
+            }
+
             const existing = transformedStatus.find(s => s.contentId === cid);
+            const defaultProgress = statusVal === 2 ? 100 : 0;
+            
+            // CLEANUP: Many backend responses default in-progress to 10%
+            // We want to force it to 0% for quizzes or until significant video progress is made.
+            let cleanPercentage = courseItem.completionPercentage ?? defaultProgress;
+            if (statusVal === 1 && cleanPercentage === 10) {
+              cleanPercentage = 0;
+            }
+
             if (existing) {
               existing.status = Math.max(existing.status, statusVal);
-              existing.completionPercentage = Math.max(existing.completionPercentage, courseItem.completionPercentage ?? (statusVal === 2 ? 100 : 10));
-              existing.attempts = (existing.attempts || 0) + (courseItem.in_progress || 0) + (courseItem.completed || 0);
+              // Force 100% if completed, otherwise use clean percentage
+              const finalPerc = statusVal === 2 ? 100 : cleanPercentage;
+              existing.completionPercentage = Math.max(existing.completionPercentage, finalPerc);
+              existing.attempts = Math.max(existing.attempts || 0, attemptsCount);
             } else {
               transformedStatus.push({ 
                 contentId: cid, 
                 status: statusVal, 
-                completionPercentage: courseItem.completionPercentage ?? (statusVal === 2 ? 100 : 10),
-                attempts: Math.max(1, (courseItem.in_progress || 0) + (courseItem.completed || 0))
+                completionPercentage: statusVal === 2 ? 100 : cleanPercentage,
+                attempts: attemptsCount
               });
             }
           }
 
           if (courseItem.completed_list && Array.isArray(courseItem.completed_list)) {
+            const parentId = courseItem.contentId || courseItem.courseId;
             courseItem.completed_list.forEach((id: string) => {
+              // Skip self-referential entries (parent marking itself as completed)
+              if (id === parentId) return;
+
+              // NOTE: The Swadhaar backend records lesson completion ONLY in the parent
+              // course aggregate's completed_list. Per-lesson dedicated rows always show
+              // completed:0 because they are not the authoritative source. We trust the
+              // parent's completed_list directly — only skip self-referential entries.
+
               const existing = transformedStatus.find(s => s.contentId === id);
               if (existing) {
                 existing.status = 2;
@@ -249,16 +318,17 @@ export const getContentCourseStatus = async (
               const targetId = typeof id === 'string' ? id : id.contentId;
               if (targetId) {
                 const existing = transformedStatus.find(s => s.contentId === targetId);
-                const status = typeof id === 'string' ? 1 : (id.status || 1);
-                const percentage = typeof id === 'string' ? 50 : (id.completionPercentage || 50);
+                const statusVal = typeof id === 'string' ? 1 : (id.status || 1);
+                // CLEANUP: Remove hardcoded 50% fallback for in-progress items
+                const percentage = typeof id === 'string' ? 0 : (id.completionPercentage || 0);
                 
                 if (existing) {
-                  existing.status = Math.max(existing.status, status);
+                  existing.status = Math.max(existing.status, statusVal);
                   existing.completionPercentage = Math.max(existing.completionPercentage, percentage);
                 } else {
                   transformedStatus.push({ 
                     contentId: targetId, 
-                    status, 
+                    status: statusVal, 
                     completionPercentage: percentage,
                     attempts: 1
                   });
@@ -276,7 +346,7 @@ export const getContentCourseStatus = async (
 
     rawData.forEach(processUserItem);
 
-    console.log('[getContentCourseStatus] transformed:', transformedStatus);
+    // Transformed status logging removed to reduce console noise
     return transformedStatus;
   } catch (error) {
     console.error(`Error fetching subtopic status:`, error);
@@ -317,6 +387,7 @@ export const updateContentStatus = async (params: {
   completionPercentage: number;
   moduleId?: string;
   score?: number;
+  attempts?: number;
 }): Promise<any> => {
   const primaryUrl = API_ENDPOINTS.contentCourseStatusUpdate;
   const academicYearId = localStorage.getItem("academicYearId") || "";
@@ -329,32 +400,53 @@ export const updateContentStatus = async (params: {
 
   const statusString = params.status === 2 ? 'completed' : 'in-progress';
   
-  // Simple completion update matching the working pattern
   const payload: any = {
     userId: params.userId,
-    courseId: params.contentId, // Working tenant uses lesson ID as courseId here
+    courseId: params.courseId, 
     contentId: params.contentId,
+    unitId: params.moduleId || params.contentId,
     status: statusString,
+    completionPercentage: params.completionPercentage,
   };
 
   if (params.score !== undefined) {
     payload.score = params.score;
   }
 
+  if (params.attempts !== undefined) {
+    payload.attempts = params.attempts;
+  }
+
   try {
-    console.log('[TRACKING UPDATE]', payload);
     const response = await post(primaryUrl, payload, headers);
-    return response?.data;
+    const respData = response?.data;
+    
+    // Some backends return 200 OK but with status: "failed" in the body
+    if (respData?.params?.status === 'failed') {
+      console.warn('[TRACKING UPDATE] Backend reported failure:', respData?.params?.errmsg);
+      throw new Error(respData?.params?.errmsg || 'Update failed');
+    }
+    
+    return respData;
   } catch (error: any) {
     const statusCode = error?.response?.status;
-    if (statusCode === 404 || statusCode === 405) {
+    const errorBody = error?.response?.data;
+    
+    // If update fails, try to create enrollment/status first
+    if (statusCode === 404 || statusCode === 405 || statusCode === 400 || (error.message && error.message.includes('already enrolled'))) {
       try {
-        // Try PUT or Create if Update is not found
         const createUrl = API_ENDPOINTS.userCertStatusCreate;
-        await post(createUrl, { userId: params.userId, courseId: params.contentId }, headers);
+        const createPayload = { 
+          userId: params.userId, 
+          courseId: params.courseId || params.contentId 
+        };
+        const createResp = await post(createUrl, createPayload, headers);
+        
+        // After create (or if it failed with "already enrolled"), try update again with PUT
         const putResp = await put(primaryUrl, payload, headers);
         return putResp?.data;
       } catch (e) {
+        console.error('[TRACKING UPDATE] Fallback chain failed:', e);
         return null;
       }
     }
@@ -416,7 +508,6 @@ export const syncContentProgressTelemetry = async (params: {
   };
 
   try {
-    console.log('[TELEMETRY SYNC]', payload);
     const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {

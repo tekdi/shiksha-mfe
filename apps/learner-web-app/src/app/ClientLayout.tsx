@@ -15,7 +15,6 @@ export default function ClientLayout({
 }) {
   useEffect(() => {
     telemetryFactory.init();
-console.log("Telemetry initialized");
     // Set userId in cookies for cross-port access
     const currentUserId = localStorage.getItem("userId");
    
@@ -35,8 +34,6 @@ console.log("Telemetry initialized");
 
     // Listen for force logout events from other tabs
     const handleForceLogout = (event: CustomEvent) => {
-      console.log("Force logout event received:", event.detail);
-
       // Clear all storage
       try {
         localStorage.clear();
@@ -51,8 +48,6 @@ console.log("Telemetry initialized");
               "=;expires=" + new Date().toUTCString() + ";path=/"
             );
         });
-
-        console.log("All sessions cleared due to force logout event");
 
         // Redirect to login page
         window.location.href = "/login";

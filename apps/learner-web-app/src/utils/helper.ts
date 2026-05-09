@@ -281,6 +281,7 @@ export const preserveLocalStorage = () => {
 
   const valuesToKeep: { [key: string]: any } = {};
 
+  // Preserve static keys
   keysToKeep.forEach((key: string) => {
     const value = localStorage.getItem(key);
     if (value !== null) {
@@ -288,9 +289,23 @@ export const preserveLocalStorage = () => {
     }
   });
 
+  // Preserve all user-scoped quiz attempt keys (format: quiz_attempts_${userId}_${identifier}).
+  // These keys are already namespaced per-user, so preserving them across logout
+  // ensures attempt counts are correctly restored when the same user logs back in.
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith('quiz_attempts_')) {
+      const value = localStorage.getItem(key);
+      if (value !== null) {
+        valuesToKeep[key] = value;
+      }
+    }
+  }
+
   localStorage.clear();
 
-  keysToKeep.forEach((key: string) => {
+  // Restore all preserved keys
+  Object.keys(valuesToKeep).forEach((key: string) => {
     if (valuesToKeep[key] !== undefined) {
       localStorage.setItem(key, valuesToKeep[key]);
     }

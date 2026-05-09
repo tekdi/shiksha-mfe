@@ -35,6 +35,7 @@ interface PlayerProps {
   unitId?: string;
   userId?: string;
   configFunctionality?: any;
+  mode?: string;
 }
 
 const SunbirdPlayers = ({
@@ -43,6 +44,7 @@ const SunbirdPlayers = ({
   unitId,
   userId,
   configFunctionality,
+  mode,
 }: PlayerProps) => {
   const router = useRouter();
 
@@ -264,6 +266,7 @@ const SunbirdPlayers = ({
           playerConfig={playerConfig}
           relatedData={{ courseId, unitId, userId }}
           configFunctionality={configFunctionality}
+          mode={mode}
         />
       );
     case "video/mp4":
@@ -277,6 +280,7 @@ const SunbirdPlayers = ({
           playerConfig={playerConfig}
           relatedData={{ courseId, unitId, userId }}
           configFunctionality={configFunctionality}
+          mode={mode}
         />
       );
     case "application/vnd.sunbird.questionset":
@@ -285,6 +289,7 @@ const SunbirdPlayers = ({
           playerConfig={playerConfig}
           relatedData={{ courseId, unitId, userId }}
           configFunctionality={configFunctionality}
+          mode={mode}
         />
       );
     case "application/epub+zip":
@@ -295,6 +300,7 @@ const SunbirdPlayers = ({
           playerConfig={playerConfig}
           relatedData={{ courseId, unitId, userId }}
           configFunctionality={configFunctionality}
+          mode={mode}
         />
       );
     case "application/vnd.ekstep.h5p-archive":
@@ -309,6 +315,7 @@ const SunbirdPlayers = ({
           playerConfig={playerConfig}
           relatedData={{ courseId, unitId, userId }}
           configFunctionality={configFunctionality}
+          mode={mode}
         />
       );
     case "application/vnd.ekstep.ecml-archive":
@@ -318,6 +325,7 @@ const SunbirdPlayers = ({
           playerConfig={playerConfig}
           relatedData={{ courseId, unitId, userId }}
           configFunctionality={configFunctionality}
+          mode={mode}
         />
       );
     default:

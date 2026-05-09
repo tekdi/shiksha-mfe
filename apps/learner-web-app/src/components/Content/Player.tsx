@@ -50,6 +50,7 @@ const App = ({
   courseId: propCourseId,
   unitId: propUnitId,
   isEmbedded = false,
+  mode = "play",
 }: {
   userIdLocalstorageName?: string;
   contentBaseUrl?: string;
@@ -58,6 +59,7 @@ const App = ({
   courseId?: string;
   unitId?: string;
   isEmbedded?: boolean;
+  mode?: string;
 }) => {
   const { t } = useTranslation();
   const router = useRouter();
@@ -226,6 +228,7 @@ const App = ({
           unitId={unitId}
           mimeType={mimeType}
           isEmbedded={isEmbedded}
+          mode={mode}
           {..._config?.player}
         />
       </Grid>
@@ -316,6 +319,7 @@ const PlayerBox = ({
   isShowMoreContent,
   mimeType,
   isEmbedded = false,
+  mode = "play",
 }: any) => {
   const router = useRouter();
   const { t } = useTranslation();
@@ -432,6 +436,7 @@ const PlayerBox = ({
             name={JSON.stringify({
               isGenerateCertificate: isGenerateCertificate,
               trackable: trackable,
+              mode: mode,
             })}
             src={(() => {
               const tenantId = localStorage.getItem("tenantId");
@@ -444,7 +449,9 @@ const PlayerBox = ({
                 courseId && unitId ? `&courseId=${courseId}&unitId=${unitId}` : ""
               }${userId ? `&userId=${userId}` : ""}${tenantId ? `&tenantId=${tenantId}` : ""}${
                 token ? `&token=${token}` : ""
-              }${academicYearId ? `&academicYearId=${academicYearId}` : ""}`;
+              }${academicYearId ? `&academicYearId=${academicYearId}` : ""}${
+                mode ? `&mode=${mode}` : ""
+              }`;
              
               return url;
             })()}

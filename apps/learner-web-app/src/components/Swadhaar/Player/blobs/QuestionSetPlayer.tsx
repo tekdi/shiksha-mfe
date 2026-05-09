@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Box, Typography, Button, TextField, LinearProgress } from '@mui/material';
+import { Box, Typography, Button, LinearProgress } from '@mui/material';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded';
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
-import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded';
+import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 
 /* ─── Types ─────────────────────────────────────────────── */
 export interface QuestionOption {
@@ -35,6 +36,7 @@ interface QuestionSetPlayerProps {
   learnerName?: string;
   onStart?: () => void;
   onComplete: (score: number) => void;
+  mode?: 'play' | 'review';
 }
 
 const PRIMARY = '#E6873C';
@@ -77,7 +79,7 @@ function normalizeQuestions(raw: Question[]): Question[] {
     else if (q.interactions?.response1?.options) {
       opts = q.interactions.response1.options.map((o: any) => ({
         body: o.label || '',
-        answer: false, // will need answer key from somewhere else if only this is present
+        answer: false,
       }));
     }
 
@@ -93,11 +95,14 @@ const StartScreen: React.FC<{
   currentAttempts: number;
   onStart: (reviewMode?: boolean) => void;
 }> = ({ name, questionCount, maxAttempts, currentAttempts, onStart }) => {
+  // Sunbird-style: show currentAttempts/maxAttempts (e.g., "3/5")
+  // Replay is disabled when currentAttempts >= maxAttempts
+  const isExhausted = currentAttempts >= maxAttempts;
   const attemptsRemaining = Math.max(0, maxAttempts - currentAttempts);
-  const isExhausted = attemptsRemaining <= 0;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Quiz Title Card */}
       <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
         <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }} />
         <Box sx={{ p: 2 }}>
@@ -106,40 +111,86 @@ const StartScreen: React.FC<{
         </Box>
       </Box>
 
+      {/* Instructions Card */}
       <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
         <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }} />
         <Box sx={{ p: 2 }}>
           <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#1F2937', mb: 1 }}>Before you begin</Typography>
-          <Typography sx={{ fontSize: 11, color: PRIMARY, fontWeight: 700, mb: 1.5 }}>Card Subheading — secondary context or label</Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             <Typography sx={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>• Read each question carefully before selecting an answer.</Typography>
             <Typography sx={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>• You can skip a question and return to it later.</Typography>
             <Typography sx={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>• Score 70% or above to pass and unlock the next lesson.</Typography>
+            <Typography sx={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5 }}>• Total Questions: {questionCount}</Typography>
           </Box>
         </Box>
       </Box>
 
-      <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-        <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }} />
-        <Box sx={{ p: 2 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 14, color: isExhausted ? ERROR_RED : '#1F2937' }}>{attemptsRemaining}/{maxAttempts}</Typography>
-          <Typography sx={{ fontSize: 11, color: PRIMARY, fontWeight: 700 }}>Quiz Attempts Remaining</Typography>
+      {/* Attempts Card — Sunbird-style: shows currentAttempts / maxAttempts */}
+      <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: `1px solid ${isExhausted ? ERROR_RED : '#E5E7EB'}`, overflow: 'hidden' }}>
+        <Box sx={{ bgcolor: isExhausted ? ERROR_RED : DARK_NAV, px: 2, py: 1 }}>
+          <Typography sx={{ color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>
+            {isExhausted ? 'No Attempts Remaining' : 'Attempts'}
+          </Typography>
+        </Box>
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box>
+            {/* Sunbird format: "currentAttempts / maxAttempts" */}
+            <Typography sx={{ fontWeight: 800, fontSize: 28, color: isExhausted ? ERROR_RED : DARK_NAV, lineHeight: 1 }}>
+              {currentAttempts}<Typography component="span" sx={{ fontSize: 16, color: '#9CA3AF', fontWeight: 600 }}>/{maxAttempts}</Typography>
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: isExhausted ? ERROR_RED : '#6B7280', fontWeight: 600, mt: 0.5 }}>
+              {isExhausted ? 'All attempts used' : `${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining`}
+            </Typography>
+          </Box>
+          {/* Progress dots */}
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {Array.from({ length: maxAttempts }, (_, i) => (
+              <Box
+                key={i}
+                sx={{
+                  width: 10, height: 10, borderRadius: '50%',
+                  bgcolor: i < currentAttempts ? (isExhausted ? ERROR_RED : PRIMARY) : '#E5E7EB',
+                  transition: 'background-color 0.3s'
+                }}
+              />
+            ))}
+          </Box>
         </Box>
       </Box>
 
-      <Button
-        fullWidth
-        variant="contained"
-        onClick={() => onStart(isExhausted)}
-        sx={{ 
-          mt: 2, bgcolor: isExhausted ? '#9CA3AF' : PRIMARY, color: '#fff', borderRadius: '12px', 
-          fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 16, 
-          boxShadow: isExhausted ? 'none' : '0 6px 16px rgba(230,135,60,0.35)', 
-          '&:hover': { bgcolor: isExhausted ? '#9CA3AF' : '#D1752D' } 
-        }}
-      >
-        {isExhausted ? 'Review Quiz' : 'Start Quiz'}
-      </Button>
+      {/* Action Buttons */}
+      {isExhausted ? (
+        // When all attempts used: only allow Review (no replay)
+        <Button
+          fullWidth
+          variant="outlined"
+          onClick={() => onStart(true)}
+          startIcon={<VisibilityRoundedIcon />}
+          sx={{ 
+            mt: 1, borderColor: DARK_NAV, color: DARK_NAV, borderRadius: '12px', 
+            fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 15, 
+            '&:hover': { bgcolor: 'rgba(28,43,74,0.04)', borderColor: DARK_NAV } 
+          }}
+        >
+          Review Answers
+        </Button>
+      ) : (
+        // When attempts available: show Start/Replay Quiz
+        <Button
+          fullWidth
+          variant="contained"
+          onClick={() => onStart(false)}
+          startIcon={currentAttempts > 0 ? <ReplayRoundedIcon /> : undefined}
+          sx={{ 
+            mt: 1, bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', 
+            fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 16, 
+            boxShadow: '0 6px 16px rgba(230,135,60,0.35)', 
+            '&:hover': { bgcolor: '#D1752D' } 
+          }}
+        >
+          {currentAttempts > 0 ? 'Replay Quiz' : 'Start Quiz'}
+        </Button>
+      )}
     </Box>
   );
 };
@@ -166,6 +217,13 @@ const QuestionScreen: React.FC<{
       </Box>
       
       <Box sx={{ p: 2 }}>
+        {/* Progress bar */}
+        <LinearProgress 
+          variant="determinate" 
+          value={((qIndex + 1) / total) * 100} 
+          sx={{ height: 4, borderRadius: 2, mb: 2, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: reviewMode ? DARK_NAV : PRIMARY } }} 
+        />
+        
         <Typography sx={{ fontSize: 11, color: PRIMARY, fontWeight: 700, mb: 0.5 }}>Quiz</Typography>
         <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1F2937', mb: 3, lineHeight: 1.4 }}>{stripHtml(questionText)}</Typography>
 
@@ -230,7 +288,7 @@ const QuestionScreen: React.FC<{
             '&.Mui-disabled': { bgcolor: '#F3F4F6', color: '#9CA3AF' } 
           }}
         >
-          {isLast ? (reviewMode ? 'Close' : 'Submit') : 'Next Question'}
+          {isLast ? (reviewMode ? 'Close Review' : 'Submit') : 'Next Question'}
         </Button>
       </Box>
     </Box>
@@ -241,44 +299,76 @@ const QuestionScreen: React.FC<{
 const ResultScreen: React.FC<{
   score: number;
   total: number;
+  currentAttempts: number;
+  maxAttempts: number;
   results: { q: Question; isCorrect: boolean }[];
-  onFinish: () => void;
-}> = ({ score, total, results, onFinish }) => {
+  onReplay: () => void;
+  onReview: () => void;
+}> = ({ score, total, currentAttempts, maxAttempts, results, onReplay, onReview }) => {
+  const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
+  const passed = percentage >= 70;
+  const canReplay = currentAttempts < maxAttempts;
+
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      {/* Score Circle */}
       <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
         <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }} />
         <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', bgcolor: '#F9FAFB' }}>
           <Box sx={{ 
             width: 120, height: 120, borderRadius: '50%', 
-            bgcolor: '#6DBB6D', 
+            bgcolor: passed ? '#6DBB6D' : ERROR_RED, 
             display: 'flex', alignItems: 'center', justifyContent: 'center', 
             mb: 3,
-            boxShadow: '0 4px 20px rgba(0,0,0,0.08)'
+            boxShadow: `0 4px 20px ${passed ? 'rgba(76,175,80,0.3)' : 'rgba(239,68,68,0.3)'}`
           }}>
             <Box sx={{ 
               width: 86, height: 86, borderRadius: '50%', 
-              bgcolor: '#388E3C', 
+              bgcolor: passed ? '#388E3C' : '#DC2626', 
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
-              <svg width="42" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+              {passed ? (
+                <svg width="42" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              ) : (
+                <Typography sx={{ fontSize: 28, fontWeight: 900, color: '#fff' }}>{percentage}%</Typography>
+              )}
             </Box>
           </Box>
-          <Typography sx={{ fontWeight: 800, fontSize: 32, color: '#388E3C', mb: 1, letterSpacing: -0.5 }}>Quiz Completed</Typography>
-          <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>Lesson Detail</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: 24, color: passed ? '#388E3C' : ERROR_RED, mb: 0.5 }}>
+            {passed ? 'Quiz Passed!' : 'Quiz Completed'}
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: '#6B7280', fontWeight: 500 }}>
+            {passed ? 'Great job!' : 'Keep practicing to improve your score'}
+          </Typography>
         </Box>
       </Box>
 
+      {/* Score Details */}
       <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-        <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }} />
-        <Box sx={{ p: 2 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1F2937' }}>{score}/{total}</Typography>
-          <Typography sx={{ fontSize: 11, color: PRIMARY, fontWeight: 700 }}>Quiz Results</Typography>
+        <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }}>
+          <Typography sx={{ color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8 }}>Results</Typography>
+        </Box>
+        <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box>
+            <Typography sx={{ fontWeight: 800, fontSize: 24, color: DARK_NAV }}>
+              {score}<Typography component="span" sx={{ fontSize: 14, color: '#9CA3AF', fontWeight: 600 }}>/{total}</Typography>
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Correct Answers</Typography>
+          </Box>
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography sx={{ fontWeight: 800, fontSize: 24, color: DARK_NAV }}>
+              {currentAttempts}<Typography component="span" sx={{ fontSize: 14, color: '#9CA3AF', fontWeight: 600 }}>/{maxAttempts}</Typography>
+            </Typography>
+            <Typography sx={{ fontSize: 11, color: canReplay ? '#6B7280' : ERROR_RED, fontWeight: 600 }}>
+              {canReplay ? 'Attempts Used' : 'No Attempts Left'}
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
+      {/* Question Results */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         {results.map(({ q, isCorrect }, i) => (
           <Box key={i} sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
@@ -289,6 +379,52 @@ const ResultScreen: React.FC<{
             </Box>
           </Box>
         ))}
+      </Box>
+
+      {/* Action Buttons */}
+      <Box sx={{ display: 'flex', gap: 1.5, mt: 1 }}>
+        <Button
+          fullWidth
+          variant="outlined"
+          onClick={onReview}
+          startIcon={<VisibilityRoundedIcon />}
+          sx={{ 
+            borderColor: DARK_NAV, color: DARK_NAV, borderRadius: '12px', 
+            fontWeight: 700, textTransform: 'none', py: 1.5, fontSize: 14,
+            '&:hover': { bgcolor: 'rgba(28,43,74,0.04)', borderColor: DARK_NAV } 
+          }}
+        >
+          Review
+        </Button>
+        {canReplay ? (
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={onReplay}
+            startIcon={<ReplayRoundedIcon />}
+            sx={{ 
+              bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', 
+              fontWeight: 700, textTransform: 'none', py: 1.5, fontSize: 14,
+              boxShadow: '0 4px 12px rgba(230,135,60,0.25)', 
+              '&:hover': { bgcolor: '#D1752D' } 
+            }}
+          >
+            Replay ({maxAttempts - currentAttempts} left)
+          </Button>
+        ) : (
+          <Button
+            fullWidth
+            variant="contained"
+            disabled
+            sx={{ 
+              bgcolor: '#E5E7EB', color: '#9CA3AF', borderRadius: '12px', 
+              fontWeight: 700, textTransform: 'none', py: 1.5, fontSize: 14,
+              '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
+            }}
+          >
+            No Attempts Left
+          </Button>
+        )}
       </Box>
     </Box>
   );
@@ -302,12 +438,18 @@ export const QuestionSetPlayer: React.FC<QuestionSetPlayerProps> = ({
   currentAttempts = 0,
   onStart,
   onComplete,
+  mode,
 }) => {
   const questions = useMemo(() => normalizeQuestions(rawQuestions || []), [rawQuestions]);
   const [phase, setPhase] = useState<'start' | 'quiz' | 'result'>('start');
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<any[]>([]);
-  const [isReview, setIsReview] = useState(false);
+  const [isReview, setIsReview] = useState(mode === 'review');
+
+  // Sync with external mode prop
+  React.useEffect(() => {
+    if (mode === 'review') setIsReview(true);
+  }, [mode]);
 
   // ✅ Auto-complete when reaching results
   React.useEffect(() => {
@@ -351,6 +493,22 @@ export const QuestionSetPlayer: React.FC<QuestionSetPlayerProps> = ({
     }
   };
 
+  // Replay: go back to quiz phase (not start), onStart callback fires again
+  const handleReplay = () => {
+    setAnswers(new Array(questions.length).fill(undefined));
+    setCurrentQ(0);
+    setIsReview(false);
+    setPhase('quiz');
+    if (onStart) onStart();
+  };
+
+  // Review from results: go to quiz in review mode
+  const handleReviewFromResults = () => {
+    setCurrentQ(0);
+    setIsReview(true);
+    setPhase('quiz');
+  };
+
   const results = useMemo(() => {
     return questions.map((q, i) => {
       const userAnswer = answers[i];
@@ -383,7 +541,17 @@ export const QuestionSetPlayer: React.FC<QuestionSetPlayerProps> = ({
     );
   }
 
-  return <ResultScreen score={score} total={questions.length} results={results} onFinish={() => onComplete(score)} />;
+  return (
+    <ResultScreen 
+      score={score} 
+      total={questions.length} 
+      currentAttempts={currentAttempts}
+      maxAttempts={maxAttempts}
+      results={results} 
+      onReplay={handleReplay}
+      onReview={handleReviewFromResults}
+    />
+  );
 };
 
 export default QuestionSetPlayer;

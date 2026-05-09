@@ -9,6 +9,7 @@ interface PlayerConfigProps {
   playerConfig: any;
   relatedData?: any;
   configFunctionality?: boolean;
+  mode?: string;
 }
 
 const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || "/sbplayer";
@@ -17,6 +18,7 @@ const SunbirdQuMLPlayer = ({
   playerConfig,
   relatedData: { courseId, unitId, userId },
   configFunctionality,
+  mode,
 }: PlayerConfigProps) => {
   const SunbirdQuMLPlayerRef = useRef<HTMLIFrameElement | null>(null);
 
@@ -143,6 +145,10 @@ const SunbirdQuMLPlayer = ({
               // Set the data with proper configuration
               const finalConfig = {
                 ...playerConfig,
+                context: {
+                  ...playerConfig.context,
+                  mode: mode || playerConfig.context?.mode || "play",
+                },
                 config: qumlPlayerObject.qumlPlayerConfig.config,
                 // Ensure all string properties in metadata are properly defined
                 metadata: {

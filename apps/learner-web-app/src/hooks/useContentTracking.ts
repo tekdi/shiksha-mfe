@@ -42,7 +42,9 @@ export const useContentTracking = ({
       const status = isFinal ? 2 : 1;
       const statusString = isFinal ? 'completed' : 'in-progress';
 
-      // 1. Sync granular telemetry progress (Working pattern for all 0-100% updates)
+      console.log(`[TRACKING] Syncing to backend: ID=${contentId}, Status=${statusString}, Progress=${percentage}%`);
+
+      // 1. Sync granular telemetry progress (Required for Sunbird progress aggregation)
       await syncContentProgressTelemetry({
         userId,
         courseId,
@@ -52,23 +54,21 @@ export const useContentTracking = ({
         status: statusString,
       });
 
-      // 2. Update completion status (Working pattern for marking 'completed')
-      if (isFinal) {
-        await updateContentStatus({
-          userId,
-          courseId: courseId,
-          contentId: contentId,
-          status: status,
-          completionPercentage: 100,
-          moduleId: moduleId,
-          score,
-        });
-      }
+      // 2. Explicitly update content status (Ensures 'completed' state is captured)
+      await updateContentStatus({
+        userId,
+        courseId: courseId,
+        contentId: contentId,
+        status: status,
+        completionPercentage: percentage,
+        moduleId: moduleId,
+        score,
+      });
 
       lastApiProgressRef.current = percentage;
-      console.log('[TRACKING SYNCED]', { contentId, percentage, isFinal, score });
+      console.log(`[TRACKING] Sync Success: ID=${contentId}`);
     } catch (err) {
-      console.warn('[TRACK ERROR]', err);
+      console.warn('[TRACKING] Sync Failed:', err);
     }
   }, [contentId, courseId, moduleId, subtopicId]);
 
@@ -77,21 +77,26 @@ export const useContentTracking = ({
     const userId = userIdRef.current;
     if (!userId || !contentId || completedRef.current) return;
 
+    console.log(`[TRACKING] handleComplete triggered: ID=${contentId}, Score=${score}`);
     completedRef.current = true;
     lastProgressRef.current = 100;
 
-    console.log('[TRACKING] handleComplete triggered for:', contentId, 'score:', score);
-
-    // Sync UI instantly (only for the content being tracked)
+    // 1. Update UI state instantly (Local cache update)
     setStatusData?.((prev) => {
       const newData = [...prev];
-      const existingIndex = newData.findIndex(d => d.contentId === contentId);
-      const update = { contentId: contentId, status: 2, completionPercentage: 100, attempts: (newData[existingIndex]?.attempts || 0) + 1 };
-      if (existingIndex >= 0) newData[existingIndex] = update;
+      const idx = newData.findIndex(d => d.contentId === contentId);
+      const update = { 
+        contentId: contentId, 
+        status: 2, 
+        completionPercentage: 100, 
+        attempts: (newData[idx]?.attempts || 0) + 1 
+      };
+      if (idx >= 0) newData[idx] = update;
       else newData.push(update);
       return newData;
     });
 
+    // 2. Telemetry Event
     telemetryFactory.interact({
       eid: 'INTERACT',
       edata: {
@@ -104,103 +109,44 @@ export const useContentTracking = ({
       },
     });
 
-    // ✅ Final Completion API Call
+    // 3. Final API Sync
     await sendProgressToBackend(100, true, score);
-    onComplete?.();
-  }, [contentId, subtopicId, moduleId, courseId, sendProgressToBackend, onComplete, setStatusData]);
+    
+    // 4. Component Callback
+    if (onComplete) {
+      console.log('[TRACKING] Calling onComplete callback');
+      onComplete();
+    }
+  }, [contentId, sendProgressToBackend, onComplete, setStatusData]);
 
   /* ───────────────── PROGRESS HANDLER ───────────────── */
   const handleProgress = useCallback((percentage: number) => {
     if (!contentId || completedRef.current) return;
-    console.log('[TRACKING] handleProgress:', { contentId, percentage, current: lastProgressRef.current });
+    
+    const cappedPercent = Math.min(100, Math.max(0, percentage));
 
-    if (percentage > lastProgressRef.current) {
-      lastProgressRef.current = percentage;
+    if (cappedPercent > lastProgressRef.current) {
+      lastProgressRef.current = cappedPercent;
 
-      // ✅ Update UI immediately for real-time feedback (only for the content being tracked)
+      // Update UI state (Optimistic)
       setStatusData?.((prev) => {
         const newData = [...prev];
-        const existingIndex = newData.findIndex(d => d.contentId === contentId);
-        const update = { contentId: contentId, status: 1, completionPercentage: percentage };
-        if (existingIndex >= 0) {
-          newData[existingIndex] = update;
+        const idx = newData.findIndex(d => d.contentId === contentId);
+        if (idx >= 0) {
+          newData[idx] = { ...newData[idx], completionPercentage: cappedPercent, status: 1 };
         } else {
-          newData.push(update);
+          newData.push({ contentId, completionPercentage: cappedPercent, status: 1 });
         }
         return newData;
       });
-      
-      // Throttle API calls to every 5% progress increment or final completion
-      if (percentage - lastApiProgressRef.current >= 5 || percentage >= 95) {
-        console.log('[TRACKING TRIGGER]', { percentage, last: lastApiProgressRef.current });
-        sendProgressToBackend(percentage, false);
+
+      // Report to backend periodically or at major milestones
+      if (cappedPercent >= 95 || cappedPercent > lastApiProgressRef.current + 2) {
+        console.log(`[TRACKING] Reporting milestones to backend: ID=${contentId}, Percent=${cappedPercent}%`);
+        sendProgressToBackend(cappedPercent, false);
       }
-      
-      // Telemetry
-      telemetryFactory.interact({
-        eid: 'INTERACT',
-        edata: {
-          id: 'content-progress',
-          type: 'workflow',
-          pageid: 'lesson-player',
-          uid: userIdRef.current,
-          contentId,
-          progress: percentage
-        },
-      });
     }
-
-    // ✅ Auto-complete threshold
-    if (percentage >= 95 && !completedRef.current) {
-      handleComplete();
-    }
-  }, [contentId, subtopicId, moduleId, courseId, handleComplete, sendProgressToBackend, setStatusData]);
-
-  /* ───────────────── SUNBIRD EVENT LISTENER ───────────────── */
-  useEffect(() => {
-    const handler = (event: MessageEvent) => {
-      try {
-        const data =
-          typeof event.data === 'string'
-            ? JSON.parse(event.data)
-            : event.data;
-
-        const eid = data?.eid;
-        const eventContentId = data?.object?.id || data?.edata?.id || data?.contentId || data?.identifier;
-
-        // ✅ Only process events for the current content and ignore if ID is missing
-        if (!eventContentId || eventContentId !== contentId) {
-          if (eventContentId && eid === 'PROGRESS') {
-            console.log('[TRACKING] Ignored progress event (ID mismatch):', { eventId: eventContentId, hookId: contentId });
-          }
-          return;
-        }
-
-        if (eid === 'PROGRESS') {
-          const progress = data?.edata?.progress || 0;
-          if (progress > 0) {
-            handleProgress(Math.min(100, Math.round(progress)));
-          }
-        }
-
-        // Only trust ASSESS for completion from Sunbird iframe players (quizzes)
-        // END and SUMMARY are often fired prematurely or contain stale data
-        if (eid === 'ASSESS') {
-          handleComplete();
-        }
-      } catch (err) { }
-    };
-
-    window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
-  }, [handleProgress, handleComplete]);
-
-  // Reset tracking when contentId changes
-  useEffect(() => {
-    lastProgressRef.current = 0;
-    lastApiProgressRef.current = 0;
-    completedRef.current = false;
-  }, [contentId]);
+  }, [contentId, sendProgressToBackend, setStatusData]);
 
   return {
     handleProgress,

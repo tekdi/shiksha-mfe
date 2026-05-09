@@ -38,6 +38,7 @@ const Players: React.FC<SunbirdPlayerProps> = ({
   const [isGenerateCertificate, setIsGenerateCertificate] = useState(true);
   const [trackable, setTrackable] = useState(true);
   const [userId, setUserId] = useState("");
+  const [mode, setMode] = useState<string>("play");
 
   // Get all query params once router is ready
   useEffect(() => {
@@ -75,8 +76,12 @@ const Players: React.FC<SunbirdPlayerProps> = ({
       if (queryAcademicYearId) {
         localStorage.setItem("academicYearId", queryAcademicYearId);
       }
+
+      if (router.query.mode) {
+        setMode(router.query.mode as string);
+      }
     }
-  }, [router.isReady, router.query.userId, router.query.tenantId]);
+  }, [router.isReady, router.query.userId, router.query.tenantId, router.query.mode]);
   useEffect(() => {
     if (playerConfig || !identifier) return;
 
@@ -87,6 +92,9 @@ const Players: React.FC<SunbirdPlayerProps> = ({
         const jsonParse = name ? JSON.parse(name) : {};
         setIsGenerateCertificate(jsonParse.generateCertificate ?? true);
         setTrackable(jsonParse.trackable ?? true);
+        if (jsonParse.mode && !router.query.mode) {
+          setMode(jsonParse.mode);
+        }
         const data = await fetchContent(identifier);
         let config: PlayerConfig;
 
@@ -155,6 +163,7 @@ const Players: React.FC<SunbirdPlayerProps> = ({
             unitId={unitId as string}
             userId={userId as string}
             configFunctionality={{ isGenerateCertificate, trackable }}
+            mode={mode}
           />
         </Box>
       )}

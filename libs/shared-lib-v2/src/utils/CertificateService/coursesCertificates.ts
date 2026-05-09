@@ -112,99 +112,25 @@ export const downloadCertificate = async ({
   templateId,
 }: renderCertificateParam): Promise<Blob> => {
   const apiUrl: string = API_ENDPOINTS.downloadCertificate;
-
-  // Validate inputs — only credentialId is strictly required;
-  // templateId is optional tenant config and may be absent.
-  if (!credentialId) {
-    throw new Error(
-      "Missing required parameters: credentialId is required"
-    );
-  }
-
-  console.log("Download certificate request:", {
-    apiUrl,
-    credentialId,
-    templateId,
-    baseUrl: process.env.NEXT_PUBLIC_MIDDLEWARE_URL,
-    fullUrl: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/tracking/certificate/render-PDF`,
-  });
-
   try {
-    // Log the request configuration
-    console.log("Request configuration:", {
-      url: apiUrl,
-      method: "POST",
-      data: { credentialId, templateId },
-      responseType: "blob",
-    });
-
-    // Try different request body formats
-    const requestBody = { credentialId, templateId, format: 'pdf' };
-    console.log("Request body:", requestBody);
-
-    // Also try alternative request body format
-    const alternativeRequestBody = {
-      request: {
-        credentialId,
-        templateId,
-        format: 'pdf',
-      },
-    };
-    console.log("Alternative request body:", alternativeRequestBody);
-
-    let response: AxiosResponse<Blob>;
-
-    try {
-      // Try with the standard request body format
-      response = await axiosInstance.post(apiUrl, requestBody, {
+    const response: AxiosResponse<Blob> = await axios.post(
+      apiUrl,
+      { credentialId, templateId },
+      {
         responseType: "blob", // Ensures we get a binary file
         headers: {
-          "Content-Type": "application/json",
+          "Accept": "application/pdf",
         },
-      });
-    } catch (firstError) {
-      console.log(
-        "First attempt failed, trying alternative request body format"
-      );
-
-      // Try with alternative request body format
-      response = await axiosInstance.post(apiUrl, alternativeRequestBody, {
-        responseType: "blob", // Ensures we get a binary file
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-    }
-
-    console.log("Download certificate response:", {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-      dataSize: response.data?.size,
-    });
+      }
+    );
 
     if (!response.data) {
       throw new Error("Empty response from API");
     }
 
     return response.data; // Return only the Blob data
-  } catch (error: any) {
+  } catch (error) {
     console.error("Error in getting render certificate:", error);
-    console.error("Error details:", {
-      message: error?.message,
-      status: error?.response?.status,
-      statusText: error?.response?.statusText,
-      data: error?.response?.data,
-      config: error?.config,
-      url: error?.config?.url,
-      method: error?.config?.method,
-      headers: error?.config?.headers,
-    });
-
-    // Log the full error response for debugging
-    if (error?.response) {
-      console.error("Full error response:", error.response);
-    }
     throw error;
   }
 };

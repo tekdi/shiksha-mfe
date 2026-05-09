@@ -100,6 +100,27 @@ export default function SubtopicDetailsPage() {
       if (userId && allIds.length && tenantId) {
         status = await getContentCourseStatus([userId], allIds, tenantId).catch(() => []);
       }
+
+      // Apply sessionStorage progress guard — same guard as the lesson page.
+      // If the user was watching a lesson in this browser session and the backend
+      // auto-completed it (premature), we restore the locally-tracked in-progress value
+      // so the module list doesn't incorrectly show a green checkmark.
+      try {
+        const raw = sessionStorage.getItem('swadhaar_progress_guard');
+        const guard: Record<string, { percentage: number; status: number }> = raw ? JSON.parse(raw) : {};
+        status = status.map(item => {
+          const sessionEntry = guard[item.contentId];
+          if (sessionEntry && sessionEntry.status === 1 && item.status === 2) {
+            return {
+              ...item,
+              status: 1,
+              completionPercentage: sessionEntry.percentage,
+            };
+          }
+          return item;
+        });
+      } catch { /* sessionStorage not available (SSR), no-op */ }
+
       setStatusData(status);
 
       // Filter and process subtopics

@@ -8,25 +8,31 @@ interface PlayerConfigProps {
   playerConfig: any;
   relatedData?: any;
   configFunctionality?: boolean;
+  mode?: string;
 }
 
 function MyAssessment({
   playerConfig,
   relatedData: { courseId, unitId, userId },
   configFunctionality,
+  mode,
 }: PlayerConfigProps) {
   const [newPlayerConfig, setPlayerConfig] = useState<any>();
 
   useEffect(() => {
     setPlayerConfig({
       ...playerConfig,
+      context: {
+        ...playerConfig.context,
+        mode: mode || playerConfig.context?.mode || "play",
+      },
       config: {
         ...playerConfig.config,
         host: process.env.NEXT_PUBLIC_MIDDLEWARE_URL,
         listApiEndpoint: "/api/question/v2/list",
       },
     });
-  }, [playerConfig]);
+  }, [playerConfig, mode]);
 
   if (!newPlayerConfig?.config?.host) {
     return <div>Loading...</div>;

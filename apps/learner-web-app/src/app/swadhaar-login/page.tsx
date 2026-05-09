@@ -147,10 +147,9 @@ export default function SwadhaarLoginPage() {
         if (imageUrl) localStorage.setItem('profilePicture', imageUrl);
       } catch (e) { console.error('Failed to fetch full profile for image', e); }
 
-      localStorage.setItem(
-        "templtateId",
-        userData?.tenantData?.[0]?.templateId
-      );
+      const templateId = userData?.tenantData?.[0]?.templateId || 'cm7nbogii000moc3gth63l863';
+      localStorage.setItem('templateId', templateId);
+      localStorage.setItem('templtateId', templateId);
       
       const channelId = userData?.tenantData?.[0]?.channelId;
       const collectionFramework = userData?.tenantData?.[0]?.collectionFramework;
@@ -306,7 +305,7 @@ export default function SwadhaarLoginPage() {
         }}
       >
         {/* Mobile Number */}
-        <Typography  sx={{fontSize: 13, fontWeight: 600, color: 'text.secondary', mb: 0.75 }}>
+        <Typography  sx={{fontFamily:"Inter, sans-serif",fontSize: 13, fontWeight: 700, color: 'text.secondary', mb: 0.75 }}>
           {t('LEARNER_APP.LOGIN.MOBILE_LABEL')}
         </Typography>
         <TextField
@@ -383,7 +382,7 @@ export default function SwadhaarLoginPage() {
           {isSigningIn ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : t('LEARNER_APP.LOGIN.SIGN_IN')}
         </Button>
         {/* Send/Resend OTP — right aligned */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3,mt:2 }}>
           <Box
             component="span"
             onClick={canSendOtp ? handleSendOtp : undefined}

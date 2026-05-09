@@ -81,6 +81,21 @@ export default function LearnPage() {
       if (userId && allHierarchyIds.length && tenantId) {
         status = await getContentCourseStatus([userId], allHierarchyIds, tenantId).catch(() => []);
       }
+
+      // Apply sessionStorage progress guard so that lessons the backend auto-completed
+      // prematurely still show their locally-tracked in-progress percentage here.
+      try {
+        const raw = sessionStorage.getItem('swadhaar_progress_guard');
+        const guard: Record<string, { percentage: number; status: number }> = raw ? JSON.parse(raw) : {};
+        status = status.map(item => {
+          const sessionEntry = guard[item.contentId];
+          if (sessionEntry && sessionEntry.status === 1 && item.status === 2) {
+            return { ...item, status: 1, completionPercentage: sessionEntry.percentage };
+          }
+          return item;
+        });
+      } catch { /* sessionStorage unavailable (SSR) */ }
+
       setStatusData(status);
 
       const filterHierarchy = (items: any[]): any[] => {
@@ -137,8 +152,6 @@ export default function LearnPage() {
       });
 
       const sortedLevels = finalLevels;
-
-      console.log('[LEARN_PAGE] Final levels:', levelList.map(l => ({ name: l.name, perc: l.completionPercentage, modules: l.rawModules.length })));
       setLevels(sortedLevels);
       const active = sortedLevels.find((l) => l.isUnlocked && l.completionPercentage < 100) || sortedLevels[0];
       if (active) setExpandedLevelId(active.id);
@@ -189,7 +202,7 @@ export default function LearnPage() {
   return (
     <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column', position: 'relative', overflowX: 'hidden', width: '100%' }}>
       <Box sx={{ bgcolor: 'background.paper', px: 2, py: 1.5, borderBottom: (theme) => `1px solid ${theme.palette.divider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, width: '100%' }}>
-        <Typography sx={{ fontWeight: 800, fontSize: 22, color: 'text.primary', fontFamily: 'Manrope' }}>{t('LEARNER_APP.LEARN.PAGE_TITLE')}</Typography>
+        <Typography sx={{ fontWeight: 800, fontSize: 22, color: 'text.primary', fontFamily: 'Intern sans-serif' }}>{t('LEARNER_APP.LEARN.PAGE_TITLE')}</Typography>
         <Box onClick={() => router.push('/alerts')} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
           <Badge badgeContent={unreadCount > 0 ? unreadCount : null} sx={{ '& .MuiBadge-badge': { fontSize: 9, height: 16, minWidth: 16, backgroundColor: '#FFFFFF', color: '#E6873C', border: '1px solid #E6873C', top: 2, right: 2 } }}>
             <Box sx={{ width: 20, height: 20, borderRadius: '50%', backgroundColor: 'rgba(230,135,60,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -204,21 +217,21 @@ export default function LearnPage() {
         {unreadCount > 0 && (
           <Box onClick={() => router.push('/alerts')} sx={{ bgcolor: '#1C2B4A', borderRadius: '12px', p: 1.5, mb: 1.5, cursor: 'pointer', border: '1px solid rgba(230,135,60,0.35)' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-              <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: 16, fontFamily:"Manrope" }}>{t('LEARNER_APP.LEARN.NEW_CONTENT_AVAILABLE')}</Typography>
+              <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: 16, fontFamily:"Intern sans-serif" }}>{t('LEARNER_APP.LEARN.NEW_CONTENT_AVAILABLE')}</Typography>
               <Box sx={{ width: 24, height: 24, borderRadius: '8px', bgcolor: PRIMARY, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><BookmarkRoundedIcon sx={{ fontSize: 16, color: '#1C2B4A' }} /></Box>
             </Box>
             <Box sx={{ bgcolor: '#fff', borderRadius: '10px', p: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
               <Box sx={{ width: 30, height: 30, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{TYPE_ICONS[latestUnreadAlert?.type || 'content']}</Box>
               <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography sx={{fontFamily:"Manrope", fontSize: 13, fontWeight: 700, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{latestUnreadAlert?.title || 'New reminder'}</Typography>
-                <Typography sx={{fontFamily:"Manrope", fontSize: 12, fontWeight: 500, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{latestUnreadAlert?.message || 'Tap to view latest content alerts'}</Typography>
+                <Typography sx={{fontFamily:"Intern sans-serif", fontSize: 13, fontWeight: 700, color: '#1F2937', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{latestUnreadAlert?.title || 'New reminder'}</Typography>
+                <Typography sx={{fontFamily:"Intern sans-serif", fontSize: 12, fontWeight: 500, color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{latestUnreadAlert?.message || 'Tap to view latest content alerts'}</Typography>
               </Box>
               <ArrowForwardIcon sx={{ color: PRIMARY, fontSize: 18, fontWeight: 800 }} />
             </Box>
           </Box>
         )}
 
-        <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 1.5,fontFamily:"Open Sans",fontSize:14 }}>{t('LEARNER_APP.LEARN.LEVEL_PROGRESS')}</Typography>
+        <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 1.5,fontFamily:"Intern sans-serif",fontSize:14 }}>{t('LEARNER_APP.LEARN.LEVEL_PROGRESS')}</Typography>
 
         {levels.map((level) => (
           <SwadhaarLevelAccordion

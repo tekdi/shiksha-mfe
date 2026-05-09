@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useMemo } from 'react';
 import { Box, Typography, Collapse, CircularProgress } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
 import { useTranslation } from '@shared-lib';
@@ -27,30 +27,61 @@ interface SwadhaarLevelAccordionProps {
   modules: any[];
 }
 
-/* ─── Helper: Completion Calculation ─────────────────────── */
-const calculateNodeCompletion = (node: any, statusList: any[]): number => {
+/* ─── Helper: Build a lookup map from statusData for O(1) access ── */
+const buildStatusMap = (statusList: any[]): Map<string, any> => {
+  const map = new Map<string, any>();
+  for (const item of statusList) {
+    if (item.contentId) {
+      map.set(item.contentId, item);
+    }
+  }
+  return map;
+};
+
+/* ─── Helper: Completion Calculation (memoizable, no console.log) ── */
+const calculateNodeCompletion = (node: any, statusMap: Map<string, any>): number => {
   const identifier = node.identifier || node.id;
   if (!node.children || node.children.length === 0) {
-    const s = statusList.find((d: any) => d.contentId === identifier);
-    const res = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
-    console.log(`[ACCORDION_DEBUG] Leaf: ${node.name} (${identifier}) -> ${res}%`);
-    return res;
+    const s = statusMap.get(identifier);
+    return s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
   }
-  const childPercs = node.children.map((child: any) => calculateNodeCompletion(child, statusList));
-  const avg = childPercs.length > 0 ? childPercs.reduce((a: number, b: number) => a + b, 0) / childPercs.length : 0;
-  console.log(`[ACCORDION_DEBUG] Branch: ${node.name} (${identifier}) -> ${avg}%`);
-  return avg;
+  const childPercs = node.children.map((child: any) => calculateNodeCompletion(child, statusMap));
+  return childPercs.length > 0 ? childPercs.reduce((a: number, b: number) => a + b, 0) / childPercs.length : 0;
+};
+
+/* ─── Build a completion cache for all nodes in a module list ── */
+const buildCompletionCache = (modules: any[], statusMap: Map<string, any>): Map<string, number> => {
+  const cache = new Map<string, number>();
+
+  const walk = (node: any): number => {
+    const id = node.identifier || node.id;
+    if (cache.has(id)) return cache.get(id)!;
+
+    let perc: number;
+    if (!node.children || node.children.length === 0) {
+      const s = statusMap.get(id);
+      perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
+    } else {
+      const childPercs = node.children.map((child: any) => walk(child));
+      perc = childPercs.length > 0 ? childPercs.reduce((a: number, b: number) => a + b, 0) / childPercs.length : 0;
+    }
+    cache.set(id, perc);
+    return perc;
+  };
+
+  modules.forEach(walk);
+  return cache;
 };
 
 /* ─── Component: LessonNode (Leaf) ──────────────────────── */
 const LessonNode: React.FC<{
   lesson: any;
-  statusData: any[];
+  perc: number;
   onClick: () => void;
   isLocked?: boolean;
-}> = ({ lesson, statusData, onClick, isLocked }) => {
-  const perc = isLocked ? 0 : calculateNodeCompletion(lesson, statusData);
-  const isCompleted = perc >= 100;
+}> = React.memo(({ lesson, perc, onClick, isLocked }) => {
+  const effectivePerc = isLocked ? 0 : perc;
+  const isCompleted = effectivePerc >= 100;
 
   return (
     <Box
@@ -71,36 +102,35 @@ const LessonNode: React.FC<{
         ) : (
           <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <CircularProgress variant="determinate" value={100} size={24} thickness={4} sx={{ color: '#E5E7EB', position: 'absolute' }} />
-            <CircularProgress variant="determinate" value={perc} size={24} thickness={4} sx={{ color: perc > 0 ? PRIMARY : 'transparent' }} />
+            <CircularProgress variant="determinate" value={effectivePerc} size={24} thickness={4} sx={{ color: effectivePerc > 0 ? PRIMARY : 'transparent' }} />
           </Box>
         )}
       </Box>
       <Box sx={{ flex: 1 }}>
         <Typography sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 500, fontSize: 11, color: '#4B5563' }}>{lesson.name}</Typography>
-        <Typography sx={{ fontSize: 9, fontFamily: 'Inter, sans-serif', color: '#9CA3AF' }}>{isCompleted ? 'Completed' : `${Math.round(perc)}% Complete`}</Typography>
+        <Typography sx={{ fontSize: 9, fontFamily: 'Inter, sans-serif', color: '#9CA3AF' }}>{isCompleted ? 'Completed' : `${Math.round(effectivePerc)}% Complete`}</Typography>
       </Box>
       <ChevronRightIcon sx={{ fontSize: 18, color: '#D1D5DB' }} />
     </Box>
   );
-};
+});
+
+LessonNode.displayName = 'LessonNode';
 
 /* ─── Component: ModuleNode (Hierarchy Item) ────────────── */
 const ModuleNode: React.FC<{
   node: any;
   levelId: string;
   parentId: string;
-  statusData: any[];
+  completionCache: Map<string, number>;
   onNavigate: (moduleId: string, subtopicId?: string, lessonId?: string) => void;
   isLocked?: boolean;
-}> = ({ node, levelId, parentId, statusData, onNavigate, isLocked }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+}> = React.memo(({ node, levelId, parentId, completionCache, onNavigate, isLocked }) => {
   const { t } = useTranslation();
 
-  const perc = isLocked ? 0 : calculateNodeCompletion(node, statusData);
+  const nodeId = node.identifier || node.id;
+  const perc = isLocked ? 0 : (completionCache.get(nodeId) ?? 0);
   const isCompleted = perc >= 100;
-  if (node.name.includes('Module 2')) {
-    console.log('[ACCORDION_DEBUG] Module 2 Check:', { perc, isCompleted, childrenCount: node.children?.length });
-  }
   const isInProgress = perc > 0 && perc < 100;
   const children = node.children || [];
   const hasChildren = children.length > 0;
@@ -108,14 +138,24 @@ const ModuleNode: React.FC<{
 
   const borderColor = isLocked ? '#F3F4F6' : (isCompleted ? SUCCESS : (isInProgress ? PRIMARY : '#E5E7EB'));
 
+  // Pre-compute completed children count from cache
+  const completedChildCount = useMemo(() => {
+    return children.filter((c: any) => (completionCache.get(c.identifier || c.id) ?? 0) >= 100).length;
+  }, [children, completionCache]);
+
   if (isLeaf) {
-    return <LessonNode lesson={node} statusData={statusData} onClick={() => onNavigate(parentId, parentId, node.identifier)} isLocked={isLocked} />;
+    return <LessonNode lesson={node} perc={completionCache.get(nodeId) ?? 0} onClick={() => onNavigate(parentId, parentId, node.identifier)} isLocked={isLocked} />;
   }
 
   const handleModuleClick = () => {
     if (isLocked) return;
     onNavigate(node.identifier);
   };
+
+  const subtopicLabel = t('LEARNER_APP.LEARN.COMPLETED_SUBTOPICS', { completed: completedChildCount, total: children.length });
+  const subtopicText = subtopicLabel !== 'LEARNER_APP.LEARN.COMPLETED_SUBTOPICS'
+    ? subtopicLabel
+    : `Completed ${completedChildCount}/${children.length} Subtopics`;
 
   return (
     <Box sx={{ mb: 1 }}>
@@ -145,9 +185,7 @@ const ModuleNode: React.FC<{
             <Box sx={{ flex: 1 }}>
               <Typography sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 12, color: isLocked ? '#9CA3AF' : '#1F2937' }}>{node.name.toLowerCase().includes('module') ? node.name : `Module: ${node.name}`}</Typography>
               <Typography sx={{ fontSize: 10, fontFamily: 'Inter, sans-serif', color: '#9CA3AF', mt: 0.3 }}>
-                {t('LEARNER_APP.LEARN.COMPLETED_SUBTOPICS', { completed: children.filter((c: any) => calculateNodeCompletion(c, statusData) >= 100).length, total: children.length }) !== 'LEARNER_APP.LEARN.COMPLETED_SUBTOPICS' 
-                  ? t('LEARNER_APP.LEARN.COMPLETED_SUBTOPICS', { completed: children.filter((c: any) => calculateNodeCompletion(c, statusData) >= 100).length, total: children.length }) 
-                  : `Completed ${children.filter((c: any) => calculateNodeCompletion(c, statusData) >= 100).length}/${children.length} Subtopics`}
+                {subtopicText}
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -161,7 +199,9 @@ const ModuleNode: React.FC<{
       </Box>
     </Box>
   );
-};
+});
+
+ModuleNode.displayName = 'ModuleNode';
 
 /* ─── Main Component: SwadhaarLevelAccordion ───────────── */
 const SwadhaarLevelAccordion: React.FC<SwadhaarLevelAccordionProps> = ({
@@ -169,9 +209,27 @@ const SwadhaarLevelAccordion: React.FC<SwadhaarLevelAccordionProps> = ({
   isUnlocked, isExpanded, onToggle, statusData, onModuleClick, modules: rawModules
 }) => {
   const { t } = useTranslation();
-  console.log('[ACCORDION_DEBUG] Level:', levelName, 'Modules:', rawModules.length, 'StatusData:', statusData);
   const isLocked = !isUnlocked;
   const isCompletedLevel = completionPercentage >= 100;
+
+  // Build status lookup map once per render (O(n) instead of O(n) per lookup)
+  const statusMap = useMemo(() => buildStatusMap(statusData), [statusData]);
+
+  // Build completion cache for all nodes in the hierarchy — computed once
+  const completionCache = useMemo(
+    () => buildCompletionCache(rawModules, statusMap),
+    [rawModules, statusMap]
+  );
+
+  // Pre-compute lock state for each module (sequential unlock)
+  const moduleLockState = useMemo(() => {
+    return rawModules.map((_, idx) => {
+      return rawModules.slice(0, idx).every(m => {
+        const id = m.identifier || m.id;
+        return (completionCache.get(id) ?? 0) >= 100;
+      });
+    });
+  }, [rawModules, completionCache]);
 
   return (
     <Box 
@@ -211,20 +269,17 @@ const SwadhaarLevelAccordion: React.FC<SwadhaarLevelAccordionProps> = ({
 
       <Collapse in={isExpanded && !isLocked}>
         <Box sx={{ px: 2, pb: 2, display: 'flex', flexDirection: 'column' }}>
-          {rawModules.map((mod, idx) => {
-             const allPreviousCompleted = rawModules.slice(0, idx).every(m => calculateNodeCompletion(m, statusData) >= 100);
-             return (
-              <ModuleNode
-                key={mod.identifier}
-                node={mod}
-                levelId={levelId}
-                parentId={mod.identifier}
-                statusData={statusData}
-                onNavigate={(mId, sId, lId) => onModuleClick(mId, sId, lId)}
-                isLocked={!allPreviousCompleted}
-              />
-             );
-          })}
+          {rawModules.map((mod, idx) => (
+            <ModuleNode
+              key={mod.identifier}
+              node={mod}
+              levelId={levelId}
+              parentId={mod.identifier}
+              completionCache={completionCache}
+              onNavigate={(mId, sId, lId) => onModuleClick(mId, sId, lId)}
+              isLocked={!moduleLockState[idx]}
+            />
+          ))}
         </Box>
       </Collapse>
     </Box>

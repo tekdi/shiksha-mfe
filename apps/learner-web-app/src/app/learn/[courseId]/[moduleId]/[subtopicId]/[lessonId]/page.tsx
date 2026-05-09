@@ -46,6 +46,36 @@ export default function LessonViewerPage() {
   const [statusData, setStatusData] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Session-wide progress guard backed by sessionStorage so it persists across navigation.
+  // Prevents the backend's completed_list from overriding a locally-tracked in-progress value.
+  const SESSION_KEY = 'swadhaar_progress_guard';
+
+  const getSessionGuard = (): Record<string, { percentage: number; status: number }> => {
+    try {
+      const raw = sessionStorage.getItem(SESSION_KEY);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  };
+
+  const setSessionGuard = (guard: Record<string, { percentage: number; status: number }>) => {
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(guard)); } catch {}
+  };
+
+  const updateSessionGuard = (contentId: string, entry: { percentage: number; status: number }) => {
+    const guard = getSessionGuard();
+    const prev = guard[contentId];
+    if (!prev || entry.percentage > prev.percentage) {
+      guard[contentId] = entry;
+      setSessionGuard(guard);
+    }
+  };
+
+  const clearSessionGuard = (contentId: string) => {
+    const guard = getSessionGuard();
+    delete guard[contentId];
+    setSessionGuard(guard);
+  };
+
   React.useLayoutEffect(() => {
     if (typeof window !== 'undefined' && !checkAuth()) {
       window.location.replace('/swadhaar-login');
@@ -100,14 +130,38 @@ export default function LessonViewerPage() {
         status = await getContentCourseStatus([userId], allIds, tenantId).catch(() => []);
       }
       
+      const currentGuard = getSessionGuard();
       setStatusData(prev => {
         const merged = [...prev];
         status.forEach(newItem => {
           const idx = merged.findIndex(m => m.contentId === newItem.contentId);
-          if (idx >= 0) {
-            if (newItem.status === 2 || newItem.completionPercentage > merged[idx].completionPercentage) {
-              merged[idx] = newItem;
+
+          // SESSION GUARD: If sessionStorage has a local in-progress record for this lesson,
+          // don't let the backend's completed_list override it with 100%.
+          // This guard persists across back-navigation because it's stored in sessionStorage.
+          const sessionEntry = currentGuard[newItem.contentId];
+          if (sessionEntry && sessionEntry.status === 1 && newItem.status === 2) {
+            // Backend says completed but we tracked it as in-progress this session
+            if (idx >= 0) {
+              merged[idx] = {
+                ...merged[idx],
+                attempts: Math.max(merged[idx].attempts || 0, newItem.attempts || 0),
+                status: 1,
+                completionPercentage: sessionEntry.percentage,
+              };
+            } else {
+              merged.push({ contentId: newItem.contentId, status: 1, completionPercentage: sessionEntry.percentage, attempts: newItem.attempts || 0 });
             }
+            return;
+          }
+
+          if (idx >= 0) {
+            merged[idx] = {
+              ...merged[idx],
+              attempts: Math.max(merged[idx].attempts || 0, newItem.attempts || 0),
+              status: Math.max(merged[idx].status || 0, newItem.status || 0),
+              completionPercentage: Math.max(merged[idx].completionPercentage || 0, newItem.completionPercentage || 0),
+            };
           } else {
             merged.push(newItem);
           }
@@ -127,12 +181,14 @@ export default function LessonViewerPage() {
     }
   }, [subtopicId, moduleId, tenant, courseId, lessonId]);
 
-  const handleTrackingComplete = useCallback(() => {
-    console.log('Lesson completed! Refreshing data...');
-    loadData(true); 
-  }, [loadData]);
+  const handleTrackingComplete = useCallback((contentId?: string) => {
+    // On true completion, clear from sessionStorage guard so backend value takes over
+    const id = contentId || currentLesson?.identifier;
+    if (id) clearSessionGuard(id);
+    loadData(true);
+  }, [loadData, currentLesson?.identifier]);
 
-  const { handleProgress, handleComplete } = useContentTracking({
+  const { handleProgress: handleProgressInner, handleComplete } = useContentTracking({
     contentId: currentLesson?.identifier || '',
     courseId,
     moduleId,
@@ -141,6 +197,16 @@ export default function LessonViewerPage() {
     setStatusData,
     onComplete: handleTrackingComplete,
   });
+
+  // Wraps handleProgress to also record progress in the sessionStorage-backed guard.
+  const handleProgress = useCallback((percentage: number) => {
+    const id = currentLesson?.identifier;
+    if (id && percentage < 100) {
+      // Persist to sessionStorage so it survives back-navigation
+      updateSessionGuard(id, { percentage: Math.round(percentage), status: 1 });
+    }
+    handleProgressInner(percentage);
+  }, [currentLesson?.identifier, handleProgressInner]);
 
   // ✅ Periodically refresh status silently to avoid player reset
   useEffect(() => {
@@ -158,26 +224,36 @@ export default function LessonViewerPage() {
     });
   }, [loadData, courseId, moduleId, subtopicId, lessonId]);
 
-  useEffect(() => {
-    if (currentLesson && !isLoading) {
-      // Ensure all levels of hierarchy are initialized/tracked
-      const trackAll = async () => {
-        try {
-          await trackCourseClick(courseId);
-          await trackCourseClick(moduleId);
-          await trackCourseClick(subtopicId);
-          await trackCourseClick(lessonId);
-        } catch (e) {}
-      };
-      trackAll();
-    }
-  }, [currentLesson, isLoading, courseId, moduleId, subtopicId, lessonId]);
-
   const currentCompletion = useMemo(() => {
     if (!currentLesson) return 0;
     const s = statusData.find((sd: any) => sd.contentId === currentLesson.identifier);
     return s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
   }, [currentLesson, statusData]);
+
+  const isQuiz = useMemo(() => {
+    if (!currentLesson) return false;
+    const mt = (currentLesson.mimeType || '').toLowerCase();
+    const ct = (currentLesson.contentType || '').toLowerCase();
+    return mt === 'application/vnd.sunbird.questionset' || ct === 'questionset';
+  }, [currentLesson]);
+
+  useEffect(() => {
+    if (currentLesson && !isLoading) {
+      // Ensure all levels of hierarchy are initialized/tracked
+      const trackAll = async () => {
+        try {
+          // Only track if not already completed to avoid resetting status
+          if (Math.round(currentCompletion) < 100) {
+            await trackCourseClick(courseId);
+            await trackCourseClick(moduleId);
+            await trackCourseClick(subtopicId);
+            await trackCourseClick(lessonId);
+          }
+        } catch (e) {}
+      };
+      trackAll();
+    }
+  }, [currentLesson, isLoading, courseId, moduleId, subtopicId, lessonId, currentCompletion]);
 
 
   const { currentLessonIndex, prevLesson, nextLesson } = useMemo(() => {
@@ -213,13 +289,15 @@ export default function LessonViewerPage() {
       </Box>
 
       <Box sx={{ px: 2, pt: 2, flex: 1, pb: 22 }}>
-        <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', p: 2, mb: 3 }}>
-          <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1.5, color: '#1F2937' }}>{t('LEARNER_APP.LEARN.LESSON_PROGRESS')}</Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <LinearProgress variant="determinate" value={currentCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: SUCCESS_GREEN } }} />
-            <Box sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', px: 1, py: 0.25, borderRadius: '10px' }}><Typography sx={{ fontSize: 11, fontWeight: 800, color: '#36B368' }}>{currentCompletion}%</Typography></Box>
+        {!isQuiz && (
+          <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', p: 2, mb: 3 }}>
+            <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1.5, color: '#1F2937' }}>{t('LEARNER_APP.LEARN.LESSON_PROGRESS')}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <LinearProgress variant="determinate" value={currentCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: SUCCESS_GREEN } }} />
+              <Box sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', px: 1, py: 0.25, borderRadius: '10px' }}><Typography sx={{ fontSize: 11, fontWeight: 800, color: '#36B368' }}>{currentCompletion}%</Typography></Box>
+            </Box>
           </Box>
-        </Box>
+        )}
 
 
         {currentLesson && (

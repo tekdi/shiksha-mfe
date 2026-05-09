@@ -43,17 +43,23 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
   const lastReportedProgressRef = useRef(initialProgress || 0);
   const maxTimeWatchedRef = useRef(0);
   const isInitializedRef = useRef(false);
+  const durationRef = useRef<number>(0);
+  const watchIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastWatchedTimeRef = useRef(0);
+  const seekInProgressRef = useRef(false);
+  const pendingSeekProgressRef = useRef<number | null>(null);
 
+  // Sync with props
   useEffect(() => {
-    if (initialProgress !== undefined) {
-      // Only set progress if it's greater than current to avoid resetting to 0 during sync
+    if (initialProgress !== undefined && initialProgress > 0) {
       setProgress(prev => Math.max(prev, initialProgress));
-      
       lastReportedProgressRef.current = Math.max(lastReportedProgressRef.current, initialProgress);
-      // Also update maxTimeWatched if duration is already known
-      const dur = isYoutube ? 0 : videoRef.current?.duration;
-      if (dur && dur > 0) {
-        maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, (initialProgress / 100) * dur);
+      
+      // If duration is already known, update maxTimeWatchedRef
+      if (durationRef.current > 0) {
+        const watchedTime = (initialProgress / 100) * durationRef.current;
+        maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, watchedTime);
+        lastWatchedTimeRef.current = videoRef.current ? videoRef.current.currentTime : watchedTime;
       }
     }
   }, [initialProgress, isYoutube]);
@@ -62,9 +68,29 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
     if (isCompleted) {
       setCompleted(true);
       completionTriggeredRef.current = true;
+      setProgress(100);
+      lastReportedProgressRef.current = 100;
     }
   }, [isCompleted]);
 
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      const dur = videoRef.current.duration;
+      if (dur && isFinite(dur) && dur > 0) {
+        durationRef.current = dur;
+        console.log('[VIDEO] Metadata loaded. Duration:', dur);
+        
+        // Initialize maxTimeWatchedRef based on initialProgress now that we have duration
+        if (initialProgress !== undefined && initialProgress > 0 && !isInitializedRef.current) {
+          const watchedTime = (initialProgress / 100) * dur;
+          maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, watchedTime);
+          lastWatchedTimeRef.current = watchedTime;
+          isInitializedRef.current = true;
+          console.log('[VIDEO] Initialized maxTimeWatched from progress:', initialProgress, '% ->', watchedTime, 's');
+        }
+      }
+    }
+  };
 
   const getYoutubeEmbedUrl = (url: string): string => {
     try {
@@ -90,110 +116,247 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
     }
   };
 
-  const handleTimeUpdate = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = e.currentTarget;
-    if (video.duration) {
-      // ✅ Restrict forward seeking
-      if (!isInitializedRef.current && video.duration > 0) {
-        const initialTime = (initialProgress || 0) / 100 * video.duration;
-        maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, initialTime);
-        isInitializedRef.current = true;
-      }
-
-      maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, video.currentTime);
-
-      const percent = (video.currentTime / video.duration) * 100;
-      setProgress(percent);
-
-      // Report progress only if it's an increment to avoid jitters/resets
-      if (percent > lastReportedProgressRef.current + 1) {
-        lastReportedProgressRef.current = percent;
-        onProgress?.(Math.round(percent));
+  const updateProgress = (currentTime: number, isSeek: boolean = false) => {
+    if (!durationRef.current || completed || completionTriggeredRef.current) return;
+    
+    // Track forward progress (both playback and seeks)
+    if (currentTime > maxTimeWatchedRef.current) {
+      // If it's a seek, we allow progress to update but we don't allow it to trigger completion directly
+      // unless it's a very small skip (less than 2 seconds)
+      const isLargeForwardSeek = isSeek && (currentTime - maxTimeWatchedRef.current > 2);
+      
+      if (isLargeForwardSeek) {
+        console.log('[VIDEO] Forward seek detected. Updating progress to:', currentTime);
+        // Capping seek-based progress at 90% to prevent "skipping to end" completion
+        const seekTargetProgress = (currentTime / durationRef.current) * 100;
+        if (seekTargetProgress >= 95) {
+           console.log('[VIDEO] Seek reached completion threshold - capping at 94% to require actual watch for completion');
+           maxTimeWatchedRef.current = durationRef.current * 0.94;
+        } else {
+           maxTimeWatchedRef.current = currentTime;
+        }
+      } else {
+        // Normal playback or small adjustment
+        maxTimeWatchedRef.current = currentTime;
       }
       
-      // Mark as complete when 95% or more watched
-      if (percent >= 95 && !completionTriggeredRef.current) {
+      lastWatchedTimeRef.current = currentTime;
+      
+      const percent = (maxTimeWatchedRef.current / durationRef.current) * 100;
+      const cappedPercent = Math.min(percent, 100);
+      setProgress(cappedPercent);
+      
+      // Report progress to parent
+      if (cappedPercent >= lastReportedProgressRef.current + 2 || cappedPercent >= 95) {
+        const roundedPercent = Math.round(cappedPercent);
+        lastReportedProgressRef.current = cappedPercent;
+        console.log(`[VIDEO] Reporting progress to parent: ${roundedPercent}% (isSeek: ${isSeek})`);
+        onProgress?.(roundedPercent);
+      }
+      
+      // Check for completion (only for normal playback or very end of video)
+      if (cappedPercent >= 95 && !completionTriggeredRef.current && !isLargeForwardSeek) {
+        console.log('[VIDEO] Progress >= 95% via playback - marking complete');
         completionTriggeredRef.current = true;
         setCompleted(true);
+        onProgress?.(100);
         onComplete();
       }
+    } else {
+      // Backward seek or watching already watched part - just update lastWatchedTime
+      lastWatchedTimeRef.current = currentTime;
     }
+  };
+
+  const startWatchingInterval = () => {
+    if (watchIntervalRef.current) clearInterval(watchIntervalRef.current);
+    
+    watchIntervalRef.current = setInterval(() => {
+      if (!videoRef.current || !playing || completed || completionTriggeredRef.current) return;
+      
+      const video = videoRef.current;
+      if (!durationRef.current && video.duration && isFinite(video.duration)) {
+        handleLoadedMetadata();
+      }
+      
+      if (durationRef.current > 0 && !seekInProgressRef.current) {
+        const currentTime = video.currentTime;
+        updateProgress(currentTime, false);
+      }
+    }, 1000); // Check every second
+  };
+
+  const stopWatchingInterval = () => {
+    if (watchIntervalRef.current) {
+      clearInterval(watchIntervalRef.current);
+      watchIntervalRef.current = null;
+    }
+  };
+
+  const handleSeeking = () => {
+    seekInProgressRef.current = true;
+    stopWatchingInterval();
+  };
+
+  const handleSeeked = () => {
+    // Wait a moment for the seek to complete and video to stabilize
+    setTimeout(() => {
+      if (videoRef.current && playing && !completed && !completionTriggeredRef.current) {
+        const seekTime = videoRef.current.currentTime;
+        console.log('[VIDEO] Seek completed at:', seekTime);
+        
+        // Handle seek in progress logic
+        updateProgress(seekTime, true);
+        
+        seekInProgressRef.current = false;
+        startWatchingInterval();
+      } else {
+        seekInProgressRef.current = false;
+      }
+    }, 300);
   };
 
   const handleVideoEnded = () => {
-    if (!completionTriggeredRef.current) {
-      completionTriggeredRef.current = true;
-      setCompleted(true);
-      onComplete();
+    console.log('[VIDEO] Video ended event');
+    if (!completionTriggeredRef.current && durationRef.current > 0) {
+      const watchedPercent = (maxTimeWatchedRef.current / durationRef.current) * 100;
+      console.log('[VIDEO] Watched percentage at end:', watchedPercent);
+      
+      // Mark as complete if they watched 85% or more
+      if (watchedPercent >= 85) {
+        completionTriggeredRef.current = true;
+        setCompleted(true);
+        setProgress(100);
+        onProgress?.(100);
+        onComplete();
+      } else if (!completionTriggeredRef.current && watchedPercent < 85) {
+        // Force final progress update
+        const finalPercent = Math.round(watchedPercent);
+        if (finalPercent > lastReportedProgressRef.current) {
+          onProgress?.(finalPercent);
+        }
+      }
     }
+    stopWatchingInterval();
   };
 
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-
-  // YouTube API support
   useEffect(() => {
-    if (!isYoutube || !playing) return;
+    if (playing && !completed && !isYoutube) {
+      startWatchingInterval();
+    } else {
+      stopWatchingInterval();
+    }
+    return () => stopWatchingInterval();
+  }, [playing, completed, isYoutube]);
+
+  // YouTube specific tracking with seek protection
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const youtubeWatchIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastYoutubeTimeRef = useRef(0);
+  const lastReportedProgressInternalRef = useRef(0);
+
+  useEffect(() => {
+    if (!isYoutube || !playing || completed || completionTriggeredRef.current) {
+      if (youtubeWatchIntervalRef.current) {
+        clearInterval(youtubeWatchIntervalRef.current);
+        youtubeWatchIntervalRef.current = null;
+      }
+      return;
+    }
 
     const handleMessage = (event: MessageEvent) => {
       try {
         const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
         
-        // YouTube Player API events
+        // Log all messages for debugging
+        if (data?.event !== 'infoDelivery') {
+          console.log('[YOUTUBE_MSG] Received event:', data?.event, data);
+        }
+
         if (data?.event === 'onStateChange') {
-          // 0 = ended
+          console.log('[YOUTUBE_MSG] State changed to:', data?.info);
           if (data?.info === 0 && !completionTriggeredRef.current) {
-            console.log('[YouTube] Video Ended');
-            completionTriggeredRef.current = true;
-            setCompleted(true);
-            setProgress(100);
-            onProgress?.(100);
-            onComplete();
-          }
-          // 1 = playing
-          if (data?.info === 1) {
-            setPlaying(true);
+            // Video ended
+            if (durationRef.current > 0) {
+              const watchedPercent = (maxTimeWatchedRef.current / durationRef.current) * 100;
+              if (watchedPercent >= 85) {
+                completionTriggeredRef.current = true;
+                setCompleted(true);
+                setProgress(100);
+                onProgress?.(100);
+                onComplete();
+              }
+            }
           }
         }
 
-        // infoDelivery carries the current time and duration
         if (data?.event === 'infoDelivery' && data?.info) {
           const { currentTime, duration } = data.info;
           if (currentTime !== undefined && duration !== undefined && duration > 0) {
-            // ✅ Restrict forward seeking
-            if (!isInitializedRef.current) {
-              const initialTime = (initialProgress || 0) / 100 * duration;
-              maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, initialTime);
-              isInitializedRef.current = true;
+            if (!durationRef.current) {
+              durationRef.current = duration;
+              if (initialProgress && initialProgress > 0 && !isInitializedRef.current) {
+                const initialTime = (initialProgress / 100) * duration;
+                maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, initialTime);
+                lastYoutubeTimeRef.current = maxTimeWatchedRef.current;
+                isInitializedRef.current = true;
+              }
             }
 
-            maxTimeWatchedRef.current = Math.max(maxTimeWatchedRef.current, currentTime);
-
-            const percent = (currentTime / duration) * 100;
-            setProgress(percent);
-            
-            // Throttled progress reporting - only allow increments
-            if (percent > lastReportedProgressRef.current + 1) {
-              lastReportedProgressRef.current = percent;
-              onProgress?.(Math.round(percent));
-            }
-
-            // Auto-complete if near the end
-            if (percent >= 95 && !completionTriggeredRef.current) {
-              console.log('[YouTube] Progress >= 95%');
-              completionTriggeredRef.current = true;
-              setCompleted(true);
-              onComplete();
+            // Track forward progress
+            if (currentTime > maxTimeWatchedRef.current) {
+              const increment = currentTime - maxTimeWatchedRef.current;
+              const isLargeSkip = increment > 5;
+              
+              if (isLargeSkip) {
+                console.log('[YOUTUBE] Forward skip detected. Updating progress to:', currentTime);
+                const skipPercent = (currentTime / duration) * 100;
+                if (skipPercent >= 95) {
+                   maxTimeWatchedRef.current = duration * 0.94;
+                } else {
+                   maxTimeWatchedRef.current = currentTime;
+                }
+              } else {
+                maxTimeWatchedRef.current = currentTime;
+              }
+              
+              lastYoutubeTimeRef.current = currentTime;
+              const percent = (maxTimeWatchedRef.current / duration) * 100;
+              const cappedPercent = Math.min(percent, 100);
+              setProgress(cappedPercent);
+              
+              if (cappedPercent >= lastReportedProgressInternalRef.current + 2 || cappedPercent >= 95) {
+                lastReportedProgressInternalRef.current = cappedPercent;
+                const roundedPercent = Math.round(cappedPercent);
+                console.log('[YOUTUBE] Reporting progress:', roundedPercent, '%');
+                onProgress?.(roundedPercent);
+              }
+              
+              // Only trigger complete for small increments (watching)
+              if (cappedPercent >= 95 && !completionTriggeredRef.current && !isLargeSkip) {
+                completionTriggeredRef.current = true;
+                setCompleted(true);
+                onProgress?.(100);
+                onComplete();
+              }
+            } else {
+              // Backward seek or watching watched part
+              lastYoutubeTimeRef.current = currentTime;
             }
           }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('[YOUTUBE] Message error:', e);
+      }
     };
 
     window.addEventListener('message', handleMessage);
     
-    // Send "listening" message to bootstrap API events
+    // Request time updates more frequently
     const interval = setInterval(() => {
-      if (iframeRef.current?.contentWindow) {
+      if (iframeRef.current?.contentWindow && playing && !completionTriggeredRef.current) {
+        // console.log('[YOUTUBE_POLL] Requesting current time');
+        iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'getCurrentTime' }), '*');
         iframeRef.current.contentWindow.postMessage(JSON.stringify({ event: 'listening' }), '*');
       }
     }, 1000);
@@ -201,8 +364,9 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
     return () => {
       window.removeEventListener('message', handleMessage);
       clearInterval(interval);
+      if (youtubeWatchIntervalRef.current) clearInterval(youtubeWatchIntervalRef.current);
     };
-  }, [isYoutube, playing, onComplete, onProgress]);
+  }, [isYoutube, playing, completed, onComplete, onProgress, initialProgress]);
 
   const youtubeEmbedUrl = getYoutubeEmbedUrl(contentUrl);
 
@@ -225,7 +389,7 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
     <Box sx={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #E5E7EB', bgcolor: '#fff', mb: 2 }}>
       <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: 700 }}>Video Lesson</Typography>
-        {completed && <CheckCircleRoundedIcon sx={{ color: '#4CAF50', fontSize: 20 }} />}
+        {(completed || isCompleted) && <CheckCircleRoundedIcon sx={{ color: '#4CAF50', fontSize: 20 }} />}
       </Box>
       
       <Box sx={{ bgcolor: '#0B1426', position: 'relative', minHeight: 200 }}>
@@ -270,7 +434,9 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
             style={{ width: '100%', maxHeight: 320, objectFit: 'contain' }} 
             controls={playing} 
             onEnded={handleVideoEnded} 
-            onTimeUpdate={handleTimeUpdate} 
+            onSeeking={handleSeeking}
+            onSeeked={handleSeeked}
+            onLoadedMetadata={handleLoadedMetadata}
             onPlay={() => setPlaying(true)} 
             onError={() => { setError(true); onLoadError?.(); }} 
             preload="metadata" 
@@ -297,7 +463,7 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
         )}
       </Box>
       
-      {progress > 0 && progress < 95 && !isCompleted && !completed && (
+      {progress > 0 && progress < 100 && !isCompleted && !completed && (
         <Box sx={{ px: 2, py: 1 }}>
           <LinearProgress 
             variant="determinate" 
