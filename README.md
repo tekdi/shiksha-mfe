@@ -53,6 +53,32 @@ It automates the full educational content lifecycle:
 
 ---
 
+## 📚 Documentation
+
+This project now includes comprehensive guides for demonstrating and running the platform:
+
+### Quick References
+- **[QUICK_START.md](QUICK_START.md)** — 30-second setup and command reference
+- **[DEMO_GUIDE.md](DEMO_GUIDE.md)** — Complete presenter guide with 3 scenarios
+- **[ENHANCEMENTS.md](ENHANCEMENTS.md)** — Detailed changelog of improvements made
+- **[docs/setup.md](docs/setup.md)** — In-depth architecture and configuration
+
+### To Run the Demo
+```bash
+# 1. Start all microservices
+npm run demo:stack
+
+# 2. Start frontend (in another terminal)
+npm run demo:frontend
+
+# 3. Open browser
+open http://localhost:3000/mfe_workspace/ai-demo
+```
+
+✅ **The full platform will be live in 2 minutes!**
+
+---
+
 ## 🚀 Mid-Point Milestone (Week 6)
 
 ### ✅ Completed
@@ -74,8 +100,16 @@ It automates the full educational content lifecycle:
 
 ### Steps
 ```sh
-docker compose up -d
-````
+npm run demo:stack
+```
+
+Then run the workspace frontend:
+
+```sh
+npm run demo:frontend
+```
+
+For the full issue-style demo flow, use [docs/setup.md](/mnt/data/programming/c4gt/shiksha-mfe/docs/setup.md:1).
 
 ### Services
 
@@ -254,5 +288,3 @@ EdTech / LMS / AI / Open Source
 * Redis
 * PostgreSQL
 * Docker
-
-

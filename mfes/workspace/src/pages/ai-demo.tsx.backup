@@ -1,0 +1,1003 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Chip,
+  Container,
+  Grid,
+  LinearProgress,
+  MenuItem,
+  Paper,
+  Stack,
+  Tab,
+  Tabs,
+  TextField,
+  Typography,
+} from '@mui/material';
+import AutoAwesomeOutlinedIcon from '@mui/icons-material/AutoAwesomeOutlined';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
+import DownloadOutlinedIcon from '@mui/icons-material/DownloadOutlined';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
+import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
+import HubRoundedIcon from '@mui/icons-material/HubRounded';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
+import PlayCircleOutlineOutlinedIcon from '@mui/icons-material/PlayCircleOutlineOutlined';
+import QuizOutlinedIcon from '@mui/icons-material/QuizOutlined';
+import SlideshowRoundedIcon from '@mui/icons-material/SlideshowRounded';
+import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded';
+import WorkspacesRoundedIcon from '@mui/icons-material/WorkspacesRounded';
+import axios from 'axios';
+
+const API_BASE = '/mfe_workspace/api/ai';
+
+const BG = '#f3efe7';
+const SURFACE = '#fffdfa';
+const INK = '#10243c';
+const MUTED = '#627089';
+const LINE = 'rgba(16,36,60,0.10)';
+const HERO = 'linear-gradient(135deg, #0d2645 0%, #0f3f66 42%, #15749a 100%)';
+
+const SAMPLE_DOCUMENT = `Micro-learning helps learners consume content in short focused bursts. A strong micro-learning lesson starts with a clear objective, a small set of core concepts, and immediate retrieval practice. In manufacturing and workforce skilling contexts, micro-learning performs best when explanations are grounded in realistic scenarios, safety checks, and role-specific tasks.
+
+For a learning experience to be effective, the author should transform dense source material into smaller sections with clear headings, simplified terminology, and examples. A glossary improves comprehension for first-generation learners and multilingual audiences. Narration scripts support voice-over production and accessibility-ready outputs.
+
+Assessment quality depends on alignment with the source material. Good MCQs test understanding instead of trivia. Fill-in-the-blank prompts should focus on high-value vocabulary. Match-the-pair questions work well for terminology, processes, and cause-effect relationships. Standards-based packaging such as H5P and SCORM allows the same lesson to be delivered through multiple LMS platforms.
+
+Human review remains important even in AI-assisted pipelines. Reviewers should validate factual accuracy, tone, accessibility, and brand alignment before publishing. Interaction telemetry such as started, progressed, completed, and scored events can then be emitted back into the LMS dashboard.`;
+
+const SAMPLE_TRANSCRIPT = `Welcome to the lesson on electrical safety. In this module we will identify common workplace hazards, explain lockout-tagout procedures, and review the use of personal protective equipment. Before any maintenance task begins, the technician should isolate the power source and verify zero energy state. During inspection, the supervisor confirms that warning signage is visible and that the team follows the approved checklist. At the end of the session, learners answer short knowledge checks and review the incident prevention workflow.`;
+
+type Tenant = {
+  tenant_id: string;
+  name: string;
+  logo_text: string;
+  primary_color: string;
+  secondary_color: string;
+  font_family: string;
+};
+
+type Artifact = {
+  label: string;
+  kind: string;
+  filename: string;
+  download_url: string;
+};
+
+type JobState = {
+  job_id: string;
+  status: 'queued' | 'running' | 'completed' | 'failed';
+  workflow: 'document' | 'multimedia';
+  message: string;
+  result?: Record<string, unknown>;
+};
+
+type ModuleCardProps = {
+  code: string;
+  title: string;
+  blurb: string;
+  outputs: string[];
+  icon: React.ReactNode;
+  accent: string;
+};
+
+function ShellSection({
+  eyebrow,
+  title,
+  description,
+  children,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Paper
+      sx={{
+        p: { xs: 2.5, md: 3 },
+        borderRadius: 5,
+        bgcolor: SURFACE,
+        border: `1px solid ${LINE}`,
+        boxShadow: '0 20px 40px rgba(16,36,60,0.05)',
+      }}
+    >
+      <Stack spacing={2.5}>
+        <Box>
+          <Typography variant="caption" sx={{ color: '#0f6e8d', letterSpacing: '0.18em', fontWeight: 700 }}>
+            {eyebrow}
+          </Typography>
+          <Typography variant="h5" sx={{ color: INK, fontWeight: 800, mt: 0.75 }}>
+            {title}
+          </Typography>
+          <Typography variant="body2" sx={{ color: MUTED, mt: 0.75, lineHeight: 1.75, maxWidth: 920 }}>
+            {description}
+          </Typography>
+        </Box>
+        {children}
+      </Stack>
+    </Paper>
+  );
+}
+
+function ModuleCard({ code, title, blurb, outputs, icon, accent }: ModuleCardProps) {
+  return (
+    <Paper
+      sx={{
+        p: 2.5,
+        height: '100%',
+        borderRadius: 5,
+        bgcolor: '#ffffff',
+        border: `1px solid ${LINE}`,
+        boxShadow: '0 16px 34px rgba(16,36,60,0.05)',
+      }}
+    >
+      <Stack spacing={1.75}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Avatar sx={{ bgcolor: `${accent}18`, color: accent, width: 42, height: 42 }}>{icon}</Avatar>
+          <Chip label={code} size="small" sx={{ bgcolor: '#eef4fa', color: accent, fontWeight: 700 }} />
+        </Stack>
+        <Typography variant="h6" sx={{ fontWeight: 800, color: INK }}>
+          {title}
+        </Typography>
+        <Typography variant="body2" sx={{ color: MUTED, lineHeight: 1.7 }}>
+          {blurb}
+        </Typography>
+        <Stack spacing={1}>
+          {outputs.map((item) => (
+            <Stack key={item} direction="row" spacing={1.1} alignItems="flex-start">
+              <CheckCircleRoundedIcon sx={{ fontSize: 17, color: accent, mt: '2px' }} />
+              <Typography variant="body2" sx={{ color: INK, lineHeight: 1.55 }}>
+                {item}
+              </Typography>
+            </Stack>
+          ))}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function StatusChip({ status }: { status?: JobState['status'] }) {
+  if (!status || status === 'queued') {
+    return <Chip size="small" label={status || 'idle'} sx={{ bgcolor: '#eef2f7', color: MUTED }} />;
+  }
+  if (status === 'running') {
+    return <Chip size="small" label="running" sx={{ bgcolor: '#fff0c7', color: '#7c5a00' }} />;
+  }
+  if (status === 'completed') {
+    return <Chip size="small" label="completed" sx={{ bgcolor: '#d9f6e7', color: '#166534' }} />;
+  }
+  return <Chip size="small" label="failed" sx={{ bgcolor: '#ffdeda', color: '#9f1239' }} />;
+}
+
+function ArtifactList({ artifacts }: { artifacts?: Artifact[] }) {
+  if (!artifacts?.length) return null;
+  return (
+    <Stack direction="row" gap={1.25} flexWrap="wrap">
+      {artifacts.map((artifact) => (
+        <Button
+          key={artifact.filename}
+          component="a"
+          href={`${API_BASE}${artifact.download_url}`}
+          target="_blank"
+          rel="noreferrer"
+          size="small"
+          variant="outlined"
+          startIcon={<DownloadOutlinedIcon />}
+          sx={{
+            borderColor: 'rgba(16,36,60,0.14)',
+            bgcolor: '#fff',
+            color: INK,
+            px: 1.5,
+            '&:hover': { borderColor: '#0d5ca6', bgcolor: '#f4f9ff' },
+          }}
+        >
+          {artifact.label}
+        </Button>
+      ))}
+    </Stack>
+  );
+}
+
+function CriteriaList({ items, accent }: { items: string[]; accent: string }) {
+  return (
+    <Stack spacing={1.1}>
+      {items.map((item) => (
+        <Stack key={item} direction="row" spacing={1.2} alignItems="flex-start">
+          <VerifiedRoundedIcon sx={{ fontSize: 18, color: accent, mt: '2px' }} />
+          <Typography variant="body2" sx={{ color: INK, lineHeight: 1.6 }}>
+            {item}
+          </Typography>
+        </Stack>
+      ))}
+    </Stack>
+  );
+}
+
+function TechnicalTrace({ title, value }: { title: string; value: unknown }) {
+  return (
+    <Accordion
+      disableGutters
+      sx={{
+        borderRadius: '18px !important',
+        border: `1px solid ${LINE}`,
+        boxShadow: 'none',
+        overflow: 'hidden',
+        bgcolor: '#fbfdff',
+        '&:before': { display: 'none' },
+      }}
+    >
+      <AccordionSummary expandIcon={<ExpandMoreRoundedIcon />} sx={{ px: 2 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: INK }}>
+          {title}
+        </Typography>
+      </AccordionSummary>
+      <AccordionDetails sx={{ pt: 0 }}>
+        <Box
+          component="pre"
+          sx={{
+            m: 0,
+            p: 2,
+            borderRadius: 3,
+            fontSize: 12,
+            lineHeight: 1.55,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            maxHeight: 360,
+            overflow: 'auto',
+            bgcolor: '#f2f7fb',
+            color: '#334155',
+          }}
+        >
+          {JSON.stringify(value, null, 2)}
+        </Box>
+      </AccordionDetails>
+    </Accordion>
+  );
+}
+
+function StudioSummary({
+  title,
+  summary,
+  artifacts,
+  previewHtml,
+}: {
+  title: string;
+  summary: string[];
+  artifacts?: Artifact[];
+  previewHtml?: string;
+}) {
+  return (
+    <Paper
+      sx={{
+        p: 3,
+        borderRadius: 5,
+        bgcolor: '#ffffff',
+        border: `1px solid ${LINE}`,
+      }}
+    >
+      <Stack spacing={2.5}>
+        <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+          <Box>
+            <Typography variant="h6" sx={{ color: INK, fontWeight: 800 }}>
+              {title}
+            </Typography>
+            <Typography variant="body2" sx={{ color: MUTED, mt: 0.5, lineHeight: 1.7 }}>
+              Review-ready output aligned with the platform acceptance criteria and LMS delivery standards.
+            </Typography>
+          </Box>
+          <ArtifactList artifacts={artifacts} />
+        </Stack>
+        <Grid container spacing={1.5}>
+          {summary.map((item) => (
+            <Grid item xs={12} md={6} key={item}>
+              <Paper
+                sx={{
+                  p: 1.6,
+                  borderRadius: 3.5,
+                  bgcolor: '#f5f9fc',
+                  border: '1px solid rgba(16,36,60,0.08)',
+                }}
+              >
+                <Stack direction="row" spacing={1.2} alignItems="flex-start">
+                  <CheckCircleRoundedIcon sx={{ fontSize: 18, color: '#0d6b47', mt: '2px' }} />
+                  <Typography variant="body2" sx={{ color: INK, lineHeight: 1.6 }}>
+                    {item}
+                  </Typography>
+                </Stack>
+              </Paper>
+            </Grid>
+          ))}
+        </Grid>
+        {previewHtml && (
+          <Box
+            sx={{
+              borderRadius: 4,
+              border: `1px solid ${LINE}`,
+              overflow: 'hidden',
+              minHeight: 320,
+              bgcolor: '#fff',
+            }}
+            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          />
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+export default function AIDemoPage() {
+  const [tab, setTab] = useState(0);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [tenantId, setTenantId] = useState('tekdi');
+  const [documentTitle, setDocumentTitle] = useState('Issue 7 Demo Lesson');
+  const [documentText, setDocumentText] = useState(SAMPLE_DOCUMENT);
+  const [documentApproved, setDocumentApproved] = useState('true');
+  const [multimediaTitle, setMultimediaTitle] = useState('Electrical Safety Interactive Video');
+  const [multimediaText, setMultimediaText] = useState(SAMPLE_TRANSCRIPT);
+  const [multimediaApproved, setMultimediaApproved] = useState('true');
+  const [documentFile, setDocumentFile] = useState<File | null>(null);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [documentJob, setDocumentJob] = useState<JobState | null>(null);
+  const [multimediaJob, setMultimediaJob] = useState<JobState | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const documentPoll = useRef<number | null>(null);
+  const multimediaPoll = useRef<number | null>(null);
+
+  useEffect(() => {
+    axios
+      .get<Tenant[]>(`${API_BASE}/tenants`)
+      .then((response) => {
+        setTenants(response.data);
+        if (response.data[0] && !response.data.find((tenant) => tenant.tenant_id === tenantId)) {
+          setTenantId(response.data[0].tenant_id);
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setError('Failed to load tenant configuration. Start the backend gateway on port 8000 first.');
+      });
+  }, [tenantId]);
+
+  useEffect(() => {
+    return () => {
+      if (documentPoll.current) window.clearInterval(documentPoll.current);
+      if (multimediaPoll.current) window.clearInterval(multimediaPoll.current);
+    };
+  }, []);
+
+  const selectedTenant = useMemo(
+    () => tenants.find((tenant) => tenant.tenant_id === tenantId),
+    [tenantId, tenants]
+  );
+
+  const startPolling = (jobId: string, type: 'document' | 'multimedia') => {
+    const setter = type === 'document' ? setDocumentJob : setMultimediaJob;
+    const existing = type === 'document' ? documentPoll.current : multimediaPoll.current;
+    if (existing) window.clearInterval(existing);
+
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await axios.get<JobState>(`${API_BASE}/jobs/${jobId}`);
+        setter(response.data);
+        if (response.data.status === 'completed' || response.data.status === 'failed') {
+          window.clearInterval(timer);
+        }
+      } catch (pollError) {
+        console.error(pollError);
+        window.clearInterval(timer);
+      }
+    }, 1500);
+
+    if (type === 'document') {
+      documentPoll.current = timer;
+    } else {
+      multimediaPoll.current = timer;
+    }
+  };
+
+  const submitDocumentWorkflow = async () => {
+    try {
+      setError(null);
+      const formData = new FormData();
+      formData.append('title', documentTitle);
+      formData.append('source_text', documentText);
+      formData.append('tenant_id', tenantId);
+      formData.append('approved', documentApproved);
+      formData.append('review_notes', 'Human reviewer validated tone, brand, and pedagogy.');
+      if (documentFile) formData.append('file', documentFile);
+      const response = await axios.post<JobState>(`${API_BASE}/workflows/document`, formData);
+      setDocumentJob(response.data);
+      startPolling(response.data.job_id, 'document');
+    } catch (requestError) {
+      console.error(requestError);
+      setError('Unable to start the document workflow. Check the gateway and service containers.');
+    }
+  };
+
+  const submitMultimediaWorkflow = async () => {
+    try {
+      setError(null);
+      const formData = new FormData();
+      formData.append('title', multimediaTitle);
+      formData.append('transcript_text', multimediaText);
+      formData.append('tenant_id', tenantId);
+      formData.append('approved', multimediaApproved);
+      formData.append('review_notes', 'Interactive media approved by the creator.');
+      if (mediaFile) formData.append('file', mediaFile);
+      const response = await axios.post<JobState>(`${API_BASE}/workflows/multimedia`, formData);
+      setMultimediaJob(response.data);
+      startPolling(response.data.job_id, 'multimedia');
+    } catch (requestError) {
+      console.error(requestError);
+      setError('Unable to start the multimedia workflow. Check the gateway and service containers.');
+    }
+  };
+
+  const documentResult = documentJob?.result as
+    | {
+        module_a?: { key_takeaways?: string[]; glossary?: unknown[]; narration_script?: string[]; structured_sections?: unknown[] };
+        module_b?: { mcqs?: unknown[]; fill_in_the_blanks?: unknown[]; match_pairs?: unknown[]; artifacts?: Artifact[] };
+        module_d?: { preview_html?: string; artifacts?: Artifact[] };
+      }
+    | undefined;
+
+  const multimediaResult = multimediaJob?.result as
+    | {
+        module_c?: { speakers?: unknown[]; chapters?: unknown[]; knowledge_checks?: unknown[]; artifacts?: Artifact[] };
+        module_d?: { preview_html?: string; artifacts?: Artifact[] };
+      }
+    | undefined;
+
+  const tenantAccent = selectedTenant?.primary_color || '#0d5ca6';
+  const tenantHighlight = selectedTenant?.secondary_color || '#f28f16';
+
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: `radial-gradient(circle at top left, ${tenantHighlight}22 0%, transparent 24%), linear-gradient(180deg, ${BG} 0%, #eef5fb 48%, #ffffff 100%)`,
+      }}
+    >
+      <Container maxWidth="xl" sx={{ py: { xs: 3, md: 4 } }}>
+        <Stack spacing={3}>
+          <Paper
+            sx={{
+              p: { xs: 3, md: 4.5 },
+              borderRadius: 6,
+              background: HERO,
+              color: '#fff',
+              position: 'relative',
+              overflow: 'hidden',
+              boxShadow: '0 30px 70px rgba(13,38,69,0.22)',
+            }}
+          >
+            <Box
+              sx={{
+                position: 'absolute',
+                inset: 0,
+                background:
+                  'radial-gradient(circle at 16% 15%, rgba(255,255,255,0.12) 0, transparent 30%), radial-gradient(circle at 86% 18%, rgba(242,143,22,0.26) 0, transparent 24%)',
+              }}
+            />
+            <Grid container spacing={3} sx={{ position: 'relative' }}>
+              <Grid item xs={12} lg={8}>
+                <Stack spacing={2.25}>
+                  <Stack direction="row" gap={1} flexWrap="wrap">
+                    <Chip label="Tekdi" sx={{ bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 700 }} />
+                    <Chip label="Local-first AI" sx={{ bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 700 }} />
+                    <Chip label="HTML5 / H5P / SCORM" sx={{ bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 700 }} />
+                    <Chip label="Llama 3 / Mistral / Whisper" sx={{ bgcolor: 'rgba(255,255,255,0.14)', color: '#fff', fontWeight: 700 }} />
+                  </Stack>
+                  <Typography sx={{ fontSize: { xs: 34, md: 56 }, lineHeight: 1.02, fontWeight: 800, letterSpacing: '-0.035em' }}>
+                    LMS AI Content, Assessment & Micro-Learning Engine
+                  </Typography>
+                  <Typography sx={{ maxWidth: 900, color: 'rgba(255,255,255,0.80)', lineHeight: 1.8 }}>
+                    A pluggable, open-source-first AI microservice platform for multi-tenant LMS teams. The system transforms raw assets such as PDF, PPT, video, and audio into structured educational outputs, interactive assessments, and publishable micro-learning experiences.
+                  </Typography>
+                </Stack>
+              </Grid>
+              <Grid item xs={12} lg={4}>
+                <Paper
+                  sx={{
+                    p: 2.5,
+                    borderRadius: 5,
+                    bgcolor: 'rgba(255,255,255,0.10)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                    backdropFilter: 'blur(12px)',
+                  }}
+                >
+                  <Stack spacing={1.8}>
+                    <Typography variant="subtitle2" sx={{ color: '#fff', fontWeight: 800 }}>
+                      Mid-Point Milestone
+                    </Typography>
+                    {[
+                      'Module A ingestion, summarisation, glossary, and scripting',
+                      'Module B MCQ plus H5P Question Set packaging',
+                      'Module C Whisper-style transcript and VTT pipeline',
+                      'Ollama gateway with local-first fallback behaviour',
+                      'Async-ready microservice orchestration model',
+                    ].map((item) => (
+                      <Stack key={item} direction="row" spacing={1.1} alignItems="flex-start">
+                        <CheckCircleRoundedIcon sx={{ color: '#9af0c4', fontSize: 18, mt: '2px' }} />
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.82)', lineHeight: 1.55 }}>
+                          {item}
+                        </Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+                </Paper>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          <ShellSection
+            eyebrow="PLATFORM MODULES"
+            title="Four modules, one creator workflow"
+            description="The ticket is not just asking for a nice page. It describes a four-part production platform, so the UI now treats each capability as part of a connected authoring lifecycle."
+          >
+            <Grid container spacing={2}>
+              <Grid item xs={12} md={6} xl={3}>
+                <ModuleCard
+                  code="MODULE A"
+                  title="Intelligent Document Ingestion"
+                  blurb="Parse PDF and PPT assets into structured JSON, summaries, glossary entries, and narration scripts."
+                  outputs={['Structured sections', 'Key takeaways', 'Glossary', 'Narration script']}
+                  icon={<Inventory2OutlinedIcon />}
+                  accent="#0d5ca6"
+                />
+              </Grid>
+              <Grid item xs={12} md={6} xl={3}>
+                <ModuleCard
+                  code="MODULE B"
+                  title="Automated Assessment Suite"
+                  blurb="Generate curriculum-aligned quizzes and package them into LMS-ready standards."
+                  outputs={['MCQ generation', 'Match-the-pair', 'Fill-in-the-blanks', 'H5P + SCORM packaging']}
+                  icon={<QuizOutlinedIcon />}
+                  accent="#9a5a00"
+                />
+              </Grid>
+              <Grid item xs={12} md={6} xl={3}>
+                <ModuleCard
+                  code="MODULE C"
+                  title="Multimedia Intelligence"
+                  blurb="Transcribe audio/video, segment speakers, create chapters, and inject interactive knowledge checks."
+                  outputs={['Transcript + VTT', 'Speaker labels', 'Chapter markers', 'Interactive video packaging']}
+                  icon={<GraphicEqRoundedIcon />}
+                  accent="#12624f"
+                />
+              </Grid>
+              <Grid item xs={12} md={6} xl={3}>
+                <ModuleCard
+                  code="MODULE D"
+                  title="AI Micro-Learning Studio"
+                  blurb="Compose branded lesson outputs with approval controls and analytics-ready delivery artifacts."
+                  outputs={['HTML5 slide deck', 'H5P course presentation', 'SCORM output', 'HITL review gate + xAPI']}
+                  icon={<SlideshowRoundedIcon />}
+                  accent="#8b2f6b"
+                />
+              </Grid>
+            </Grid>
+          </ShellSection>
+
+          <Grid container spacing={3}>
+            <Grid item xs={12} lg={7}>
+              <ShellSection
+                eyebrow="ACCEPTANCE SNAPSHOT"
+                title="What the product must prove"
+                description="These are the requirements the UI should make visible: standards compatibility, local model operation, creator review flow, and publishable outputs."
+              >
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2.5, borderRadius: 4, bgcolor: '#fff', border: `1px solid ${LINE}` }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: INK, mb: 1.5 }}>
+                        Standards & Delivery
+                      </Typography>
+                      <CriteriaList
+                        accent="#0d5ca6"
+                        items={[
+                          'Outputs aligned to HTML5, H5P, and SCORM',
+                          'Question packages importable into Moodle and Open edX',
+                          'xAPI statements emitted for start, progress, completion, and score',
+                          'WCAG 2.1 AA publishing target',
+                        ]}
+                      />
+                    </Paper>
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <Paper sx={{ p: 2.5, borderRadius: 4, bgcolor: '#fff', border: `1px solid ${LINE}` }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: INK, mb: 1.5 }}>
+                        Local-First AI Runtime
+                      </Typography>
+                      <CriteriaList
+                        accent="#12624f"
+                        items={[
+                          'Llama 3 and Mistral through Ollama for text generation',
+                          'Whisper-style transcription path for multimedia processing',
+                          'No hard dependency on external APIs by default',
+                          'Fallback-capable gateway behaviour for resilience',
+                        ]}
+                      />
+                    </Paper>
+                  </Grid>
+                </Grid>
+              </ShellSection>
+            </Grid>
+            <Grid item xs={12} lg={5}>
+              <ShellSection
+                eyebrow="IMPLEMENTATION ARCHITECTURE"
+                title="Microservices with visible platform boundaries"
+                description="The platform is expressed as an orchestrated service stack rather than one oversized app."
+              >
+                <Stack spacing={1.5}>
+                  {[
+                    'Ingestion Service · Python · PyMuPDF / python-pptx',
+                    'LLM Gateway · FastAPI · Ollama API',
+                    'Assessment Service · H5P / SCORM packaging',
+                    'Multimedia Service · Whisper / diarisation pipeline',
+                    'Micro-Lesson Builder · HTML5 / H5P / SCORM composition',
+                    'Queue & Worker · Redis / Celery or BullMQ evolution path',
+                  ].map((item) => (
+                    <Paper key={item} sx={{ p: 1.6, borderRadius: 3.5, bgcolor: '#f6f9fb', border: `1px solid ${LINE}` }}>
+                      <Stack direction="row" spacing={1.2} alignItems="center">
+                        <HubRoundedIcon sx={{ color: '#0d5ca6', fontSize: 18 }} />
+                        <Typography variant="body2" sx={{ color: INK }}>
+                          {item}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              </ShellSection>
+            </Grid>
+          </Grid>
+
+          <Grid container spacing={3}>
+            <Grid item xs={12} lg={4}>
+              <Stack spacing={3}>
+                <ShellSection
+                  eyebrow="TENANT & RUNTIME"
+                  title="Studio context"
+                  description="A multi-tenant authoring product needs visible branding controls and runtime state, not just form fields."
+                >
+                  <Stack spacing={2}>
+                    <TextField
+                      select
+                      label="Tenant branding"
+                      value={tenantId}
+                      onChange={(event) => setTenantId(event.target.value)}
+                      fullWidth
+                    >
+                      {tenants.map((tenant) => (
+                        <MenuItem key={tenant.tenant_id} value={tenant.tenant_id}>
+                          {tenant.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                    {selectedTenant && (
+                      <Paper
+                        sx={{
+                          p: 2.5,
+                          borderRadius: 4,
+                          border: `1px solid ${tenantAccent}22`,
+                          background: `linear-gradient(135deg, ${tenantAccent}18 0%, ${tenantHighlight}16 100%)`,
+                        }}
+                      >
+                        <Stack spacing={1}>
+                          <Typography variant="subtitle2" sx={{ color: INK, fontWeight: 800 }}>
+                            {selectedTenant.logo_text}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: MUTED }}>
+                            {selectedTenant.name}
+                          </Typography>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: tenantAccent }} />
+                            <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: tenantHighlight }} />
+                            <Typography variant="caption" sx={{ color: MUTED }}>
+                              {selectedTenant.font_family}
+                            </Typography>
+                          </Stack>
+                        </Stack>
+                      </Paper>
+                    )}
+                    <Grid container spacing={1.5}>
+                      <Grid item xs={6}>
+                        <Paper sx={{ p: 2, borderRadius: 4, border: `1px solid ${LINE}`, bgcolor: '#fff' }}>
+                          <Typography variant="h4" sx={{ color: '#0d5ca6', fontWeight: 800 }}>
+                            4
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: MUTED }}>
+                            workflow modules
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Paper sx={{ p: 2, borderRadius: 4, border: `1px solid ${LINE}`, bgcolor: '#fff' }}>
+                          <Typography variant="h4" sx={{ color: '#12624f', fontWeight: 800 }}>
+                            3
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: MUTED }}>
+                            delivery standards
+                          </Typography>
+                        </Paper>
+                      </Grid>
+                    </Grid>
+                  </Stack>
+                </ShellSection>
+
+                <ShellSection
+                  eyebrow="ACCEPTANCE CRITERIA"
+                  title="Creator-facing readiness"
+                  description="This studio should feel like the front-end of a real delivery system, not a one-off AI test page."
+                >
+                  <CriteriaList
+                    accent="#8b2f6b"
+                    items={[
+                      'PDF, PPT, transcript, or free-form input paths',
+                      'Human-in-the-loop review before publication',
+                      'Tenant branding applied automatically',
+                      'Export-friendly LMS packaging in one workspace',
+                    ]}
+                  />
+                </ShellSection>
+              </Stack>
+            </Grid>
+
+            <Grid item xs={12} lg={8}>
+              <Paper
+                sx={{
+                  borderRadius: 6,
+                  bgcolor: 'rgba(255,255,255,0.82)',
+                  border: `1px solid ${LINE}`,
+                  overflow: 'hidden',
+                  boxShadow: '0 24px 52px rgba(16,36,60,0.08)',
+                  backdropFilter: 'blur(14px)',
+                }}
+              >
+                <Tabs
+                  value={tab}
+                  onChange={(_, value) => setTab(value)}
+                  variant="fullWidth"
+                  sx={{
+                    p: 1.5,
+                    '& .MuiTabs-indicator': { display: 'none' },
+                    '& .MuiTab-root': {
+                      minHeight: 56,
+                      borderRadius: 999,
+                      textTransform: 'none',
+                      fontWeight: 800,
+                      color: MUTED,
+                    },
+                    '& .Mui-selected': {
+                      color: '#fff !important',
+                      bgcolor: tab === 0 ? '#0d5ca6' : '#12624f',
+                    },
+                  }}
+                >
+                  <Tab icon={<WorkspacesRoundedIcon />} iconPosition="start" label="Document Studio" />
+                  <Tab icon={<GraphicEqRoundedIcon />} iconPosition="start" label="Multimedia Studio" />
+                </Tabs>
+
+                <Box sx={{ p: { xs: 2.25, md: 3.25 } }}>
+                  {error && <Alert severity="error" sx={{ mb: 2.5 }}>{error}</Alert>}
+
+                  {tab === 0 && (
+                    <Stack spacing={3}>
+                      <Paper sx={{ p: 3, borderRadius: 5, bgcolor: '#fff', border: `1px solid ${LINE}` }}>
+                        <Stack spacing={2.25}>
+                          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                            <Box>
+                              <Typography variant="h6" sx={{ color: INK, fontWeight: 800 }}>
+                                Document-to-Micro-Lesson Workflow
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: MUTED, mt: 0.5, lineHeight: 1.7 }}>
+                                Raw educational material enters Module A, assessment packaging flows through Module B, and Module D assembles a branded learning experience.
+                              </Typography>
+                            </Box>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <StatusChip status={documentJob?.status} />
+                              <Chip
+                                size="small"
+                                label={documentApproved === 'true' ? 'approved for publishing' : 'pending human review'}
+                                sx={{
+                                  bgcolor: documentApproved === 'true' ? '#e9f8ef' : '#fff1cc',
+                                  color: documentApproved === 'true' ? '#166534' : '#8b5e00',
+                                }}
+                              />
+                            </Stack>
+                          </Stack>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={8}>
+                              <TextField
+                                label="Lesson title"
+                                value={documentTitle}
+                                onChange={(event) => setDocumentTitle(event.target.value)}
+                                fullWidth
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <TextField
+                                select
+                                label="Review gate"
+                                value={documentApproved}
+                                onChange={(event) => setDocumentApproved(event.target.value)}
+                                fullWidth
+                              >
+                                <MenuItem value="true">Approved for publishing</MenuItem>
+                                <MenuItem value="false">Hold for creator review</MenuItem>
+                              </TextField>
+                            </Grid>
+                          </Grid>
+                          <TextField
+                            label="Source document text"
+                            value={documentText}
+                            onChange={(event) => setDocumentText(event.target.value)}
+                            fullWidth
+                            multiline
+                            minRows={12}
+                          />
+                          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between">
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                              <Button component="label" variant="outlined" startIcon={<CloudUploadOutlinedIcon />}>
+                                {documentFile ? documentFile.name : 'Attach PDF or PPT'}
+                                <input hidden type="file" onChange={(event) => setDocumentFile(event.target.files?.[0] || null)} />
+                              </Button>
+                              <Button
+                                variant="contained"
+                                onClick={submitDocumentWorkflow}
+                                startIcon={<PlayCircleOutlineOutlinedIcon />}
+                                sx={{ bgcolor: '#0d5ca6', color: '#fff', border: 'none', '&:hover': { bgcolor: '#094b88' } }}
+                              >
+                                Run Modules A + B + D
+                              </Button>
+                            </Stack>
+                            <Typography variant="body2" sx={{ color: MUTED, alignSelf: 'center' }}>
+                              {documentJob?.message || 'Ready to process a structured document workflow.'}
+                            </Typography>
+                          </Stack>
+                          {documentJob?.status === 'running' && <LinearProgress sx={{ height: 8, borderRadius: 999 }} />}
+                        </Stack>
+                      </Paper>
+
+                      {documentResult && (
+                        <>
+                          <StudioSummary
+                            title="Document workflow outputs"
+                            summary={[
+                              `${documentResult.module_a?.structured_sections?.length || 0} structured sections prepared from the source material.`,
+                              `${documentResult.module_a?.glossary?.length || 0} glossary entries and ${documentResult.module_a?.narration_script?.length || 0} narration blocks generated.`,
+                              `${documentResult.module_b?.mcqs?.length || 0} MCQs, ${documentResult.module_b?.fill_in_the_blanks?.length || 0} fill-in-the-blanks, and ${documentResult.module_b?.match_pairs?.length || 0} match-pair prompts packaged.`,
+                              'Lesson output prepared for HTML5, H5P, SCORM, and review-gated publishing.',
+                            ]}
+                            artifacts={[
+                              ...(documentResult.module_b?.artifacts || []),
+                              ...(documentResult.module_d?.artifacts || []),
+                            ]}
+                            previewHtml={documentResult.module_d?.preview_html}
+                          />
+                          <Stack spacing={1.5}>
+                            <TechnicalTrace title="Module A technical trace" value={documentResult.module_a} />
+                            <TechnicalTrace title="Module B technical trace" value={documentResult.module_b} />
+                          </Stack>
+                        </>
+                      )}
+                    </Stack>
+                  )}
+
+                  {tab === 1 && (
+                    <Stack spacing={3}>
+                      <Paper sx={{ p: 3, borderRadius: 5, bgcolor: '#fff', border: `1px solid ${LINE}` }}>
+                        <Stack spacing={2.25}>
+                          <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" spacing={2}>
+                            <Box>
+                              <Typography variant="h6" sx={{ color: INK, fontWeight: 800 }}>
+                                Multimedia-to-Interactive-Lesson Workflow
+                              </Typography>
+                              <Typography variant="body2" sx={{ color: MUTED, mt: 0.5, lineHeight: 1.7 }}>
+                                Module C produces transcript intelligence, chapter markers, and interactive checks. Module D converts that output into a branded, publishable learning artifact.
+                              </Typography>
+                            </Box>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <StatusChip status={multimediaJob?.status} />
+                              <Chip
+                                size="small"
+                                label={multimediaApproved === 'true' ? 'approved for publishing' : 'pending human review'}
+                                sx={{
+                                  bgcolor: multimediaApproved === 'true' ? '#e9f8ef' : '#fff1cc',
+                                  color: multimediaApproved === 'true' ? '#166534' : '#8b5e00',
+                                }}
+                              />
+                            </Stack>
+                          </Stack>
+                          <Grid container spacing={2}>
+                            <Grid item xs={12} md={8}>
+                              <TextField
+                                label="Experience title"
+                                value={multimediaTitle}
+                                onChange={(event) => setMultimediaTitle(event.target.value)}
+                                fullWidth
+                              />
+                            </Grid>
+                            <Grid item xs={12} md={4}>
+                              <TextField
+                                select
+                                label="Review gate"
+                                value={multimediaApproved}
+                                onChange={(event) => setMultimediaApproved(event.target.value)}
+                                fullWidth
+                              >
+                                <MenuItem value="true">Approved for publishing</MenuItem>
+                                <MenuItem value="false">Hold for creator review</MenuItem>
+                              </TextField>
+                            </Grid>
+                          </Grid>
+                          <TextField
+                            label="Transcript or media notes"
+                            value={multimediaText}
+                            onChange={(event) => setMultimediaText(event.target.value)}
+                            fullWidth
+                            multiline
+                            minRows={11}
+                          />
+                          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} justifyContent="space-between">
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                              <Button component="label" variant="outlined" startIcon={<CloudUploadOutlinedIcon />}>
+                                {mediaFile ? mediaFile.name : 'Attach video, audio, or transcript'}
+                                <input hidden type="file" onChange={(event) => setMediaFile(event.target.files?.[0] || null)} />
+                              </Button>
+                              <Button
+                                variant="contained"
+                                onClick={submitMultimediaWorkflow}
+                                startIcon={<AutoAwesomeOutlinedIcon />}
+                                sx={{ bgcolor: '#12624f', color: '#fff', border: 'none', '&:hover': { bgcolor: '#0d4e3f' } }}
+                              >
+                                Run Modules C + D
+                              </Button>
+                            </Stack>
+                            <Typography variant="body2" sx={{ color: MUTED, alignSelf: 'center' }}>
+                              {multimediaJob?.message || 'Ready to process a multimedia workflow.'}
+                            </Typography>
+                          </Stack>
+                          {multimediaJob?.status === 'running' && <LinearProgress sx={{ height: 8, borderRadius: 999 }} />}
+                        </Stack>
+                      </Paper>
+
+                      {multimediaResult && (
+                        <>
+                          <StudioSummary
+                            title="Multimedia workflow outputs"
+                            summary={[
+                              `${multimediaResult.module_c?.speakers?.length || 0} speaker segments prepared for guided playback.`,
+                              `${multimediaResult.module_c?.chapters?.length || 0} chapter markers generated for timestamped navigation.`,
+                              `${multimediaResult.module_c?.knowledge_checks?.length || 0} inline knowledge checks created for interactive experiences.`,
+                              'Transcript, VTT, H5P interactive assets, and lesson packaging made available in one studio.',
+                            ]}
+                            artifacts={[
+                              ...(multimediaResult.module_c?.artifacts || []),
+                              ...(multimediaResult.module_d?.artifacts || []),
+                            ]}
+                            previewHtml={multimediaResult.module_d?.preview_html}
+                          />
+                          <Stack spacing={1.5}>
+                            <TechnicalTrace title="Module C technical trace" value={multimediaResult.module_c} />
+                            <TechnicalTrace title="Module D technical trace" value={multimediaResult.module_d} />
+                          </Stack>
+                        </>
+                      )}
+                    </Stack>
+                  )}
+                </Box>
+              </Paper>
+            </Grid>
+          </Grid>
+        </Stack>
+      </Container>
+    </Box>
+  );
+}

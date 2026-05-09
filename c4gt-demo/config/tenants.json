@@ -1,0 +1,18 @@
+[
+  {
+    "tenant_id": "tekdi",
+    "name": "Tekdi Demo Tenant",
+    "logo_text": "Tekdi / Shiksha",
+    "primary_color": "#0b5cab",
+    "secondary_color": "#f28f16",
+    "font_family": "Helvetica"
+  },
+  {
+    "tenant_id": "pratham",
+    "name": "Pratham Learning Tenant",
+    "logo_text": "Pratham",
+    "primary_color": "#12624f",
+    "secondary_color": "#f2c84b",
+    "font_family": "Georgia"
+  }
+]

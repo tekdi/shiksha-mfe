@@ -6,7 +6,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "fetch_shiksha": ""
+    "fetch_shiksha": "",
+    "demo:frontend": "next dev mfes/workspace --port=3000",
+    "demo:backend": "uvicorn services.gateway.app:app --app-dir c4gt-demo/backend --host 0.0.0.0 --port 8000",
+    "demo:stack": "docker compose up --build -d",
+    "demo:stack:down": "docker compose down"
   },
   "private": true,
   "dependencies": {
