@@ -1,9 +1,8 @@
 //@ts-check
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const { composePlugins, withNx } = require('@nx/next');
 const path = require("path");
 const PORTAL_BASE_URL = 'https://sunbird-editor.tekdinext.com';
+const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 
 const CONTENT_EDITOR_BASE_URL = 'https://sunbird-editor.tekdinext.com';
 const routes = {
@@ -16,18 +15,12 @@ const routes = {
     },
   },
 };
-/**
- * @type {import('@nx/next/plugins/with-nx').WithNxOptions}
- **/
 const nextConfig = {
-  nx: {
-    // Set this to true if you would like to use SVGR
-    // See: https://github.com/gregberge/svgr
-    svgr: false,
-  },
   basePath: '/mfe_workspace',
+  /** @param {import('webpack').Configuration} config */
   webpack: (config) => {
     // Add path aliases
+    config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...config.resolve.alias,
       "@workspace": path.resolve(__dirname, "src"),
@@ -64,19 +57,23 @@ const nextConfig = {
       },
       {
         source: '/action/v1/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL || 'http://localhost:8000'}/v1/telemetry`,
       },
       {
         source: '/action/data/v3/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL || 'http://localhost:8000'}/v1/telemetry`,
       },
       {
         source: '/data/v3/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL || 'http://localhost:8000'}/v1/telemetry`,
       },
       {
         source: '/action/:path*', // Match any other routes starting with /action/
         destination: '/api/proxy?path=/action/:path*', // Forward them to proxy.js
+      },
+      {
+        source: '/api/ai/:path*',
+        destination: `${AI_SERVICE_URL}/:path*`,
       },
       {
         source: '/api/:path*', // Match /api/ routes
@@ -120,9 +117,4 @@ const nextConfig = {
   
 };
 
-const plugins = [
-  // Add more Next.js plugins to this list if needed.
-  withNx,
-];
-
-module.exports = composePlugins(...plugins)(nextConfig);
+module.exports = nextConfig;

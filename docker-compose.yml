@@ -1,0 +1,112 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: shiksha-ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: shiksha-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  ingestion-service:
+    build:
+      context: ./c4gt-demo/backend
+    container_name: shiksha-ingestion-service
+    command: ["uvicorn", "services.ingestion.app:app", "--host", "0.0.0.0", "--port", "8001"]
+    environment:
+      OLLAMA_URL: http://ollama:11434/api/generate
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3:latest}
+      OLLAMA_ENABLED: "true"
+      RUNTIME_DIR: /runtime
+      TENANT_FILE: /app/config/tenants.json
+    volumes:
+      - ./c4gt-demo/runtime:/runtime
+      - ./c4gt-demo/config:/app/config
+    depends_on:
+      ollama:
+        condition: service_healthy
+    ports:
+      - "8001:8001"
+
+  assessment-service:
+    build:
+      context: ./c4gt-demo/backend
+    container_name: shiksha-assessment-service
+    command: ["uvicorn", "services.assessment.app:app", "--host", "0.0.0.0", "--port", "8002"]
+    environment:
+      RUNTIME_DIR: /runtime
+      TENANT_FILE: /app/config/tenants.json
+    volumes:
+      - ./c4gt-demo/runtime:/runtime
+      - ./c4gt-demo/config:/app/config
+    ports:
+      - "8002:8002"
+
+  multimedia-service:
+    build:
+      context: ./c4gt-demo/backend
+    container_name: shiksha-multimedia-service
+    command: ["uvicorn", "services.multimedia.app:app", "--host", "0.0.0.0", "--port", "8003"]
+    environment:
+      RUNTIME_DIR: /runtime
+      TENANT_FILE: /app/config/tenants.json
+    volumes:
+      - ./c4gt-demo/runtime:/runtime
+      - ./c4gt-demo/config:/app/config
+    ports:
+      - "8003:8003"
+
+  lesson-builder-service:
+    build:
+      context: ./c4gt-demo/backend
+    container_name: shiksha-lesson-builder-service
+    command: ["uvicorn", "services.lesson_builder.app:app", "--host", "0.0.0.0", "--port", "8004"]
+    environment:
+      RUNTIME_DIR: /runtime
+      TENANT_FILE: /app/config/tenants.json
+    volumes:
+      - ./c4gt-demo/runtime:/runtime
+      - ./c4gt-demo/config:/app/config
+    ports:
+      - "8004:8004"
+
+  gateway:
+    build:
+      context: ./c4gt-demo/backend
+    container_name: shiksha-gateway
+    command: ["uvicorn", "services.gateway.app:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      INGESTION_SERVICE_URL: http://ingestion-service:8001
+      ASSESSMENT_SERVICE_URL: http://assessment-service:8002
+      MULTIMEDIA_SERVICE_URL: http://multimedia-service:8003
+      LESSON_BUILDER_SERVICE_URL: http://lesson-builder-service:8004
+      REDIS_URL: redis://redis:6379/0
+      RUNTIME_DIR: /runtime
+      TENANT_FILE: /app/config/tenants.json
+    volumes:
+      - ./c4gt-demo/runtime:/runtime
+      - ./c4gt-demo/config:/app/config
+    depends_on:
+      - redis
+      - ingestion-service
+      - assessment-service
+      - multimedia-service
+      - lesson-builder-service
+    ports:
+      - "8000:8000"
+
+volumes:
+  ollama_data:
