@@ -129,12 +129,9 @@ export const findTenantByDomain = (
   currentDomain?: string
 ): Tenant | null => {
 let domain = currentDomain;
-//  let domain = 'oblf-learner.sunbirdsaas.com'; // For testing only
-  console.log('[TenantService] Looking up tenant for domain:', domain);
   if (!domain) {
     if (typeof window !== "undefined") {
       domain = window.location.hostname;
-      console.log('[TenantService] Using window.location.hostname:', domain);
     } else {
       return null;
     }
@@ -153,12 +150,9 @@ let domain = currentDomain;
   }
   
   // Handle hyphenated domains like "swadhaar-learner" -> extract "swadhaar"
-  // This is for multi-environment tenants (e.g., swadhaar-learner, swadhaar-admin)
-  const originalTenantKey = tenantKey;
   if (tenantKey.includes("-")) {
     const hyphenParts = tenantKey.split("-");
-    tenantKey = hyphenParts[0]; // Get the first part before the hyphen
-    console.log(`[TenantService] Extracted tenant key from hyphenated domain: "${originalTenantKey}" -> "${tenantKey}"`);
+    tenantKey = hyphenParts[0];
   }
   
   if (!tenantKey) {
@@ -181,9 +175,6 @@ let domain = currentDomain;
 
   if (!matchedTenant) {
     console.warn(`[TenantService] No tenant found for domain: ${sanitizedDomain}, extracted key: ${tenantKey}`);
-    console.log(`[TenantService] Available tenants:`, tenants.map(t => ({ name: t.name, domain: t.domain })));
-  } else {
-    console.log(`[TenantService] Found tenant: ${matchedTenant.name} (${matchedTenant.domain}) for domain: ${sanitizedDomain}`);
   }
 
   return matchedTenant || null;
@@ -206,7 +197,6 @@ export const getTenantConfig = async (
         // Store tenantId separately for API calls (domain-based tenant)
         if (tenant.tenantId) {
           localStorage.setItem("domainTenantId", tenant.tenantId);
-          console.log("[TenantService] Stored domain tenantId:", tenant.tenantId);
         }
       }
     }
