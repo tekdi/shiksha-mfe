@@ -31,13 +31,14 @@ const publicRoutes = [
 
 // Check if route is public
 const isPublicRoute = (pathname: string): boolean => {
-  // Check exact matches
-  if (publicRoutes.includes(pathname)) {
-    return true;
-  }
-
-  // Check if pathname starts with any public route
-  return publicRoutes.some((route) => pathname.startsWith(route));
+  return publicRoutes.some((route) => {
+    if (route === "/") {
+      // "/" should only match the root path exactly
+      return pathname === "/";
+    }
+    // For other routes, match exact or as a path prefix (with trailing slash)
+    return pathname === route || pathname.startsWith(route + "/");
+  });
 };
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {

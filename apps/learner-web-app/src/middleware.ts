@@ -35,13 +35,12 @@ const publicRoutes = [
 
 // Check if route is public
 const isPublicRoute = (pathname: string): boolean => {
-  // Check exact matches
-  if (publicRoutes.includes(pathname)) {
-    return true;
-  }
-  
-  // Check if pathname starts with any public route
-  return publicRoutes.some((route) => pathname.startsWith(route));
+  return publicRoutes.some((route) => {
+    if (route === "/") {
+      return pathname === "/";
+    }
+    return pathname === route || pathname.startsWith(route + "/");
+  });
 };
 
 export function middleware(request: NextRequest) {
