@@ -79,7 +79,6 @@
     "react-joyride": "^2.8.2",
     "react-router-dom": "^7.0.2",
     "react-select": "^5.8.0",
-    "react-swipeable-views": "^0.14.0",
     "react-toastify": "^10.0.5",
     "recharts": "^2.12.7",
     "reflect-metadata": "^0.1.13",
