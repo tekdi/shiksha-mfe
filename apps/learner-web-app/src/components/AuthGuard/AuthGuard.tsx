@@ -36,8 +36,8 @@ const isPublicRoute = (pathname: string): boolean => {
     return true;
   }
 
-  // Check if pathname starts with any public route
-  return publicRoutes.some((route) => pathname.startsWith(route));
+  // Check if pathname starts with any public route (e.g. /login/...)
+  return publicRoutes.some((route) => route !== "/" && pathname.startsWith(route + "/"));
 };
 
 const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {

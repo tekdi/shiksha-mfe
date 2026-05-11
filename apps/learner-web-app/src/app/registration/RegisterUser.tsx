@@ -27,7 +27,7 @@ import { useRouter } from 'next/navigation';
 import { createUser } from '@shared-lib-v2/DynamicForm/services/CreateUserService';
 import { RoleId } from '@shared-lib-v2/DynamicForm/utils/app.constant';
 import { getUserId, login } from '@learner/utils/API/LoginService';
-import SignupSuccess from '@learner/components/SignupSuccess /SignupSuccess ';
+import SignupSuccess from '@learner/components/SignupSuccess/SignupSuccess';
 import { Loader } from '@shared-lib';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import PriorityHighIcon from '@mui/icons-material/PriorityHigh';
