@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  ai-gateway:
+    build:
+      context: ./ai-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - ollama
+      - redis
+    networks:
+      - lms-ai-net
+
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - lms-ai-net
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - lms-ai-net
+
+volumes:
+  ollama_data:
+
+networks:
+  lms-ai-net:
+    driver: bridge
