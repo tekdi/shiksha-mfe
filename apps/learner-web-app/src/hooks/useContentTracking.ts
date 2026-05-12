@@ -96,7 +96,13 @@ export const useContentTracking = ({
       return newData;
     });
 
-    // 2. Telemetry Event
+    // 2. Component Callback (Trigger modal/next-steps early for snappier UI)
+    if (onComplete) {
+      console.log('[TRACKING] Calling onComplete callback early');
+      onComplete();
+    }
+
+    // 3. Telemetry Event
     telemetryFactory.interact({
       eid: 'INTERACT',
       edata: {
@@ -109,14 +115,8 @@ export const useContentTracking = ({
       },
     });
 
-    // 3. Final API Sync
-    await sendProgressToBackend(100, true, score);
-    
-    // 4. Component Callback
-    if (onComplete) {
-      console.log('[TRACKING] Calling onComplete callback');
-      onComplete();
-    }
+    // 4. Final API Sync (Run in background)
+    sendProgressToBackend(100, true, score);
   }, [contentId, sendProgressToBackend, onComplete, setStatusData]);
 
   /* ───────────────── PROGRESS HANDLER ───────────────── */

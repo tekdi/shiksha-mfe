@@ -136,7 +136,7 @@ const StartScreen: React.FC<{
           <Box>
             {/* Sunbird format: "currentAttempts / maxAttempts" */}
             <Typography sx={{ fontWeight: 800, fontSize: 28, color: isExhausted ? ERROR_RED : DARK_NAV, lineHeight: 1 }}>
-              {currentAttempts}<Typography component="span" sx={{ fontSize: 16, color: '#9CA3AF', fontWeight: 600 }}>/{maxAttempts}</Typography>
+              {Math.min(currentAttempts, maxAttempts)}<Typography component="span" sx={{ fontSize: 16, color: '#9CA3AF', fontWeight: 600 }}>/{maxAttempts}</Typography>
             </Typography>
             <Typography sx={{ fontSize: 11, color: isExhausted ? ERROR_RED : '#6B7280', fontWeight: 600, mt: 0.5 }}>
               {isExhausted ? 'All attempts used' : `${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining`}
@@ -359,7 +359,7 @@ const ResultScreen: React.FC<{
           </Box>
           <Box sx={{ textAlign: 'right' }}>
             <Typography sx={{ fontWeight: 800, fontSize: 24, color: DARK_NAV }}>
-              {currentAttempts}<Typography component="span" sx={{ fontSize: 14, color: '#9CA3AF', fontWeight: 600 }}>/{maxAttempts}</Typography>
+              {Math.min(currentAttempts, maxAttempts)}<Typography component="span" sx={{ fontSize: 14, color: '#9CA3AF', fontWeight: 600 }}>/{maxAttempts}</Typography>
             </Typography>
             <Typography sx={{ fontSize: 11, color: canReplay ? '#6B7280' : ERROR_RED, fontWeight: 600 }}>
               {canReplay ? 'Attempts Used' : 'No Attempts Left'}
@@ -451,18 +451,6 @@ export const QuestionSetPlayer: React.FC<QuestionSetPlayerProps> = ({
     if (mode === 'review') setIsReview(true);
   }, [mode]);
 
-  // ✅ Auto-complete when reaching results
-  React.useEffect(() => {
-    if (phase === 'result' && !isReview) {
-      const results = questions.map((q, i) => {
-        const userAnswer = answers[i];
-        const correctIdx = q.options?.findIndex(o => o.answer);
-        return userAnswer === correctIdx;
-      });
-      const score = results.filter(r => r).length;
-      onComplete(score);
-    }
-  }, [phase, questions, answers, onComplete, isReview]);
 
   const handleStart = (reviewMode = false) => {
     setAnswers(new Array(questions.length).fill(undefined));
@@ -488,7 +476,16 @@ export const QuestionSetPlayer: React.FC<QuestionSetPlayerProps> = ({
       if (isReview) {
         setPhase('start');
       } else {
+        // Calculate score exactly once on submission
+        const currentResults = questions.map((q, i) => {
+          const userAnswer = answers[i];
+          const correctIdx = q.options?.findIndex(o => o.answer);
+          return userAnswer === correctIdx;
+        });
+        const finalScore = currentResults.filter(r => r).length;
+        
         setPhase('result');
+        onComplete(finalScore);
       }
     }
   };

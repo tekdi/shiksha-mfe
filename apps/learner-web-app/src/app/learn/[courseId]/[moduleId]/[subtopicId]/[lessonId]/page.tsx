@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Box, Typography, CircularProgress, IconButton, Button, LinearProgress, Badge } from '@mui/material';
+import { Box, Typography, CircularProgress, IconButton, Button, LinearProgress, Badge, useMediaQuery } from '@mui/material';
 import { useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
@@ -24,6 +24,11 @@ import { getUnreadCount } from '@learner/utils/alertsStore';
 import { telemetryFactory } from '@learner/utils/telemtery';
 import { useContentTracking } from '@learner/hooks/useContentTracking';
 
+const SwadhaarDesktopLessonPlayer = dynamic(
+  () => import('@learner/components/Swadhaar/Desktop/SwadhaarDesktopLessonPlayer'),
+  { ssr: false }
+);
+
 const PRIMARY = '#E6873C';
 const DARK_NAV = '#1C2B4A';
 const SUCCESS_GREEN = '#4CAF50';
@@ -34,9 +39,18 @@ export default function LessonViewerPage() {
   const { courseId, moduleId, subtopicId, lessonId } = useParams() as { courseId: string; moduleId: string; subtopicId: string; lessonId: string };
   const { tenant } = useTenant();
   const { t } = useTranslation();
+  const isDesktop = useMediaQuery('(min-width:960px)');
+
   const isSwadhaarTenant = useMemo(() => {
     const tenantName = (tenant?.name || '').toLowerCase();
-    return tenantName.includes('swadhaar');
+    if (tenantName.includes('swadhaar')) return true;
+    if (typeof window !== 'undefined') {
+      const stored = (localStorage.getItem('tenantName') || localStorage.getItem('tenant') || '').toLowerCase();
+      if (stored.includes('swadhaar')) return true;
+      const referer = document.referrer || '';
+      if (referer.includes('swadhaar')) return true;
+    }
+    return false;
   }, [tenant?.name]);
 
   const [isLoading, setIsLoading] = useState(true);
@@ -173,7 +187,7 @@ export default function LessonViewerPage() {
       const activeLesson = flatLessons.find((l: any) => l.identifier === lessonId) 
         || (flatLessons.length > 0 ? flatLessons[0] : (currentSubtopic && !currentSubtopic.children ? currentSubtopic : null));
       
-      setCurrentLesson(prev => prev?.identifier === activeLesson?.identifier ? prev : activeLesson);
+      setCurrentLesson((prev: any) => prev?.identifier === activeLesson?.identifier ? prev : activeLesson);
     } catch (err) {
       console.error('Error loading lesson viewer:', err);
     } finally {
@@ -265,18 +279,21 @@ export default function LessonViewerPage() {
     };
   }, [allLessons, currentLesson, lessonId]);
 
-  if (isLoading) {
-    return (
-      <Box sx={{ minHeight: '100dvh', bgcolor: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <CircularProgress sx={{ color: PRIMARY }} />
-      </Box>
-    );
-  }
-
- 
-
   return (
-    <Box sx={{ minHeight: '100dvh', bgcolor: '#F9FAFB', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
+    <>
+      {(isDesktop && isSwadhaarTenant) ? (
+        <SwadhaarDesktopLessonPlayer
+          courseId={courseId}
+          moduleId={moduleId}
+          subtopicId={subtopicId}
+          lessonId={lessonId}
+        />
+      ) : isLoading ? (
+        <Box sx={{ minHeight: '100dvh', bgcolor: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CircularProgress sx={{ color: PRIMARY }} />
+        </Box>
+      ) : (
+        <Box sx={{ minHeight: '100dvh', bgcolor: '#F9FAFB', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
       <Box sx={{ bgcolor: '#fff', px: 1, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid #F3F4F6' }}>
         <IconButton onClick={() => router.push(`/learn/${courseId}/${moduleId}`)}><ArrowBackIcon sx={{ color: '#E6873C', fontSize: 20 }} /></IconButton>
         <Typography variant="h2" sx={{ fontWeight: 800, fontSize: 18, color: 'text.primary', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLesson?.name || subtopicName}</Typography>
@@ -322,5 +339,7 @@ export default function LessonViewerPage() {
       </Box>
       <SwadhaarBottomNav />
     </Box>
+    )}
+    </>
   );
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, TextField, Button, CircularProgress } from '@mui/material';
+import { Box, Typography, TextField, Button, CircularProgress, useMediaQuery, useTheme } from '@mui/material';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { checkUserExistenceWithTenant } from '@learner/utils/API/userService';
@@ -12,6 +12,7 @@ import { profileComplitionCheck, getUserDetails } from '@learner/utils/API/userS
 import { ensureAcademicYearForTenant } from '@learner/utils/API/ProgramService';
 import { useTenant } from '@learner/context/TenantContext';
 import { useTranslation } from '@shared-lib';
+import { SwadhaarDesktopLogin } from '@learner/components/Swadhaar/Desktop';
 
 const SWADHAAR_TENANT_ID = '35529b5d-526f-4da5-bc6e-64f740023d26';
 const PRIMARY = '#E6873C';
@@ -24,6 +25,8 @@ export default function SwadhaarLoginPage() {
   const router = useRouter();
   const { tenant } = useTenant();
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   const [mobile, setMobile] = useState('');
   const [otp, setOtp] = useState<string[]>(Array(OTP_LEN).fill(''));
@@ -32,8 +35,20 @@ export default function SwadhaarLoginPage() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
   const [resendAttempts, setResendAttempts] = useState(0);
-  const [otpSent, setOtpSent] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+   const [otpSent, setOtpSent] = useState(false);
+   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Check if user is already logged in
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    const userId = localStorage.getItem('userId');
+    if (token && userId) {
+      router.replace('/swadhaar-home');
+    } else {
+      setIsCheckingAuth(false);
+    }
+  }, [router]);
 
   // Clear timer on unmount
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
@@ -133,6 +148,7 @@ export default function SwadhaarLoginPage() {
       localStorage.setItem('userId', userId);
       localStorage.setItem('token', token);
       localStorage.setItem('firstName', userData?.firstName || '');
+      localStorage.setItem('lastName', userData?.lastName || '');
       localStorage.setItem('name', userData?.firstName || '');
       localStorage.setItem('userRole', userRole);
       localStorage.setItem('tenantId', tenantId);
@@ -173,7 +189,7 @@ export default function SwadhaarLoginPage() {
 
   const canSendOtp =
     mobile.trim().length === 10 && !isSendingOtp && resendTimer === 0 && resendAttempts < MAX_RESEND;
-  const canSignIn = otp.join('').length === OTP_LEN && !isSigningIn;
+  const canSignIn = mobile.trim().length === 10 && otp.join('').length === OTP_LEN && !isSigningIn;
 
   const focusOtpInput = (index: number) => {
     if (index < 0 || index >= OTP_LEN) return;
@@ -230,6 +246,37 @@ export default function SwadhaarLoginPage() {
     const nextIndex = Math.min(index + insertedCount, OTP_LEN - 1);
     focusOtpInput(nextIndex);
   };
+
+  if (isCheckingAuth) {
+    return (
+      <Box sx={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: 'background.default' }}>
+        <CircularProgress sx={{ color: PRIMARY }} />
+      </Box>
+    );
+  }
+
+  // ── Desktop branch ────────────────────────────────────────
+  if (isDesktop) {
+    return (
+      <SwadhaarDesktopLogin
+        mobile={mobile}
+        otp={otp}
+        otpSent={otpSent}
+        isSendingOtp={isSendingOtp}
+        isSigningIn={isSigningIn}
+        resendTimer={resendTimer}
+        resendAttempts={resendAttempts}
+        canSendOtp={canSendOtp}
+        canSignIn={canSignIn}
+        onMobileChange={(v) => setMobile(v)}
+        onOtpChange={handleOtpChange}
+        onOtpKeyDown={(idx, e) => { if (e.key === 'Backspace' && otp[idx] === '' && idx > 0) focusOtpInput(idx - 1); }}
+        onOtpPaste={handleOtpPaste}
+        onSendOtp={handleSendOtp}
+        onSignIn={handleSignIn}
+      />
+    );
+  }
 
   return (
     <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>

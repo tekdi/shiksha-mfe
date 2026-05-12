@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Box, Typography, CircularProgress, Badge, Collapse, Button,
+  Box, Typography, CircularProgress, Badge, Collapse, Button, useMediaQuery, useTheme,
 } from '@mui/material';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
+import { SwadhaarDesktopHome } from '@learner/components/Swadhaar/Desktop';
 import WorkspacePremiumOutlinedIcon from '@mui/icons-material/WorkspacePremiumOutlined';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
@@ -41,6 +42,8 @@ export default function SwadhaarHomePage() {
   const router = useRouter();
   const { tenant } = useTenant();
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -339,10 +342,6 @@ export default function SwadhaarHomePage() {
   useEffect(() => { 
     loadData(); 
     
-    // Refresh data when window gains focus (e.g. returning from profile)
-    const handleFocus = () => loadData();
-    window.addEventListener('focus', handleFocus);
-
     // Sync alerts from API on mount
     const userId = localStorage.getItem('userId');
     if (userId) {
@@ -361,14 +360,30 @@ export default function SwadhaarHomePage() {
         uri: '/swadhaar-home'
       }
     });
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-    };
   }, [loadData]);
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', height: '100dvh', alignItems: 'center', justifyContent: 'center', bgcolor: '#F9FAFB' }}><CircularProgress sx={{ color: PRIMARY }} /></Box>;
+  }
+
+  // ── Desktop branch ────────────────────────────────────────
+  if (isDesktop) {
+    return (
+      <SwadhaarDesktopHome
+        levels={levels}
+        activeLevel={activeLevel}
+        statusData={statusData}
+        alerts={alerts}
+        unreadCount={unreadCount}
+        userName={userName}
+        designation={designation}
+        profileImageUrl={profileImageUrl}
+        isLoading={false}
+        error={error}
+        onAlertClick={handleAlertClick}
+        onReload={loadData}
+      />
+    );
   }
 
   return (
@@ -684,7 +699,7 @@ export default function SwadhaarHomePage() {
               onModuleClick={(mid) => {
                   trackCourseClick(mid);
                   // Always go to the module details page so the subtopic accordion is shown
-                  router.push(`/learn/${activeLevel.id}/${mid}`);
+                    router.push(`/learn/${activeLevel.id}/${mid}`);
                }}
               modules={activeLevel.rawChildren}
            />

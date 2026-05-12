@@ -1,0 +1,343 @@
+'use client';
+
+import React, { useMemo } from 'react';
+import { Box, Typography, LinearProgress, Collapse } from '@mui/material';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import { useTranslation } from '@shared-lib';
+
+const PRIMARY = '#E6873C';
+const SUCCESS = '#4CAF50';
+
+/* ─── Shared status map builder ──────────────────────────── */
+const buildStatusMap = (statusList: any[]): Map<string, any> => {
+  const map = new Map<string, any>();
+  for (const item of statusList) {
+    if (item.contentId) map.set(item.contentId, item);
+  }
+  return map;
+};
+
+const buildCompletionCache = (modules: any[], statusMap: Map<string, any>): Map<string, number> => {
+  const cache = new Map<string, number>();
+  const walk = (node: any): number => {
+    const id = node.identifier || node.id;
+    if (cache.has(id)) return cache.get(id)!;
+    let perc: number;
+    if (!node.children || node.children.length === 0) {
+      const s = statusMap.get(id);
+      perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
+    } else {
+      const childPercs = node.children.map((child: any) => walk(child));
+      perc = childPercs.length > 0 ? childPercs.reduce((a: number, b: number) => a + b, 0) / childPercs.length : 0;
+    }
+    cache.set(id, perc);
+    return perc;
+  };
+  modules.forEach(walk);
+  return cache;
+};
+
+/* ─── Module Card (desktop 3-col grid item) ─────────────── */
+const DesktopModuleCard: React.FC<{
+  module: any;
+  completionCache: Map<string, number>;
+  isLocked: boolean;
+  onClick: () => void;
+}> = React.memo(({ module, completionCache, isLocked, onClick }) => {
+  const { t } = useTranslation();
+  const nodeId = module.identifier || module.id;
+  const perc = isLocked ? 0 : Math.round(completionCache.get(nodeId) ?? 0);
+  const isCompleted = perc >= 100;
+  const children = module.children || [];
+  const subtopicCount = children.length;
+
+  const borderColor = isLocked
+    ? '#E5E7EB'
+    : isCompleted
+    ? SUCCESS
+    : perc > 0
+    ? PRIMARY
+    : '#E5E7EB';
+
+  return (
+    <Box
+      id={`swadhaar-module-card-${nodeId}`}
+      onClick={() => !isLocked && onClick()}
+      sx={{
+        bgcolor: '#fff',
+        border: `1.5px solid ${borderColor}`,
+        borderRadius: '12px',
+        p: 1.75,
+        cursor: isLocked ? 'not-allowed' : 'pointer',
+        opacity: isLocked ? 0.6 : 1,
+        transition: 'all 0.15s ease',
+        '&:hover': {
+          boxShadow: isLocked ? 'none' : '0 4px 12px rgba(230,135,60,0.15)',
+          transform: isLocked ? 'none' : 'translateY(-1px)',
+        },
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 1,
+      }}
+    >
+      {/* Header row */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Typography
+          sx={{
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 600,
+            fontSize: 10,
+            color: '#9CA3AF',
+            textTransform: 'uppercase',
+            letterSpacing: 0.5,
+          }}
+        >
+          {module.name?.toLowerCase().includes('module') ? module.name : `Module`}
+        </Typography>
+        <Typography
+          sx={{
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 10,
+            color: '#9CA3AF',
+          }}
+        >
+          {subtopicCount} {t('LEARNER_APP.LEARN.LESSONS_TITLE')}
+        </Typography>
+      </Box>
+
+      {/* Module name */}
+      <Typography
+        sx={{
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 700,
+          fontSize: 13,
+          color: isLocked ? '#9CA3AF' : '#1F2937',
+          lineHeight: 1.3,
+        }}
+      >
+        {module.name}
+      </Typography>
+
+      {/* Progress bar */}
+      <LinearProgress
+        variant="determinate"
+        value={perc}
+        sx={{
+          height: 5,
+          borderRadius: 3,
+          bgcolor: '#F3F4F6',
+          '& .MuiLinearProgress-bar': {
+            bgcolor: isCompleted ? SUCCESS : PRIMARY,
+            borderRadius: 3,
+          },
+        }}
+      />
+
+      {/* Progress label */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {isCompleted ? (
+          <CheckCircleRoundedIcon sx={{ fontSize: 14, color: SUCCESS }} />
+        ) : isLocked ? (
+          <LockRoundedIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
+        ) : null}
+        <Typography
+          sx={{
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 11,
+            fontWeight: 600,
+            color: isCompleted ? SUCCESS : isLocked ? '#9CA3AF' : PRIMARY,
+          }}
+        >
+          {isCompleted
+            ? '100% Completed'
+            : isLocked
+            ? 'Locked'
+            : `${perc}% Completed`}
+        </Typography>
+      </Box>
+    </Box>
+  );
+});
+DesktopModuleCard.displayName = 'DesktopModuleCard';
+
+/* ─── Props ──────────────────────────────────────────────── */
+interface SwadhaarDesktopLevelAccordionProps {
+  levelId: string;
+  levelName: string;
+  completedModules: number;
+  totalModules: number;
+  completionPercentage: number;
+  isUnlocked: boolean;
+  isExpanded: boolean;
+  onToggle: () => void;
+  statusData: any[];
+  modules: any[];
+  onModuleClick: (moduleId: string) => void;
+}
+
+/* ─── Main Component ─────────────────────────────────────── */
+const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps> = ({
+  levelId,
+  levelName,
+  completedModules,
+  totalModules,
+  completionPercentage,
+  isUnlocked,
+  isExpanded,
+  onToggle,
+  statusData,
+  modules: rawModules,
+  onModuleClick,
+}) => {
+  const { t } = useTranslation();
+  const isLocked = !isUnlocked;
+  const isCompletedLevel = completionPercentage >= 100;
+
+  const statusMap = useMemo(() => buildStatusMap(statusData), [statusData]);
+  const completionCache = useMemo(
+    () => buildCompletionCache(rawModules, statusMap),
+    [rawModules, statusMap]
+  );
+
+  // Sequential module unlock: module N is unlocked if all previous are 100%
+  const moduleLockState = useMemo(() => {
+    return rawModules.map((_, idx) =>
+      rawModules.slice(0, idx).every((m) => (completionCache.get(m.identifier || m.id) ?? 0) >= 100)
+    );
+  }, [rawModules, completionCache]);
+
+  const headerBorderColor = isLocked ? '#E5E7EB' : isExpanded ? PRIMARY : '#E5E7EB';
+
+  return (
+    <Box
+      id={`swadhaar-desktop-level-accordion-${levelId}`}
+      sx={{
+        mb: 3,           // extra space so the bottom pill doesn't overlap next card
+        position: 'relative',
+        borderRadius: '16px',
+        overflow: 'visible',  // let the pill overflow the border
+        border: `1.5px solid ${headerBorderColor}`,
+        bgcolor: '#fff',
+        opacity: isLocked ? 0.65 : 1,
+        boxShadow: isExpanded && !isLocked ? '0 4px 16px rgba(230,135,60,0.10)' : '0 1px 4px rgba(0,0,0,0.05)',
+        transition: 'all 0.2s ease',
+      }}
+    >
+      {/* Accordion header */}
+      <Box
+        onClick={() => !isLocked && onToggle()}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 2.5,
+          py: 1.75,
+          cursor: isLocked ? 'not-allowed' : 'pointer',
+          bgcolor: isExpanded && !isLocked ? 'rgba(230,135,60,0.04)' : 'transparent',
+          transition: 'background 0.15s',
+        }}
+      >
+        <Box>
+          <Typography
+            sx={{
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 700,
+              fontSize: 14,
+              color: isLocked ? '#9CA3AF' : '#1F2937',
+            }}
+          >
+            {levelName}
+          </Typography>
+          <Typography
+            sx={{
+              fontFamily: 'Inter, sans-serif',
+              fontSize: 11,
+              color: isCompletedLevel ? SUCCESS : '#9CA3AF',
+              mt: 0.25,
+              fontWeight: isCompletedLevel ? 700 : 400,
+            }}
+          >
+            {isCompletedLevel
+              ? t('LEARNER_APP.HOME.COMPLETED')
+              : isLocked
+              ? t('LEARNER_APP.HOME.LOCKED')
+              : t('LEARNER_APP.LEARN.COMPLETED_MODULES', { completed: completedModules, total: totalModules })}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {isCompletedLevel && (
+            <Typography
+              sx={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 12,
+                fontWeight: 700,
+                color: SUCCESS,
+              }}
+            >
+              {completedModules}/{totalModules} modules completed
+            </Typography>
+          )}
+          {isLocked && (
+            <LockRoundedIcon sx={{ color: '#9CA3AF', fontSize: 20 }} />
+          )}
+        </Box>
+      </Box>
+
+      {/* Modules grid */}
+      <Collapse in={isExpanded && !isLocked}>
+        <Box
+          sx={{
+            px: 2.5,
+            pt: 0,
+            pb: 4,  // extra bottom padding so cards sit above the border pill
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 1.75,
+            borderRadius: '0 0 16px 16px',
+            overflow: 'hidden',
+          }}
+        >
+          {rawModules.map((mod, idx) => (
+            <DesktopModuleCard
+              key={mod.identifier}
+              module={mod}
+              completionCache={completionCache}
+              isLocked={!moduleLockState[idx]}
+              onClick={() => onModuleClick(mod.identifier)}
+            />
+          ))}
+        </Box>
+      </Collapse>
+
+      {/* View Less pill — sits centred on the bottom border of the card */}
+      {!isLocked && (
+        <Box
+          onClick={() => !isLocked && onToggle()}
+          sx={{
+            position: 'absolute',
+            bottom: -14,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bgcolor: '#fff',
+            border: '1.5px solid #1C2B4A',
+            borderRadius: '6px',
+            px: 2,
+            py: 0.5,
+            cursor: 'pointer',
+            zIndex: 5,
+            boxShadow: '0 2px 6px rgba(0,0,0,0.10)',
+            '&:hover': { bgcolor: '#F0F4FA' },
+          }}
+        >
+          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#1C2B4A', fontWeight: 600 }}>
+            {isExpanded ? t('LEARNER_APP.HOME.VIEW_LESS') : t('LEARNER_APP.HOME.VIEW_MORE')}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+};
+
+export default SwadhaarDesktopLevelAccordion;

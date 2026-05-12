@@ -23,7 +23,7 @@ export default function SplashScreen() {
           router.push('/swadhaar-home');
         }
       } else {
-        router.push('/language-selection');
+        router.push('/swadhaar-login');
       }
     }, 2500);
     return () => clearTimeout(timer);

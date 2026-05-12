@@ -27,12 +27,13 @@ const style = {
   top: "50%",
   left: "50%",
   transform: "translate(-50%, -50%)",
-  width: { xs: "90vw", sm: "85vw", md: "80vw", lg: 900 },
-  maxHeight: "90vh",
+  width: { xs: "98vw", sm: "95vw", md: "90vw", lg: "85vw" },
+  maxWidth: 1200,
+  maxHeight: "95vh",
   bgcolor: "background.paper",
   borderRadius: 2,
   boxShadow: 24,
-  p: { xs: 2, sm: 3 },
+  p: { xs: 1, sm: 2, md: 3 },
   display: "flex",
   flexDirection: "column",
 };
@@ -84,38 +85,80 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           const lLastName = typeof window !== 'undefined' ? localStorage.getItem('lastName') : null;
           const lName = typeof window !== 'undefined' ? localStorage.getItem('name') : null;
           
-          let holderName = 'Learner';
-          if (isValid(userName)) {
-            holderName = userName!.toString().trim();
-          } else if (isValid(lFirstName)) {
-            holderName = lFirstName!.toString().trim();
-            if (isValid(lLastName)) holderName += " " + lLastName!.toString().trim();
-          } else if (isValid(lName)) {
-            holderName = lName!.toString().trim();
+          const firstName = isValid(lFirstName)
+  ? lFirstName!.toString().trim()
+  : "";
+
+const lastName = isValid(lLastName)
+  ? lLastName!.toString().trim()
+  : "";
+
+let holderName = "Learner";
+
+// Priority 1 → firstName + lastName
+if (firstName || lastName) {
+  holderName = `${firstName} ${lastName}`.trim();
+}
+
+// Priority 2 → explicit userName
+else if (isValid(userName)) {
+  holderName = userName!.toString().trim();
+}
+
+// Priority 3 → generic name
+else if (isValid(lName)) {
+  holderName = lName!.toString().trim();
+}
+          
+          let levelName = 'Swadhaar Course';
+          if (isValid(courseName)) {
+            levelName = courseName!.toString().trim();
           }
           
-          const levelName = courseName || 'Swadhaar Course';
           const certNo = certificateId || 'N/A';
           const logoUrl = typeof window !== 'undefined' ? (window.location.origin + "/images/swadhar_logo.png") : "/images/swadhar_logo.png";
+
+          // Dynamically convert logo to Base64 to prevent CORS issues and guarantee text rendering
+          const logoBase64 = await new Promise<string>((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = logoUrl;
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL("image/png"));
+              } else {
+                resolve("");
+              }
+            };
+            img.onerror = () => resolve("");
+            // Timeout to prevent hanging if image fails
+            setTimeout(() => resolve(""), 2000);
+          });
+
           
           const swadhaarTemplate = `
-<div id="swadhaar-pdf-target" style="width: 800px; height: 560px; background-color: #fff; position: relative; font-family: 'Montserrat', sans-serif; box-sizing: border-box; overflow: hidden; color: #333; display: flex; flex-direction: column; border-top: 40px solid #53331F; padding: 40px 60px;">
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,700;1,400&display=swap');
-    </style>
-    <div style="margin-bottom: 30px;">
-        <img src="${logoUrl}" alt="Swadhaar Logo" style="height: 80px; object-fit: contain;">
+ <div id="swadhaar-pdf-target" style="width: 1122px; height: 794px; background-color: #fff; position: relative; font-family: 'Montserrat', sans-serif; box-sizing: border-box; overflow: hidden; color: #333; display: flex; flex-direction: column; border-top: 60px solid #53331F; padding: 60px 80px;">
+     <style>
+         @import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,400;0,500;0,700;1,400&display=swap');
+     </style>
+     <div style="margin-bottom: 20px;">
+         <img src="${logoBase64}" alt="Swadhaar Logo" style="height: 70px; object-fit: contain; display: ${logoBase64 ? 'block' : 'none'};">
+     </div>
+    <h1 style="font-size: 56px; margin: 0 0 30px 0; font-weight: 500; color: #53331F;">Certificate of Completion</h1>
+    <div style="text-transform: uppercase; letter-spacing: 0.25em; font-size: 20px; margin-bottom: 20px; color: #666;">This certificate is presented to</div>
+    <div style="font-size: 64px; font-style: italic; border-bottom: 4px solid #F7941D; display: block; width: 90%; margin-bottom: 40px; padding-bottom: 10px; font-weight: 700; color: #53331F !important; line-height: 1.2;">${holderName}</div>
+    <div style="margin-top: 15px; font-size: 24px; color: #444;">
+        <div style="margin-bottom: 15px;">For successfully completing the</div>
+        <div style="font-size: 36px; font-weight: 700; border-bottom: 2px solid #ddd; display: block; width: 100%; margin-top: 15px; padding-bottom: 10px; color: #F7941D; line-height: 1.4;">${levelName || "Swadhaar Course"}</div>
     </div>
-    <h1 style="font-size: 44px; margin: 0 0 20px 0; font-weight: 500; color: #53331F;">Certificate of Completion</h1>
-    <div style="text-transform: uppercase; letter-spacing: 0.25em; font-size: 16px; margin-bottom: 15px; color: #666;">This certificate is presented to</div>
-    <div style="font-size: 48px; font-style: italic; border-bottom: 3px solid #F7941D; display: block; width: 90%; margin-bottom: 30px; padding-bottom: 5px; font-weight: 700; color: #53331F !important; line-height: 1.2;">${holderName}</div>
-    <div style="margin-top: 10px; font-size: 20px; color: #444;">
-        <div>For successfully completing the</div>
-        <div style="font-size: 28px; font-weight: 700; border-bottom: 1px solid #ddd; display: inline-block; min-width: 50%; margin-top: 10px; padding-bottom: 5px; color: #F7941D;">${levelName}</div>
-    </div>
-    <div style="position: absolute; bottom: 15px; left: 40px; font-size: 11px; color: #fff; font-family: monospace; z-index: 20;">Certificate No. ${certNo}</div>
-    <div style="position: absolute; bottom: -20px; right: -20px; width: 120px; height: 120px; background: #F7941D; border-radius: 50%; opacity: 0.8; z-index: 1;"></div>
-    <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 100px; background: #53331F; clip-path: polygon(0 40%, 100% 0, 100% 100%, 0 100%);"></div>
+
+    <div style="position: absolute; bottom: -20px; right: -20px; width: 180px; height: 160px; background: #F7941D; border-radius: 50%; opacity: 0.8; z-index: 1;"></div>
+    <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 120px; background: #53331F; clip-path: polygon(0 40%, 100% 0, 100% 100%, 0 100%);"></div>
 </div>
 `;
           setCertificateHtml(swadhaarTemplate);
@@ -232,8 +275,9 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           filename: fileName,
           image: { type: 'jpeg', quality: 0.98 },
           html2canvas: { scale: 2, useCORS: true, letterRendering: true },
-          jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+          jsPDF: { unit: 'in', format: 'a4', orientation: 'landscape' }
         };
+
 
         // Generate blob output instead of saving directly
         const pdfBlob: Blob = await html2pdf().set(opt).from(certificateHtml).outputPdf('blob');
@@ -299,10 +343,10 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           style={{
             width: "100%",
             aspectRatio: "800 / 560",
-            maxHeight: "75vh",
+            maxHeight: "82vh",
             border: "none",
-            borderRadius: "8px",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+            borderRadius: "4px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.08)"
           }}
         />
       </Box>
@@ -310,7 +354,14 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
   };
 
   return (
-    <Modal open={open} onClose={handleClose}>
+    <Modal 
+      open={open} 
+      onClose={(event, reason) => {
+        if (reason !== 'backdropClick' && reason !== 'escapeKeyDown') {
+          handleClose();
+        }
+      }}
+    >
       <Box sx={style}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
           <Typography variant="h6">Certificate</Typography>
@@ -333,7 +384,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           </Stack>
         </Stack>
 
-        <Box sx={{ maxHeight: "80vh", overflowY: "auto" }}>
+        <Box sx={{ maxHeight: "85vh", overflowY: "auto" }}>
           {loading ? (
             <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "400px" }}>
               <Typography variant="h6">Processing...</Typography>

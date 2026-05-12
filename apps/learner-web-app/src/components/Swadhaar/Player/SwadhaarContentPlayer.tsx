@@ -172,6 +172,29 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
     }
   }, [identifier, blobType, needsUrl, propContentUrl, propBody, description, children]);
 
+  // ── Iframe Message Listener for Sunbird Content (PDF/EPUB/ECML) ──
+  useEffect(() => {
+    if (blobType !== "sunbird") return;
+
+    const handlePlayerMessage = (event: MessageEvent) => {
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        console.log('[CONTENT-PLAYER] Received message:', data?.eid || data?.event || 'unknown');
+        
+        // Sunbird player sends 'END' or 'SUMMARY' when content finishes
+        if (data?.eid === 'END' || data?.eid === 'SUMMARY') {
+          console.log('[CONTENT-PLAYER] Completion event detected from iframe');
+          onComplete?.();
+        }
+      } catch (e) {
+        // ignore non-JSON messages
+      }
+    };
+
+    window.addEventListener('message', handlePlayerMessage);
+    return () => window.removeEventListener('message', handlePlayerMessage);
+  }, [blobType, onComplete]);
+
   const [hasStartedAttempt, setHasStartedAttempt] = useState(false);
   const [prevAttempts, setPrevAttempts] = useState(attempts);
   const [refreshedAttempts, setRefreshedAttempts] = useState<number | null>(null);
@@ -201,7 +224,7 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
   // Sync: if backend returns a HIGHER count than local (e.g. completed on another device),
   // update local. Guard against inflating past maxAttempts from an optimistic update.
   useEffect(() => {
-    if (attempts && attempts > localAttempts && attempts < maxAttempts) {
+    if (attempts && attempts > localAttempts && attempts <= maxAttempts) {
       setLocalAttempts(attempts);
       if (typeof window !== 'undefined') {
         localStorage.setItem(getAttemptKey(), attempts.toString());
@@ -210,13 +233,15 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
   }, [attempts, identifier, localAttempts, maxAttempts]);
 
   useEffect(() => {
-    if (attempts > prevAttempts) {
+    const cur = attempts ?? 0;
+    const prev = prevAttempts ?? 0;
+    if (cur > prev) {
       setHasStartedAttempt(false);
-      setPrevAttempts(attempts);
+      setPrevAttempts(cur);
     }
   }, [attempts, prevAttempts]);
 
-  const handleQuizComplete = async (score?: number) => {
+  const handleQuizComplete = React.useCallback(async (score?: number) => {
     const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : '';
     const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenantId') : '';
     
@@ -256,7 +281,7 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
     }
     
     onComplete?.(score);
-  };
+  }, [courseId, identifier, localAttempts, onComplete]);
 
   if (loading) {
     return (
@@ -269,7 +294,7 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
 
   const currentAttemptsValue = refreshedAttempts !== null ? refreshedAttempts : (localAttempts || 0);
   const effectiveAttempts = hasStartedAttempt ? (currentAttemptsValue || 0) + 1 : (currentAttemptsValue || 0);
-  const isReviewMode = effectiveAttempts >= maxAttempts;
+  const isReviewMode = currentAttemptsValue >= maxAttempts;
 
   switch (blobType) {
     case "video":

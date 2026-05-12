@@ -56,16 +56,9 @@ const NameEditField: React.FC<NameEditFieldProps> = ({
         value={value}
         onChange={(e) => {
           const newValue = e.target.value;
-          const containsLetters = /[a-zA-Z]/.test(newValue);
-          
-          if (containsLetters) {
-            // If it has letters, only allow letters and spaces
-            const filteredValue = newValue.replace(/[^a-zA-Z\s]/g, "");
-            setValue(filteredValue);
-          } else {
-            // If it's just digits or empty, allow it to facilitate backspacing
-            setValue(newValue);
-          }
+          // Allow only alphanumeric characters and spaces
+          const filteredValue = newValue.replace(/[^a-zA-Z0-9\s]/g, "");
+          setValue(filteredValue);
           setError("");
         }}
         variant="outlined"
