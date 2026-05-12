@@ -24,12 +24,18 @@ export const getSwadhaarTemplate = ({
   box-sizing:border-box;
 }
 
+${
+  isPdf
+    ? ""
+    : `
 html,body{
-  width:${isPdf ? "1600px" : "100%"};
-  height:${isPdf ? "900px" : "100%"};
-  overflow:${isPdf ? "hidden" : "auto"};
-  background:${isPdf ? "#fff" : "#f5f5f5"};
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  background: #f5f5f5;
   font-family:'Montserrat',sans-serif;
+}
+`
 }
 
 .preview-wrapper{

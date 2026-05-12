@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Modal,
   Box,
@@ -25,22 +25,28 @@ declare const html2pdf: any;
 const DEFAULT_TEMPLATE_ID = "cm7nbogii000moc3gth63l863";
 
 const style = {
-  position: "absolute" as const,
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
+  position: "fixed" as const,
+  inset: 0,
+
+  margin: "auto",
+
   width: {
     xs: "98vw",
     sm: "95vw",
     md: "92vw",
     lg: "90vw",
   },
+
+  height: "fit-content",
+
   maxWidth: "1600px",
   maxHeight: "96vh",
+
   bgcolor: "background.paper",
   borderRadius: "16px",
   boxShadow: 24,
   p: 2,
+
   display: "flex",
   flexDirection: "column",
 };
@@ -53,15 +59,11 @@ interface CertificateModalProps {
   setOpen: (open: boolean) => void;
 }
 
-const CertificatePage: React.FC<{
+const CertificatePage = React.memo<{
   htmlContent: string;
-}> = ({ htmlContent }) => {
-
-  const encodedHtml =
-    encodeURIComponent(htmlContent);
-
-  const dataUri =
-    `data:text/html;charset=utf-8,${encodedHtml}`;
+}>(({ htmlContent }) => {
+  const encodedHtml = encodeURIComponent(htmlContent);
+  const dataUri = `data:text/html;charset=utf-8,${encodedHtml}`;
 
   return (
     <Box
@@ -102,7 +104,7 @@ const CertificatePage: React.FC<{
       </Box>
     </Box>
   );
-};
+});
 
 export const CertificateModal: React.FC<CertificateModalProps> = ({
   certificateId,
@@ -219,6 +221,19 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
     fetchCertificate();
   }, [certificateId, userName, courseName]);
 
+interface CertificateActionsProps {
+  certificateHtml: string;
+  courseName?: string;
+  userName?: string;
+}
+
+const CertificateActions: React.FC<CertificateActionsProps> = ({
+  certificateHtml,
+  courseName,
+  userName,
+}) => {
+  const [actionLoading, setActionLoading] = useState(false);
+
   const generatePdf = async () => {
     let wrapper: HTMLDivElement | null = null;
     try {
@@ -276,22 +291,27 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
       wrapper = document.createElement("div");
       wrapper.style.position = "fixed";
       wrapper.style.top = "0";
-      wrapper.style.left = "-2000px"; // Off-screen but "visible"
-      wrapper.style.width = "1600px";
-      wrapper.style.height = "900px";
+      wrapper.style.left = "0";
+      wrapper.style.width = "1px";
+      wrapper.style.height = "1px";
+      wrapper.style.overflow = "hidden";
       wrapper.style.zIndex = "-9999";
       wrapper.style.opacity = "0";
       wrapper.style.pointerEvents = "none";
-      wrapper.innerHTML = html;
+
+      const renderRoot = document.createElement("div");
+      renderRoot.style.width = "1600px";
+      renderRoot.style.height = "900px";
+      renderRoot.innerHTML = html;
+      wrapper.appendChild(renderRoot);
       document.body.appendChild(wrapper);
 
       await document.fonts.ready;
       await new Promise((r) => setTimeout(r, 1000));
 
-      const element = wrapper.querySelector("#certificate-pdf") as HTMLElement;
+      const element = renderRoot.querySelector("#certificate-pdf") as HTMLElement;
       if (!element) throw new Error("Certificate element not found");
 
-      // Ensure dimensions are captured correctly
       const canvas = await html2canvas(element, {
         scale: 2,
         useCORS: true,
@@ -300,7 +320,7 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
         logging: true,
         width: 1600,
         height: 900,
-        onclone: (clonedDoc) => {
+        onclone: (clonedDoc:any) => {
           const clonedElement = clonedDoc.querySelector("#certificate-pdf") as HTMLElement;
           if (clonedElement) {
             clonedElement.style.visibility = "visible";
@@ -330,20 +350,20 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
 
   const onDownloadCertificate = async () => {
     try {
-      setLoading(true);
+      setActionLoading(true);
       const { pdf, safeName } = await generatePdf();
       pdf.save(`Swadhaar_Certificate_${safeName}.pdf`);
     } catch (e) {
       console.error("Download Error:", e);
       alert("Failed to download certificate.");
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
 
   const onShare = async () => {
     try {
-      setLoading(true);
+      setActionLoading(true);
       const { pdfBlob, safeName } = await generatePdf();
       const fileName = `Swadhaar_Certificate_${safeName}.pdf`;
       const file = new File([pdfBlob], fileName, { type: "application/pdf" });
@@ -368,15 +388,40 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
         alert("Failed to share certificate.");
       }
     } finally {
-      setLoading(false);
+      setActionLoading(false);
     }
   };
+
+  return (
+    <Stack direction="row" spacing={1}>
+      <Tooltip title="Download">
+        <IconButton
+          onClick={onDownloadCertificate}
+          disabled={actionLoading}
+          sx={{ color: actionLoading ? 'text.disabled' : 'inherit' }}
+        >
+          <DownloadIcon />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Share">
+        <IconButton
+          onClick={onShare}
+          disabled={actionLoading}
+          sx={{ color: actionLoading ? 'text.disabled' : 'inherit' }}
+        >
+          <ShareIcon />
+        </IconButton>
+      </Tooltip>
+    </Stack>
+  );
+};
 
   const handleClose = () => setOpen(false);
 
   return (
     <Modal
       open={open}
+      disableScrollLock
       onClose={(event, reason) => {
         if (reason !== "backdropClick" && reason !== "escapeKeyDown") {
           handleClose();
@@ -389,16 +434,13 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
             Certificate
           </Typography>
           <Stack direction="row" spacing={1}>
-            <Tooltip title="Download">
-              <IconButton onClick={onDownloadCertificate} disabled={loading}>
-                <DownloadIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Share">
-              <IconButton onClick={onShare} disabled={loading}>
-                <ShareIcon />
-              </IconButton>
-            </Tooltip>
+            {certificateHtml && (
+              <CertificateActions
+                certificateHtml={certificateHtml}
+                courseName={courseName}
+                userName={userName}
+              />
+            )}
             <Tooltip title="Close">
               <IconButton onClick={handleClose}>
                 <CloseIcon />
@@ -407,13 +449,15 @@ export const CertificateModal: React.FC<CertificateModalProps> = ({
           </Stack>
         </Stack>
 
-        <Box sx={{ width: "100%", flex: 1, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center" }}>
+        <Box sx={{ width: "100%", flex: 1, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center",minHeight: 0, }}>
           {loading ? (
             <Box sx={{ height: "400px", display: "flex", justifyContent: "center", alignItems: "center" }}>
               <Typography variant="h6">Processing...</Typography>
             </Box>
           ) : certificateHtml ? (
-            <CertificatePage htmlContent={certificateHtml} />
+            <Box sx={{ width: "100%", height: "100%" }}>
+              <CertificatePage htmlContent={certificateHtml} />
+            </Box>
           ) : (
             <Box sx={{ height: "400px", display: "flex", justifyContent: "center", alignItems: "center" }}>
               <Typography variant="h6" color="text.secondary">

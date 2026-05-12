@@ -177,6 +177,7 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
               key={idx}
               id={`swadhaar-otp-${idx}`}
               value={digit}
+              disabled={!otpSent}
               onChange={(e) => onOtpChange(idx, e.target.value)}
               onKeyDown={(e) => onOtpKeyDown(idx, e as React.KeyboardEvent<HTMLInputElement>)}
               inputProps={{

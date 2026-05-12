@@ -382,6 +382,7 @@ export default function SwadhaarLoginPage() {
               key={idx}
               id={`swadhaar-otp-${idx}`}
               value={digit}
+              disabled={!otpSent}
               onChange={(e) => handleOtpChange(idx, e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Backspace' && otp[idx] === '' && idx > 0) focusOtpInput(idx - 1);
