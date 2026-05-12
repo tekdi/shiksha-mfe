@@ -231,10 +231,11 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
 
   // Periodically sync status
   useEffect(() => {
+    if (completionModal || alertsOpen || editProfileOpen || logoutConfirmOpen) return;
     syncStatus();
     const interval = setInterval(syncStatus, 8000);
     return () => clearInterval(interval);
-  }, [syncStatus]);
+  }, [syncStatus, completionModal, alertsOpen, editProfileOpen, logoutConfirmOpen]);
 
   const buildStatusMap = useCallback((statusList: any[]) => {
     const map = new Map<string, any>();

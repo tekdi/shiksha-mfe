@@ -102,45 +102,47 @@ export default function LessonViewerPage() {
       const userId = localStorage.getItem('userId') || '';
       const tenantId = localStorage.getItem('tenantId') || tenant?.tenantId || '';
 
-      const courseHierarchy = await getCourseHierarchy(courseId);
-      const flatLessons: any[] = [];
-
-      const flattenLessons = (node: any, parentModuleId: string, parentSubId: string) => {
-        const isCollection = node.mimeType === 'application/vnd.ekstep.content-collection' || 
-                           node.contentType === 'CourseUnit' || 
-                           node.contentType === 'TextBookUnit';
-        
-        if (node.children && node.children.length > 0) {
-          node.children.forEach((child: any) => {
-            // Identify module context: if node is course, its children are modules
-            const nextModuleId = node.identifier === courseId ? child.identifier : parentModuleId;
-            flattenLessons(child, nextModuleId, node.identifier);
-          });
-        } else if (!isCollection && node.identifier !== courseId) {
-          flatLessons.push({ ...node, parentModuleId, parentSubtopicId: parentSubId });
-        }
-      };
-
-      flattenLessons(courseHierarchy, courseId, courseId);
-      
-      const moduleHierarchy = await getCourseHierarchy(moduleId);
-      const subtopics = moduleHierarchy?.children || [];
-      const currentSubtopic = subtopics.find((s: any) => s.identifier === subtopicId) || await getCourseHierarchy(subtopicId);
-      setSubtopicName(prev => prev === currentSubtopic?.name ? prev : (currentSubtopic?.name || 'Lesson Detail'));
-      
-      const collectAllIds = (nodes: any[]): string[] => {
-        const ids: string[] = [];
-        nodes.forEach((n: any) => {
-          ids.push(n.identifier);
-          if (n.children && n.children.length > 0) ids.push(...collectAllIds(n.children));
-        });
-        return ids;
-      };
-
       let status: any[] = [];
       if (userId && tenantId) {
+        let currentFlatLessons = allLessons;
+
+        if (!isSilent || allLessons.length === 0) {
+          const courseHierarchy = await getCourseHierarchy(courseId);
+          const flatLessons: any[] = [];
+
+          const flattenLessons = (node: any, parentModuleId: string, parentSubId: string) => {
+            const isCollection = node.mimeType === 'application/vnd.ekstep.content-collection' || 
+                               node.contentType === 'CourseUnit' || 
+                               node.contentType === 'TextBookUnit';
+            
+            if (node.children && node.children.length > 0) {
+              node.children.forEach((child: any) => {
+                // Identify module context: if node is course, its children are modules
+                const nextModuleId = node.identifier === courseId ? child.identifier : parentModuleId;
+                flattenLessons(child, nextModuleId, node.identifier);
+              });
+            } else if (!isCollection && node.identifier !== courseId) {
+              flatLessons.push({ ...node, parentModuleId, parentSubtopicId: parentSubId });
+            }
+          };
+
+          flattenLessons(courseHierarchy, courseId, courseId);
+          currentFlatLessons = flatLessons;
+          
+          const moduleHierarchy = await getCourseHierarchy(moduleId);
+          const subtopics = moduleHierarchy?.children || [];
+          const currentSubtopic = subtopics.find((s: any) => s.identifier === subtopicId) || await getCourseHierarchy(subtopicId);
+          setSubtopicName(prev => prev === currentSubtopic?.name ? prev : (currentSubtopic?.name || 'Lesson Detail'));
+          
+          setAllLessons(flatLessons);
+          const activeLesson = flatLessons.find((l: any) => l.identifier === lessonId) 
+            || (flatLessons.length > 0 ? flatLessons[0] : (currentSubtopic && !currentSubtopic.children ? currentSubtopic : null));
+          
+          setCurrentLesson((prev: any) => prev?.identifier === activeLesson?.identifier ? prev : activeLesson);
+        }
+
         // Fetch status for the entire course to enable cross-module completion checks
-        const allIds = [...new Set([courseId, ...collectAllIds(flatLessons)])];
+        const allIds = [...new Set([courseId, ...currentFlatLessons.map(l => l.identifier)])];
         status = await getContentCourseStatus([userId], allIds, tenantId).catch(() => []);
       }
       
@@ -224,11 +226,12 @@ export default function LessonViewerPage() {
 
   // ✅ Periodically refresh status silently to avoid player reset
   useEffect(() => {
+    if (isDesktop && isSwadhaarTenant) return; // Desktop player handles its own sync
     const interval = setInterval(() => {
       loadData(true); 
     }, 5000); 
     return () => clearInterval(interval);
-  }, [loadData]);
+  }, [loadData, isDesktop, isSwadhaarTenant]);
 
   useEffect(() => {
     loadData();
