@@ -8,4 +8,8 @@ const firebaseConfig = {
     measurementId: process.env.NEXT_PUBLIC_FCM_MEASUREMENT_ID,
 };
 
+if (!firebaseConfig.projectId) {
+    console.warn('Firebase projectId is missing. Firebase features will be disabled.');
+}
+
 export default firebaseConfig;

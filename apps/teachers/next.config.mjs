@@ -28,7 +28,7 @@ const nextConfig = {
   },
 
   //cross import support
-  transpilePackages: ['@shared-lib-v2/*'],
+  transpilePackages: ['@shared-lib-v2', 'firebase', 'date-fns'],
 
   // @ts-ignore
   i18n: nextI18nextConfig.i18n,
@@ -69,7 +69,7 @@ const nextConfig = {
       },
       {
         source: '/assets/public/:path*', // Match any URL starting with /assets/public/
-        destination: `${process.env.CLOUD_STORAGE_URL}/:path*`, // Forward to workspace proxy
+        destination: `${process.env.NEXT_PUBLIC_CLOUD_STORAGE_URL}/:path*`, // Forward to workspace proxy
       },
 
       {

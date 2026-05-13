@@ -1,6 +1,7 @@
 import nextI18nextConfig from './next-i18next.config.js';
-import withPWA from 'next-pwa';
+import withPWAInit from '@ducanh2912/next-pwa';
 import { NextFederationPlugin } from '@module-federation/nextjs-mf';
+import path from 'node:path';
 const url = process.env.NEXT_PUBLIC_WORKSPACE_BASE_URL;
 // const url = 'http://localhost:3000';
 
@@ -36,7 +37,7 @@ const nextConfig = {
 
 
   //cross import support
-  transpilePackages: ['@shared-lib-v2/*'],
+  transpilePackages: ['@shared-lib-v2', 'date-fns'],
 
   trailingSlash: false,
   reactStrictMode: true,
@@ -44,10 +45,6 @@ const nextConfig = {
   distDir: 'build',
   images: {
     unoptimized: true,
-  },
-  reactStrictMode: true,
-  experimental: {
-    esmExternals: false,
   },
   basePath: '/scp-teacher-repo', // This should match the path set in Nginx
   async rewrites() {
@@ -116,16 +113,19 @@ const nextConfig = {
         exposes: {},
       })
     );
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'date-fns': path.resolve(process.cwd(), '../../node_modules/date-fns'),
+    };
     return config;
   },
 };
 
-const pwaConfig = withPWA({
+const withPWA = withPWAInit({
   dest: 'public',
   register: true,
   skipWaiting: false,
   disable: process.env.NODE_ENV === 'development',
 });
 
-export default pwaConfig(nextConfig);
-// export default nextConfig;
+export default withPWA(nextConfig);

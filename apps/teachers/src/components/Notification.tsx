@@ -3,13 +3,9 @@ import toast, { Toaster } from 'react-hot-toast';
 // import { onMessageListener } from './../../firebase';
 import { useRouter } from 'next/router';
 import { Box } from '@mui/material';
-import { initializeApp } from 'firebase/app';
-
 import CloseIcon from '@mui/icons-material/Close';
-import { onMessageListener } from 'apps/teachers/firebase';
-import { getMessaging, onMessage } from 'firebase/messaging';
-import firebaseConfig from 'apps/teachers/firebaseConfig';
-const firebaseApp = initializeApp(firebaseConfig);
+import { messaging } from '../../firebase';
+import { onMessage } from 'firebase/messaging';
 
 type NotificationData = {
   title: string;
@@ -26,7 +22,7 @@ const Notification = () => {
   });
 
   const router = useRouter();
-console.log("notification teacher app")
+
   const notify = () =>
     toast(<ToastDisplay />, {
       duration: 4000,
@@ -49,45 +45,45 @@ console.log("notification teacher app")
   function ToastDisplay() {
     return (
       <Box
-      className="notification-container"
-      sx={{ display: 'flex', gap: '8px' }}
-      onClick={handleNotificationClick}
-    >
-      {notification.icon && (
-        <img
-          className="notification-icon"
-          src={notification.icon}
-          alt="Notification"
-        />
-      )}
+        className="notification-container"
+        sx={{ display: 'flex', gap: '8px' }}
+        onClick={handleNotificationClick}
+      >
+        {notification.icon && (
+          <img
+            className="notification-icon"
+            src={notification.icon}
+            alt="Notification"
+          />
+        )}
 
-      <Box>
-        <Box sx={{ fontSize: '16px', fontWeight: '500', color: '#019722' }}>
-          {notification.title}
+        <Box>
+          <Box sx={{ fontSize: '16px', fontWeight: '500', color: '#019722' }}>
+            {notification.title}
+          </Box>
+          <Box
+            sx={{
+              fontSize: '14px',
+              fontWeight: '400',
+              color: '#1F1B13',
+              marginTop: '8px',
+            }}
+          >
+            {notification.body}
+          </Box>
         </Box>
         <Box
-          sx={{
-            fontSize: '14px',
-            fontWeight: '400',
-            color: '#1F1B13',
-            marginTop: '8px',
+          className="close-icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            closeNotification();
           }}
         >
-          {notification.body}
+          <CloseIcon
+            sx={{ color: '#1C1B1F', fontSize: '16px', cursor: 'pointer' }}
+          />
         </Box>
       </Box>
-      <Box
-        className="close-icon"
-        onClick={(e) => {
-          e.stopPropagation();
-          closeNotification();
-        }}
-      >
-        <CloseIcon
-          sx={{ color: '#1C1B1F', fontSize: '16px', cursor: 'pointer' }}
-        />
-      </Box>
-    </Box>
     );
   }
 
@@ -97,11 +93,9 @@ console.log("notification teacher app")
     }
   }, [notification]);
 
-   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      const messaging = getMessaging(firebaseApp); // ✅ Initialize here
-
-      const unsubscribe = onMessage(messaging, (payload) => {
+  useEffect(() => {
+    if (typeof globalThis.window !== 'undefined' && 'Notification' in globalThis.window && messaging) {
+      const unsubscribe = onMessage(messaging, (payload: any) => {
         console.log('Foreground message received:', payload);
         if (payload.notification?.title) {
           setNotification({
@@ -116,18 +110,6 @@ console.log("notification teacher app")
       return () => unsubscribe();
     }
   }, []);
-  onMessageListener()
-    .then((payload) => {
-      if (payload.notification?.title) {
-        setNotification({
-          title: payload.notification.title,
-          body: payload.notification.body,
-          icon: payload.notification.icon,
-          navigate_to: payload.notification.navigate_to,
-        });
-      }
-    })
-    .catch((err) => console.log('failed: ', err));
 
   return <Toaster />;
 };
