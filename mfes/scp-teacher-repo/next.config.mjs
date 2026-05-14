@@ -64,10 +64,12 @@ const nextConfig = {
         source: '/play/content/assets/:path*', // Match any URL starting with /workspace/content/assets/
         destination: `${process.env.NEXT_PUBLIC_WORKSPACE_BASE_URL}/assets/:path*`, // Serve the assets from the public folder
       },
-      {
-        source: `/action/v1/telemetry`,
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
+      ...(process.env.NEXT_PUBLIC_TELEMETRY_URL ? [
+        {
+          source: `/action/v1/telemetry`,
+          destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        },
+      ] : []),
       {
         source: '/action/asset/:path*', // Match other /action/asset routes
         destination: `${process.env.NEXT_PUBLIC_WORKSPACE_BASE_URL}/api/proxy?path=/action/asset/:path*`, // Forward other /action/asset requests to proxy.js
@@ -84,10 +86,12 @@ const nextConfig = {
         source: '/api/:path*', // Match /api/ routes
         destination: `${process.env.NEXT_PUBLIC_WORKSPACE_BASE_URL}/api/proxy?path=/api/:path*`, // Forward them to proxy.js
       },
-      {
-        source: '/assets/public/:path*', // Match any URL starting with /assets/public/
-        destination: `${process.env.CLOUD_STORAGE_URL}/:path*`, // Forward to workspace proxy
-      },
+      ...(process.env.CLOUD_STORAGE_URL ? [
+        {
+          source: '/assets/public/:path*',
+          destination: `${process.env.CLOUD_STORAGE_URL}/:path*`,
+        },
+      ] : []),
 
       {
         source: '/app/telemetry', // Match telemetry route

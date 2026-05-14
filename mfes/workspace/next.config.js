@@ -62,25 +62,27 @@ const nextConfig = {
         source: '/action/content/:path*', // Match other /action/asset routes
         destination: '/api/proxy?path=/action/content/:path*', // Forward other /action/asset requests to proxy.js
       },
+      ...(process.env.NEXT_PUBLIC_TELEMETRY_URL ? [
+        {
+          source: '/action/v1/telemetry',
+          destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        },
+        {
+          source: '/action/data/v3/telemetry',
+          destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        },
+        {
+          source: '/data/v3/telemetry',
+          destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        },
+      ] : []),
       {
-        source: '/action/v1/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        source: '/action/:path*',
+        destination: '/api/proxy?path=/action/:path*',
       },
       {
-        source: '/action/data/v3/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: '/data/v3/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: '/action/:path*', // Match any other routes starting with /action/
-        destination: '/api/proxy?path=/action/:path*', // Forward them to proxy.js
-      },
-      {
-        source: '/api/:path*', // Match /api/ routes
-        destination: '/api/proxy?path=/api/:path*', // Forward them to proxy.js
+        source: '/api/:path*',
+        destination: '/api/proxy?path=/api/:path*',
       },
       {
         source: '/assets/public/:path*', // Match any URL starting with /assets/public/

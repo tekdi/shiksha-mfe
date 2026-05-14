@@ -73,18 +73,20 @@ const nextConfig = {
         source: '/mfe_workspace/assets/:path*', // Match all requests under /mfe_workspace/assets
         destination: '/mfe_workspace/assets/:path*', // Serve from public/
       },
-      {
-        source: '/action/v1/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: '/action/data/v3/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: '/data/v3/telemetry',
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
+      ...(process.env.NEXT_PUBLIC_TELEMETRY_URL ? [
+        {
+          source: '/action/v1/telemetry',
+          destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        },
+        {
+          source: '/action/data/v3/telemetry',
+          destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        },
+        {
+          source: '/data/v3/telemetry',
+          destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
+        },
+      ] : []),
       {
         source: '/action/content/:path*',
         destination: `${process.env.NEXT_PUBLIC_WORKSPACE_BASE_URL}/api/proxy?path=/action/content/:path*`,
@@ -101,10 +103,12 @@ const nextConfig = {
         source: '/api/:path*',
         destination: `${process.env.NEXT_PUBLIC_WORKSPACE_BASE_URL}/api/proxy?path=/api/:path*`,
       },
-      {
-        source: '/assets/public/:path*',
-        destination: `${process.env.CLOUD_STORAGE_URL}/:path*`,
-      },
+      ...(process.env.CLOUD_STORAGE_URL ? [
+        {
+          source: '/assets/public/:path*',
+          destination: `${process.env.CLOUD_STORAGE_URL}/:path*`,
+        },
+      ] : []),
       {
         source: routes.API.GENERAL.CONTENT_PREVIEW,
         // destination: `${PORTAL_BASE_URL}${routes.API.GENERAL.CONTENT_PREVIEW}`,

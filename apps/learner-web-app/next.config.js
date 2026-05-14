@@ -94,23 +94,35 @@ const nextConfig = {
     return config;
   },
   async rewrites() {
+    const telemetryUrl = process.env.NEXT_PUBLIC_TELEMETRY_URL || '';
+    const cloudStorageUrl = process.env.NEXT_PUBLIC_CLOUD_STORAGE_URL || '';
+
+    // Skip rewrites entirely if env vars are not configured.
+    // This prevents the "destination does not start with /" fatal error.
+    const dynamicRewrites = [];
+
+    if (telemetryUrl) {
+      dynamicRewrites.push(
+        {
+          source: "/data/v3/telemetry",
+          destination: `${telemetryUrl}/v1/telemetry`,
+        },
+        {
+          source: "/v1/telemetry",
+          destination: `${telemetryUrl}/v1/telemetry`,
+        }
+      );
+    }
+
+    if (cloudStorageUrl) {
+      dynamicRewrites.push({
+        source: "/assets/public/:path*",
+        destination: `${cloudStorageUrl}/:path*`,
+      });
+    }
+
     return [
-      {
-        source: "/data/v3/telemetry",
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: "/v1/telemetry",
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: "/data/v3/telemetry",
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: "/assets/public/:path*", // Match any URL starting with /assets/public/
-        destination: `${process.env.NEXT_PUBLIC_CLOUD_STORAGE_URL}/:path*`, // Forward to S3, stripping "/assets/public"
-      },
+      ...dynamicRewrites,
       //for player content v1
       {
         source: routes.API.GENERAL.CONTENT_PREVIEW,
