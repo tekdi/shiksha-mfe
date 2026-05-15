@@ -18,7 +18,7 @@ import {
   getLocalStoredUserName,
 } from "../services/LocalStorageService";
 import { fetchCCTAList } from "../services/userServices";
-import { sendCredentialService } from "../services/NotificationService";
+import { sendCredentialService } from "../services/notificationService";
 import useTenantConfig from "../hooks/useTenantConfig";
 const GenericEditor: React.FC = () => {
   const tenantConfig = useTenantConfig();
