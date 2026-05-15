@@ -8,7 +8,7 @@ import {
   getLocalStoredUserSpecificBoard
 } from "../services/LocalStorageService";
 import { fetchCCTAList } from "../services/userServices";
-import { sendCredentialService } from "../services/NotificationService";
+import { sendCredentialService } from "../services/notificationService";
 import useTenantConfig from "../hooks/useTenantConfig";
 import { sendContentNotification } from "../services/sendContentNotification";
 import { ContentStatus, Editor } from "../utils/app.constant";

@@ -49,3 +49,9 @@ out
 .env
 .env.dev
 .env.dev.env.dev
+
+# Python local artifacts
+ai-gateway/.venv/
+ai-gateway/.pytest_cache/
+**/__pycache__/
+*.pyc

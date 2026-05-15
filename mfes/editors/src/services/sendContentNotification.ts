@@ -1,5 +1,5 @@
 import { formatDate } from "../utils/Helper";
-import { sendCredentialService } from "./NotificationService";
+import { sendCredentialService } from "./notificationService";
 import { getLocalStoredUserName } from "./LocalStorageService";
 import { getUserDetailsInfo } from "./userServices";
 import { ContentStatus, Editor } from "../utils/app.constant";
