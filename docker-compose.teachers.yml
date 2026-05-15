@@ -4,6 +4,17 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.teachers
+      # NEXT_PUBLIC_* vars must be passed at build time because Next.js
+      # inlines them into the JavaScript bundle during `next build`.
+      args:
+        NEXT_PUBLIC_MIDDLEWARE_URL: ${NEXT_PUBLIC_MIDDLEWARE_URL}
+        NEXT_PUBLIC_TELEMETRY_URL: ${NEXT_PUBLIC_TELEMETRY_URL:-}
+        NEXT_PUBLIC_CLOUD_STORAGE_URL: ${NEXT_PUBLIC_CLOUD_STORAGE_URL:-}
+        NEXT_PUBLIC_WORKSPACE_BASE_URL: ${NEXT_PUBLIC_WORKSPACE_BASE_URL:-http://localhost:4104}
+        NEXT_PUBLIC_TENANT_ID: ${NEXT_PUBLIC_TENANT_ID:-}
+        NEXT_PUBLIC_FRAMEWORK_ID: ${NEXT_PUBLIC_FRAMEWORK_ID:-}
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-}
+        CLOUD_STORAGE_URL: ${CLOUD_STORAGE_URL:-}
     ports:
       - '3001:3001'
       - '4101:4101'

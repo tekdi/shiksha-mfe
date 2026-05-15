@@ -12,6 +12,33 @@ RUN npm install --legacy-peer-deps
 # Copy the entire NX workspace
 COPY . .
 
+# --------------------------------------------------------------------------
+# NEXT_PUBLIC_* variables MUST be available at build time because Next.js
+# inlines them into the client bundle during `next build`. Setting them only
+# at runtime via docker-compose `environment:` has NO effect.
+#
+# Usage:
+#   docker compose build --build-arg NEXT_PUBLIC_MIDDLEWARE_URL=https://...
+#   or set them in docker-compose.yml under `build.args`.
+# --------------------------------------------------------------------------
+ARG NEXT_PUBLIC_MIDDLEWARE_URL
+ARG NEXT_PUBLIC_TELEMETRY_URL
+ARG NEXT_PUBLIC_CLOUD_STORAGE_URL
+ARG NEXT_PUBLIC_WORKSPACE_BASE_URL
+ARG NEXT_PUBLIC_TENANT_ID
+ARG NEXT_PUBLIC_FRAMEWORK_ID
+ARG NEXT_PUBLIC_BASE_URL
+ARG CLOUD_STORAGE_URL
+
+ENV NEXT_PUBLIC_MIDDLEWARE_URL=$NEXT_PUBLIC_MIDDLEWARE_URL
+ENV NEXT_PUBLIC_TELEMETRY_URL=$NEXT_PUBLIC_TELEMETRY_URL
+ENV NEXT_PUBLIC_CLOUD_STORAGE_URL=$NEXT_PUBLIC_CLOUD_STORAGE_URL
+ENV NEXT_PUBLIC_WORKSPACE_BASE_URL=$NEXT_PUBLIC_WORKSPACE_BASE_URL
+ENV NEXT_PUBLIC_TENANT_ID=$NEXT_PUBLIC_TENANT_ID
+ENV NEXT_PUBLIC_FRAMEWORK_ID=$NEXT_PUBLIC_FRAMEWORK_ID
+ENV NEXT_PUBLIC_BASE_URL=$NEXT_PUBLIC_BASE_URL
+ENV CLOUD_STORAGE_URL=$CLOUD_STORAGE_URL
+
 # Build all applications
 # RUN npx nx run-many --target=build --all
 
