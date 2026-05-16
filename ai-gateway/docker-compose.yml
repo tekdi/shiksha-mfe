@@ -1,0 +1,32 @@
+services:
+  gateway:
+    build: .
+    ports: ["8000:8000"]
+    volumes:
+      - ./app:/app/app
+      - ./artifacts:/tmp/shiksha-ai-artifacts
+      - hf_cache:/root/.cache/huggingface
+    environment:
+      OLLAMA_API_URL: http://ollama:11434
+      REDIS_URL: redis://redis:6379/0
+      LLM_MODEL: mistral
+      WHISPER_MODEL: large-v3
+    depends_on: [ollama, redis]
+
+  ollama:
+    image: ollama/ollama:latest
+    ports: ["11434:11434"]
+    volumes: ["ollama_data:/root/.ollama"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+volumes:
+  ollama_data:
+  hf_cache:

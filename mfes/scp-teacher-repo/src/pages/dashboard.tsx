@@ -35,26 +35,26 @@ import {
   lowLearnerAttendanceLimit,
 } from './../../app.config';
 
-import AttendanceComparison from '@/components/AttendanceComparison';
-import CohortSelectionSection from '@/components/CohortSelectionSection';
-import GuideTour from '@/components/GuideTour';
-import MarkBulkAttendance from '@/components/MarkBulkAttendance';
-import OverviewCard from '@/components/OverviewCard';
-import { showToastMessage } from '@/components/Toastify';
-import WeekCalender from '@/components/WeekCalender';
-import { getEventList } from '@/services/EventService';
-import { getMyCohortMemberList } from '@/services/MyClassDetailsService';
+import AttendanceComparison from '../components/AttendanceComparison';
+import CohortSelectionSection from '../components/CohortSelectionSection';
+import GuideTour from '../components/GuideTour';
+import MarkBulkAttendance from '../components/MarkBulkAttendance';
+import OverviewCard from '../components/OverviewCard';
+import { showToastMessage } from '../components/Toastify';
+import WeekCalender from '../components/WeekCalender';
+import { getEventList } from '../services/EventService';
+import { getMyCohortMemberList } from '../services/MyClassDetailsService';
 import {
   QueryKeys,
   Role,
   Status,
   Telemetry,
   sessionType,
-} from '@/utils/app.constant';
-import { calculatePercentage } from '@/utils/attendanceStats';
-import { logEvent } from '@/utils/googleAnalytics';
-import withAccessControl from '@/utils/hoc/withAccessControl';
-import { telemetryFactory } from '@/utils/telemetry';
+} from '../utils/app.constant';
+import { calculatePercentage } from '../utils/attendanceStats';
+import { logEvent } from '../utils/googleAnalytics';
+import withAccessControl from '../utils/hoc/withAccessControl';
+import { telemetryFactory } from '../utils/telemetry';
 import ArrowForwardSharpIcon from '@mui/icons-material/ArrowForwardSharp';
 import Divider from '@mui/material/Divider';
 import { useTheme } from '@mui/material/styles';
@@ -70,31 +70,31 @@ import Header from '../components/Header';
 import Loader from '../components/Loader';
 import useDeterminePathColor from '../hooks/useDeterminePathColor';
 
-import { fetchAttendanceDetails } from '@/components/AttendanceDetails';
-import CentralizedModal from '@/components/CentralizedModal';
-import { getCohortDetails, getCohortList } from '@/services/CohortServices';
-import { getUserDetails } from '@/services/ProfileService';
-import taxonomyStore from '@/store/taxonomyStore';
-import { updateStoreFromCohorts } from '@/utils/Helper';
+import { fetchAttendanceDetails } from '../components/AttendanceDetails';
+import CentralizedModal from '../components/CentralizedModal';
+import { getCohortDetails, getCohortList } from '../services/CohortServices';
+import { getUserDetails } from '../services/ProfileService';
+import taxonomyStore from '../store/taxonomyStore';
+import { updateStoreFromCohorts } from '../utils/Helper';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDirection } from '../hooks/useDirection';
 
-import useStore from '@/store/store';
+import useStore from '../store/store';
 import dynamic from 'next/dynamic';
 import { isEliminatedFromBuild } from '../../featureEliminationUtil';
 import useEventDates from './../hooks/useEventDates';
-import ModalComponent from '@/components/Modal';
+import ModalComponent from '../components/Modal';
 
 let SessionCardFooter: ComponentType<any> | null = null;
 if (!isEliminatedFromBuild('SessionCardFooter', 'component')) {
-  SessionCardFooter = dynamic(() => import('@/components/SessionCardFooter'), {
+  SessionCardFooter = dynamic(() => import('../components/SessionCardFooter'), {
     ssr: false,
   });
 }
 let SessionCard: ComponentType<any> | null = null;
 if (!isEliminatedFromBuild('SessionCard', 'component')) {
-  SessionCard = dynamic(() => import('@/components/SessionCard'), {
+  SessionCard = dynamic(() => import('../components/SessionCard'), {
     ssr: false,
   });
 }
@@ -157,7 +157,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
   const [state, setState] = React.useState<string>();
   const [eventDeleted, setEventDeleted] = React.useState(false);
   const [eventUpdated, setEventUpdated] = React.useState(false);
-  const setType = taxonomyStore((state) => state.setType);
+  const setType = taxonomyStore((state: any) => state.setType);
   const [attendanceData, setAttendanceData] = useState({
     cohortMemberList: [],
     presentCount: 0,
@@ -1138,7 +1138,7 @@ const Dashboard: React.FC<DashboardProps> = () => {
                               onClose={handleClose}
                               classId={classId}
                               selectedDate={new Date(selectedDate)}
-                              onSaveSuccess={(isModified) => {
+                              onSaveSuccess={(isModified?: boolean) => {
                                 if (isModified) {
                                   showToastMessage(
                                     t(
@@ -1384,6 +1384,52 @@ const Dashboard: React.FC<DashboardProps> = () => {
                     </Box>
                   </Box>
                 </Box>
+                
+                {/* AI Studio Banner */}
+                {!isEliminatedFromBuild('Assessments', 'feature') && (
+                  <Box mt={3} px="18px">
+                    <Box
+                      sx={{
+                        background: 'linear-gradient(135deg, #123B5D 0%, #0B253A 100%)',
+                        borderRadius: '16px',
+                        padding: '24px',
+                        color: 'white',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        boxShadow: '0 4px 12px rgba(18, 59, 93, 0.2)'
+                      }}
+                    >
+                      <Box sx={{ position: 'relative', zIndex: 1 }}>
+                        <Typography variant="h2" sx={{ color: '#FFF', fontSize: '1.25rem', mb: 1, fontWeight: 600 }}>
+                          AI Micro-Learning Studio
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mb: 2.5, maxWidth: '80%' }}>
+                          Transform your lesson materials into interactive quizzes, glossaries, and micro-lessons instantly using AI.
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          onClick={() => router.push('/ai-studio')}
+                          sx={{
+                            bgcolor: theme.palette.secondary.main || '#F5A623',
+                            color: '#fff',
+                            '&:hover': { bgcolor: theme.palette.secondary.dark || '#E0961B' },
+                            borderRadius: '8px',
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            width: 'fit-content',
+                            px: 3
+                          }}
+                        >
+                          Launch Studio
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Box>
+                )}
+
                 {/* Hiding graph section until we get clearity on remote batches */}
                 {/* {role === Role.TEAM_LEADER && (
                   <Box p={2}>

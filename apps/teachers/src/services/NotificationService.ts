@@ -4,29 +4,21 @@ import { toPascalCase } from '../utils/Helper';
 import axios from 'axios';
 import API_ENDPOINTS from '@/utils/API/APIEndpoints';
 
-export const sendCredentialService = async ({
-  isQueue,
-  context,
-  key,
-  replacements,
-  email,
-  push,
-}: SendCredentialsRequest): Promise<any> => {
-  const apiUrl: string =  API_ENDPOINTS.notificationSend;
+const handleRequest = async (call: () => Promise<any>, errorMessage: string): Promise<any> => {
   try {
-    const response = await post(apiUrl, {
-      isQueue,
-      context,
-      key,
-      replacements,
-      email,
-      push,
-    });
-    return response?.data?.result;
+    const response = await call();
+    return response?.data?.result ?? response?.data;
   } catch (error) {
-    console.error('error in sending mail', error);
+    console.error(errorMessage, error);
     return error;
   }
+};
+
+export const sendCredentialService = async (payload: SendCredentialsRequest): Promise<any> => {
+  return handleRequest(
+    () => post(API_ENDPOINTS.notificationSend, payload),
+    'error in sending mail'
+  );
 };
 
 export const sendEmailOnFacilitatorCreation = async (
@@ -41,16 +33,12 @@ export const sendEmailOnFacilitatorCreation = async (
     '{Password}': password,
   };
 
-  const sendTo = {
-    receipients: [email],
-  };
-
   return sendCredentialService({
     isQueue: false,
     context: 'USER',
     key: 'onFacilitatorCreated',
     replacements,
-    email: sendTo,
+    email: { receipients: [email] },
   });
 };
 
@@ -68,16 +56,12 @@ export const sendEmailOnLearnerCreation = async (
     '{LearnerName}': learnerName,
   };
 
-  const sendTo = {
-    receipients: [email],
-  };
-
   return sendCredentialService({
     isQueue: false,
     context: 'USER',
     key: 'onLearnerCreated',
     replacements,
-    email: sendTo,
+    email: { receipients: [email] },
   });
 };
 
@@ -88,8 +72,7 @@ export const UpdateDeviceNotification = async (
   userId: string,
   headers: { tenantId: any; Authorization: string }
 ): Promise<any> => {
-  const apiUrl =  API_ENDPOINTS.userUpdate(userId);
-
+  const apiUrl = API_ENDPOINTS.userUpdate(userId);
   try {
     const response = await axios.patch(apiUrl, { userData }, { headers });
     return response.data;
@@ -103,34 +86,15 @@ export const readUserId = async (
   userId: string | string[],
   fieldValue?: boolean
 ): Promise<any> => {
-  let apiUrl: string = API_ENDPOINTS.userRead(userId, false)
-  try {
-    const response = await get(apiUrl);
-    return response?.data;
-  } catch (error) {
-    console.error('error in fetching user details', error);
-    return error;
-  }
+  return handleRequest(
+    () => get(API_ENDPOINTS.userRead(userId, false)),
+    'error in fetching user details'
+  );
 };
 
-export const sendNotification = async ({
-  isQueue,
-  context,
-  key,
-  push,
-}: SendCredentialsRequest): Promise<any> => {
-  const apiUrl: string = API_ENDPOINTS.notificationSend
-
-  try {
-    const response = await post(apiUrl, {
-      isQueue,
-      context,
-      key,
-      push,
-    });
-    return response?.data?.result;
-  } catch (error) {
-    console.error('Error in sending notification', error);
-    return error;
-  }
+export const sendNotification = async (payload: SendCredentialsRequest): Promise<any> => {
+  return handleRequest(
+    () => post(API_ENDPOINTS.notificationSend, payload),
+    'Error in sending notification'
+  );
 };

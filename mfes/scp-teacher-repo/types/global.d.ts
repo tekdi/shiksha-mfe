@@ -11,7 +11,23 @@ declare namespace JSX {
   }
 }
 
+declare module 'date-fns';
+
 interface Navigator {
   standalone?: boolean;
 }
 
+declare module '*.svg' {
+  const content: any;
+  export default content;
+}
+
+declare module '*.png' {
+  const content: any;
+  export default content;
+}
+
+declare module '*.jpg' {
+  const content: any;
+  export default content;
+}

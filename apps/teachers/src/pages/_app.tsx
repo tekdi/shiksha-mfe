@@ -96,7 +96,11 @@ function CustomApp({ Component, pageProps }: AppProps) {
   }, [i18n.language]);
 
   useEffect(() => {
-    telemetryFactory.init();
+    try {
+      telemetryFactory.init();
+    } catch (error) {
+      console.error('Telemetry initialization failed:', error);
+    }
   }, []);
 
   const theme = useTheme<any>();

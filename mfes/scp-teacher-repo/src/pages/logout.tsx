@@ -1,12 +1,12 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { logout } from '../services/LoginService';
-import { telemetryFactory } from '@/utils/telemetry';
+import { telemetryFactory } from '../utils/telemetry';
 import ReactGA from 'react-ga4';
-import { Telemetry } from '@/utils/app.constant';
+import { Telemetry } from '../utils/app.constant';
 import { useQueryClient } from '@tanstack/react-query';
-import useStore from '@/store/store';
-import { preserveLocalStorage } from '@/utils/Helper';
+import useStore from '../store/store';
+import { preserveLocalStorage } from '../utils/Helper';
 const loginUrl = process.env.NEXT_PUBLIC_LOGIN_URL;
 
 function Logout() {
@@ -56,7 +56,7 @@ function Logout() {
     userLogout();
     clearLocalStorage();
     //@ts-ignore
-    window.parent.location.href = loginUrl;
+    window.parent.location.href = loginUrl || '/login';
   }, []);
 
   return '';
