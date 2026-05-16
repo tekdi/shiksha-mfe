@@ -59,6 +59,7 @@ export const fullWidthPages = [
   '/offline',
   '/unauthorized',
   '/create-password',
+  '/ai-demo', // Module A: AI Ingestion demo — public landing page, no auth required
 ];
 
 export const DaysOfWeek = {

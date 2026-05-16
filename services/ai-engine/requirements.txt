@@ -1,0 +1,9 @@
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart==0.0.26
+pymupdf>=1.23.0
+python-dotenv>=1.0.0
+# Optional — LLM narration via Groq Cloud (Llama 3).
+# Set GROQ_API_KEY in services/ai-engine/.env to activate.
+groq>=0.9.0
+spacy>=3.7.0

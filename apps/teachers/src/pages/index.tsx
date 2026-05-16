@@ -20,7 +20,8 @@ const Home: React.FC = () => {
           push('/scp-teacher-repo');
         }
       } else {
-        push('/login', undefined, { locale: 'en' });
+        // Redirect to the AI Demo landing page instead of login for this demo
+        push('/ai-demo', undefined, { locale: 'en' });
       }
       setLoading(false);
     }

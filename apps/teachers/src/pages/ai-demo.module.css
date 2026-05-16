@@ -1,0 +1,314 @@
+/* ai-demo.module.css — scoped styles for the AI Demo landing page */
+
+/* ── Reset / base ────────────────────────────────────────────────────────── */
+.page {
+  min-height: 100vh;
+  background: linear-gradient(160deg, #e8ecf5 0%, #f5f2ed 55%, #f5e8dc 100%);
+  font-family:
+    'Inter',
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Top bar ─────────────────────────────────────────────────────────────── */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.1rem 3rem;
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.topBarLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.c4Logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.topBarText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.topBarTitle {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.topBarSub {
+  font-size: 0.72rem;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.topBarRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+}
+
+.topBarMeta {
+  font-size: 0.78rem;
+  color: #555;
+}
+
+.topBarVersion {
+  font-size: 0.72rem;
+  color: #999;
+}
+
+/* ── Main content ────────────────────────────────────────────────────────── */
+.main {
+  flex: 1;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 3.5rem 2rem 2rem;
+}
+
+/* ── Org badge ───────────────────────────────────────────────────────────── */
+.orgBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid #d0d5e8;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #444;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(4px);
+  margin-bottom: 1.75rem;
+}
+
+.orgDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #e87722;
+  flex-shrink: 0;
+}
+
+/* ── Hero title ──────────────────────────────────────────────────────────── */
+.heroTitle {
+  font-size: clamp(2.2rem, 5vw, 3.4rem);
+  font-weight: 900;
+  color: #1a1a2e;
+  line-height: 1.1;
+  margin: 0 0 1.25rem;
+  letter-spacing: -0.02em;
+}
+
+.heroAccent {
+  color: #2563eb;
+}
+
+.heroSubtitle {
+  font-size: 1rem;
+  color: #555;
+  line-height: 1.7;
+  max-width: 580px;
+  margin: 0 0 2.5rem;
+}
+
+.heroSubtitle strong {
+  color: #333;
+  font-weight: 600;
+}
+
+/* ── Module cards grid ───────────────────────────────────────────────────── */
+.moduleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+
+.moduleCard {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.moduleCard:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+.moduleCardDisabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.moduleCardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.moduleBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.moduleLabel {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+
+.moduleSoon {
+  font-size: 0.65rem;
+  color: #aaa;
+  background: #f3f4f6;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  margin-left: auto;
+}
+
+.moduleTags {
+  font-size: 0.75rem;
+  color: #888;
+  margin: 0;
+  letter-spacing: 0.03em;
+}
+
+/* ── Divider ─────────────────────────────────────────────────────────────── */
+.divider {
+  border: none;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  margin: 0 0 2.5rem;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.footer {
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
+  padding: 2rem 3rem 1.25rem;
+}
+
+.footerInner {
+  max-width: 960px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 2rem;
+  margin-bottom: 1.75rem;
+}
+
+.footerCol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.footerLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #aaa;
+  text-transform: uppercase;
+  margin: 0 0 0.25rem;
+}
+
+.footerName {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #1a1a2e;
+  margin: 0;
+}
+
+.footerMeta {
+  font-size: 0.72rem;
+  color: #2563eb;
+  margin: 0;
+}
+
+.footerStack {
+  font-size: 0.8rem;
+  color: #555;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.footerStack code {
+  font-family: 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.75rem;
+  color: #444;
+}
+
+.footerBottom {
+  max-width: 960px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: #aaa;
+  letter-spacing: 0.06em;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: 1rem;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .topBar {
+    padding: 0.9rem 1.25rem;
+  }
+
+  .main {
+    padding: 2rem 1.25rem 1.5rem;
+  }
+
+  .footer {
+    padding: 1.5rem 1.25rem 1rem;
+  }
+
+  .footerBottom {
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}

@@ -1,0 +1,395 @@
+/* IngestionDemo.module.css — scoped styles for Module A demo section */
+
+/* ── Section wrapper ─────────────────────────────────────────────────────── */
+.demoSection {
+  padding: 0 0 3rem;
+}
+
+/* ── Demo header ─────────────────────────────────────────────────────────── */
+.demoHeader {
+  margin-bottom: 1.5rem;
+}
+
+.demoTag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #e87722;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+
+.demoTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.demoTitle {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin: 0;
+  line-height: 1.1;
+}
+
+.demoSubtitle {
+  font-size: 0.9rem;
+  color: #555;
+  max-width: 620px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.demoSubtitle em {
+  color: #888;
+  font-style: italic;
+}
+
+/* ── Health badge ────────────────────────────────────────────────────────── */
+.healthBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.healthBadge--checking {
+  background: #f5f5f5;
+  border-color: #ddd;
+  color: #888;
+}
+
+.healthBadge--online {
+  background: #e8f8f0;
+  border-color: #6ee7b7;
+  color: #047857;
+}
+
+.healthBadge--offline {
+  background: #fff1f1;
+  border-color: #fca5a5;
+  color: #b91c1c;
+}
+
+.healthDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+  animation: pulse 2s infinite;
+}
+
+.healthBadge--checking .healthDot {
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ── Drop zone ───────────────────────────────────────────────────────────── */
+.dropZone {
+  position: relative;
+  border: 2px dashed #c8ccd8;
+  border-radius: 16px;
+  background: #fafafa;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  outline: none;
+}
+
+.dropZone:hover,
+.dropZone:focus-visible {
+  border-color: #3b82f6;
+  background: #f0f5ff;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+.dropZoneDragging {
+  border-color: #3b82f6 !important;
+  background: #e8f0ff !important;
+  box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.15) !important;
+}
+
+.dropZoneLoading {
+  cursor: not-allowed;
+  border-color: #ddd;
+  background: #f8f8f8;
+}
+
+.dropZoneError {
+  border-color: #f87171;
+  background: #fff8f8;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+/* ── Idle state ──────────────────────────────────────────────────────────── */
+.idleState,
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+}
+
+.uploadIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4f6ef7;
+  margin-bottom: 0.25rem;
+  transition: transform 0.2s;
+}
+
+.dropZone:hover .uploadIcon {
+  transform: translateY(-3px);
+}
+
+.dropText {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #2c2c3e;
+  margin: 0;
+}
+
+.browseLink {
+  color: #3b82f6;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.dropHint {
+  font-size: 0.78rem;
+  color: #9ca3af;
+  margin: 0;
+  letter-spacing: 0.04em;
+}
+
+/* ── Loading spinner ─────────────────────────────────────────────────────── */
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #4f6ef7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 0.5rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Error banner ────────────────────────────────────────────────────────── */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: #fff1f1;
+  border: 1px solid #fca5a5;
+  border-radius: 10px;
+  padding: 0.9rem 1.25rem;
+  margin-top: 1rem;
+  font-size: 0.88rem;
+  color: #b91c1c;
+  flex-wrap: wrap;
+}
+
+.errorIcon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.retryBtn {
+  margin-left: auto;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #b91c1c;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+
+.retryBtn:hover {
+  background: #fecaca;
+}
+
+/* ── Response summary ────────────────────────────────────────────────────── */
+.responseSummary {
+  background: #f8f9ff;
+  border: 1px solid #e0e5ff;
+  border-radius: 16px;
+  padding: 1.75rem;
+  animation: fadeUp 0.35s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.responseTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #047857;
+  margin: 0 0 1.25rem;
+}
+
+.responseGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.responseCard {
+  background: #fff;
+  border: 1px solid #e8eaf6;
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+}
+
+.responseCardWide {
+  grid-column: 1 / -1;
+}
+
+.responseCardLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #888;
+  margin: 0 0 0.5rem;
+}
+
+.responseList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.84rem;
+  color: #333;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.responseKey {
+  font-weight: 600;
+}
+
+.responseEmpty {
+  font-size: 0.82rem;
+  color: #aaa;
+  margin: 0;
+  font-style: italic;
+}
+
+.responseMore {
+  color: #888;
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.responseBodyPreview {
+  font-size: 0.83rem;
+  color: #444;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  max-height: 120px;
+  overflow: hidden;
+}
+
+/* ── Image thumbnails ────────────────────────────────────────────────────── */
+.imageThumbs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.imageThumb {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.imageMore {
+  font-size: 0.8rem;
+  color: #888;
+  font-style: italic;
+}
+
+/* ── Raw JSON ────────────────────────────────────────────────────────────── */
+.rawJson {
+  margin-top: 0.75rem;
+}
+
+.rawJson summary {
+  font-size: 0.8rem;
+  color: #666;
+  cursor: pointer;
+  user-select: none;
+}
+
+.rawJson pre {
+  margin-top: 0.5rem;
+  background: #1e1e2e;
+  color: #a6e3a1;
+  border-radius: 8px;
+  padding: 1rem;
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow: auto;
+  max-height: 320px;
+}
+
+/* ── Upload another btn ──────────────────────────────────────────────────── */
+.uploadAnotherBtn {
+  margin-top: 1.25rem;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 8px;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #4338ca;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.uploadAnotherBtn:hover {
+  background: #e0e7ff;
+}
