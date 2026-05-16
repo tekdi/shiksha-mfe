@@ -27,3 +27,13 @@ curl -X POST "http://localhost:8000/ingest" \
      -H "Content-Type: multipart/form-data" \
      -F "file=@sample.pdf"
 ```
+
+## Module A Demo Landing Page
+A public proposal/demo page is available at `/ai-demo` in the **teachers** Next.js app.  
+It provides:
+- A project-proposal-style landing page (Code for GovTech 2026)
+- Four module overview cards (A–D)
+- A live drag-and-drop PDF upload demo connected to `POST /ingest`
+- A real-time backend health badge connected to `GET /health`
+
+> **Detailed runbook:** [`docs/module-a-demo.md`](./module-a-demo.md)
