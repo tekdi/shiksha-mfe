@@ -1,3 +1,13 @@
+const getBaseUrl = () => {
+  let url = process.env.NEXT_PUBLIC_MIDDLEWARE_URL || "https://interface.tekdinext.com/interface/v1";
+  if (url.includes("https://interface/v1") && !url.includes("tekdinext.com")) {
+    url = url.replace("https://interface/v1", "https://interface.tekdinext.com/interface/v1");
+  }
+  return url.replace(/\/$/, ""); 
+};
+
+const baseurl = getBaseUrl();
+
 export const URL_CONFIG = {
   PARAMS: {
     CONTENT_GET:
@@ -6,11 +16,12 @@ export const URL_CONFIG = {
     HIERARCHY_FEILDS: "instructions,outcomeDeclaration",
   },
   API: {
-    CONTENT_READ: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/api/content/v1/read/`,
-    HIERARCHY_API: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/action/questionset/v2/hierarchy/`,
-    QUESTIONSET_READ: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/action/questionset/v2/read/`,
-    COMPOSITE_SEARCH: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/action/composite/v3/search`,
-    CONTENT_HIERARCHY: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/action/content/v3/hierarchy`,
+    CONTENT_READ: `${baseurl}/api/content/v1/read/`,
+    HIERARCHY_API: `${baseurl}/action/questionset/v2/hierarchy/`,
+    QUESTIONSET_READ: `${baseurl}/action/questionset/v2/read/`,
+    COMPOSITE_SEARCH: `${baseurl}/action/composite/v3/search`,
+    CONTENT_HIERARCHY: `${baseurl}/action/content/v3/hierarchy`,
+    QUESTION_LIST: `${baseurl}/action/question/v2/list`,
   },
 };
 
@@ -100,10 +111,13 @@ export interface PlayerConfig {
   config?: Config;
   metadata?: Metadata;
   data?: any;
+  fromShortVideo?: boolean;
 }
 
 export const MIME_TYPE = {
   QUESTION_SET_MIME_TYPE: "application/vnd.sunbird.questionset",
+  EKSTEP_QUESTION_SET_MIME_TYPE: "application/vnd.ekstep.questionset",
+  QUESTION_MIME_TYPE: "application/vnd.sunbird.question",
   INTERACTIVE_MIME_TYPE: [
     "application/vnd.ekstep.h5p-archive",
     "application/vnd.ekstep.html-archive",

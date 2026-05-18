@@ -40,7 +40,11 @@ export const debounce = <T extends (...args: any[]) => any>(
   };
 };
 
-export const handleExitEvent = () => {
+export const handleExitEvent = (isFromShortVideo?: boolean) => {
+  if (isFromShortVideo) {
+    window.parent.postMessage({ eid: "EXIT" }, "*");
+    return;
+  }
   const previousPage = sessionStorage.getItem('previousPage');
   if (previousPage) {
     window.location.href = previousPage;

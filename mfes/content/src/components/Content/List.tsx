@@ -34,6 +34,7 @@ import LayoutPage from "@content-mfes/components/LayoutPage";
 import { getUserCertificates } from "@content-mfes/services/Certificate";
 import { getUserId } from "@shared-lib-v2/utils/AuthService";
 import {telemetryFactory} from "../../utils/telemetry";
+import { likeService } from "@shiksha/plugin-like";
 // Constants
 const SUPPORTED_MIME_TYPES = [
   "application/vnd.ekstep.ecml-archive",
@@ -109,6 +110,7 @@ export default function Content(props: Readonly<ContentProps>) {
     }
   >(DEFAULT_FILTERS);
   const [trackData, setTrackData] = useState<TrackDataItem[]>([]);
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [filterShow, setFilterShow] = useState(false);
   const [propData, setPropData] = useState<ContentProps>();
@@ -542,6 +544,37 @@ export default function Content(props: Readonly<ContentProps>) {
     };
   }, [localFilters, propData]);
 
+  // Fetch bookmarks
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBookmarks = async () => {
+      const userId = getUserId(props?._config?.userIdLocalstorageName); // Define userId first
+      console.log("🔍 [List] fetchBookmarks effect triggered. userId property exists:", !!userId, "type:", localFilters.type);
+      
+      if (!userId || !localFilters.type) {
+        console.warn("⚠️ [List] Skipping fetchBookmarks - Missing userId or type");
+        return;
+      }
+
+      const entityType = localFilters.type.toLowerCase() === "course" ? "course" : "content";
+      try {
+        console.log("🚀 [List] Calling likeService.getBookmarks with:", userId, entityType);
+        const bookmarkedIds = await likeService.getBookmarks(userId, entityType);
+        console.log("✅ [List] Got bookmarkedIds:", bookmarkedIds);
+        if (isMounted) {
+          setBookmarks(bookmarkedIds);
+        }
+      } catch (error) {
+        console.error("❌ [List] Error fetching bookmarks:", error);
+      }
+    };
+
+    fetchBookmarks();
+    return () => {
+      isMounted = false;
+    };
+  }, [localFilters.type, props?._config?.userIdLocalstorageName]);
+
   // Scroll to saved card ID
   useEffect(() => {
     const scrollId = sessionStorage.getItem(sessionKeys.scrollId);
@@ -840,6 +873,7 @@ export default function Content(props: Readonly<ContentProps>) {
         isSearching={isSearching}
         tabs={tabs}
         isHideEmptyDataMessage={propData?.hasMoreData !== false}
+        bookmarks={bookmarks}
       />
       {propData?.showHelpDesk && <HelpDesk />}
       {propData?.showBackToTop && <BackToTop />}

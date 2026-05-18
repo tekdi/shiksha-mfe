@@ -27,6 +27,7 @@ const ContentCardCarousel = ({
   isLoadingMoreData,
   pageName,
   isHideEmptyDataMessage,
+  bookmarks,
 }: {
   contentData: ContentSearchResponse[];
   _config: any;
@@ -38,6 +39,7 @@ const ContentCardCarousel = ({
   isLoadingMoreData: boolean;
   pageName?: string;
   isHideEmptyDataMessage?: boolean;
+  bookmarks?: string[];
 }) => {
   const { t } = useTranslation();
   const { default_img, _subBox, _carousel, _card, isHideNavigation } =
@@ -113,6 +115,7 @@ const ContentCardCarousel = ({
               }}
               handleCardClick={handleCardClick}
               trackData={trackData as [] | undefined}
+              isLiked={bookmarks?.some((b) => String(b) === String(item.identifier))}
             />
           </SwiperSlide>
         ))}

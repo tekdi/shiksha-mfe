@@ -25,6 +25,7 @@ const telemetryConfig = {
     id: 'shiksha-learner',
     pid: 'learner',
     ver: '0.0.1',
+    time: new Date().toISOString(),
   },
   env: 'prod',
   channel: tenantName,
@@ -126,6 +127,7 @@ export const telemetryFactory = {
       CsTelemetryModule.instance.telemetryService.raiseInteractTelemetry({
         options: eventData.options,
         edata: eventData.edata,
+        ets: eventData.ets,
       });
     }
   },
@@ -140,6 +142,7 @@ export const telemetryFactory = {
       CsTelemetryModule.instance.telemetryService.raiseImpressionTelemetry({
         options: eventData.options,
         edata: eventData.edata,
+        ets: eventData.ets,
       });
     }
   },
@@ -153,6 +156,7 @@ export const telemetryFactory = {
       CsTelemetryModule.instance.telemetryService.raiseAssesTelemetry({
         options: eventData.options,
         edata: eventData.edata,
+        ets: eventData.ets,
       });
     }
   },
@@ -166,6 +170,7 @@ export const telemetryFactory = {
       CsTelemetryModule.instance.telemetryService.raiseResponseTelemetry({
         options: eventData.options,
         edata: eventData.edata,
+        ets: eventData.ets,
       });
     }
   },
@@ -179,6 +184,7 @@ export const telemetryFactory = {
       CsTelemetryModule.instance.telemetryService.raiseInterruptTelemetry({
         options: eventData.options,
         edata: eventData.edata,
+        ets: eventData.ets,
       });
     }
   },

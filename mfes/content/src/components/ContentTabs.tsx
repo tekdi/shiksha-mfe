@@ -22,6 +22,7 @@ const RenderTabContent = memo(
     isPageLoading,
     isSearching,
     isHideEmptyDataMessage,
+    bookmarks,
   }: {
     contentData: ContentSearchResponse[];
     _config: any;
@@ -38,6 +39,7 @@ const RenderTabContent = memo(
     isPageLoading: boolean;
     isSearching?: boolean;
     isHideEmptyDataMessage?: boolean;
+    bookmarks?: string[];
   }) => {
     const { t } = useTranslation();
     const { _box, _tabs } = _config ?? {};
@@ -114,6 +116,7 @@ const RenderTabContent = memo(
                   handleLoadMore={handleLoadMore}
                   isLoadingMoreData={isLoadingMoreData}
                   isHideEmptyDataMessage={isHideEmptyDataMessage}
+                  bookmarks={bookmarks}
                 />
               )}
               {!_config?.isShowInCarousel && (
@@ -127,6 +130,7 @@ const RenderTabContent = memo(
                   handleLoadMore={handleLoadMore}
                   isLoadingMoreData={isLoadingMoreData}
                   isHideEmptyDataMessage={isHideEmptyDataMessage}
+                  bookmarks={bookmarks}
                 />
               )}
             </>

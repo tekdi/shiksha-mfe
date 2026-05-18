@@ -10,16 +10,33 @@ interface PlayerConfigProps {
   mode?: string;
 }
 
-const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || '/sbplayer';
-
+const getSbPlayerBaseUrl = () => {
+    const envUrl = process.env.NEXT_PUBLIC_LEARNER_SBPLAYER || "";
+    if (envUrl.startsWith("http")) {
+        return envUrl.endsWith("sbplayer") ? envUrl : `${envUrl.replace(/\/$/, "")}/sbplayer`;
+    }
+    const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || '/sbplayer';
+    if (typeof window !== "undefined") {
+        const origin = window.location.origin.replace(/\/$/, "");
+        return `${origin}${basePath}`;
+    }
+    return basePath;
+};
+ const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || '/sbplayer';
 /**
  * Intercepts download attempts from the iframe to force downloads instead of opening tabs
  * Uses multiple interception methods to catch all download attempts
  */
-const setupDownloadInterceptor = (iframe: HTMLIFrameElement, artifactUrl?: string) => {
+const setupDownloadInterceptor = (iframe: HTMLIFrameElement, artifactUrl?: string, onDownload?: () => void) => {
   if (!iframe.contentWindow || !iframe.contentDocument) return;
 
   const downloadViaAPI = (url: string) => {
+    // If onDownload is provided, trigger it and return
+    if (onDownload) {
+      onDownload();
+      return;
+    }
+
     const encodedUrl = encodeURIComponent(url);
     const filename = url.split('/').pop()?.split('?')[0] || 'download';
     const apiDownloadUrl = `/api/download?url=${encodedUrl}&filename=${encodeURIComponent(filename)}`;
@@ -57,12 +74,21 @@ const setupDownloadInterceptor = (iframe: HTMLIFrameElement, artifactUrl?: strin
     script.textContent = `
       (function() {
         const artifactUrl = ${artifactUrl ? `"${artifactUrl}"` : 'null'};
+        const hasOnDownload = ${onDownload ? 'true' : 'false'};
         
         // Override window.open
         const originalOpen = window.open;
         window.open = function(url, target, features) {
-          if (url && (artifactUrl || /\.(mp4|mp3|wav|webm|pdf|epub|avi|mov)(\\?|$)/i.test(url))) {
+          if (url && (artifactUrl || /\\.(mp4|mp3|wav|webm|pdf|epub|avi|mov)(\\?|$)/i.test(url))) {
             const downloadUrl = artifactUrl || url;
+            
+            if (hasOnDownload) {
+               if (window.parent && window.parent !== window) {
+                  window.parent.postMessage({ type: 'TRIGGER_OFFLINE_DOWNLOAD' }, '*');
+               }
+               return null;
+            }
+
             const encodedUrl = encodeURIComponent(downloadUrl);
             const filename = downloadUrl.split('/').pop().split('?')[0] || 'download';
             const apiUrl = '/api/download?url=' + encodedUrl + '&filename=' + encodeURIComponent(filename);
@@ -81,9 +107,17 @@ const setupDownloadInterceptor = (iframe: HTMLIFrameElement, artifactUrl?: strin
           const target = e.target;
           if (target && target.tagName === 'A') {
             const href = target.getAttribute('href') || target.href;
-            if (href && /\.(mp4|mp3|wav|webm|pdf|epub|avi|mov)(\\?|$)/i.test(href)) {
+            if (href && /\\.(mp4|mp3|wav|webm|pdf|epub|avi|mov)(\\?|$)/i.test(href)) {
               e.preventDefault();
               e.stopPropagation();
+
+              if (hasOnDownload) {
+                if (window.parent && window.parent !== window) {
+                  window.parent.postMessage({ type: 'TRIGGER_OFFLINE_DOWNLOAD' }, '*');
+                }
+                return;
+              }
+
               const downloadUrl = artifactUrl || href;
               const encodedUrl = encodeURIComponent(downloadUrl);
               const filename = downloadUrl.split('/').pop().split('?')[0] || 'download';
@@ -114,6 +148,8 @@ const setupDownloadInterceptor = (iframe: HTMLIFrameElement, artifactUrl?: strin
       setTimeout(() => {
         document.body.removeChild(link);
       }, 100);
+    } else if (event.data && event.data.type === 'TRIGGER_OFFLINE_DOWNLOAD') {
+       if (onDownload) onDownload();
     }
   };
   
@@ -148,7 +184,7 @@ const SunbirdVideoPlayer = ({
         
         // Try immediately
         if (artifactUrl && playerElement.contentDocument) {
-          cleanupInterceptor = setupDownloadInterceptor(playerElement, artifactUrl) ?? null;
+          cleanupInterceptor = setupDownloadInterceptor(playerElement, artifactUrl, onDownload) ?? null;
         } else {
           cleanupInterceptor = null;
         }
@@ -156,7 +192,7 @@ const SunbirdVideoPlayer = ({
         // Also try after a delay in case content loads asynchronously
         setTimeout(() => {
           if (artifactUrl && playerElement.contentDocument && !cleanupInterceptor) {
-            const result = setupDownloadInterceptor(playerElement, artifactUrl);
+            const result = setupDownloadInterceptor(playerElement, artifactUrl, onDownload);
             if (typeof result === 'function') {
               cleanupInterceptor = result;
             }
@@ -168,7 +204,11 @@ const SunbirdVideoPlayer = ({
             playerElement.contentWindow &&
             playerElement.contentWindow.setData
           ) {
-            // playerElement.contentWindow.setData(playerConfig);
+            console.log("Calling SunbirdVideoPlayer index.html setData with config");
+            playerElement.contentWindow.setData(JSON.stringify(playerConfig));
+          } else {
+            // Fallback: manual injection if index.html is missing setData
+            console.log("SunbirdVideoPlayer: setData not found, attempting manual injection");
             const videoElement = document.createElement('sunbird-video-player');
             videoElement.setAttribute(
               'player-config',
@@ -198,8 +238,9 @@ const SunbirdVideoPlayer = ({
             );
 
             const myPlayer =
-              playerElement.contentDocument.getElementById('my-player');
+              playerElement.contentDocument?.getElementById('my-player');
             if (myPlayer) {
+              myPlayer.innerHTML = ''; // Clear existing
               myPlayer.appendChild(videoElement);
             }
           }

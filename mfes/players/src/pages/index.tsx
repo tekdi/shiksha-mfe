@@ -6,7 +6,9 @@ import {
   getHierarchy,
   getQumlData,
 } from "../services/PlayerService";
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Button, CircularProgress } from "@mui/material";
+import DownloadIcon from "@mui/icons-material/Download";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import { MIME_TYPE } from "../utils/url.config";
 import {
   PlayerConfig,
@@ -14,6 +16,7 @@ import {
   V2PlayerConfig,
 } from "../utils/url.config";
 import Loader from "../components/Loader";
+import { offlineService } from "@shared-lib-v2/utils/OfflineService";
 
 const SunbirdPlayers = dynamic(() => import("../components/players/Players"), {
   ssr: false,

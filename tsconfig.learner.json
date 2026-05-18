@@ -39,7 +39,9 @@
       //dynamic form
       "@shared-lib-v2/*": ["libs/shared-lib-v2/src/*"],
       "@survey/*": ["mfes/survey-observations/src/*"],
-      "@players/*": ["mfes/players/src/pages/play.tsx"]
+      "@players": ["mfes/players/src/pages/play.tsx"],
+      "@shiksha/plugin-like": ["libs/plugin-like/src/index.ts"],
+      "@shiksha/plugin-download": ["libs/plugin-download/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp"]

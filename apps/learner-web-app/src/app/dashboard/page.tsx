@@ -6,6 +6,7 @@
 import React, { useEffect, useState, useRef, Suspense } from "react";
 import Layout from "@learner/components/Layout";
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import { Tabs, Tab, Typography, Box, Grid, Button, IconButton, CircularProgress } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -23,6 +24,60 @@ import { useTranslation } from "@shared-lib";
 import LanguageDropdown from "@learner/components/LanguageDropdown/LanguageDropdown";
 import { telemetryFactory } from "../../utils/telemtery";
 import { getLocalizedText } from "@learner/utils/API/TenantService";
+// import { Science, Calculate, MenuBook, Language } from "@mui/icons-material";
+
+const ShortVideoReel = dynamic(() => import("@learner/components/Content/ShortVideoReel"), {
+  ssr: false,
+});
+
+const SubjectCategories = () => (
+  <Box sx={{ 
+      display: 'flex', 
+      gap: 3, 
+      overflowX: 'auto', 
+      pb: 2, 
+      px: { xs: 2, md: 4 },
+      mt: 2,
+      '&::-webkit-scrollbar': { display: 'none' },
+      scrollbarWidth: 'none'
+  }}>
+      {[
+          { name: 'Science', icon: <Science fontSize="medium" />, color: '#E3F2FD', textColor: '#1565C0' },
+          { name: 'Math', icon: <Calculate fontSize="medium" />, color: '#F3E5F5', textColor: '#7B1FA2' },
+          { name: 'English', icon: <MenuBook fontSize="medium" />, color: '#E8F5E9', textColor: '#2E7D32' },
+          { name: 'Kannada', icon: <Language fontSize="medium" />, color: '#FFF3E0', textColor: '#EF6C00' },
+      ].map((subject) => (
+          <Box 
+              key={subject.name}
+              sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 1,
+                  minWidth: '64px',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                  '&:hover': { transform: 'scale(1.05)' }
+              }}
+          >
+              <Box sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '20px',
+                  backgroundColor: subject.color,
+                  color: subject.textColor,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+              }}>
+                  {subject.icon}
+              </Box>
+              <Typography variant="caption" fontWeight="600" color="text.secondary">{subject.name}</Typography>
+          </Box>
+      ))}
+  </Box>
+);
 
 const DashboardContent = () => {
   const pathname = usePathname();
@@ -127,6 +182,8 @@ const DashboardContent = () => {
         setActiveTab("attendance");
       } else if (tabParam === "5" && showAttendance) {
         setActiveTab("myClasses");
+      } else if (tabParam === "6") {
+        setActiveTab("shortVideos");
       } else if (tabParam === "0" || !tabParam) {
         // Default to Content tab (first tab) if no tab parameter or tab=0
         setActiveTab("content");
@@ -365,6 +422,8 @@ const DashboardContent = () => {
       tabIndex = 2;
     } else if (tab === "groups") {
       tabIndex = 3;
+    } else if (tab === "shortVideos") {
+      tabIndex = 6;
     }
     url.searchParams.set("tab", tabIndex.toString());
     router.replace(url.pathname + url.search);
@@ -520,6 +579,10 @@ const DashboardContent = () => {
             {firstName || "Learner"}!
           </Typography>
         </Box>
+
+        {/* Subject Categories */}
+        {/* <SubjectCategories /> */}
+
         <Box sx={{ 
           px: { xs: 2, md: 4 }, 
           pb: { xs: 4, md: 6 },
@@ -600,11 +663,20 @@ const DashboardContent = () => {
               sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
             />
           )}
+           <Tab
+              label={t("Short Videos") || "Short Videos"}
+              value="shortVideos"
+              sx={{ display: userRole === "Staff" || userRole === "Supervisor" ? "none" : "inline-flex" }}
+            />
         </Tabs>
         <Grid container style={gredientStyle}>
           <Grid item xs={12}>
             {activeTab === "groups" ? (
               <GroupsManager isLoading={isLoading} />
+            ) : activeTab === "shortVideos" ? (
+               <Box sx={{ mt: 2 }}>
+                 <ShortVideoReel />
+               </Box>
             ) : (
               <LearnerCourse
                 title={
@@ -648,6 +720,8 @@ const DashboardContent = () => {
                 }}
               />
             )}
+
+
           </Grid>
         </Grid>
       </Box>

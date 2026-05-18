@@ -9,11 +9,19 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import ImageIcon from "@mui/icons-material/Image";
 import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
 import PeopleIcon from "@mui/icons-material/People";
+import LinkIcon from "@mui/icons-material/Link";
+import { LikeButton } from "@shiksha/plugin-like";
+import { DownloadButton } from "@shiksha/plugin-download";
+import { getUserId } from "@shared-lib-v2/utils/AuthService";
+import { telemetryFactory } from "@learner/utils/telemtery";
 
 // Extended ContentItem interface to include lowercase appicon
 interface ExtendedContentItem extends ContentItem {
   appicon?: string;
   keywords?: string[];
+  // artifactUrl is likely already in ContentItem as string
+  streamingUrl?: string;
+  url?: string;
 }
 
 const ContentCard = ({
@@ -26,6 +34,7 @@ const ContentCard = ({
   isExpanded,
   onToggle,
   cardId,
+  isLiked,
 }: {
   item: ExtendedContentItem;
   type: any;
@@ -36,11 +45,13 @@ const ContentCard = ({
   isExpanded?: boolean;
   onToggle?: (cardId: string) => void;
   cardId?: string;
+  isLiked?: boolean;
 }) => {
   const { isWrap } = _card ?? {};
   const primaryColorVar = "var(--primary-color, #E6873C)";
   const secondaryColorVar = "var(--secondary-color, #1A1A1A)";
   const placeholderImage = `${AppConst.BASEPATH}/assests/images/image_ver.png`;
+  const userId = getUserId();
   
   if (_card?.cardComponent) {
     return (
@@ -73,6 +84,14 @@ const ContentCard = ({
   const [localShowDetails, setLocalShowDetails] = useState(false);
   const showDetails =
     typeof isExpanded === "boolean" ? isExpanded : localShowDetails;
+
+  // Local state for like button to handle telemetry accurately without parent refresh
+  const [localIsLiked, setLocalIsLiked] = useState<boolean | undefined>(isLiked);
+
+  // Sync local like state with prop
+  React.useEffect(() => {
+    setLocalIsLiked(isLiked);
+  }, [isLiked]);
 
   const handleToggleDetails = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
@@ -591,7 +610,49 @@ const ContentCard = ({
                         </Box>
                       ))}
                     </Box>
-                  )}            
+                  )}
+
+                  {/* URL Property */}
+                  {(item.url || (item as any).url) && (
+                    <Box sx={{ mt: 1, display: "flex", alignItems: "center", gap: 0.5 }}>
+                      <LinkIcon sx={{ fontSize: 14, color: secondaryColorVar, opacity: 0.7 }} />
+                      <Typography
+                        sx={{
+                          fontSize: "12px",
+                          color: secondaryColorVar,
+                          fontWeight: 600,
+                        }}
+                      >
+                        URL:
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: "12px",
+                          color: primaryColorVar,
+                          fontWeight: 500,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          maxWidth: "200px",
+                          cursor: "pointer"
+                        }}
+                        title={item.url || (item as any).url}
+                        onClick={(e) => {
+                          const targetUrl = item.url || (item as any).url;
+                          if (targetUrl) {
+                            e.stopPropagation();
+                            window.open(targetUrl, '_blank');
+                          }
+                        }}
+                      >
+                        {(() => {
+                          const url = item.url || (item as any).url;
+                          const limit = 25;
+                          return url.length > limit ? `${url.substring(0, limit)}...` : url;
+                        })()}
+                      </Typography>
+                    </Box>
+                  )}
                 </Box>
               )}
             </Box>
@@ -726,6 +787,65 @@ const ContentCard = ({
                   </Link>
                 </Box>
               )}
+
+              {/* Plugin Actions */}
+              <Box sx={{ display: "flex",gap:1, alignItems: "center", justifyContent: "space-between", mt: 1.5, pt: 1.5, borderTop: "1px shadow rgba(0,0,0,0.05)" }}>
+                <LikeButton 
+                  contentId={item.identifier} 
+                  userId={userId || "guest"} 
+                  entityType={type?.toLowerCase() === "course" ? "course" : "content"}
+                  size="small"
+                  initialLiked={isLiked}
+                  sx={{ p: 0.5 }}
+                  onClick={(e:any) => {
+                    e.stopPropagation();
+                    const nextState = !localIsLiked;
+                    setLocalIsLiked(nextState);
+                    
+                    telemetryFactory.interact({
+                      edata: {
+                        id: nextState ? "content-like-button" : "content-unlike-button",
+                        type: "CLICK",
+                        pageid: "content-card",
+                        name: item.name,
+                        uid: userId,
+                      },
+                      object: {
+                        id: item.identifier,
+                        type: type?.toLowerCase() === "course" ? "Course" : "Content",
+                        ver: "1.0",
+                      }
+                    });
+                  }} 
+                />
+                {(item.url || (item as any).url) && (
+                  <DownloadButton 
+                    contentId={item.identifier} 
+                    url={item.url || (item as any).url}
+                    fileName={item.name}
+                    size="small" 
+                    variant="text"
+                    sx={{ fontSize: "12px", textTransform: "none" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      telemetryFactory.interact({
+                        edata: {
+                          id: "content-download-button",
+                          type: "CLICK",
+                          pageid: "content-card",
+                          name: item.name,
+                          uid: userId,
+                        },
+                        object: {
+                          id: item.identifier,
+                          type: type?.toLowerCase() === "course" ? "Course" : "Content",
+                          ver: "1.0",
+                        }
+                      });
+                    }}
+                  />
+                )}
+              </Box>
             </Box>
           )}
         </Box>

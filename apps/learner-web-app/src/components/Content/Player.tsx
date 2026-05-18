@@ -458,7 +458,8 @@ const PlayerBox = ({
             style={{
               border: "none",
               objectFit: "contain",
-              aspectRatio: getAspectRatio(),
+              minHeight: isMobile ? "auto" : "calc(100vh - 250px)", // Ensure enough height on desktop
+              height: isMobile ? "auto" : "100%",
             }}
             allowFullScreen
             width="100%"
@@ -466,7 +467,7 @@ const PlayerBox = ({
             title="Embedded Localhost"
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
             frameBorder="0"
-            scrolling="no"
+            scrolling="auto"
             // Allow downloads and popups (needed for player download / open-in-new-window buttons)
             // Chrome blocks these from sandboxed iframes unless `allow-downloads` / `allow-popups` are set
             sandbox="allow-forms allow-scripts allow-same-origin allow-top-navigation allow-downloads allow-popups"

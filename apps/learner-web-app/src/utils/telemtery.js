@@ -25,6 +25,7 @@ const telemetryConfig = {
     id: 'shiksha-learner',
     pid: 'learner',
     ver: '0.0.1',
+    time: new Date().toISOString(),
   },
   env: 'prod',
   channel: tenantName,
