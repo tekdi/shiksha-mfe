@@ -218,26 +218,18 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
 
   const handleVideoEnded = () => {
     console.log('[VIDEO] Video ended event');
-    if (!completionTriggeredRef.current && durationRef.current > 0) {
-      const watchedPercent = (maxTimeWatchedRef.current / durationRef.current) * 100;
-      console.log('[VIDEO] Watched percentage at end:', watchedPercent);
-      
-      // Mark as complete if they watched 85% or more
-      if (watchedPercent >= 85) {
-        completionTriggeredRef.current = true;
-        setCompleted(true);
-        setProgress(100);
-        onProgress?.(100);
-        onComplete();
-      } else if (!completionTriggeredRef.current && watchedPercent < 85) {
-        // Force final progress update
-        const finalPercent = Math.round(watchedPercent);
-        if (finalPercent > lastReportedProgressRef.current) {
-          onProgress?.(finalPercent);
-        }
-      }
-    }
     stopWatchingInterval();
+    if (!completionTriggeredRef.current) {
+      // The 'ended' event is fired by the browser only when playback reaches the actual
+      // end of the video — this is authoritative proof the user finished watching.
+      // Even if seek-cap held maxTimeWatched at 94%, the user watched the remaining
+      // portion normally to reach the end, so we always mark complete here.
+      console.log('[VIDEO] Video reached natural end — marking complete');
+      completionTriggeredRef.current = true;
+      setCompleted(true);
+      setProgress(100);
+      onComplete();
+    }
   };
 
   useEffect(() => {
@@ -276,21 +268,23 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
         if (data?.event === 'onStateChange') {
           console.log('[YOUTUBE_MSG] State changed to:', data?.info);
           if (data?.info === 0 && !completionTriggeredRef.current) {
-            // Video ended
-            if (durationRef.current > 0) {
-              const watchedPercent = (maxTimeWatchedRef.current / durationRef.current) * 100;
-              if (watchedPercent >= 85) {
-                completionTriggeredRef.current = true;
-                setCompleted(true);
-                setProgress(100);
-                onProgress?.(100);
-                onComplete();
-              }
-            }
+            // YouTube state=0 means the video reached its natural end.
+            // This is authoritative — always mark complete regardless of seek-cap.
+            // The cap only prevents instant skip-to-end; watching through to the end is valid.
+            console.log('[YOUTUBE] Video reached natural end — marking complete');
+            completionTriggeredRef.current = true;
+            setCompleted(true);
+            setProgress(100);
+            onComplete();
           }
         }
 
         if (data?.event === 'infoDelivery' && data?.info) {
+          // If completion was already triggered, ignore all further infoDelivery messages.
+          // Without this guard, YouTube keeps sending position updates after the video ends,
+          // which would call onProgress(94) again and cause flicker in the parent UI.
+          if (completionTriggeredRef.current) return;
+
           const { currentTime, duration } = data.info;
           if (currentTime !== undefined && duration !== undefined && duration > 0) {
             if (!durationRef.current) {
@@ -307,7 +301,20 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
             if (currentTime > maxTimeWatchedRef.current) {
               const increment = currentTime - maxTimeWatchedRef.current;
               const isLargeSkip = increment > 5;
-              
+
+              // Near-end check: if currentTime is within 2% of the total duration,
+              // the user has effectively finished watching — trigger completion directly.
+              // This bypasses the skip-cap which would otherwise block completion at 94%.
+              const isNearEnd = duration > 0 && currentTime >= duration * 0.98;
+              if (isNearEnd && !completionTriggeredRef.current) {
+                console.log('[YOUTUBE] currentTime near end — triggering completion');
+                completionTriggeredRef.current = true;
+                setCompleted(true);
+                setProgress(100);
+                onComplete();
+                return;
+              }
+
               if (isLargeSkip) {
                 console.log('[YOUTUBE] Forward skip detected. Updating progress to:', currentTime);
                 const skipPercent = (currentTime / duration) * 100;
@@ -336,7 +343,6 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
               if (cappedPercent >= 95 && !completionTriggeredRef.current && !isLargeSkip) {
                 completionTriggeredRef.current = true;
                 setCompleted(true);
-                onProgress?.(100);
                 onComplete();
               }
             } else {

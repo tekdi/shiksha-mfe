@@ -258,7 +258,28 @@ const CertificateActions: React.FC<CertificateActionsProps> = ({
       const html2canvas = (window as any).html2canvas;
       const jsPDF = (window as any).jspdf.jsPDF;
 
-      const holderName = userName || localStorage.getItem("firstName") || localStorage.getItem("name") || "Learner";
+      const isValid = (val: any) => {
+        if (!val) return false;
+        const s = val.toString().trim();
+        return s !== "" && s !== "null" && s !== "undefined";
+      };
+
+      const lFirstName = localStorage.getItem("firstName");
+      const lLastName = localStorage.getItem("lastName");
+      const lName = localStorage.getItem("name");
+
+      const firstName = isValid(lFirstName) ? lFirstName!.toString().trim() : "";
+      const lastName = isValid(lLastName) ? lLastName!.toString().trim() : "";
+
+      let holderName = "Learner";
+      if (firstName || lastName) {
+        holderName = `${firstName} ${lastName}`.trim();
+      } else if (isValid(userName)) {
+        holderName = userName!.toString().trim();
+      } else if (isValid(lName)) {
+        holderName = lName!.toString().trim();
+      }
+
       const safeName = holderName.replace(/\s+/g, "_");
 
       const logoUrl = `${window.location.origin}/images/swadhar_logo.png`;

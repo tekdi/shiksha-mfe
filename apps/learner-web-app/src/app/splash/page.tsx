@@ -6,9 +6,12 @@ import { Box, Typography } from '@mui/material';
 import Image from 'next/image';
 import { isTokenValid } from '@learner/utils/authUtils';
 import { useTranslation } from '@shared-lib';
+import { useMediaQuery, useTheme } from '@mui/material';
 
 export default function SplashScreen() {
   const router = useRouter();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -16,8 +19,6 @@ export default function SplashScreen() {
         const role = localStorage.getItem('userRole');
         const userId = localStorage.getItem('userId');
         if (role === 'CFL') {
-
-        // if (role === 'CFL' || userId === '7f60190c-16eb-4583-bbef-c5fc7bc484e7') {
           router.push('/cfl/home');
         } else {
           router.push('/swadhaar-home');
@@ -30,11 +31,13 @@ export default function SplashScreen() {
   }, [router]);
 
   const { t } = useTranslation();
+  const role = typeof window !== 'undefined' ? localStorage.getItem('userRole') : null;
+  const isCFL = role === 'CFL';
 
   return (
     <Box
       sx={{
-        bgcolor: 'info.primary',
+        bgcolor: isCFL ? '#1C2B4A' : 'info.primary',
         minHeight: '100dvh',
         display: 'flex',
         flexDirection: 'column',
@@ -56,13 +59,14 @@ export default function SplashScreen() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          bgcolor: isCFL ? '#E6873C' : 'transparent'
         }}
       >
         <Image
           src="/images/swadhar_logo.png"
           alt={t('LEARNER_APP.HOME.LOGO_ALT')}
-          width={120}
-          height={120}
+          width={isCFL ? 80 : 120}
+          height={isCFL ? 80 : 120}
           style={{ objectFit: 'contain' }}
         />
       </Box>
@@ -78,7 +82,7 @@ export default function SplashScreen() {
           px: 3,
         }}
       >
-        {t('LEARNER_APP.SPLASH.TITLE')}
+        {isCFL ? 'CFL Incharge' : t('LEARNER_APP.SPLASH.TITLE')}
       </Typography>
 
       {/* Tagline */}
@@ -89,8 +93,9 @@ export default function SplashScreen() {
           textAlign: 'center',
         }}
       >
-        {t('LEARNER_APP.SPLASH.TAGLINE')}
+        {isCFL ? 'Empowering Trainers, Transforming Learning' : t('LEARNER_APP.SPLASH.TAGLINE')}
       </Typography>
+
 
       {/* Footer */}
       <Typography

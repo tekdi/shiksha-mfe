@@ -30,6 +30,20 @@ import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificati
 import { getAlerts, getUnreadCount } from '@learner/utils/alertsStore';
 const PRIMARY = '#E6873C';
 
+/**
+ * Recursive progress calculation: aggregates completion from leaf nodes up to the current node.
+ * Moved to module scope for consistency and safety.
+ */
+const calculateNodeCompletion = (node: any, statusList: any[]): number => {
+  const id = node.identifier || node.id;
+  if (!node.children || node.children.length === 0) {
+    const s = statusList.find((d: any) => d.contentId === id);
+    return s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
+  }
+  const childPercs = node.children.map((child: any) => calculateNodeCompletion(child, statusList));
+  return childPercs.length > 0 ? childPercs.reduce((a: number, b: number) => a + b, 0) / childPercs.length : 0;
+};
+
 const TYPE_ICONS: Record<string, React.ReactNode> = {
   quiz: <WatchLaterIcon fontSize="large" sx={{color:'#F8AC4F'}} />,
   content: <DescriptionIcon fontSize="small" />,
@@ -118,14 +132,6 @@ export default function LearnPage() {
 
       const filteredLevelCourses = filterHierarchy(levelCourses);
 
-      const calculateNodeCompletion = (node: any, statusList: any[]): number => {
-        if (!node.children || node.children.length === 0) {
-          const s = statusList.find((d: any) => d.contentId === node.identifier);
-          return s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
-        }
-        const childPercs = node.children.map((child: any) => calculateNodeCompletion(child, statusList));
-        return childPercs.length > 0 ? childPercs.reduce((a: number, b: number) => a + b, 0) / childPercs.length : 0;
-      };
 
       const levelList = filteredLevelCourses.map((course: any) => {
         const children = course?.children || [];

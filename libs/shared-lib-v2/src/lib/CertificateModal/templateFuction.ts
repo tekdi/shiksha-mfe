@@ -2,11 +2,13 @@ export const getSwadhaarTemplate = ({
   holderName,
   levelName,
   logoBase64,
+  certificateId,
   isPdf = false,
 }: {
   holderName: string;
   levelName: string;
   logoBase64?: string;
+  certificateId?: string;
   isPdf?: boolean;
 }) => {
   return `
@@ -16,7 +18,7 @@ export const getSwadhaarTemplate = ({
 <meta charset="UTF-8" />
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap');
 
 *{
   margin:0;
@@ -33,7 +35,7 @@ html,body{
   height: 100%;
   overflow: auto;
   background: #f5f5f5;
-  font-family:'Montserrat',sans-serif;
+  font-family:'Inter',sans-serif;
 }
 `
 }
@@ -48,11 +50,30 @@ html,body{
   display:flex;
   align-items:center;
   justify-content:center;
-  padding:24px;
+  padding:84px;
+  transition:padding 0.3s ease;
   `
   }
 }
 
+/* Mobile Responsive Padding */
+${
+  isPdf
+    ? ""
+    : `
+@media (max-width: 768px){
+  .preview-wrapper{
+    padding:16px;
+  }
+}
+
+@media (max-width: 480px){
+  .preview-wrapper{
+    padding:8px;
+  }
+}
+`
+}
 .scale-container{
   ${
     isPdf
@@ -68,7 +89,7 @@ html,body{
 .certificate-wrapper{
   width:1600px;
   height:900px;
-  font-family:'Montserrat',sans-serif;
+  font-family:'Inter',sans-serif;
 
   ${
     isPdf
@@ -110,8 +131,8 @@ html,body{
 }
 
 .title{
-  font-size:68px;
-  font-weight:700;
+  font-size:60px;
+  font-weight:500;
   color:#53331F;
   margin-bottom:20px;
   line-height:1.1;
@@ -119,19 +140,18 @@ html,body{
 
 .subtitle{
   text-transform:uppercase;
-  letter-spacing:0.3em;
-  font-size:22px;
+  font-size:28px;
+  font-weight:500;
   color:#666;
   margin-bottom:25px;
 }
 
 .name{
-  font-size:80px;
-  font-style:italic;
-  font-weight:700;
+  font-size:28px;
+  font-weight:400;
   color:#53331F;
-  border-bottom:6px solid #F7941D;
-  width:90%;
+  border-bottom:2px solid #07336dff;
+  width:50%;
   padding-bottom:15px;
   margin-bottom:40px;
   line-height:1.2;
@@ -139,20 +159,32 @@ html,body{
 }
 
 .description{
-  font-size:28px;
+  font-size:20px;
+  font-weight:400;
   color:#444;
   margin-bottom:15px;
 }
 
 .course-name{
-  font-size:48px;
-  font-weight:700;
+  font-size:20px;
+  font-weight:400;
   color:#F7941D;
-  border-bottom:2px solid #eee;
+  border-bottom:2px solid #07336dff;
   padding-bottom:12px;
   line-height:1.3;
-  width:100%;
+  width:50%;
   max-width:1200px;
+}
+
+.certificate-number{
+  position:absolute;
+  bottom:30px;
+  left:100px;
+  font-family:'Inter',sans-serif;
+  font-weight:400;
+  font-size:15px;
+  color:#ffffff;
+  z-index:10;
 }
 
 /* Wave replacement: tilted rectangle for html2canvas compatibility */
@@ -235,6 +267,12 @@ ${
 </div>
 
 <div class="circle"></div>
+
+${
+  certificateId
+    ? `<div class="certificate-number">Certificate No: ${certificateId}</div>`
+    : ""
+}
 
 <div class="bottom-wave-container">
   <div class="bottom-wave-slope"></div>

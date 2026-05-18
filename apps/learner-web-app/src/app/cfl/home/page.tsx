@@ -8,6 +8,9 @@ import StatsCard from '../../../../../../libs/cfl/components/StatsCard';
 import TrainerAccordion from '../../../../../../libs/cfl/components/TrainerAccordion';
 import ContentProgressView from '../../../../../../libs/cfl/components/ContentProgressView';
 import { useCFLTrainers } from '../../../../../../libs/cfl/hooks/useCFL';
+import { useMediaQuery, useTheme } from '@mui/material';
+import CFLDesktopHome from '../../../components/CFL/Desktop/CFLDesktopHome';
+import router from 'next/router';
 
 const PRIMARY = '#E6873C';
 
@@ -17,17 +20,39 @@ export default function CFLHomePage() {
   const [username, setUsername] = useState('Priya!'); // Matched Figma "Priya!"
   const [location, setLocation] = useState('CFL Jharkhand - Torpa');
 
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+
   const { trainers, loading, error } = useCFLTrainers(tenantId);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      const role = localStorage.getItem('userRole');
+      const userId = localStorage.getItem('userId');
+      if (role !== 'CFL' && userId !== '7f60190c-16eb-4583-bbef-c5fc7bc484e7') {
+        router.push('/swadhaar-home');
+        return;
+      }
       setTenantId(localStorage.getItem('tenantId') || '');
-      setUsername(localStorage.getItem('firstName') + '!' || 'Priya!');
+      const firstName = localStorage.getItem('firstName');
+      if (firstName) setUsername(firstName + '!');
       setLocation(`CFL: ${localStorage.getItem('stateName') || 'Jharkhand'} - ${localStorage.getItem('districtName') || 'Torpa'}`);
     }
   }, []);
 
   const completedCount = trainers.filter(t => t.progress >= 100).length;
+
+  if (isDesktop) {
+    return (
+      <CFLDesktopHome
+        trainers={trainers}
+        loading={loading}
+        error={error}
+        username={username}
+        location={location}
+      />
+    );
+  }
 
   return (
     <Box sx={{ pb: 10, bgcolor: '#fbfbfb', minHeight: '100vh' }}>
@@ -113,3 +138,4 @@ export default function CFLHomePage() {
     </Box>
   );
 }
+

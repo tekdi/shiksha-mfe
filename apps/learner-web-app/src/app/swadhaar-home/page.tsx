@@ -38,6 +38,35 @@ import { telemetryFactory } from '@learner/utils/telemtery';
 const PRIMARY = '#E6873C';
 const SUCCESS = '#4CAF50';
 
+/**
+ * Recursive lesson count calculation: returns total lessons and completed lessons count.
+ */
+const calculateNodeLessons = (node: any, statusList: any[]): { total: number; completed: number } => {
+  const id = node.identifier || node.id;
+  if (!node.children || node.children.length === 0) {
+    const s = statusList.find((d: any) => d.contentId === id);
+    const perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
+    return { total: 1, completed: perc / 100 };
+  }
+  let total = 0;
+  let completed = 0;
+  node.children.forEach((child: any) => {
+    const res = calculateNodeLessons(child, statusList);
+    total += res.total;
+    completed += res.completed;
+  });
+  return { total, completed };
+};
+
+/**
+ * Recursive progress calculation: aggregates completion from leaf nodes up to the current node.
+ * Now uses lesson-based calculation for more accurate "actual" progress.
+ */
+const calculateNodeCompletion = (node: any, statusList: any[]): number => {
+  const { total, completed } = calculateNodeLessons(node, statusList);
+  return total > 0 ? (completed / total) * 100 : 0;
+};
+
 export default function SwadhaarHomePage() {
   const router = useRouter();
   const { tenant } = useTenant();
@@ -83,9 +112,7 @@ export default function SwadhaarHomePage() {
       } else {
         const role = localStorage.getItem('userRole');
         const userId = localStorage.getItem('userId');
-        if (role === 'CFL') {
-
-        // if (role === 'CFL' || userId === '7f60190c-16eb-4583-bbef-c5fc7bc484e7') {
+        if (role === 'CFL' ) {
           router.push('/cfl/home');
         }
       }
@@ -178,15 +205,6 @@ export default function SwadhaarHomePage() {
 
       const filteredLevelCourses = filterHierarchy(levelCourses);
 
-      // Recursive progress calculation: aggregates completion from leaf nodes up to the current node
-      const calculateNodeCompletion = (node: any, statusList: any[]): number => {
-        if (!node.children || node.children.length === 0) {
-          const s = statusList.find((d: any) => d.contentId === node.identifier);
-          return s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
-        }
-        const childPercs = node.children.map((child: any) => calculateNodeCompletion(child, statusList));
-        return childPercs.length > 0 ? childPercs.reduce((a: number, b: number) => a + b, 0) / childPercs.length : 0;
-      };
 
       // Map dynamic levels from search API results based on filtered hierarchy
       const levelDataList = filteredLevelCourses.map((course: any, idx: number, filteredLevels: any[]) => {
@@ -196,8 +214,9 @@ export default function SwadhaarHomePage() {
           const modulePerc = calculateNodeCompletion(m, status);
           return { isModuleComplete: modulePerc >= 100, modulePerc };
         });
-
-        const levelPerc = children.length > 0 ? (moduleDetails.reduce((acc: number, curr: any) => acc + curr.modulePerc, 0) / children.length) : 0;
+        
+        const levelStats = calculateNodeLessons(course, status);
+        const levelPerc = levelStats.total > 0 ? (levelStats.completed / levelStats.total) * 100 : 0;
 
         // Store calculated completion for next level's check
         (course as any).calculatedCompletion = levelPerc;

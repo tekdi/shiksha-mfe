@@ -529,7 +529,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
             const modOffset = modCirc - (Math.min(modPerc, 100) / 100) * modCirc;
 
             return (
-              <Box sx={{ px: 2, pb: 1.5 }}>
+              <Box sx={{ px: 0, pb: 0 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
                   <Box sx={{ position: 'relative', width: 52, height: 52, flexShrink: 0 }}>
                     <svg width={52} height={52} style={{ position: 'absolute', top: 0, left: 0 }}>
@@ -556,6 +556,8 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
                     </Typography>
                   </Box>
                 </Box>
+                {/* Figma: #E0E0E0 divider below the module heading */}
+                <Divider sx={{ border: "1.5px solid", borderColor: '#E0E0E0', mt: 1, mb: 2 }} />
               </Box>
             );
           })()}

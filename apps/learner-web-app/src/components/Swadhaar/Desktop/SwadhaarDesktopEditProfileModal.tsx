@@ -131,7 +131,12 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
     try {
       const userId = localStorage.getItem('userId');
       if (userId) {
-        await uploadProfilePhoto(userId, file);
+        // uploadProfilePhoto returns the image URL — cache it so the home banner
+        // refreshes immediately when onProfileUpdated triggers loadData().
+        const imageUrl = await uploadProfilePhoto(userId, file);
+        if (imageUrl) {
+          localStorage.setItem('profilePicture', imageUrl);
+        }
         showToastMessage(t('LEARNER_APP.PROFILE.PHOTO_UPLOADED_SUCCESS'), 'success');
         fetchProfile();
         onProfileUpdated?.();
@@ -147,14 +152,19 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
   return (
     <Dialog
       open={open}
-      onClose={onClose}
+      onClose={(_event, reason) => {
+        // Allow closing by clicking backdrop or pressing Escape
+       if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+      return;
+    }
+      }}
       maxWidth="xs"
       fullWidth
       PaperProps={{
         sx: {
           borderRadius: '16px',
           boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-          overflow: 'visible',
+          overflow: 'hidden',
         },
       }}
     >

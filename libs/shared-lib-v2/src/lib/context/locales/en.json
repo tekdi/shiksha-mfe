@@ -427,6 +427,8 @@
       "NAME_REQUIRED": "Name cannot be empty",
       "NAME_UPDATED_SUCCESS": "Name updated successfully!",
       "UPDATE_FAILED": "Failed to update name",
+      "ERROR_UPDATING_NAME": "Failed to update name. Please try again.",
+      "ERROR_FETCHING": "Failed to load profile. Please try again.",
       "FIELD_LANGUAGE": "Language",
       "FIELD_NAME": "Name",
       "FIELD_DESIGNATION": "Designation",
@@ -461,9 +463,7 @@
       "PHOTO_UPLOADED_SUCCESS": "Profile photo uploaded successfully!",
       "ERROR_UPLOADING_PHOTO": "Failed to upload photo. Please try again.",
       "FILE_TOO_LARGE": "File is too large. Please select a file smaller than 5MB.",
-      "INVALID_FILE_TYPE": "Invalid file type. Please select an image file.",
-      "PHOTO_UPLOADED_SUCCESS": "Profile photo uploaded successfully!",
-      "ERROR_UPLOADING_PHOTO": "Failed to upload photo. Please try again."
+      "INVALID_FILE_TYPE": "Invalid file type. Please select an image file."
     },
     "ATTENDANCE": {
       "DAY_WISE_ATTENDANCE": "Day-Wise Attendance",

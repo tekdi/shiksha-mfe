@@ -59,6 +59,8 @@ export default function LessonViewerPage() {
   const [allLessons, setAllLessons] = useState<any[]>([]);
   const [statusData, setStatusData] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  // Once true for the current lesson, NEVER resets to false — prevents flicker from polling
+  const [lessonCompleted, setLessonCompleted] = useState(false);
 
   // Session-wide progress guard backed by sessionStorage so it persists across navigation.
   // Prevents the backend's completed_list from overriding a locally-tracked in-progress value.
@@ -154,9 +156,11 @@ export default function LessonViewerPage() {
 
           // SESSION GUARD: If sessionStorage has a local in-progress record for this lesson,
           // don't let the backend's completed_list override it with 100%.
-          // This guard persists across back-navigation because it's stored in sessionStorage.
+          // EXCEPTION: if this item is already marked completed in our local state, trust the
+          // backend — the guard was stale from a previous partial watch session.
           const sessionEntry = currentGuard[newItem.contentId];
-          if (sessionEntry && sessionEntry.status === 1 && newItem.status === 2) {
+          const alreadyCompletedLocally = idx >= 0 && merged[idx]?.status === 2;
+          if (sessionEntry && sessionEntry.status === 1 && newItem.status === 2 && !alreadyCompletedLocally) {
             // Backend says completed but we tracked it as in-progress this session
             if (idx >= 0) {
               merged[idx] = {
@@ -201,6 +205,9 @@ export default function LessonViewerPage() {
     // On true completion, clear from sessionStorage guard so backend value takes over
     const id = contentId || currentLesson?.identifier;
     if (id) clearSessionGuard(id);
+
+    // Lock the UI permanently in green completed state — never revert until lesson changes
+    setLessonCompleted(true);
     loadData(true);
   }, [loadData, currentLesson?.identifier]);
 
@@ -218,20 +225,28 @@ export default function LessonViewerPage() {
   const handleProgress = useCallback((percentage: number) => {
     const id = currentLesson?.identifier;
     if (id && percentage < 100) {
-      // Persist to sessionStorage so it survives back-navigation
-      updateSessionGuard(id, { percentage: Math.round(percentage), status: 1 });
+      // Only write to session guard if the content is NOT already completed.
+      // If we write status=1/94% for a completed item, the guard will block
+      // the backend's completed status on every 5-second poll re-fetch.
+      const alreadyCompleted = statusData.some(s => s.contentId === id && s.status === 2);
+      if (!alreadyCompleted) {
+        updateSessionGuard(id, { percentage: Math.round(percentage), status: 1 });
+      }
     }
     handleProgressInner(percentage);
-  }, [currentLesson?.identifier, handleProgressInner]);
+  }, [currentLesson?.identifier, handleProgressInner, statusData]);
 
   // ✅ Periodically refresh status silently to avoid player reset
+  // Stop polling once the lesson is completed — prevents stale backend data from
+  // causing post-completion flicker in the progress display.
   useEffect(() => {
-    if (isDesktop && isSwadhaarTenant) return; // Desktop player handles its own sync
+    if (isDesktop && isSwadhaarTenant) return;
+    if (lessonCompleted) return; // No need to poll once done
     const interval = setInterval(() => {
-      loadData(true); 
-    }, 5000); 
+      loadData(true);
+    }, 5000);
     return () => clearInterval(interval);
-  }, [loadData, isDesktop, isSwadhaarTenant]);
+  }, [loadData, isDesktop, isSwadhaarTenant, lessonCompleted]);
 
   useEffect(() => {
     loadData();
@@ -246,6 +261,16 @@ export default function LessonViewerPage() {
     const s = statusData.find((sd: any) => sd.contentId === currentLesson.identifier);
     return s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
   }, [currentLesson, statusData]);
+
+  // Display value: once the lesson is completed this session, always show 100%
+  // This prevents flicker when polling returns stale backend data mid-update
+  const displayCompletion = lessonCompleted ? 100 : currentCompletion;
+  const showCompletedBanner = lessonCompleted || currentCompletion >= 100;
+
+  // Reset lessonCompleted when the user navigates to a different lesson
+  useEffect(() => {
+    setLessonCompleted(false);
+  }, [lessonId]);
 
   const isQuiz = useMemo(() => {
     if (!currentLesson) return false;
@@ -310,12 +335,33 @@ export default function LessonViewerPage() {
 
       <Box sx={{ px: 2, pt: 2, flex: 1, pb: 22 }}>
         {!isQuiz && (
-          <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', p: 2, mb: 3 }}>
+          <Box sx={{
+            bgcolor: '#fff', borderRadius: '16px',
+            border: `1.5px solid ${showCompletedBanner ? '#4CAF50' : '#E5E7EB'}`,
+            p: 2, mb: 3, transition: 'border-color 0.5s ease'
+          }}>
             <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1.5, color: '#1F2937' }}>{t('LEARNER_APP.LEARN.LESSON_PROGRESS')}</Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <LinearProgress variant="determinate" value={currentCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: SUCCESS_GREEN } }} />
-              <Box sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', px: 1, py: 0.25, borderRadius: '10px' }}><Typography sx={{ fontSize: 11, fontWeight: 800, color: '#36B368' }}>{currentCompletion}%</Typography></Box>
-            </Box>
+            {showCompletedBanner ? (
+              <Box sx={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
+                bgcolor: 'rgba(76, 175, 80, 0.08)', borderRadius: '10px', py: 1,
+              }}>
+                <CheckIcon sx={{ color: '#4CAF50', fontSize: 22 }} />
+                <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#4CAF50', letterSpacing: 0.3 }}>
+                  Lesson Completed!
+                </Typography>
+                <Box sx={{ bgcolor: 'rgba(76,175,80,0.15)', px: 1, py: 0.25, borderRadius: '10px', ml: 0.5 }}>
+                  <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#4CAF50' }}>100%</Typography>
+                </Box>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <LinearProgress variant="determinate" value={displayCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: SUCCESS_GREEN } }} />
+                <Box sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', px: 1, py: 0.25, borderRadius: '10px' }}>
+                  <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#36B368' }}>{Math.round(displayCompletion)}%</Typography>
+                </Box>
+              </Box>
+            )}
           </Box>
         )}
 
@@ -326,7 +372,7 @@ export default function LessonViewerPage() {
               key={currentLesson.identifier} identifier={currentLesson.identifier} courseId={courseId} unitId={subtopicId} mimeType={currentLesson.mimeType} contentType={currentLesson.contentType}
               contentUrl={currentLesson.artifactUrl || currentLesson.downloadUrl} posterImage={currentLesson.posterImage || currentLesson.appIcon} name={currentLesson.name} description={currentLesson.description}
               attempts={statusData.find(s => s.contentId === currentLesson.identifier)?.attempts || 0}
-              initialProgress={currentCompletion} isCompleted={currentCompletion >= 100}
+              initialProgress={displayCompletion} isCompleted={showCompletedBanner}
               onProgress={handleProgress} onComplete={handleComplete}
             />
           ) : (
