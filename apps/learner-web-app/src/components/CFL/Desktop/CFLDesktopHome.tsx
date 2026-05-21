@@ -11,6 +11,7 @@ import SwadhaarDesktopAlertsPanel from '../../Swadhaar/Desktop/SwadhaarDesktopAl
 import SwadhaarDesktopEditProfileModal from '../../Swadhaar/Desktop/SwadhaarDesktopEditProfileModal';
 import ConfirmationModal from '../../../components/ConfirmationModal/ConfirmationModal';
 import { getAlerts, getUnreadCount, fetchAndSyncAlerts } from '@learner/utils/alertsStore';
+import { useTranslation } from '@shared-lib';
 
 const PRIMARY = '#E6873C';
 const DARK_NAV = '#1C2B4A';
@@ -37,6 +38,7 @@ interface CFLDesktopHomeProps {
 
 const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, error, username, location }) => {
   const router = useRouter();
+  const { t } = useTranslation();
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0); 
   const [editProfileOpen, setEditProfileOpen] = useState(false);
@@ -141,7 +143,7 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
         {/* Section 2: Learning Progress (Accordions - Like Swadhaar) */}
         <Box sx={{ mb: 4 }}>
           <Typography sx={{ fontWeight: 800, color: '#1C2B4A', mb: 3, fontSize: 20, fontFamily: 'Inter, sans-serif' }}>
-            Learning Progress
+            {t('LEARNER_APP.HOME.LEARNING_PROGRESS')}
           </Typography>
 
           {loading ? (

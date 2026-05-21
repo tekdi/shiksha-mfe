@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Typography, Badge } from '@mui/material';
+import { Box, Typography, Badge, Select, MenuItem, FormControl, SelectChangeEvent } from '@mui/material';
 import Image from 'next/image';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import { useTranslation } from '@shared-lib';
+import { LANGUAGE_OPTIONS } from '@learner/utils/constants/language';
 
 const PRIMARY = '#E6873C';
 const DARK_NAV = '#1C2B4A';
@@ -25,9 +26,14 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
   onEditProfile,
   onLogout,
 }) => {
-  const { t } = useTranslation();
+  const { t, language, setLanguage } = useTranslation();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleLangChange = (e: SelectChangeEvent<string>) => {
+    setLanguage(e.target.value);
+    if (typeof window !== 'undefined') localStorage.setItem('lang', e.target.value);
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -82,6 +88,38 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
 
       {/* Right actions */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+
+        {/* ── Language ── */}
+        <FormControl size="small" sx={{ minWidth: 100 }}>
+          <Select
+            id="swadhaar-header-language-select"
+            value={language || 'en'}
+            onChange={handleLangChange}
+            sx={{
+              borderRadius: '8px',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: 13,
+              fontWeight: 600,
+              height: 34,
+              color: '#1F2937',
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#E5E7EB',
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: PRIMARY,
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: PRIMARY,
+              },
+            }}
+          >
+            {LANGUAGE_OPTIONS.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value} sx={{ fontFamily: 'Inter, sans-serif', fontSize: 13 }}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
 
         {/* Alerts */}
         <Box

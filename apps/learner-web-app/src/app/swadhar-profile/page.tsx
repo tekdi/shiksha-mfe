@@ -113,6 +113,9 @@ const ProfilePage = () => {
     if (typeof window !== "undefined") {
       localStorage.setItem("lang", newLang);
     }
+    import("../../utils/API/userService").then((module) => {
+      module.updateLanguageInProfile(newLang);
+    });
   };
 
   const handleUploadClick = () => {

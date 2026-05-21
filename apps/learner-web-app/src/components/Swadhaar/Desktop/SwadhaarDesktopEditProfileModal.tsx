@@ -108,8 +108,11 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
     }
   };
 
+  const [selectedLanguage, setSelectedLanguage] = useState<LanguageCode | null>(null);
+
   const handleLanguageChange = (event: any) => {
     const newLang = event.target.value as LanguageCode;
+    setSelectedLanguage(newLang);
     setLanguage(newLang);
     localStorage.setItem('lang', newLang);
   };
@@ -337,7 +340,16 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
               <Button
                 id="swadhaar-edit-profile-save-btn"
                 variant="contained"
-                onClick={() => {
+                onClick={async () => {
+                  setSaving(true);
+                  try {
+                    if (selectedLanguage) {
+                      const { updateLanguageInProfile } = await import('@learner/utils/API/userService');
+                      await updateLanguageInProfile(selectedLanguage);
+                    }
+                  } finally {
+                    setSaving(false);
+                  }
                   if (!isEditingName) onClose();
                 }}
                 fullWidth

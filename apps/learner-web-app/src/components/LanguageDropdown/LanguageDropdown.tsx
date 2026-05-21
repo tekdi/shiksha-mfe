@@ -54,6 +54,9 @@ const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
     if (typeof window !== "undefined") {
       localStorage.setItem("lang", newLanguage);
     }
+    import('@learner/utils/API/userService').then((module) => {
+      module.updateLanguageInProfile(newLanguage);
+    });
   };
 
   return (

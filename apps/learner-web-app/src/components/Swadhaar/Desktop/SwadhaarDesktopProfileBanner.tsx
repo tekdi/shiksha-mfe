@@ -166,7 +166,7 @@ const SwadhaarDesktopProfileBanner: React.FC<SwadhaarDesktopProfileBannerProps> 
                     whiteSpace: 'nowrap',
                   }}
                 >
-                  {isLocked ? 'Locked' : isCompleted ? 'Progress: 100% Completed' : `Progress: ${perc}% Completed`}
+                  {isLocked ? t('LEARNER_APP.HOME.LOCKED') : isCompleted ? `${t('LEARNER_APP.HOME.PROGRESS')}: 100% ${t('LEARNER_APP.HOME.COMPLETED')}` : `${t('LEARNER_APP.HOME.PROGRESS')}: ${perc}% ${t('LEARNER_APP.HOME.COMPLETED')}`}
                 </Typography>
 
                 {!isLocked && (

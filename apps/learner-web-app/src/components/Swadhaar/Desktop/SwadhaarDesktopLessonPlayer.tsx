@@ -515,7 +515,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
         <Box sx={{ width: { xs: '100%', sm: 320, md: 340 }, flexShrink: 0, bgcolor: '#F8F8F8', borderRight: '1px solid #E5E7EB', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <Box onClick={() => router.push('/swadhaar-home')} sx={{ px: 2, py: 1.5, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 0.5, '&:hover': { bgcolor: '#FEF9F4' } }}>
             <ArrowBackRoundedIcon sx={{ fontSize: 16, color: PRIMARY }} />
-            <Typography sx={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>Back to Home</Typography>
+            <Typography sx={{ fontSize: 13, fontWeight: 700, color: PRIMARY }}>{t('LEARNER_APP.HOME.BACK_TO_HOME')}</Typography>
           </Box>
 
           {currentModule && (() => {
@@ -682,7 +682,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
           </Box>
 
           <Box sx={{ bgcolor: '#fff', borderTop: '1px solid #F3F4F6', px: 4, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, flexShrink: 0 }}>
-            <Button variant="outlined" onClick={() => prevLesson ? goTo(prevLesson) : router.push('/swadhaar-home')} sx={{ borderColor: PRIMARY, color: PRIMARY, borderRadius: '10px', fontWeight: 700, textTransform: 'none', fontSize: 13, px: 3, minWidth: 110 }}>Previous</Button>
+            <Button variant="outlined" onClick={() => prevLesson ? goTo(prevLesson) : router.push('/swadhaar-home')} sx={{ borderColor: PRIMARY, color: PRIMARY, borderRadius: '10px', fontWeight: 700, textTransform: 'none', fontSize: 13, px: 3, minWidth: 110 }}>{t('LEARNER_APP.LEARN.PREVIOUS')}</Button>
             <Typography sx={{ fontWeight: 700, fontSize: 13, color: DARK_NAV, px: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, textAlign: 'center' }}>{currentLesson?.name || ''}</Typography>
             <Button 
               variant="contained" 
@@ -690,7 +690,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
               onClick={handleNext}
               sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '10px', fontWeight: 700, textTransform: 'none', fontSize: 13, px: 3, minWidth: 110, boxShadow: 'none', '&:hover': { bgcolor: '#D4762B', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' } }}
             >
-              Next
+              {t('LEARNER_APP.LEARN.NEXT')}
             </Button>
           </Box>
         </Box>

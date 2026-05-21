@@ -93,7 +93,7 @@ const DesktopModuleCard: React.FC<{
             letterSpacing: 0.5,
           }}
         >
-          {module.name?.toLowerCase().includes('module') ? module.name : `Module`}
+          {module.name?.toLowerCase().includes('module') ? module.name : t('LEARNER_APP.HOME.MODULE')}
         </Typography>
         <Typography
           sx={{
@@ -150,10 +150,10 @@ const DesktopModuleCard: React.FC<{
           }}
         >
           {isCompleted
-            ? '100% Completed'
+            ? `100% ${t('LEARNER_APP.HOME.COMPLETED')}`
             : isLocked
-            ? 'Locked'
-            : `${perc}% Completed`}
+            ? t('LEARNER_APP.HOME.LOCKED')
+            : `${perc}% ${t('LEARNER_APP.HOME.COMPLETED')}`}
         </Typography>
       </Box>
     </Box>
@@ -276,7 +276,7 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
                 color: SUCCESS,
               }}
             >
-              {completedModules}/{totalModules} modules completed
+              {completedModules}/{totalModules} {t('LEARNER_APP.HOME.MODULES_COMPLETED')}
             </Typography>
           )}
           {isLocked && (

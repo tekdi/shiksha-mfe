@@ -70,6 +70,11 @@ function setLocalStorageFromCustomFields(fields: any) {
   if (stateName) localStorage.setItem("stateName", stateName);
   if (blockId) localStorage.setItem("mfe_block", String(blockId));
   localStorage.setItem("roleName", "Learner");
+
+  const preferredLanguage = getFieldLabel("PREFERRED_LANGUAGE") || fields?.find?.((f: any) => f.label === "PREFERRED_LANGUAGE")?.selectedValues?.[0];
+  if (preferredLanguage && typeof preferredLanguage === 'string') {
+    localStorage.setItem("lang", preferredLanguage);
+  }
 }
 
 export const profileComplitionCheck = async (): Promise<any> => {
@@ -144,6 +149,25 @@ export const updateUser = async (
   } catch (error) {
     console.error("error in fetching user details", error);
     return error;
+  }
+};
+
+export const updateLanguageInProfile = async (languageCode: string) => {
+  try {
+    const userId = localStorage.getItem("userId");
+    if (userId) {
+      await updateUser(userId, {
+        userData: {},
+        customFields: [
+          {
+            label: "PREFERRED_LANGUAGE",
+            selectedValues: [{ value: languageCode }]
+          }
+        ]
+      });
+    }
+  } catch (error) {
+    console.error("Failed to update language in profile", error);
   }
 };
 export const getUserDetails = async (

@@ -270,7 +270,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
                     mb: 2,
                   }}
                 >
-                  Learning Progress
+                  {t('LEARNER_APP.HOME.LEARNING_PROGRESS')}
                 </Typography>
 
                 {levels.map((level) => (
