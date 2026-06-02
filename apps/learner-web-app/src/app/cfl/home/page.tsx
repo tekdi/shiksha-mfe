@@ -10,11 +10,13 @@ import ContentProgressView from '../../../../../../libs/cfl/components/ContentPr
 import { useCFLTrainers } from '../../../../../../libs/cfl/hooks/useCFL';
 import { useMediaQuery, useTheme } from '@mui/material';
 import CFLDesktopHome from '../../../components/CFL/Desktop/CFLDesktopHome';
-import router from 'next/router';
+import { useRouter } from 'next/navigation';
+import SwadhaarBottomNav from '../../../components/Swadhaar/SwadhaarBottomNav';
 
 const PRIMARY = '#E6873C';
 
 export default function CFLHomePage() {
+  const router = useRouter();
   const [viewMode, setViewMode] = useState<'trainer' | 'content'>('trainer');
   const [tenantId, setTenantId] = useState('');
   const [username, setUsername] = useState('Priya!'); // Matched Figma "Priya!"
@@ -60,7 +62,7 @@ export default function CFLHomePage() {
       
       <Box sx={{ p: 2 }}>
         <ProfileCard username={username} location={location} />
-        <StatsCard totalTrainers={trainers.length || 4} completedTrainers={completedCount || 2} />
+        <StatsCard totalTrainers={loading ? 0 : trainers.length} completedTrainers={loading ? 0 : completedCount} />
 
         <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
           <Button
@@ -120,21 +122,7 @@ export default function CFLHomePage() {
         )}
       </Box>
 
-      {/* Bottom Nav Mockup */}
-      <Box sx={{ position: 'fixed', bottom: 0, left: 0, right: 0, height: 64, bgcolor: '#fff', borderTop: '1px solid #eee', display: 'flex', justifyContent: 'space-around', alignItems: 'center', zIndex: 1000 }}>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: PRIMARY }}>
-           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
-           <Typography sx={{ fontSize: 10, fontWeight: 700 }}>Home</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#999', opacity: 0.5 }}>
-           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/></svg>
-           <Typography sx={{ fontSize: 10 }}>Learn</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', color: '#999', opacity: 0.5 }}>
-           <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-           <Typography sx={{ fontSize: 10 }}>Profile</Typography>
-        </Box>
-      </Box>
+      <SwadhaarBottomNav />
     </Box>
   );
 }

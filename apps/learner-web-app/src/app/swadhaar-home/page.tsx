@@ -111,8 +111,8 @@ export default function SwadhaarHomePage() {
         window.location.replace('/swadhaar-login');
       } else {
         const role = localStorage.getItem('userRole');
-        const userId = localStorage.getItem('userId');
-        if (role === 'CFL' ) {
+        // const userId = localStorage.getItem('userId');
+        if (role === 'CFL' || role === 'cfl') {
           router.push('/cfl/home');
         }
       }
@@ -131,7 +131,22 @@ export default function SwadhaarHomePage() {
       const role = localStorage.getItem('userRole') || 'Trainer';
 
       setDesignation(role.toLowerCase() === 'learner' ? 'Trainer' : role);
-      setProfileImageUrl(localStorage.getItem('profilePicture'));
+
+      if (userId) {
+        try {
+          const { getUserDetails } = await import('@learner/utils/API/services/ProfileService');
+          const profileResponse = await getUserDetails(userId, true);
+          const profileData = profileResponse?.result?.userData;
+          // The photo URL is stored in the `name` field by the uploadProfilePhoto flow
+          const freshImageUrl = profileData?.name || null;
+          setProfileImageUrl(freshImageUrl);
+          if (profileData?.firstName) {
+            setUserName(profileData.firstName);
+          }
+        } catch (e) {
+          console.error('Error fetching user profile image from API:', e);
+        }
+      }
 
       const levelCourses = await fetchSwadhaarLevelCourses();
       if (!levelCourses || levelCourses.length === 0) {
@@ -608,7 +623,7 @@ export default function SwadhaarHomePage() {
         <Typography sx={{ fontWeight: 800, fontFamily: 'Inter, sans-serif', fontSize:'18px', mb: 1.5, color: 'text.primary' }}>{t('LEARNER_APP.HOME.START_LEARNING')}</Typography>
 
         {/* ── SCREEN 5.3: Level Complete Celebration ── */}
-        {(() => {
+        {/* {(() => {
           const completedLevelIdx = levels.findIndex((l, idx) =>
             l.completionPercentage >= 100 && levels[idx + 1] && levels[idx + 1].completionPercentage === 0
           );
@@ -617,7 +632,7 @@ export default function SwadhaarHomePage() {
           const nextLevel = levels[completedLevelIdx + 1];
           return (
             <Box sx={{ mb: 3 }}>
-              {/* Trophy + Congratulations card */}
+             
               <Box sx={{ bgcolor: '#fff', borderRadius: '20px', border: '1px solid #E5E7EB', p: 3, mb: 2.5, textAlign: 'center' }}>
                 <Box sx={{
                   width: 96, height: 96, borderRadius: '50%', bgcolor: '#F59E0B',
@@ -632,7 +647,7 @@ export default function SwadhaarHomePage() {
                 </Typography>
               </Box>
 
-              {/* Next Level Unlocked */}
+              
               <Typography sx={{ fontWeight: 700, fontSize: 15, color: 'text.primary', mb: 1.5 }}>
                 {nextLevel.name} Unlocked
               </Typography>
@@ -675,7 +690,6 @@ export default function SwadhaarHomePage() {
                 })}
               </Box>
 
-              {/* Action Buttons */}
               <Box sx={{ display: 'flex', gap: 1.5 }}>
                 <Button
                   variant="outlined"
@@ -702,7 +716,7 @@ export default function SwadhaarHomePage() {
               </Box>
             </Box>
           );
-        })()}
+        })()} */}
 
         {activeLevel && (
            <SwadhaarLevelAccordion

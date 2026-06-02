@@ -33,8 +33,8 @@ const TrainerAccordion: React.FC<TrainerAccordionProps> = ({ trainer }) => {
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ color: '#999' }} />}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Avatar src={trainer.avatarUrl} sx={{ mr: 2, width: 40, height: 40, bgcolor: '#eee' }}>
-            {trainer.name.charAt(0)}
+          <Avatar src={trainer.avatarUrl || undefined} sx={{ mr: 2, width: 40, height: 40, bgcolor: '#1C2B4A', color: '#fff' }}>
+            {trainer.name.charAt(0).toUpperCase()}
           </Avatar>
           <Box>
             <Typography sx={{ fontWeight: 700, color: '#1C2B4A', fontSize: '14px' }}>
@@ -48,19 +48,25 @@ const TrainerAccordion: React.FC<TrainerAccordionProps> = ({ trainer }) => {
       </AccordionSummary>
       <AccordionDetails sx={{ pt: 0, px: 2, pb: 2 }}>
         <Box sx={{ mb: 1 }}>
-          {trainer.courses.map((course) => (
-            <LevelStatusBox 
-              key={course.id}
-              name={course.name}
-              status={course.status}
-              progressText={`Progress: ${course.status === 'completed' ? '100%' : course.status === 'in-progress' ? '25%' : '0%'} Completed`}
-            />
-          ))}
+          {trainer.courses.map((course) => {
+            let progressStr = '0%';
+            if (course.status === 'completed') progressStr = '100%';
+            else if (course.status === 'in-progress') progressStr = `${course.completionPercentage ?? 25}%`;
+
+            return (
+              <LevelStatusBox 
+                key={course.id}
+                name={course.name}
+                status={course.status}
+                progressText={`Progress: ${progressStr} Completed`}
+              />
+            );
+          })}
         </Box>
         <Button
           fullWidth
           variant="contained"
-          onClick={() => router.push(`/cfl/trainer/${trainer.id}`)}
+          onClick={() => router.push(`/cfl/trainer/${trainer.id}?name=${encodeURIComponent(trainer.name)}`)}
           sx={{
             bgcolor: '#E6873C',
             color: '#fff',

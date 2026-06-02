@@ -200,6 +200,8 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
         onAlertsClick={() => setAlertsPanelOpen((prev) => !prev)}
         onEditProfile={() => setEditProfileOpen(true)}
         onLogout={() => setLogoutConfirmOpen(true)}
+        profileImageUrl={profileImageUrl}
+        userName={userName}
       />
 
       {/* ── Body: flex row — main content + optional alerts sidebar ── */}

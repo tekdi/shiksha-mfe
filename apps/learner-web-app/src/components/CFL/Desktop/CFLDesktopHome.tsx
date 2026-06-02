@@ -25,7 +25,7 @@ interface Trainer {
   intermediateProgress?: number;
   advanceProgress?: number;
   newContentProgress?: number;
-  avatarUrl?: string;
+  courses?: any[];
 }
 
 interface CFLDesktopHomeProps {
@@ -76,22 +76,44 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
 
   const completedCount = trainers.filter(t => t.progress >= 100).length;
 
-  // Mocking detailed progress for the table if not present
-  const detailedTrainers = trainers.map(t => ({
-    ...t,
-    currentLevel: t.currentLevel || (t.progress >= 100 ? 'Advance' : t.progress > 50 ? 'Intermediate' : 'Beginner'),
-    beginnerProgress: t.beginnerProgress ?? (t.progress > 33 ? 100 : t.progress * 3),
-    intermediateProgress: t.intermediateProgress ?? (t.progress > 66 ? 100 : t.progress > 33 ? (t.progress - 33) * 3 : 0),
-    advanceProgress: t.advanceProgress ?? (t.progress >= 100 ? 100 : t.progress > 66 ? (t.progress - 66) * 3 : 0),
-    newContentProgress: t.newContentProgress ?? 100
-  }));
+  // Map actual course completion percentages to the table columns instead of mocking
+  const detailedTrainers = trainers.map(t => {
+    const beginnerCourse = t.courses?.[0];
+    const intermediateCourse = t.courses?.[1];
+    const advanceCourse = t.courses?.[2];
 
-  const mockCourses: any[] = [
-    { id: 'c1', name: 'RBI New Content', completedCount: 4, totalCount: 4, status: 'completed' },
-    { id: 'c2', name: 'Beginner Level', completedCount: 4, totalCount: 4, status: 'completed' },
-    { id: 'c3', name: 'Intermediate Level', completedCount: 2, totalCount: 4, status: 'in-progress' },
-    { id: 'c4', name: 'Advance Level', completedCount: 0, totalCount: 4, status: 'locked' },
-  ];
+    return {
+      ...t,
+      currentLevel: t.currentLevel || (t.progress >= 100 ? 'Advance' : t.progress > 50 ? 'Intermediate' : 'Beginner'),
+      beginnerProgress: t.beginnerProgress ?? (beginnerCourse?.completionPercentage || 0),
+      intermediateProgress: t.intermediateProgress ?? (intermediateCourse?.completionPercentage || 0),
+      advanceProgress: t.advanceProgress ?? (advanceCourse?.completionPercentage || 0),
+      newContentProgress: t.newContentProgress ?? 100
+    };
+  });
+
+  // Derive courses dynamically from trainer data (same approach as PWA ContentProgressView)
+  const dynamicCourses: any[] = trainers.length > 0 ? trainers[0].courses.map((course: any) => {
+    const completedTrainers = trainers.filter(t =>
+      (t as any).courses?.find((c: any) => c.id === course.id)?.status === 'completed'
+    ).length;
+
+    const inProgressTrainers = trainers.filter(t =>
+      (t as any).courses?.find((c: any) => c.id === course.id)?.status === 'in-progress'
+    ).length;
+
+    let overallStatus = 'locked';
+    if (completedTrainers === trainers.length && trainers.length > 0) overallStatus = 'completed';
+    else if (completedTrainers > 0 || inProgressTrainers > 0) overallStatus = 'in-progress';
+
+    return {
+      id: course.id,
+      name: course.name,
+      completedCount: completedTrainers,
+      totalCount: trainers.length,
+      status: overallStatus
+    };
+  }) : [];
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#F9FAFB', display: 'flex', flexDirection: 'column' }}>
@@ -152,7 +174,7 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
             </Box>
           ) : (
             <Box>
-              {mockCourses.map((course) => (
+              {dynamicCourses.map((course) => (
                 <CFLDesktopCourseAccordion 
                   key={course.id} 
                   course={course} 

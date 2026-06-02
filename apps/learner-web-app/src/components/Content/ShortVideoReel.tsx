@@ -16,7 +16,12 @@ import {
   ExpandMore,
   HelpOutline
 } from '@mui/icons-material';
+import dynamic from 'next/dynamic';
 import SunbirdPlayer from '../../../../../libs/shared-lib/src/lib/SunbirdPlayer/SunbirdPlayer';
+
+const PlayerComponent = dynamic(() => import('../../../../../mfes/players/src/pages/play'), {
+  ssr: false,
+});
 
 // Short Videos with real questionset do_ids from Sunbird API
 const MOCK_VIDEOS = [
@@ -233,6 +238,7 @@ const ShortVideoReel = () => {
                             <SunbirdPlayer 
                                 identifier={currentVideo.assessmentId} 
                                 fromShortVideo={true}
+                                PlayerComponent={PlayerComponent}
                             />
                         )}
                     </Box>

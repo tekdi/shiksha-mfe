@@ -17,6 +17,7 @@ import { KeyboardArrowDown } from "@mui/icons-material";
 import { useRouter } from "next/navigation";
 import { useTranslation } from "@shared-lib";
 import { getUserDetails, editEditUser, uploadProfilePhoto } from "../../utils/API/services/ProfileService";
+import { updateLanguageInProfile } from "../../utils/API/userService";
 import { showToastMessage } from "../../components/ToastComponent/Toastify";
 import ProfileAvatar from "../../components/Profile/ProfileAvatar";
 import ProfileField from "../../components/Profile/ProfileField";
@@ -61,10 +62,7 @@ const ProfilePage = () => {
         if (response?.result?.userData) {
           const userData = response.result.userData;
           setProfileData(userData);
-          
-          // Sync localStorage for consistency across pages
-          const imageUrl = userData.name || userData.basicDetails?.image || '';
-          if (imageUrl) localStorage.setItem('profilePicture', imageUrl);
+          // Sync localStorage for consistency across pages (excluding profilePicture as it is API-only now)
           if (userData.firstName) {
             localStorage.setItem('firstName', userData.firstName);
             localStorage.setItem('name', userData.firstName); // name is used as fallback in home page
@@ -113,8 +111,8 @@ const ProfilePage = () => {
     if (typeof window !== "undefined") {
       localStorage.setItem("lang", newLang);
     }
-    import("../../utils/API/userService").then((module) => {
-      module.updateLanguageInProfile(newLang);
+    updateLanguageInProfile(newLang).catch((err) => {
+      console.error("Error updating language in profile:", err);
     });
   };
 

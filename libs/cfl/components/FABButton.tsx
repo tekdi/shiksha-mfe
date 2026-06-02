@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 
 interface FABButtonProps {
   trainerId: string;
+  trainerName?: string;
 }
 
-const FABButton: React.FC<FABButtonProps> = ({ trainerId }) => {
+const FABButton: React.FC<FABButtonProps> = ({ trainerId, trainerName }) => {
   const router = useRouter();
 
   return (
@@ -21,7 +22,10 @@ const FABButton: React.FC<FABButtonProps> = ({ trainerId }) => {
         bgcolor: '#1C2B4A', // Dark Navy like in Figma
         '&:hover': { bgcolor: '#121d33' }
       }}
-      onClick={() => router.push(`/cfl/alert?trainerId=${trainerId}`)}
+      onClick={() => {
+        const url = trainerName ? `/cfl/alert?trainerId=${trainerId}&name=${encodeURIComponent(trainerName)}` : `/cfl/alert?trainerId=${trainerId}`;
+        router.push(url);
+      }}
     >
       <MessageIcon />
     </Fab>

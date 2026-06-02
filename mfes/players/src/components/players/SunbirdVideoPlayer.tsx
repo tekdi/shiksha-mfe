@@ -8,6 +8,7 @@ interface PlayerConfigProps {
   relatedData?: any;
   configFunctionality?: any;
   mode?: string;
+  onDownload?: () => void;
 }
 
 const getSbPlayerBaseUrl = () => {
@@ -166,6 +167,7 @@ const SunbirdVideoPlayer = ({
   relatedData: { courseId, unitId, userId },
   configFunctionality,
   mode,
+  onDownload,
 }: PlayerConfigProps) => {
   const sunbirdVideoPlayerRef = useRef<HTMLIFrameElement | null>(null);
 

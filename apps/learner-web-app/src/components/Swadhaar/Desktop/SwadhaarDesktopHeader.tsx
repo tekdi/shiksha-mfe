@@ -5,6 +5,7 @@ import { Box, Typography, Badge, Select, MenuItem, FormControl, SelectChangeEven
 import Image from 'next/image';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import ProfileAvatar from '@learner/components/Profile/ProfileAvatar';
 import { useTranslation } from '@shared-lib';
 import { LANGUAGE_OPTIONS } from '@learner/utils/constants/language';
 
@@ -17,6 +18,8 @@ interface SwadhaarDesktopHeaderProps {
   onAlertsClick: () => void;
   onEditProfile: () => void;
   onLogout: () => void;
+  profileImageUrl?: string | null;
+  userName?: string;
 }
 
 const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
@@ -25,6 +28,8 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
   onAlertsClick,
   onEditProfile,
   onLogout,
+  profileImageUrl,
+  userName,
 }) => {
   const { t, language, setLanguage } = useTranslation();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -188,7 +193,15 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
               bgcolor: profileMenuOpen ? 'rgba(28,43,74,0.07)' : 'transparent',
             }}
           >
-            <PersonRoundedIcon sx={{ fontSize: 22, color: '#1F2937' }} />
+            <ProfileAvatar
+              initials={(() => {
+                if (!userName) return 'U';
+                return userName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+              })()}
+              imageUrl={profileImageUrl || null}
+              size={24}
+              primaryColor={PRIMARY}
+            />
             <Typography
               sx={{
                 fontFamily: 'Inter, sans-serif',

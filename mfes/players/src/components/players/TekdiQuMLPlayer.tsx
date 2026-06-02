@@ -7,7 +7,7 @@ import { Box } from "@mui/material";
 interface PlayerConfigProps {
   playerConfig: any;
   relatedData?: any;
-  configFunctionality?: boolean;
+  configFunctionality?: any;
   mode?: string;
 }
 function MyAssessment({

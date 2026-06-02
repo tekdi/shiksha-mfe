@@ -59,6 +59,7 @@ export default function LessonViewerPage() {
   const [allLessons, setAllLessons] = useState<any[]>([]);
   const [statusData, setStatusData] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [courseDescription, setCourseDescription] = useState('');
   // Once true for the current lesson, NEVER resets to false — prevents flicker from polling
   const [lessonCompleted, setLessonCompleted] = useState(false);
 
@@ -110,6 +111,7 @@ export default function LessonViewerPage() {
 
         if (!isSilent || allLessons.length === 0) {
           const courseHierarchy = await getCourseHierarchy(courseId);
+          setCourseDescription(courseHierarchy?.description || '');
           const flatLessons: any[] = [];
 
           const flattenLessons = (node: any, parentModuleId: string, parentSubId: string) => {
@@ -341,7 +343,7 @@ export default function LessonViewerPage() {
             p: 2, mb: 3, transition: 'border-color 0.5s ease'
           }}>
             <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1.5, color: '#1F2937' }}>{t('LEARNER_APP.LEARN.LESSON_PROGRESS')}</Typography>
-            {showCompletedBanner ? (
+            {/* {showCompletedBanner ? (
               <Box sx={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
                 bgcolor: 'rgba(76, 175, 80, 0.08)', borderRadius: '10px', py: 1,
@@ -354,14 +356,31 @@ export default function LessonViewerPage() {
                   <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#4CAF50' }}>100%</Typography>
                 </Box>
               </Box>
-            ) : (
+            ) : ( */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <LinearProgress variant="determinate" value={displayCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: SUCCESS_GREEN } }} />
                 <Box sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', px: 1, py: 0.25, borderRadius: '10px' }}>
                   <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#36B368' }}>{Math.round(displayCompletion)}%</Typography>
                 </Box>
               </Box>
-            )}
+            {/* // )} */}
+          </Box>
+        )}
+
+        {courseDescription && currentLessonIndex === 0 && (
+          <Box sx={{
+            bgcolor: '#fff', borderRadius: '16px',
+            border: `1.5px solid #E5E7EB`,
+            p: 2, mb: 3
+          }}>
+            <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1, color: '#1F2937' }}>
+              {/* {t('LEARNER_APP.LEARN.COURSE_DESCRIPTION') || 'Course Description'} */}
+              Course Description
+
+            </Typography>
+            <Typography sx={{ fontSize: 14, color: '#4B5563', lineHeight: 1.6 }}>
+              {courseDescription}
+            </Typography>
           </Box>
         )}
 

@@ -12,6 +12,7 @@ import React, {
 } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import axios from "axios";
 import {
   Box,
   Button,
@@ -190,11 +191,14 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           userCheckResponse?.responseCode !== 200
         ) {
           console.log("User does not exist");
-          // Show error message and call the redirect handler
+          showToastMessage(
+            t("LEARNER_APP.LOGIN.USER_DOES_NOT_EXIST") || "User does not exist",
+            "error"
+          );
           if (onRedirectToLogin) {
             setTimeout(() => {
               onRedirectToLogin();
-            }, 100);
+            }, 1500);
           }
           return;
         }
@@ -203,12 +207,15 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         const users = userCheckResponse?.result?.getUserDetails || [];
 
         if (!users || users.length === 0) {
-          console.log("No users found for this mobile number");
-          // Show error message for no users found
+          console.log("No users found for this mobile number in Learner or CFL role");
+          showToastMessage(
+            t("LEARNER_APP.LOGIN.USER_DOES_NOT_EXIST") || "User does not exist",
+            "error"
+          );
           if (onRedirectToLogin) {
             setTimeout(() => {
               onRedirectToLogin();
-            }, 100);
+            }, 1500);
           }
           return;
         }
@@ -1620,9 +1627,36 @@ export default function Index() {
         hash: hash,
       });
 
-      const access_token =
+      let access_token =
         verifyResponse?.result?.token || verifyResponse?.result?.access_token;
-      const refresh_token = verifyResponse?.result?.refresh_token;
+      let refresh_token = verifyResponse?.result?.refresh_token;
+
+      // Fallback: if OTP verification was successful but token is not in verifyResponse,
+      // call GET /user/auth immediately to get the token via the set session cookie.
+      if (!access_token && (verifyResponse?.result?.success || verifyResponse?.params?.status === "successful")) {
+        console.log("OTP verification successful but token not in response. Fetching token from /user/auth...");
+        try {
+          const authUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/user/auth`;
+          const cookieToken = getCookieValue("token") || getCookieValue("access_token") || getCookieValue("authToken");
+          
+          const headers: Record<string, string> = {};
+          if (cookieToken) {
+            headers.Authorization = `Bearer ${cookieToken}`;
+            console.log("Found token in cookies, adding to Authorization header:", cookieToken.substring(0, 10) + "...");
+          }
+
+          const authResponse = await axios.get(authUrl, {
+            headers,
+            withCredentials: true,
+          });
+          const authResult = authResponse?.data?.result || authResponse?.data;
+          access_token = authResult?.token || authResult?.access_token;
+          refresh_token = authResult?.refresh_token;
+          console.log("Successfully fetched token from /user/auth after OTP verification:", access_token ? "Yes" : "No");
+        } catch (authError) {
+          console.error("Failed to fetch auth token after successful OTP verification:", authError);
+        }
+      }
 
       if (access_token) {
         localStorage.setItem("token", access_token);

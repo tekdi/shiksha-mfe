@@ -215,10 +215,10 @@ export const getContentCourseStatus = async (
   tenantId: string
 ): Promise<any[]> => {
   const apiUrl = API_ENDPOINTS.contentCourseStatus;
-  const academicYearId = localStorage.getItem("academicYearId");
+  const academicYearId = localStorage.getItem("academicYearId") || "";
   const headers = {
     tenantid: tenantId,
-    ...(academicYearId ? { academicyearid: academicYearId } : {}),
+    academicyearid: academicYearId,
   };
   const body = { userId: userIds, courseId: courseIds };
 

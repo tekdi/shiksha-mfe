@@ -201,20 +201,20 @@ export const getQuestions = async (identifiers: string[]) => {
   }
 };
 
-const getHeaders = () => {
-  if (typeof window === "undefined") return {};
-  const token = localStorage.getItem("token");
-  const tenantId = localStorage.getItem("tenantId");
-  const academicYearId = localStorage.getItem("academicYearId");
+// const getHeaders = () => {
+//   if (typeof window === "undefined") return {};
+//   const token = localStorage.getItem("token");
+//   const tenantId = localStorage.getItem("tenantId");
+//   const academicYearId = localStorage.getItem("academicYearId");
 
-  return {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(tenantId ? { tenantId, tenantid: tenantId } : {}),
-    ...(academicYearId ? { academicyearid: academicYearId } : {}),
-  };
-};
+//   return {
+//     "Content-Type": "application/json",
+//     Accept: "application/json",
+//     ...(token ? { Authorization: `Bearer ${token}` } : {}),
+//     ...(tenantId ? { tenantId, tenantid: tenantId } : {}),
+//     ...(academicYearId ? { academicyearid: academicYearId } : {}),
+//   };
+// };
 
 export const createContentTracking = async (reqBody: ContentCreate) => {
   console.log("reqBody player service", reqBody);

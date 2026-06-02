@@ -198,19 +198,21 @@ export const userNameExist = async (userData: any): Promise<any> => {
 
 // New function to check user existence using interface API
 // Uses domainTenantId from localStorage (set when tenant is loaded based on domain)
+// Searches role: "Learner" first, then role: "CFL" if not found.
+// Returns user data if found in either role; returns a not-found response if absent in both.
 export const checkUserExistenceWithTenant = async (
   identifier: string,
   tenantId?: string
 ): Promise<any> => {
   const apiUrl: string = `${process.env.NEXT_PUBLIC_BASE_URL}/user/list`;
 
-  // Helper to build request body for different search fields
-  const buildRequestBody = (tenantIdToUse: string, field: "username" | "mobile") => {
+  // Helper to build request body — always searches by mobile, parameterised by role
+  const buildRequestBody = (tenantIdToUse: string, role: "Learner" | "CFL") => {
     const filters: any = {
-      role: "Learner",
+      role,
       tenantId: tenantIdToUse,
+      username: identifier,
     };
-    filters[field] = identifier;
 
     const requestBody: any = {
       limit: 10,
@@ -219,7 +221,7 @@ export const checkUserExistenceWithTenant = async (
       offset: 0,
     };
 
-    console.log("[checkUserExistenceWithTenant] Request filters:", filters);
+    console.log(`[checkUserExistenceWithTenant] Request filters (role=${role}):`, filters);
     return requestBody;
   };
 
@@ -236,15 +238,20 @@ export const checkUserExistenceWithTenant = async (
     );
   };
 
+  // Helper: true when the response contains at least one user record
+  const hasUsers = (responseData: any): boolean => {
+    const users = responseData?.result?.getUserDetails || [];
+    return users.length > 0;
+  };
+
   try {
     // Get domainTenantId from localStorage (set when tenant is loaded based on domain)
-    // This ensures we use the tenantId that matches the current domain
     let domainTenantId: string | null = null;
     if (typeof window !== "undefined") {
       domainTenantId = localStorage.getItem("domainTenantId");
     }
 
-    // Use domainTenantId from localStorage (priority), fallback to parameter, then null
+    // Priority: localStorage domainTenantId → parameter tenantId
     const tenantIdToUse = domainTenantId || tenantId;
 
     if (!tenantIdToUse) {
@@ -252,38 +259,50 @@ export const checkUserExistenceWithTenant = async (
       throw new Error("Tenant configuration not found. Please refresh the page.");
     }
 
-    // Prepare headers - use domainTenantId to ensure header matches filter
-    // These headers will override the interceptor's headers
     const headers: Record<string, string> = {
-      tenantid: tenantIdToUse, // lowercase version
-      tenantId: tenantIdToUse, // camelCase version
+      tenantid: tenantIdToUse,
+      tenantId: tenantIdToUse,
     };
 
     console.log("[checkUserExistenceWithTenant] Using tenantId:", tenantIdToUse, "for identifier:", identifier);
-    console.log("[checkUserExistenceWithTenant] Headers tenantId:", headers.tenantId, "tenantid:", headers.tenantid);
 
-    // 1️⃣ First try searching by username
+    // ─────────────────────────────────────────────────────────────────────────
+    // 1️⃣  Search with role: "CFL"
+    // ─────────────────────────────────────────────────────────────────────────
     try {
-      const requestBody = buildRequestBody(tenantIdToUse, "username");
+      const requestBody = buildRequestBody(tenantIdToUse, "CFL");
       const response = await post(apiUrl, requestBody, headers);
-      return response?.data;
+      if (hasUsers(response?.data)) {
+        console.log("[checkUserExistenceWithTenant] ✅ User found with role: CFL");
+        return response?.data;
+      }
+      console.warn("[checkUserExistenceWithTenant] No user found with role: CFL — trying Learner…");
     } catch (error) {
-      console.warn("[checkUserExistenceWithTenant] Username search failed, checking if we should fallback to mobile", error);
       if (!isNotFoundError(error)) {
-        // Some other error (network, 500, etc.) – rethrow
+        // Unexpected error (network, 500, etc.) — surface it immediately
         throw error;
       }
-      // Otherwise, fall through to mobile search
+      console.warn("[checkUserExistenceWithTenant] CFL search returned not-found — trying Learner…");
     }
 
-    // 2️⃣ Fallback: try searching by mobile field
+    // ─────────────────────────────────────────────────────────────────────────
+    // 2️⃣  Fallback: search with role: "Learner"
+    // ─────────────────────────────────────────────────────────────────────────
     try {
-      console.log("[checkUserExistenceWithTenant] Falling back to mobile search for identifier:", identifier);
-      const requestBody = buildRequestBody(tenantIdToUse, "mobile");
+      const requestBody = buildRequestBody(tenantIdToUse, "Learner");
       const response = await post(apiUrl, requestBody, headers);
+      console.log("[checkUserExistenceWithTenant] Learner role search result:", response?.data);
       return response?.data;
     } catch (error) {
-      console.error("error in checking user existence with tenant via mobile", error);
+      if (isNotFoundError(error)) {
+        // Neither role found — return a standard not-found shape so callers
+        // can show "User does not exist" without an uncaught exception.
+        return {
+          responseCode: 404,
+          params: { status: "failed", errmsg: "User does not exist" },
+          result: { getUserDetails: [] },
+        };
+      }
       throw error;
     }
   } catch (error) {

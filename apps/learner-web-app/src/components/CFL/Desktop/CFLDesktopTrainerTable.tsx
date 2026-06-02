@@ -14,6 +14,7 @@ interface Trainer {
   name: string;
   progress: number;
   currentLevel?: string;
+  avatarUrl?: string;
   beginnerProgress?: number;
   intermediateProgress?: number;
   advanceProgress?: number;
@@ -59,15 +60,17 @@ const CFLDesktopTrainerTable: React.FC<CFLDesktopTrainerTableProps> = ({ trainer
               <TableCell align="center">
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
                   <Avatar 
+                    src={trainer.avatarUrl || undefined}
                     sx={{ 
                       width: 32, 
                       height: 32, 
                       bgcolor: '#1C2B4A', 
+                      color: '#fff',
                       border: `2px solid ${PRIMARY}`,
                       fontSize: 14
                     }}
                   >
-                    {trainer.name.charAt(0)}
+                    {trainer.name.charAt(0).toUpperCase()}
                   </Avatar>
                   <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#4B5563' }}>
                     {trainer.name}

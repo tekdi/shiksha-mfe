@@ -115,6 +115,27 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
 
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [userName, setUserName] = useState('');
+
+  const fetchUserProfile = useCallback(async () => {
+    if (userId) {
+      try {
+        const { getUserDetails } = await import('@learner/utils/API/services/ProfileService');
+        const profileResponse = await getUserDetails(userId, true);
+        const profileData = profileResponse?.result?.userData;
+        setProfileImageUrl(profileData?.name || null);
+        setUserName(profileData?.firstName || 'User');
+      } catch (e) {
+        console.error('Error fetching user profile in LessonPlayer:', e);
+      }
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
+
 
   // Session-wide progress guard (Sync with mobile PWA logic)
   const SESSION_KEY = 'swadhaar_progress_guard';
@@ -508,6 +529,8 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
             onAlertsClick={() => setAlertsOpen((p) => !p)}
             onEditProfile={() => setEditProfileOpen(true)}
             onLogout={() => setLogoutConfirmOpen(true)}
+            profileImageUrl={profileImageUrl}
+            userName={userName}
           />
 
           <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
@@ -725,6 +748,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
         onProfileUpdated={() => {
             loadHierarchy();
             syncStatus();
+            fetchUserProfile();
         }}
       />
 

@@ -458,12 +458,17 @@ const PlayerBox = ({
             style={{
               border: "none",
               objectFit: "contain",
-              minHeight: isMobile ? "auto" : "calc(100vh - 250px)", // Ensure enough height on desktop
-              height: isMobile ? "auto" : "100%",
+              // Mobile (PWA): use dynamic viewport height to fill the available screen area.
+              // iframes have no intrinsic height so "auto" collapses them to ~0px.
+              // calc(100dvh - 200px) = viewport minus header + progress card + bottom bars.
+              // dvh (dynamic viewport height) accounts for mobile browser chrome (address bar).
+              // Desktop: keep the original 100vh-based calculation.
+              minHeight: isMobile ? "calc(100dvh - 200px)" : "calc(100vh - 250px)",
+              height: isMobile ? "calc(100dvh - 200px)" : "100%",
             }}
             allowFullScreen
             width="100%"
-            height="100%"
+            height={isMobile ? "100%" : "100%"}
             title="Embedded Localhost"
             allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
             frameBorder="0"

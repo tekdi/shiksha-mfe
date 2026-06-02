@@ -12,6 +12,7 @@ export interface CourseStats {
   id: string;
   name: string;
   status: 'completed' | 'in-progress' | 'locked';
+  completionPercentage?: number;
   completionCount: number;
   totalCount: number;
 }

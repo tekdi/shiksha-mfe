@@ -7,7 +7,6 @@ WORKDIR /workspace
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 ENV npm_config_cache="/tmp/.npm"
 ENV npm_config_prefer-offline=true
-ENV npm_config_maxsockets=1
 ENV npm_config_fetch_retries=3
 ENV npm_config_fetch_retry_mintimeout=5000
 ENV npm_config_fetch_retry_maxtimeout=60000
@@ -16,14 +15,18 @@ ENV npm_config_fetch_retry_maxtimeout=60000
 COPY package*.json ./
 
 # Install dependencies in stages to avoid memory issues
-RUN npm install --legacy-peer-deps --no-audit --no-fund --cache /tmp/.npm --prefer-offline --no-optional --production=false
+RUN npm ci --legacy-peer-deps --no-audit --no-fund --cache /tmp/.npm --prefer-offline --ignore-scripts
+
+# Copy and run the patch script to fix Nx lockfile parsing bug
+COPY patch-nx.js ./
+RUN node patch-nx.js
 
 # Copy the entire NX workspace
 COPY . .
 
 # Build Specific Application
 # Build only specific applications
-RUN npx nx run-many --target=build --projects=learner-web-app,players
+RUN npx nx run-many --target=build --projects=learner-web-app,players --verbose
 
 # Install PM2 to manage multiple apps
 RUN npm install -g pm2@6.0.8

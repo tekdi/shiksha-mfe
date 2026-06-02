@@ -43,6 +43,16 @@ const SwadhaarBottomNav: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();
+  const [homePath, setHomePath] = React.useState('/swadhaar-home');
+
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const role = localStorage.getItem('userRole');
+      if (role === 'CFL' || role === 'cfl') {
+        setHomePath('/cfl/home');
+      }
+    }
+  }, []);
 
   return (
     <Box
@@ -62,11 +72,12 @@ const SwadhaarBottomNav: React.FC = () => {
       }}
     >
       {NAV_ITEMS.map((item) => {
-        const isActive = pathname === item.path || pathname?.startsWith(item.path + '/');
+        const itemPath = item.path === '/swadhaar-home' ? homePath : item.path;
+        const isActive = pathname === itemPath || pathname?.startsWith(itemPath + '/');
         return (
           <Box
             key={item.path}
-            onClick={() => router.push(item.path)}
+            onClick={() => router.push(itemPath)}
             sx={{
               display: 'flex',
               flexDirection: 'column',

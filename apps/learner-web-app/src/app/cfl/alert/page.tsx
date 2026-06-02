@@ -11,20 +11,26 @@ function AlertContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const trainerId = searchParams.get('trainerId') || '';
+  const nameParam = searchParams.get('name');
   
   const [trainerName, setTrainerName] = useState('Jaya K.');
   const [trainerSub, setTrainerSub] = useState('CFL Jharkhand - Torpa');
 
   useEffect(() => {
     if (trainerId) {
-      // In a real app, fetch trainer name by ID
-      setTrainerName(`Jaya K.`);
+      if (nameParam) setTrainerName(nameParam);
       setTrainerSub(`CFL Jharkhand - Torpa`);
     }
-  }, [trainerId]);
+  }, [trainerId, nameParam]);
 
   const handleSubmit = async (data: any) => {
-    const success = await sendAlert({ ...data, trainerId });
+    const payload = {
+      userId: trainerId,
+      title: data.actionType === 'feedback' ? 'Feedback from CFL' : 'Action Required',
+      message: data.message
+    };
+    
+    const success = await sendAlert(payload as any);
     if (success) {
       alert('Feedback submitted successfully!');
       router.back();

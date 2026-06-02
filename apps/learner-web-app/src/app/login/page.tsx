@@ -25,9 +25,11 @@ import { Visibility, VisibilityOff } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { getUserId, login } from "@learner/utils/API/LoginService";
 import { checkUserExistenceWithTenant } from "@learner/utils/API/userService";
+import { cohortList } from "@learner/utils/API/services/CohortServices";
 import { sendOTP, verifyOTP } from "@learner/utils/API/OtPService";
 import { showToastMessage } from "@learner/components/ToastComponent/Toastify";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { useTranslation } from "@shared-lib";
 import { preserveLocalStorage } from "@learner/utils/helper";
 import { getDeviceId } from "@shared-lib-v2/DynamicForm/utils/Helper";
@@ -167,7 +169,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         // Get domainTenantId - priority: localStorage (set when tenant loaded), then tenant context
         let domainTenantId: string | null = null;
         if (typeof window !== "undefined") {
-          domainTenantId = localStorage.getItem("domainTenantId");
+          domainTenantId = localStorage.getItem("tenantId");
         }
         if (!domainTenantId) {
           domainTenantId = tenant?.tenantId || null;
@@ -196,11 +198,14 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           userCheckResponse?.responseCode !== 200
         ) {
           console.log("User does not exist");
-          // Show error message and call the redirect handler
+          showToastMessage(
+            t("LEARNER_APP.LOGIN.USER_DOES_NOT_EXIST") || "User does not exist",
+            "error"
+          );
           if (onRedirectToLogin) {
             setTimeout(() => {
               onRedirectToLogin();
-            }, 100);
+            }, 1500);
           }
           return;
         }
@@ -209,12 +214,15 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         const users = userCheckResponse?.result?.getUserDetails || [];
 
         if (!users || users.length === 0) {
-          console.log("No users found for this mobile number");
-          // Show error message for no users found
+          console.log("No users found for this mobile number in Learner or CFL role");
+          showToastMessage(
+            t("LEARNER_APP.LOGIN.USER_DOES_NOT_EXIST") || "User does not exist",
+            "error"
+          );
           if (onRedirectToLogin) {
             setTimeout(() => {
               onRedirectToLogin();
-            }, 100);
+            }, 1500);
           }
           return;
         }
@@ -1254,8 +1262,9 @@ const LoginPage = () => {
         const userRole = userResponse?.tenantData?.[0]?.roleName;
 
         // Handle Learner role - redirect to learner dashboard
-        if (userRole === "Learner"  || userRole === "Teacher") {
+        if (userRole === "Learner"  || userRole === "Teacher" || userRole === "CFL") {
           localStorage.setItem("userId", userResponse?.userId);
+          localStorage.setItem("userRole", userRole);
           localStorage.setItem(
             "templtateId",
             userResponse?.tenantData?.[0]?.templateId
@@ -1271,10 +1280,26 @@ const LoginPage = () => {
 
           localStorage.setItem("tenantId", tenantId);
           localStorage.setItem("userProgram", tenantName);
-          await profileComplitionCheck();
-          if (tenantId) {
-            await ensureAcademicYearForTenant(tenantId);
+        
+        
+        
+          try {
+            await profileComplitionCheck();
+          } catch (profileErr) {
+            console.warn("profileComplitionCheck failed (non-fatal):", profileErr);
           }
+
+          if (tenantId) {
+            try {
+              await ensureAcademicYearForTenant(tenantId);
+            } catch (yearErr) {
+              console.warn("ensureAcademicYearForTenant failed (non-fatal):", yearErr);
+            }
+          }
+console.log("user role====",userRole)
+          // If the role is CFL, call the cohort search API and save cohortId in localStorage
+         
+
           const telemetryInteract = {
             context: { env: "sign-in", cdata: [] },
             edata: {
@@ -1308,13 +1333,58 @@ const LoginPage = () => {
             label: "Login Button Clicked",
           });
 
-          // Check for redirect path stored by AuthGuard
-          const redirectAfterLogin = sessionStorage.getItem("redirectAfterLogin");
-          if (redirectAfterLogin && redirectAfterLogin.startsWith("/")) {
-            sessionStorage.removeItem("redirectAfterLogin");
-            window.location.href = `${window.location.origin}${redirectAfterLogin}`;
+          // Check for redirect path stored by AuthGuard or go to CFL/Dashboard home
+          if (userRole === "CFL") {
+              if (localStorage.getItem("userRole") === "CFL") {
+            try {
+              const userId = localStorage.getItem("userId");
+              // Use the existing cohortList service — RestClient interceptor auto-injects
+              // Authorization, academicyearid, and tenantid headers.
+              const cohortResult = await cohortList({
+                limit: 0,
+                offset: 0,
+                filters: {
+                  type: "COHORT",
+                  status: ["active"],
+                },
+              });
+
+              let cohortItems: any[] = [];
+              if (Array.isArray(cohortResult)) {
+                cohortItems = cohortResult;
+              } else if (cohortResult && typeof cohortResult === "object") {
+                cohortItems =
+                  cohortResult.cohortDetails ||
+                  cohortResult.cohort ||
+                  cohortResult.cohorts ||
+                  cohortResult.data ||
+                  [];
+              }
+              console.log("cohortId====", cohortResult);
+              // Find cohort where parentId matches the logged-in CFL user's userId
+              const matchedCohort = cohortItems.find(
+                (cohort: any) => cohort.parentId === userId
+              );
+              if (matchedCohort) {
+                const storedCohortId = matchedCohort.cohortId || matchedCohort.id;
+                localStorage.setItem("cohortId", storedCohortId);
+                console.log("CFL cohortId saved:", storedCohortId);
+              } else {
+                console.warn("No cohort matched userId:", userId, "cohorts returned:", cohortItems.length);
+              }
+            } catch (error) {
+              console.error("Error fetching cohort after CFL login:", error);
+            }
+          }
+            window.location.href = `${window.location.origin}/cfl/home`;
           } else {
-            window.location.href = `${window.location.origin}/dashboard?tab=1`;
+            const redirectAfterLogin = sessionStorage.getItem("redirectAfterLogin");
+            if (redirectAfterLogin && redirectAfterLogin.startsWith("/")) {
+              sessionStorage.removeItem("redirectAfterLogin");
+              window.location.href = `${window.location.origin}${redirectAfterLogin}`;
+            } else {
+              window.location.href = `${window.location.origin}/dashboard?tab=1`;
+            }
           }
           return;
         }
@@ -1590,13 +1660,46 @@ const LoginPage = () => {
       console.log("OTP verification response:", verifyResponse);
 
       // Extract tokens from the verifyOTP response
-      const access_token =
+      let access_token =
         verifyResponse?.result?.token || verifyResponse?.result?.access_token;
-      const refresh_token = verifyResponse?.result?.refresh_token;
+      let refresh_token = verifyResponse?.result?.refresh_token;
+
+      // Fallback: if OTP verification was successful but token is not in verifyResponse,
+      // call GET /user/auth immediately to get the token via the set session cookie.
+      if (!access_token && (verifyResponse?.result?.success || verifyResponse?.params?.status === "successful")) {
+        console.log("OTP verification successful but token not in response. Fetching token from /user/auth...");
+        try {
+          const authUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/user/auth`;
+          const cookieToken = getCookieValue("token") || getCookieValue("access_token") || getCookieValue("authToken");
+          
+          const headers: Record<string, string> = {};
+          if (cookieToken) {
+            headers.Authorization = `Bearer ${cookieToken}`;
+            console.log("Found token in cookies, adding to Authorization header:", cookieToken.substring(0, 10) + "...");
+          }
+
+          const authResponse = await axios.get(authUrl, {
+            headers,
+            withCredentials: true,
+          });
+          const authResult = authResponse?.data?.result || authResponse?.data;
+          access_token = authResult?.token || authResult?.access_token;
+          refresh_token = authResult?.refresh_token;
+
+        
+
+
+          console.log("Successfully fetched token from /user/auth after OTP verification:", access_token ? "Yes" : "No");
+        } catch (authError) {
+          console.error("Failed to fetch auth token after successful OTP verification:", authError);
+        }
+      }
 
       if (access_token) {
         // Store tokens in localStorage
         localStorage.setItem("token", access_token);
+
+          
         if (refresh_token) {
           localStorage.setItem("refreshToken", refresh_token);
         }

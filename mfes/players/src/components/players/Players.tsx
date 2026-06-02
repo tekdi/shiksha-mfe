@@ -37,6 +37,7 @@ interface PlayerProps {
   userId?: string;
   configFunctionality?: any;
   mode?: string;
+  onDownload?: () => void;
 }
 
 const SunbirdPlayers = ({
@@ -46,6 +47,7 @@ const SunbirdPlayers = ({
   userId,
   configFunctionality,
   mode,
+  onDownload,
 }: PlayerProps) => {
   const [processedConfig, setProcessedConfig] = useState(playerConfig);
 
@@ -266,6 +268,7 @@ const SunbirdPlayers = ({
           relatedData={{ courseId, unitId, userId }}
           configFunctionality={configFunctionality}
           mode={mode}
+          onDownload={onDownload}
         />
       );
     case MIME_TYPE.QUESTION_MIME_TYPE:

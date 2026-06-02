@@ -24,15 +24,33 @@ interface ContentProgressViewProps {
 const ContentProgressView: React.FC<ContentProgressViewProps> = ({ trainers }) => {
   const router = useRouter();
 
-  const mockLevels = [
-    { id: 'l1', name: 'RBI New Content', completed: 4, total: 4, status: 'completed' },
-    { id: 'l2', name: 'Beginner Level', completed: 4, total: 4, status: 'completed' },
-    { id: 'l3', name: 'Intermediate Level', completed: 2, total: 4, status: 'in-progress' },
-  ];
+  // Derive levels (courses) dynamically from the first trainer
+  const levels = trainers.length > 0 ? trainers[0].courses.map(course => {
+    // Calculate total completed trainers for this course
+    const completedTrainers = trainers.filter(t => 
+      t.courses.find(c => c.id === course.id)?.status === 'completed'
+    ).length;
+
+    const inProgressTrainers = trainers.filter(t =>
+      t.courses.find(c => c.id === course.id)?.status === 'in-progress'
+    ).length;
+
+    let overallStatus = 'locked';
+    if (completedTrainers === trainers.length && trainers.length > 0) overallStatus = 'completed';
+    else if (completedTrainers > 0 || inProgressTrainers > 0) overallStatus = 'in-progress';
+
+    return {
+      id: course.id,
+      name: course.name,
+      completed: completedTrainers,
+      total: trainers.length,
+      status: overallStatus
+    };
+  }) : [];
 
   return (
     <Box>
-      {mockLevels.map((level) => (
+      {levels.map((level) => (
         <Accordion
           key={level.id}
           elevation={0}
@@ -62,9 +80,10 @@ const ContentProgressView: React.FC<ContentProgressViewProps> = ({ trainers }) =
                 {level.completed}/{level.total} Trainers Completed
             </Typography>
             <List sx={{ p: 0 }}>
-              {trainers.map((trainer, idx) => {
-                const progress = idx === 0 ? 100 : idx === 1 ? 100 : idx === 2 ? 75 : 0;
-                const status = progress === 100 ? 'completed' : progress > 0 ? 'in-progress' : 'locked';
+              {trainers.map((trainer) => {
+                const courseStatus = trainer.courses.find(c => c.id === level.id);
+                const status = courseStatus ? courseStatus.status : 'locked';
+                const progress = status === 'completed' ? 100 : (status === 'in-progress' ? (courseStatus?.completionPercentage ?? 25) : 0);
                 const borderColor = status === 'completed' ? '#4CAF50' : status === 'in-progress' ? '#E6873C' : '#eee';
 
                 return (

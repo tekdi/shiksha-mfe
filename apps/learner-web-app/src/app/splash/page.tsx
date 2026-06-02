@@ -17,8 +17,8 @@ export default function SplashScreen() {
     const timer = setTimeout(() => {
       if (isTokenValid()) {
         const role = localStorage.getItem('userRole');
-        const userId = localStorage.getItem('userId');
-        if (role === 'CFL') {
+        // const userId = localStorage.getItem('userId');
+        if (role === 'CFL' || role === 'cfl' ) {
           router.push('/cfl/home');
         } else {
           router.push('/swadhaar-home');

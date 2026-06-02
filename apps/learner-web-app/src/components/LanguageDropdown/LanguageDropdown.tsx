@@ -6,6 +6,7 @@ import { useTranslation } from "@shared-lib";
 import { LANGUAGE_OPTIONS, LANGUAGE_LABELS, LanguageCode } from "@learner/utils/constants/language";
 import { alpha } from "@mui/material/styles";
 import { useTenant } from "@learner/context/TenantContext";
+import { updateLanguageInProfile } from "@learner/utils/API/userService";
 
 interface LanguageDropdownProps {
   primaryColor?: string;
@@ -54,8 +55,8 @@ const LanguageDropdown: React.FC<LanguageDropdownProps> = ({
     if (typeof window !== "undefined") {
       localStorage.setItem("lang", newLanguage);
     }
-    import('@learner/utils/API/userService').then((module) => {
-      module.updateLanguageInProfile(newLanguage);
+    updateLanguageInProfile(newLanguage).catch((err) => {
+      console.error("Error updating language in profile:", err);
     });
   };
 

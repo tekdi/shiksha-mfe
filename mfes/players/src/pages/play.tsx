@@ -95,8 +95,7 @@ const Players: React.FC<SunbirdPlayerProps> = ({
       // 1. Save metadata and hierarchy
       await offlineService.downloadContentMetadata(
         identifier.toString(), 
-        playerConfig.metadata, 
-        playerConfig.metadata // In this player, hierarchy is often merged into metadata
+        playerConfig.metadata
       );
 
       // 2. Identify and download assets
