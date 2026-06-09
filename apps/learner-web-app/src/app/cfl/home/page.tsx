@@ -12,6 +12,8 @@ import { useMediaQuery, useTheme } from '@mui/material';
 import CFLDesktopHome from '../../../components/CFL/Desktop/CFLDesktopHome';
 import { useRouter } from 'next/navigation';
 import SwadhaarBottomNav from '../../../components/Swadhaar/SwadhaarBottomNav';
+import SimpleModal from '@learner/components/SimpleModal/SimpleModal';
+import { cohortList } from "@learner/utils/API/services/CohortServices";
 
 const PRIMARY = '#E6873C';
 
@@ -21,11 +23,12 @@ export default function CFLHomePage() {
   const [tenantId, setTenantId] = useState('');
   const [username, setUsername] = useState('Priya!'); // Matched Figma "Priya!"
   const [location, setLocation] = useState('CFL Jharkhand - Torpa');
+  const [showUpdateProfilePrompt, setShowUpdateProfilePrompt] = useState(false);
 
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
-  const { trainers, loading, error } = useCFLTrainers(tenantId);
+  const { trainers, loading, error, refresh } = useCFLTrainers(tenantId);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -35,9 +38,63 @@ export default function CFLHomePage() {
         router.push('/swadhaar-home');
         return;
       }
+      if (role === "DI" || role === "CFL") {
+            const fetchCohortData = async () => {
+              try {
+                const userId = localStorage.getItem("userId");
+                // Use the existing cohortList service — RestClient interceptor auto-injects
+                // Authorization, academicyearid, and tenantid headers.
+                const cohortResult = await cohortList({
+                  limit: 0,
+                  offset: 0,
+                  filters: {
+                    type: "COHORT",
+                    status: ["active"],
+                    tenantId: localStorage.getItem('tenantId')
+                  },
+                });
+
+                let cohortItems: any[] = [];
+                if (Array.isArray(cohortResult)) {
+                  cohortItems = cohortResult;
+                } else if (cohortResult && typeof cohortResult === "object") {
+                  cohortItems =
+                    cohortResult.results?.cohortDetails ||
+                    cohortResult.cohortDetails ||
+                    cohortResult.cohort ||
+                    cohortResult.cohorts ||
+                    cohortResult.data ||
+                    [];
+                }
+                
+                // Find cohort where parentId matches the logged-in CFL user's userId
+                const matchedCohort = cohortItems.find(
+                  (cohort: any) => cohort.parentId === userId
+                );
+                console.log("matchedCohort====", matchedCohort);
+                if (matchedCohort) {
+                  const storedCohortId = matchedCohort.cohortId || matchedCohort.id;
+                  localStorage.setItem("cohortId", storedCohortId);
+                  console.log("CFL cohortId saved:", storedCohortId);
+                  refresh();
+                } else {
+                  console.warn("No cohort matched userId:", userId, "cohorts returned:", cohortItems.length);
+                }
+              } catch (error) {
+                console.error("Error fetching cohort after CFL login:", error);
+              }
+            };
+            fetchCohortData();
+          }
       setTenantId(localStorage.getItem('tenantId') || '');
       const firstName = localStorage.getItem('firstName');
-      if (firstName) setUsername(firstName + '!');
+      if (firstName) {
+        setUsername(firstName + '!');
+        const mobile = localStorage.getItem('mobileNumber') || '';
+        if (mobile && firstName === mobile) {
+          setShowUpdateProfilePrompt(true);
+        }
+      }
       setLocation(`CFL: ${localStorage.getItem('stateName') || 'Jharkhand'} - ${localStorage.getItem('districtName') || 'Torpa'}`);
     }
   }, []);
@@ -46,13 +103,26 @@ export default function CFLHomePage() {
 
   if (isDesktop) {
     return (
-      <CFLDesktopHome
-        trainers={trainers}
-        loading={loading}
-        error={error}
-        username={username}
-        location={location}
-      />
+      <>
+        <CFLDesktopHome
+          trainers={trainers}
+          loading={loading}
+          error={error}
+          username={username}
+          location={location}
+        />
+        <SimpleModal
+          open={showUpdateProfilePrompt}
+          onClose={() => setShowUpdateProfilePrompt(false)}
+          showFooter={true}
+          primaryText="Update"
+          primaryActionHandler={() => router.push('/edit-profile?updateName=true')}
+        >
+          <Box p="20px" sx={{ fontFamily: 'Inter, sans-serif' }}>
+            <Typography>Please update your profile details such as your name.</Typography>
+          </Box>
+        </SimpleModal>
+      </>
     );
   }
 
@@ -123,6 +193,17 @@ export default function CFLHomePage() {
       </Box>
 
       <SwadhaarBottomNav />
+      <SimpleModal
+        open={showUpdateProfilePrompt}
+        onClose={() => setShowUpdateProfilePrompt(false)}
+        showFooter={true}
+        primaryText="Update"
+        primaryActionHandler={() => router.push('/edit-profile?updateName=true')}
+      >
+        <Box p="20px" sx={{ fontFamily: 'Inter, sans-serif' }}>
+          <Typography>Please update your profile details such as your name.</Typography>
+        </Box>
+      </SimpleModal>
     </Box>
   );
 }

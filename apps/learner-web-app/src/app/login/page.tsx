@@ -1334,48 +1334,8 @@ console.log("user role====",userRole)
           });
 
           // Check for redirect path stored by AuthGuard or go to CFL/Dashboard home
-          if (userRole === "CFL") {
-              if (localStorage.getItem("userRole") === "CFL") {
-            try {
-              const userId = localStorage.getItem("userId");
-              // Use the existing cohortList service — RestClient interceptor auto-injects
-              // Authorization, academicyearid, and tenantid headers.
-              const cohortResult = await cohortList({
-                limit: 0,
-                offset: 0,
-                filters: {
-                  type: "COHORT",
-                  status: ["active"],
-                },
-              });
-
-              let cohortItems: any[] = [];
-              if (Array.isArray(cohortResult)) {
-                cohortItems = cohortResult;
-              } else if (cohortResult && typeof cohortResult === "object") {
-                cohortItems =
-                  cohortResult.cohortDetails ||
-                  cohortResult.cohort ||
-                  cohortResult.cohorts ||
-                  cohortResult.data ||
-                  [];
-              }
-              console.log("cohortId====", cohortResult);
-              // Find cohort where parentId matches the logged-in CFL user's userId
-              const matchedCohort = cohortItems.find(
-                (cohort: any) => cohort.parentId === userId
-              );
-              if (matchedCohort) {
-                const storedCohortId = matchedCohort.cohortId || matchedCohort.id;
-                localStorage.setItem("cohortId", storedCohortId);
-                console.log("CFL cohortId saved:", storedCohortId);
-              } else {
-                console.warn("No cohort matched userId:", userId, "cohorts returned:", cohortItems.length);
-              }
-            } catch (error) {
-              console.error("Error fetching cohort after CFL login:", error);
-            }
-          }
+          if (userRole === "CFL" || userRole === "DI") {
+             
             window.location.href = `${window.location.origin}/cfl/home`;
           } else {
             const redirectAfterLogin = sessionStorage.getItem("redirectAfterLogin");

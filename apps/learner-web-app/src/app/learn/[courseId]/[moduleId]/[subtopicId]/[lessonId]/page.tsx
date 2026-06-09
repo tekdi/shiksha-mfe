@@ -8,6 +8,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { checkAuth } from '@shared-lib-v2/utils/AuthService';
 import SwadhaarBottomNav from '@learner/components/Swadhaar/SwadhaarBottomNav';
 import { SwadhaarContentPlayer } from '@learner/components/Swadhaar/Player/SwadhaarContentPlayer';
+import SwadhaarQuizFailModal from '@learner/components/Swadhaar/Player/SwadhaarQuizFailModal';
 
 import CheckIcon from '@mui/icons-material/Check';
 
@@ -59,9 +60,9 @@ export default function LessonViewerPage() {
   const [allLessons, setAllLessons] = useState<any[]>([]);
   const [statusData, setStatusData] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [courseDescription, setCourseDescription] = useState('');
   // Once true for the current lesson, NEVER resets to false — prevents flicker from polling
   const [lessonCompleted, setLessonCompleted] = useState(false);
+  const [quizFailOpen, setQuizFailOpen] = useState(false);
 
   // Session-wide progress guard backed by sessionStorage so it persists across navigation.
   // Prevents the backend's completed_list from overriding a locally-tracked in-progress value.
@@ -111,7 +112,6 @@ export default function LessonViewerPage() {
 
         if (!isSilent || allLessons.length === 0) {
           const courseHierarchy = await getCourseHierarchy(courseId);
-          setCourseDescription(courseHierarchy?.description || '');
           const flatLessons: any[] = [];
 
           const flattenLessons = (node: any, parentModuleId: string, parentSubId: string) => {
@@ -267,7 +267,9 @@ export default function LessonViewerPage() {
   // Display value: once the lesson is completed this session, always show 100%
   // This prevents flicker when polling returns stale backend data mid-update
   const displayCompletion = lessonCompleted ? 100 : currentCompletion;
-  const showCompletedBanner = lessonCompleted || currentCompletion >= 100;
+  const showCompletedBanner = lessonCompleted || displayCompletion >= 70;
+  // Effective completion for unlock gate — uses displayCompletion so video progress unlocks Next
+  const effectiveCompletion = displayCompletion;
 
   // Reset lessonCompleted when the user navigates to a different lesson
   useEffect(() => {
@@ -358,7 +360,7 @@ export default function LessonViewerPage() {
               </Box>
             ) : ( */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <LinearProgress variant="determinate" value={displayCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: SUCCESS_GREEN } }} />
+                <LinearProgress variant="determinate" value={displayCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: displayCompletion >= 70 ? '#4CAF50' : '#E6873C' } }} />
                 <Box sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', px: 1, py: 0.25, borderRadius: '10px' }}>
                   <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#36B368' }}>{Math.round(displayCompletion)}%</Typography>
                 </Box>
@@ -367,19 +369,17 @@ export default function LessonViewerPage() {
           </Box>
         )}
 
-        {courseDescription && currentLessonIndex === 0 && (
+        {currentLesson?.description && currentLesson.mimeType !== 'application/vnd.sunbird.questionset' && (
           <Box sx={{
             bgcolor: '#fff', borderRadius: '16px',
             border: `1.5px solid #E5E7EB`,
             p: 2, mb: 3
           }}>
             <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1, color: '#1F2937' }}>
-              {/* {t('LEARNER_APP.LEARN.COURSE_DESCRIPTION') || 'Course Description'} */}
-              Course Description
-
+              {t('LEARNER_APP.LEARN.DESCRIPTION') || 'Description'}
             </Typography>
             <Typography sx={{ fontSize: 14, color: '#4B5563', lineHeight: 1.6 }}>
-              {courseDescription}
+              {currentLesson.description}
             </Typography>
           </Box>
         )}
@@ -391,8 +391,10 @@ export default function LessonViewerPage() {
               key={currentLesson.identifier} identifier={currentLesson.identifier} courseId={courseId} unitId={subtopicId} mimeType={currentLesson.mimeType} contentType={currentLesson.contentType}
               contentUrl={currentLesson.artifactUrl || currentLesson.downloadUrl} posterImage={currentLesson.posterImage || currentLesson.appIcon} name={currentLesson.name} description={currentLesson.description}
               attempts={statusData.find(s => s.contentId === currentLesson.identifier)?.attempts || 0}
-              initialProgress={displayCompletion} isCompleted={showCompletedBanner}
+              initialProgress={displayCompletion}
+              isCompleted={lessonCompleted || currentCompletion >= 100}
               onProgress={handleProgress} onComplete={handleComplete}
+              onQuizFail={() => setQuizFailOpen(true)}
             />
           ) : (
             <DefaultPlayer key={currentLesson.identifier} identifier={currentLesson.identifier} courseId={courseId} unitId={subtopicId} isEmbedded={true} />
@@ -401,11 +403,26 @@ export default function LessonViewerPage() {
       </Box>
 
       <Box sx={{ position: 'fixed', bottom: 65, left: 0, right: 0, bgcolor: '#fff', borderTop: '1px solid #F3F4F6', px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
-        <Button variant="outlined" onClick={() => prevLesson ? router.push(`/learn/${courseId}/${prevLesson.parentModuleId}/${prevLesson.parentSubtopicId}/${prevLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}`)} sx={{ borderRadius: '10px', borderColor: PRIMARY, color: PRIMARY, fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0 }}>{t('LEARNER_APP.LEARN.PREVIOUS')}</Button>
+        <Button variant="outlined" onClick={() => prevLesson ? router.push(`/learn/${courseId}/${prevLesson.parentModuleId}/${prevLesson.parentSubtopicId}/${prevLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}/${subtopicId}`)} sx={{ borderRadius: '10px', borderColor: PRIMARY, color: PRIMARY, fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0 }}>{t('LEARNER_APP.LEARN.PREVIOUS')}</Button>
         <Typography sx={{ fontWeight: 700, fontSize: 12, color: DARK_NAV, textAlign: 'center', flex: 1, px: 1, fontFamily: 'Inter', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLesson?.name}</Typography>
-        <Button variant="contained" disabled={currentCompletion < 100} onClick={() => nextLesson ? router.push(`/learn/${courseId}/${nextLesson.parentModuleId}/${nextLesson.parentSubtopicId}/${nextLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}`)} sx={{ borderRadius: '10px', bgcolor: PRIMARY, color: '#fff', fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0, boxShadow: 'none', '&:hover': { bgcolor: '#D1752D' }, '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' } }}>{t('LEARNER_APP.LEARN.NEXT')}</Button>
+        <Button variant="contained" disabled={effectiveCompletion < 70} onClick={() => nextLesson ? router.push(`/learn/${courseId}/${nextLesson.parentModuleId}/${nextLesson.parentSubtopicId}/${nextLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}/${subtopicId}`)} sx={{ borderRadius: '10px', bgcolor: PRIMARY, color: '#fff', fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0, boxShadow: 'none', '&:hover': { bgcolor: '#D1752D' }, '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' } }}>{t('LEARNER_APP.LEARN.NEXT')}</Button>
       </Box>
       <SwadhaarBottomNav />
+
+      {/* Quiz Fail Modal — shown when quiz score < 70% */}
+      <SwadhaarQuizFailModal
+        open={quizFailOpen}
+        onOkay={() => {
+          setQuizFailOpen(false);
+          // Navigate to the very first lesson of the entire course
+          const firstLesson = allLessons[0];
+          if (firstLesson) {
+            router.push(`/learn/${courseId}/${firstLesson.parentModuleId}/${firstLesson.parentSubtopicId}/${firstLesson.identifier}`);
+          } else {
+            router.push(`/learn/${courseId}/${moduleId}`);
+          }
+        }}
+      />
     </Box>
     )}
     </>

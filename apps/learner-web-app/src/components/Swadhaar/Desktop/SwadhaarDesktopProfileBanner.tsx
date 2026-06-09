@@ -120,9 +120,14 @@ const SwadhaarDesktopProfileBanner: React.FC<SwadhaarDesktopProfileBannerProps> 
       <Box sx={{ width: '1px', bgcolor: 'rgba(255,255,255,0.12)', height: 44, flexShrink: 0, mx: 1 }} />
 
       {/* Level Chips */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3.5, flex: 1, overflowX: 'auto', justifyContent: 'flex-end', pl: 2 }}>
+      <Box sx={{ 
+        display: 'flex', alignItems: 'center', gap: 3.5, flex: 1, overflowX: 'auto', justifyContent: 'flex-end', pl: 2,
+        '&::-webkit-scrollbar': { display: 'none' },
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
+      }}>
         {levels.map((level) => {
-          const isCompleted = level.completionPercentage >= 100;
+          const isCompleted = level.completionPercentage >= 70;
           const isLocked = !level.isUnlocked;
           const perc = Math.round(level.completionPercentage);
 
@@ -131,18 +136,19 @@ const SwadhaarDesktopProfileBanner: React.FC<SwadhaarDesktopProfileBannerProps> 
               {/* Badge Icon (Vertically Centered relative to Name+Progress+Bar) */}
               <Box
                 sx={{
-                  width: 44, height: 44, borderRadius: '50%',
-                  bgcolor: isLocked ? 'rgba(255,255,255,0.05)' : '#FFFFFF',
-                  border: `2.5px solid ${isCompleted ? GOLD : (isLocked ? 'rgba(255,255,255,0.15)' : '#E0E0E0')}`,
+                  width: 48, height: 48, borderRadius: '50%',
+                  bgcolor: '#FFFFFF',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  boxShadow: isCompleted ? '0 0 10px rgba(237,183,18,0.2)' : 'none',
+                  opacity: isLocked ? 0.6 : 1,
+                  boxShadow: isCompleted ? '0 0 12px rgba(237,183,18,0.3)' : 'none',
+                  overflow: 'hidden'
                 }}
               >
-                {isLocked ? (
-                  <LockRoundedIcon sx={{ fontSize: 22, color: 'rgba(255,255,255,0.3)' }} />
-                ) : (
-                  <WorkspacePremiumOutlinedIcon sx={{ fontSize: 26, color: isCompleted ? GOLD : '#BDBDBD' }} />
-                )}
+                <img 
+                  src={isCompleted ? '/assets/images/badge-complete.png' : '/assets/images/badge-incomplete.png'} 
+                  alt="badge" 
+                  style={{ width: 32, height: 32, objectFit: 'contain' }} 
+                />
               </Box>
 
               {/* Text + Progress Bar Column */}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
-import { Box, Typography, Card, CardContent, Avatar } from '@mui/material';
+import { Box, Typography, Card, CardContent, Avatar, Modal } from '@mui/material';
 import CFLHeader from '../../../../../../libs/cfl/components/CFLHeader';
 import AlertForm from '../../../../../../libs/cfl/components/AlertForm';
 import { sendAlert } from '../../../../../../libs/cfl/services/cflService';
@@ -15,6 +15,9 @@ function AlertContent() {
   
   const [trainerName, setTrainerName] = useState('Jaya K.');
   const [trainerSub, setTrainerSub] = useState('CFL Jharkhand - Torpa');
+  
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'success' | 'error'>('success');
 
   useEffect(() => {
     if (trainerId) {
@@ -32,10 +35,18 @@ function AlertContent() {
     
     const success = await sendAlert(payload as any);
     if (success) {
-      alert('Feedback submitted successfully!');
-      router.back();
+      setModalType('success');
+      setModalOpen(true);
     } else {
-      alert('Failed to submit feedback.');
+      setModalType('error');
+      setModalOpen(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    if (modalType === 'success') {
+      router.back();
     }
   };
 
@@ -67,6 +78,46 @@ function AlertContent() {
 
         <AlertForm onSubmit={handleSubmit} />
       </Box>
+
+      <Modal open={modalOpen} onClose={handleCloseModal}>
+        <Box sx={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '90%',
+          maxWidth: 400,
+          bgcolor: 'background.paper',
+          borderRadius: '12px',
+          boxShadow: 24,
+          overflow: 'hidden',
+          outline: 'none'
+        }}>
+          <Box sx={{
+            bgcolor: '#1C2B4A',
+            py: 1.5,
+            px: 2,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            color: '#fff',
+            cursor: 'pointer'
+          }} onClick={handleCloseModal}>
+            <Typography sx={{ fontWeight: 600, fontSize: '14px' }}>Close</Typography>
+          </Box>
+          <Box sx={{ p: 3, pb: 4 }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, color: '#1C2B4A' }}>
+              {modalType === 'success' ? 'Alert sent' : 'Alert failed'}
+            </Typography>
+            <Typography sx={{ color: '#333', fontSize: '16px' }}>
+              {modalType === 'success' ? (
+                <>Feedback sent to <strong>{trainerName}</strong> successfully.</>
+              ) : (
+                <>Failed to send feedback to <strong>{trainerName}</strong>.</>
+              )}
+            </Typography>
+          </Box>
+        </Box>
+      </Modal>
     </Box>
   );
 }

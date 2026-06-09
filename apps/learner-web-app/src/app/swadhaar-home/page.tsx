@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Box, Typography, CircularProgress, Badge, Collapse, Button, useMediaQuery, useTheme,
+  Box, Typography, CircularProgress, Badge, Collapse, Button, useMediaQuery, useTheme, Modal
 } from '@mui/material';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
 import { SwadhaarDesktopHome } from '@learner/components/Swadhaar/Desktop';
@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { checkAuth } from '@shared-lib-v2/utils/AuthService';
 import { useTenant } from '@learner/context/TenantContext';
 import SwadhaarBottomNav from '@learner/components/Swadhaar/SwadhaarBottomNav';
+import SimpleModal from '@learner/components/SimpleModal/SimpleModal';
 import AlertsCarousel from '@learner/components/AlertsCarousel/AlertsCarousel';
 import SwadhaarLevelAccordion from '@learner/components/Swadhaar/SwadhaarLevelAccordion';
 import ProfileAvatar from '@learner/components/Profile/ProfileAvatar';
@@ -94,6 +95,7 @@ export default function SwadhaarHomePage() {
   const [viewMore, setViewMore] = useState(false);
   const [expandedActive, setExpandedActive] = useState(true);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [showUpdateProfilePrompt, setShowUpdateProfilePrompt] = useState(false);
 
   const getInitials = (name: string) => {
     if (!name) return "U";
@@ -110,9 +112,11 @@ export default function SwadhaarHomePage() {
       if (!checkAuth()) {
         window.location.replace('/swadhaar-login');
       } else {
+        console.log("userRole---->", localStorage.getItem("userRole"))
+        
         const role = localStorage.getItem('userRole');
         // const userId = localStorage.getItem('userId');
-        if (role === 'CFL' || role === 'cfl') {
+        if (role === 'CFL' || role === 'cfl' || role === "DI") {
           router.push('/cfl/home');
         }
       }
@@ -132,6 +136,10 @@ export default function SwadhaarHomePage() {
 
       setDesignation(role.toLowerCase() === 'learner' ? 'Trainer' : role);
 
+      let currentMobile = (localStorage.getItem('mobileNumber') || '').trim();
+      let currentFirstName = (localStorage.getItem('firstName') || '').trim();
+      let currentLastName = (localStorage.getItem('lastName') || '').trim();
+
       if (userId) {
         try {
           const { getUserDetails } = await import('@learner/utils/API/services/ProfileService');
@@ -142,10 +150,27 @@ export default function SwadhaarHomePage() {
           setProfileImageUrl(freshImageUrl);
           if (profileData?.firstName) {
             setUserName(profileData.firstName);
+            currentFirstName = profileData.firstName.trim();
+          }
+          if (profileData?.lastName) {
+            currentLastName = profileData.lastName.trim();
+          }
+          if (profileData?.mobile) {
+            currentMobile = profileData.mobile.trim();
           }
         } catch (e) {
           console.error('Error fetching user profile image from API:', e);
         }
+      }
+
+      console.log('Mobile Check Data:', { currentMobile, currentFirstName, currentLastName });
+
+      const needsUpdate = 
+        (currentMobile && (currentFirstName === currentMobile || currentLastName === currentMobile)) ||
+        (/^\d+$/.test(currentFirstName) && currentFirstName.length >= 10);
+
+      if (needsUpdate) {
+        setShowUpdateProfilePrompt(true);
       }
 
       const levelCourses = await fetchSwadhaarLevelCourses();
@@ -227,7 +252,7 @@ export default function SwadhaarHomePage() {
         
         const moduleDetails = children.map((m: any) => {
           const modulePerc = calculateNodeCompletion(m, status);
-          return { isModuleComplete: modulePerc >= 100, modulePerc };
+          return { isModuleComplete: Math.round(modulePerc) >= 70, modulePerc };
         });
         
         const levelStats = calculateNodeLessons(course, status);
@@ -238,9 +263,9 @@ export default function SwadhaarHomePage() {
 
         // Fixed unlock logic: a course is unlocked if:
         // 1. It's the first course, OR
-        // 2. The previous course is 100% complete, OR
+        // 2. The previous course is >= 70% complete, OR
         // 3. It already has progress > 0% (in-progress or completed)
-        const previousCompleted = idx === 0 || Math.round((filteredLevels[idx - 1] as any)?.calculatedCompletion || 0) >= 100;
+        const previousCompleted = idx === 0 || Math.round((filteredLevels[idx - 1] as any)?.calculatedCompletion || 0) >= 70;
         const isUnlocked = previousCompleted;
 
         const completedModulesCount = isUnlocked ? moduleDetails.filter((md: any) => md.isModuleComplete).length : 0;
@@ -249,6 +274,7 @@ export default function SwadhaarHomePage() {
         return {
           id: course.identifier,
           name: course.name,
+          description: course.description,
           completedModules: completedModulesCount,
           totalModules: children.length,
           completionPercentage: displayPerc,
@@ -261,10 +287,10 @@ export default function SwadhaarHomePage() {
 
       setLevels(sortedLevels);
       
-      // Prioritize in-progress courses (progress > 0 and < 100) over not-started ones
+      // Prioritize in-progress courses (progress > 0 and < 70) over not-started ones
       const active =
-        levelDataList.find((l) => l.isUnlocked && l.completionPercentage > 0 && l.completionPercentage < 100)
-        || levelDataList.find((l) => l.isUnlocked && l.completionPercentage < 100)
+        levelDataList.find((l) => l.isUnlocked && l.completionPercentage > 0 && l.completionPercentage < 70)
+        || levelDataList.find((l) => l.isUnlocked && l.completionPercentage < 70)
         || levelDataList[0];
       setActiveLevel(active);
 
@@ -403,20 +429,29 @@ export default function SwadhaarHomePage() {
   // ── Desktop branch ────────────────────────────────────────
   if (isDesktop) {
     return (
-      <SwadhaarDesktopHome
-        levels={levels}
-        activeLevel={activeLevel}
-        statusData={statusData}
-        alerts={alerts}
-        unreadCount={unreadCount}
-        userName={userName}
-        designation={designation}
-        profileImageUrl={profileImageUrl}
-        isLoading={false}
-        error={error}
-        onAlertClick={handleAlertClick}
-        onReload={loadData}
-      />
+      <>
+        <SwadhaarDesktopHome
+          levels={levels}
+          activeLevel={activeLevel}
+          statusData={statusData}
+          alerts={alerts}
+          unreadCount={unreadCount}
+          userName={userName}
+          designation={designation}
+          profileImageUrl={profileImageUrl}
+          isLoading={false}
+          error={error}
+          onAlertClick={handleAlertClick}
+          onReload={loadData}
+        />
+        <Modal open={showUpdateProfilePrompt} onClose={() => {}}>
+          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, bgcolor: 'background.paper', borderRadius: 4, p: 4, textAlign: 'center', boxShadow: 24, outline: 'none' }}>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1F2937', mb: 2 }}>Update Profile</Typography>
+            <Typography sx={{ color: '#4B5563', mb: 3 }}>Please update your profile details such as name information.</Typography>
+            <Button fullWidth variant="contained" onClick={() => { setShowUpdateProfilePrompt(false); router.push('/swadhar-profile'); }} sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>Okay</Button>
+          </Box>
+        </Modal>
+      </>
     );
   }
 
@@ -513,14 +548,10 @@ export default function SwadhaarHomePage() {
                   </Typography>
                 </Box>
                 <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                   <WorkspacePremiumOutlinedIcon 
-                     sx={{ 
-                       fontSize: 32, 
-                       color: activeLevel.completionPercentage >= 100 ? '#EDB712' : '#C0C4CC',
-                       bgcolor: activeLevel.completionPercentage >= 100 ? 'rgba(237, 183, 18, 0.1)' : 'transparent',
-                       borderRadius: '50%',
-                       p: 0.5
-                     }} 
+                   <img 
+                     src={activeLevel.completionPercentage >= 70 ? '/assets/images/badge-complete.png' : '/assets/images/badge-incomplete.png'} 
+                     alt="badge" 
+                     style={{ width: 40, height: 40, objectFit: 'contain' }} 
                    />
                 </Box>
               </Box>
@@ -556,14 +587,10 @@ export default function SwadhaarHomePage() {
                         </Typography>
                       </Box>
                       {l.isUnlocked ? (
-                         <WorkspacePremiumOutlinedIcon 
-                           sx={{ 
-                             fontSize: 32, 
-                             color: l.completionPercentage >= 100 ? '#EDB712' : '#C0C4CC',
-                             bgcolor: l.completionPercentage >= 100 ? 'rgba(237, 183, 18, 0.1)' : 'transparent',
-                             borderRadius: '50%',
-                             p: 0.5
-                           }} 
+                         <img 
+                           src={l.completionPercentage >= 70 ? '/assets/images/badge-complete.png' : '/assets/images/badge-incomplete.png'} 
+                           alt="badge" 
+                           style={{ width: 40, height: 40, objectFit: 'contain' }} 
                          />
                       ) : (
                          <svg width="20" height="20" viewBox="0 0 24 24" fill="#9CA3AF"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
@@ -722,6 +749,7 @@ export default function SwadhaarHomePage() {
            <SwadhaarLevelAccordion
               levelId={activeLevel.id}
               levelName={activeLevel.name}
+              levelDescription={activeLevel.description}
               completedModules={activeLevel.completedModules}
               totalModules={activeLevel.totalModules}
               completionPercentage={activeLevel.completionPercentage}
@@ -740,6 +768,13 @@ export default function SwadhaarHomePage() {
       </Box>
 
       <SwadhaarBottomNav />
+      <Modal open={showUpdateProfilePrompt} onClose={() => {}}>
+        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, bgcolor: 'background.paper', borderRadius: 4, p: 4, textAlign: 'center', boxShadow: 24, outline: 'none' }}>
+          <Typography variant="h6" sx={{ fontWeight: 800, color: '#1F2937', mb: 2 }}>Update Profile</Typography>
+          <Typography sx={{ color: '#4B5563', mb: 3 }}>Please update your profile details such as name information.</Typography>
+          <Button fullWidth variant="contained" onClick={() => { setShowUpdateProfilePrompt(false); router.push('/swadhar-profile'); }} sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>Okay</Button>
+        </Box>
+      </Modal>
     </Box>
   );
 }

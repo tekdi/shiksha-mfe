@@ -5,7 +5,8 @@ import { Box, Typography, LinearProgress, Collapse } from '@mui/material';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import { useTranslation } from '@shared-lib';
-
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 const PRIMARY = '#E6873C';
 const SUCCESS = '#4CAF50';
 
@@ -44,11 +45,12 @@ const DesktopModuleCard: React.FC<{
   completionCache: Map<string, number>;
   isLocked: boolean;
   onClick: () => void;
-}> = React.memo(({ module, completionCache, isLocked, onClick }) => {
+  showDescriptions?: boolean;
+}> = React.memo(({ module, completionCache, isLocked, onClick, showDescriptions = false }) => {
   const { t } = useTranslation();
   const nodeId = module.identifier || module.id;
   const perc = isLocked ? 0 : Math.round(completionCache.get(nodeId) ?? 0);
-  const isCompleted = perc >= 100;
+  const isCompleted = perc >= 70; // 70% threshold for done state
   const children = module.children || [];
   const subtopicCount = children.length;
 
@@ -56,9 +58,7 @@ const DesktopModuleCard: React.FC<{
     ? '#E5E7EB'
     : isCompleted
     ? SUCCESS
-    : perc > 0
-    ? PRIMARY
-    : '#E5E7EB';
+    : PRIMARY;
 
   return (
     <Box
@@ -118,6 +118,18 @@ const DesktopModuleCard: React.FC<{
       >
         {module.name}
       </Typography>
+      {showDescriptions && module.description && (
+        <Typography
+          sx={{
+            fontFamily: 'Inter, sans-serif',
+            fontSize: 13,
+            color: '#6B7280',
+            lineHeight: 1.2,
+          }}
+        >
+          {module.description}
+        </Typography>
+      )}
 
       {/* Progress bar */}
       <LinearProgress
@@ -150,7 +162,7 @@ const DesktopModuleCard: React.FC<{
           }}
         >
           {isCompleted
-            ? `100% ${t('LEARNER_APP.HOME.COMPLETED')}`
+            ? `${perc}% ${t('LEARNER_APP.HOME.COMPLETED')}`
             : isLocked
             ? t('LEARNER_APP.HOME.LOCKED')
             : `${perc}% ${t('LEARNER_APP.HOME.COMPLETED')}`}
@@ -165,6 +177,7 @@ DesktopModuleCard.displayName = 'DesktopModuleCard';
 interface SwadhaarDesktopLevelAccordionProps {
   levelId: string;
   levelName: string;
+  levelDescription?: string;
   completedModules: number;
   totalModules: number;
   completionPercentage: number;
@@ -174,12 +187,14 @@ interface SwadhaarDesktopLevelAccordionProps {
   statusData: any[];
   modules: any[];
   onModuleClick: (moduleId: string) => void;
+  showDescriptions?: boolean;
 }
 
 /* ─── Main Component ─────────────────────────────────────── */
 const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps> = ({
   levelId,
   levelName,
+  levelDescription,
   completedModules,
   totalModules,
   completionPercentage,
@@ -189,10 +204,11 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
   statusData,
   modules: rawModules,
   onModuleClick,
+  showDescriptions = false,
 }) => {
   const { t } = useTranslation();
   const isLocked = !isUnlocked;
-  const isCompletedLevel = completionPercentage >= 100;
+  const isCompletedLevel = completionPercentage >= 70; // 70% = level done
 
   const statusMap = useMemo(() => buildStatusMap(statusData), [statusData]);
   const completionCache = useMemo(
@@ -200,14 +216,14 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
     [rawModules, statusMap]
   );
 
-  // Sequential module unlock: module N is unlocked if all previous are 100%
+  // Sequential module unlock: module N is unlocked if all previous are >= 70%
   const moduleLockState = useMemo(() => {
     return rawModules.map((_, idx) =>
-      rawModules.slice(0, idx).every((m) => (completionCache.get(m.identifier || m.id) ?? 0) >= 100)
+      rawModules.slice(0, idx).every((m) => (completionCache.get(m.identifier || m.id) ?? 0) >= 70)
     );
   }, [rawModules, completionCache]);
 
-  const headerBorderColor = isLocked ? '#E5E7EB' : isExpanded ? PRIMARY : '#E5E7EB';
+  const headerBorderColor = isLocked ? '#E5E7EB' : isCompletedLevel ? SUCCESS : isExpanded ? PRIMARY : '#E5E7EB';
 
   return (
     <Box
@@ -229,7 +245,7 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
         onClick={() => !isLocked && onToggle()}
         sx={{
           display: 'flex',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'space-between',
           px: 2.5,
           py: 1.75,
@@ -238,17 +254,21 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
           transition: 'background 0.15s',
         }}
       >
-        <Box>
-          <Typography
-            sx={{
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 700,
-              fontSize: 14,
-              color: isLocked ? '#9CA3AF' : '#1F2937',
-            }}
-          >
-            {levelName}
-          </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flex: 1, minWidth: 0, pr: 2 }}>
+          {isLocked && (
+            <LockRoundedIcon sx={{ color: '#9CA3AF', fontSize: 22, mt: 0.2 }} />
+          )}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              sx={{
+                fontFamily: 'Inter, sans-serif',
+                fontWeight: 700,
+                fontSize: 14,
+                color: isLocked ? '#9CA3AF' : '#1F2937',
+              }}
+            >
+              {levelName}
+            </Typography>
           <Typography
             sx={{
               fontFamily: 'Inter, sans-serif',
@@ -264,9 +284,22 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
               ? t('LEARNER_APP.HOME.LOCKED')
               : t('LEARNER_APP.LEARN.COMPLETED_MODULES', { completed: completedModules, total: totalModules })}
           </Typography>
+          {showDescriptions && levelDescription && (
+            <Typography
+              sx={{
+                fontFamily: 'Inter, sans-serif',
+                fontSize: 14,
+                color: '#6B7280',
+                mt: 0.8,
+              }}
+            >
+              {levelDescription}
+            </Typography>
+          )}
         </Box>
+      </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, pt: 0.2, flexShrink: 0 }}>
           {isCompletedLevel && (
             <Typography
               sx={{
@@ -274,13 +307,11 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
                 fontSize: 12,
                 fontWeight: 700,
                 color: SUCCESS,
+                whiteSpace: 'nowrap',
               }}
             >
               {completedModules}/{totalModules} {t('LEARNER_APP.HOME.MODULES_COMPLETED')}
             </Typography>
-          )}
-          {isLocked && (
-            <LockRoundedIcon sx={{ color: '#9CA3AF', fontSize: 20 }} />
           )}
         </Box>
       </Box>
@@ -306,6 +337,7 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
               completionCache={completionCache}
               isLocked={!moduleLockState[idx]}
               onClick={() => onModuleClick(mod.identifier)}
+              showDescriptions={showDescriptions}
             />
           ))}
         </Box>

@@ -6,11 +6,12 @@ import CheckIcon from '@mui/icons-material/Check';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import LockIcon from '@mui/icons-material/Lock';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import { checkAuth } from '@shared-lib-v2/utils/AuthService';
 import SwadhaarBottomNav from '@learner/components/Swadhaar/SwadhaarBottomNav';
 import {
@@ -37,7 +38,8 @@ export default function SubtopicDetailsPage() {
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(true);
-  const [moduleName, setModuleName] = useState('');
+  const [moduleName, setModuleName] = useState<string>('');
+  const [moduleDescription, setModuleDescription] = useState<string>('');
   const [courseName, setCourseName] = useState('');
   const [subtopics, setSubtopics] = useState<any[]>([]);
   const [statusData, setStatusData] = useState<any[]>([]);
@@ -53,6 +55,8 @@ export default function SubtopicDetailsPage() {
   const [expandedSubtopicId, setExpandedSubtopicId] = useState<string | null>(null);
   const [showCertificate, setShowCertificate] = useState(false);
   const [certId, setCertId] = useState('');
+  const searchParams = useSearchParams();
+  const view = searchParams.get('view');
 
   React.useLayoutEffect(() => {
     if (typeof window !== 'undefined' && !checkAuth()) {
@@ -84,6 +88,7 @@ export default function SubtopicDetailsPage() {
 
       const currentModule = findNode(allModules, moduleId);
       setModuleName(currentModule?.name || t('LEARNER_APP.LEARN.PAGE_TITLE'));
+      setModuleDescription(currentModule?.description || '');
       const rawSubtopics = currentModule?.children || [];
 
       const collectAllIds = (nodes: any[]): string[] => {
@@ -155,12 +160,12 @@ export default function SubtopicDetailsPage() {
       });
 
       setSubtopics(processed);
-      const active = processed.find((s: any) => s.isUnlocked && s.completionPercentage < 100) || processed[0];
+      const active = processed.find((s: any) => s.isUnlocked && s.completionPercentage < 70) || processed[0];
       if (active) setExpandedSubtopicId(active.id);
 
       const levelDone = allModules.length > 0 && allModules.every(m => {
         const mPerc = getNodeCompletionPercent(m, status);
-        return Math.round(mPerc) >= 100;
+        return Math.round(mPerc) >= 70; // 70% threshold for level completion
       });
       setIsLevelComplete(levelDone);
 
@@ -218,7 +223,18 @@ export default function SubtopicDetailsPage() {
     );
   }
 
-  const isModuleComplete = subtopics.length > 0 && subtopics.every(s => s.completionPercentage >= 100);
+  const isModuleComplete = subtopics.length > 0 && subtopics.every(s => s.completionPercentage >= 70);
+  const isCourseOnlyLessons = courseModules.length > 0 && courseModules.every(m => m.mimeType !== 'application/vnd.ekstep.content-collection' && m.contentType !== 'CourseUnit' && m.contentType !== 'TextBookUnit');
+  const isModuleOnlyLessons = subtopics.length > 0 && subtopics.every(s => s.isLesson);
+
+  let effectiveView = view;
+  if (!effectiveView && isModuleComplete) {
+    if (isCourseOnlyLessons && !nextModule) {
+      effectiveView = 'course_completion';
+    } else if (isModuleOnlyLessons) {
+      effectiveView = 'module_completion';
+    }
+  }
 
   return (
     <Box sx={{ minHeight: '100dvh', bgcolor: 'background.default', display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -236,86 +252,132 @@ export default function SubtopicDetailsPage() {
 
       <Box sx={{ px: 2, py: 2, flex: 1, pb: 22 }}>
         {(() => {
-          const currentIdx = subtopics.findIndex(s => s.isUnlocked && s.completionPercentage < 100);
-          const current = currentIdx >= 0 ? subtopics[currentIdx] : subtopics[0];
-          const prevSub = currentIdx > 0 ? subtopics[currentIdx - 1] : null;
-          const showSubtopicComplete = !isModuleComplete && prevSub && prevSub.completionPercentage >= 100;
-
           return (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {/* Milestone Hero Section */}
-              <Box>
-                {(isModuleComplete && nextModule) ? (
-                  <Box sx={{ bgcolor: '#ECF5EE', borderRadius: '24px', p: 4, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                    <Box sx={{ width: 90, height: 90, borderRadius: '50%', bgcolor: '#6DBB6D', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                      <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: '#388E3C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <CheckIcon sx={{ color: '#fff', fontSize: 32 }} />
-                      </Box>
-                    </Box>
-                    <Typography sx={{ fontWeight: 800, fontSize: 24, color: '#388E3C', mb: 0.5 }}>{t('LEARNER_APP.MODULE_COMPLETE') !== 'LEARNER_APP.MODULE_COMPLETE' ? t('LEARNER_APP.MODULE_COMPLETE') : 'Module Complete!'}</Typography>
-                  </Box>
-                ) : isLevelComplete ? (
-                  <Box sx={{ bgcolor: '#F0F9F1', borderRadius: '24px', p: 4, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                    <Box sx={{ width: 100, height: 100, borderRadius: '50%', bgcolor: '#FDE68A', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                      <Box sx={{ width: 76, height: 76, borderRadius: '50%', bgcolor: '#FBBF24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <StarRoundedIcon sx={{ fontSize: 48, color: '#fff', stroke: '#1F2937', strokeWidth: 1.5 }} />
-                      </Box>
-                    </Box>
-                    <Typography sx={{ fontWeight: 800, fontSize: 26, color: '#065F46', mb: 0.5 }}>{t('LEARNER_APP.HOME.CONGRATULATIONS') !== 'LEARNER_APP.HOME.CONGRATULATIONS' ? t('LEARNER_APP.HOME.CONGRATULATIONS') : 'Congratulations!'}</Typography>
-                    <Typography sx={{ fontSize: 14, color: '#065F46', fontWeight: 500, opacity: 0.7 }}>{t('LEARNER_APP.HOME.FINISHED_COURSE', { courseName }) !== 'LEARNER_APP.HOME.FINISHED_COURSE' ? t('LEARNER_APP.HOME.FINISHED_COURSE', { courseName }) : `You have finished ${courseName}`}</Typography>
-                  </Box>
-                ) : isModuleComplete ? (
-                  // Fallback for module completion when no next module but level check failed or is ambiguous
-                  <Box sx={{ bgcolor: '#ECF5EE', borderRadius: '24px', p: 4, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                    <Box sx={{ width: 90, height: 90, borderRadius: '50%', bgcolor: '#6DBB6D', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                      <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: '#388E3C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <CheckIcon sx={{ color: '#fff', fontSize: 32 }} />
-                      </Box>
-                    </Box>
-                    <Typography sx={{ fontWeight: 800, fontSize: 24, color: '#388E3C', mb: 0.5 }}>{t('LEARNER_APP.MODULE_COMPLETE') !== 'LEARNER_APP.MODULE_COMPLETE' ? t('LEARNER_APP.MODULE_COMPLETE') : 'Module Complete!'}</Typography>
-                  </Box>
-                ) : showSubtopicComplete ? (
-                  <Box sx={{ bgcolor: '#ECF5EE', borderRadius: '24px', p: 4, textAlign: 'center', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
-                    <Box sx={{ width: 90, height: 90, borderRadius: '50%', bgcolor: '#6DBB6D', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
-                      <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: '#388E3C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <CheckIcon sx={{ color: '#fff', fontSize: 32 }} />
-                      </Box>
-                    </Box>
-                    <Typography sx={{ fontWeight: 800, fontSize: 24, color: '#388E3C', mb: 0.5 }}>{t('LEARNER_APP.LEARN.SUBTOPIC_COMPLETE') !== 'LEARNER_APP.LEARN.SUBTOPIC_COMPLETE' ? t('LEARNER_APP.LEARN.SUBTOPIC_COMPLETE') : 'Subtopic Complete!'}</Typography>
-                  </Box>
-                ) : null}
-              </Box>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
 
-              {/* Up Next / Next Level Section (Only for Level Completion) */}
-              <Box>
-                {isLevelComplete && nextLevel && (
-                  <Box>
-                    <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#1F2937', mb: 2 }}>{nextLevel.name} {t('LEARNER_APP.LEARN.UNLOCKED') !== 'LEARNER_APP.LEARN.UNLOCKED' ? t('LEARNER_APP.LEARN.UNLOCKED') : 'Unlocked'}</Typography>
-                    <HierarchyNode node={{...nextLevel, id: nextLevel.identifier}} courseId={nextLevel.identifier} moduleId={nextLevel.children?.[0]?.identifier || ''} parentId={nextLevel.identifier} statusData={statusData} isFirstLevel={true} isParentUnlocked={true} t={t} router={router} />
+              {/* ── Completion Hero Banner ── */}
+              {effectiveView === 'module_completion' ? (
+                /* Explicitly viewing Module Completion */
+                <Box sx={{ bgcolor: '#ECF5EE', borderRadius: '24px', p: 3, textAlign: 'center' }}>
+                  <Box sx={{ width: 90, height: 90, borderRadius: '50%', bgcolor: '#6DBB6D', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
+                    <Box sx={{ width: 64, height: 64, borderRadius: '50%', bgcolor: '#388E3C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <CheckIcon sx={{ color: '#fff', fontSize: 32 }} />
+                    </Box>
                   </Box>
-                )}
-              </Box>
+                  <Typography sx={{ fontWeight: 800, fontSize: 24, color: '#388E3C', mb: 0.5 }}>Module Complete!</Typography>
+                </Box>
+              ) : effectiveView === 'course_completion' ? (
+                /* Explicitly viewing Course Completion */
+                <Box sx={{ bgcolor: '#F0F9F1', borderRadius: '24px', p: 4, textAlign: 'center' }}>
+                  <Box sx={{ width: 100, height: 100, borderRadius: '50%', bgcolor: '#FDE68A', display: 'flex', alignItems: 'center', justifyContent: 'center', mx: 'auto', mb: 2 }}>
+                    <Box sx={{ width: 76, height: 76, borderRadius: '50%', bgcolor: '#FBBF24', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <StarRoundedIcon sx={{ fontSize: 48, color: '#fff', stroke: '#1F2937', strokeWidth: 1.5 }} />
+                    </Box>
+                  </Box>
+                  <Typography sx={{ fontWeight: 800, fontSize: 26, color: '#065F46', mb: 0.5 }}>{t('LEARNER_APP.HOME.CONGRATULATIONS') !== 'LEARNER_APP.HOME.CONGRATULATIONS' ? t('LEARNER_APP.HOME.CONGRATULATIONS') : 'Congratulations!'}</Typography>
+                  <Typography sx={{ fontSize: 14, color: '#065F46', fontWeight: 500, opacity: 0.7 }}>{`You have finished ${courseName}`}</Typography>
+                </Box>
+              ) : null}
 
-              {/* Current Module Hierarchy (Collapsible) */}
-              <Box>
-                <HierarchyNode 
-                  node={{
-                    id: moduleId,
-                    identifier: moduleId,
-                    name: moduleName,
-                    children: subtopics
-                  }} 
-                  courseId={courseId} 
-                  moduleId={moduleId} 
-                  parentId={courseId} 
-                  statusData={statusData} 
-                  isFirstLevel={true} 
-                  isParentUnlocked={true} 
-                  t={t} 
-                  router={router} 
-                  expandedSubtopicId={expandedSubtopicId}
-                />
-              </Box>
+              {/* ── Up Next: next module's subtopics (only when not last module) ── */}
+              {isModuleComplete && nextModule && (
+                <Box>
+                  <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#6B7280', mb: 1, textTransform: 'uppercase', letterSpacing: 0.5 }}>Up Next</Typography>
+                  <Box sx={{ borderRadius: '16px', border: `1.5px solid ${Math.round(getNodeCompletionPercent(nextModule, statusData)) >= 70 ? '#388E3C' : PRIMARY}`, bgcolor: '#fff', overflow: 'hidden' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, borderBottom: '1px solid #F3F4F6' }}>
+                      <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, flexShrink: 0 }}>
+                        {Math.round(getNodeCompletionPercent(nextModule, statusData)) >= 70 ? (
+                          <Box sx={{ width: 36, height: 36, borderRadius: '50%', bgcolor: '#388E3C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <CheckIcon sx={{ color: '#fff', fontSize: 20 }} />
+                          </Box>
+                        ) : (
+                          <>
+                            <CircularProgress variant="determinate" value={100} size={36} thickness={3.5} sx={{ color: '#E5E7EB', position: 'absolute' }} />
+                            <CircularProgress variant="determinate" value={Math.round(getNodeCompletionPercent(nextModule, statusData))} size={36} thickness={3.5} sx={{ color: PRIMARY }} />
+                            <Typography sx={{ position: 'absolute', fontSize: 8, fontWeight: 700, color: PRIMARY }}>{Math.round(getNodeCompletionPercent(nextModule, statusData))}%</Typography>
+                          </>
+                        )}
+                      </Box>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 13, color: 'text.primary' }}>{nextModule.name}</Typography>
+                        <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>
+                          Completed {(nextModule.children || []).filter((s: any) => Math.round(getNodeCompletionPercent(s, statusData)) >= 70).length}/{(nextModule.children || []).length} Subtopics
+                        </Typography>
+                      </Box>
+                      <KeyboardArrowDownIcon sx={{ color: Math.round(getNodeCompletionPercent(nextModule, statusData)) >= 70 ? '#388E3C' : PRIMARY, fontSize: 20 }} />
+                    </Box>
+                    {(nextModule.children || []).map((sub: any, idx: number) => (
+                      <Box key={sub.identifier}
+                        onClick={() => router.push(`/learn/${courseId}/${nextModule.identifier}/${sub.identifier}`)}
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, borderBottom: idx < (nextModule.children || []).length - 1 ? '1px solid #F9FAFB' : 'none', cursor: 'pointer', '&:hover': { bgcolor: '#FFF7F0' } }}>
+                        <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, flexShrink: 0 }}>
+                          {Math.round(getNodeCompletionPercent(sub, statusData)) >= 70 ? (
+                            <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#388E3C', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <CheckIcon sx={{ color: '#fff', fontSize: 16 }} />
+                            </Box>
+                          ) : (
+                            <>
+                              <CircularProgress variant="determinate" value={100} size={28} thickness={3} sx={{ color: '#E5E7EB', position: 'absolute' }} />
+                              <CircularProgress variant="determinate" value={Math.round(getNodeCompletionPercent(sub, statusData))} size={28} thickness={3} sx={{ color: PRIMARY }} />
+                              <Typography sx={{ position: 'absolute', fontSize: 8, fontWeight: 700, color: PRIMARY }}>{Math.round(getNodeCompletionPercent(sub, statusData))}%</Typography>
+                            </>
+                          )}
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography sx={{ fontWeight: 600, fontSize: 12, color: 'text.primary' }}>{sub.name}</Typography>
+                          <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>Completed {(sub.children || []).filter((l: any) => isNodeDone(l, statusData)).length}/{(sub.children || []).length} Lessons</Typography>
+                        </Box>
+                        <KeyboardArrowRightIcon sx={{ color: PRIMARY, fontSize: 18 }} />
+                      </Box>
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
+              {/* ── Full course hierarchy: only when course is done AND in course completion view ── */}
+              {isModuleComplete && effectiveView === 'course_completion' && (
+                <Box>
+                  {courseModules.map((mod: any, mIdx: number) => (
+                    <HierarchyNode
+                      key={mod.identifier}
+                      node={mod}
+                      courseId={courseId}
+                      moduleId={mod.identifier}
+                      parentId={courseId}
+                      statusData={statusData}
+                      isFirstLevel={true}
+                      isParentUnlocked={mIdx === 0 || isNodeDone(courseModules[mIdx - 1], statusData)}
+                      prevNode={mIdx === 0 ? null : courseModules[mIdx - 1]}
+                      t={t}
+                      router={router}
+                    />
+                  ))}
+                </Box>
+              )}
+
+              {/* ── Current Module Hierarchy (when not in course completion view) ── */}
+              {effectiveView !== 'course_completion' && (
+                <Box>
+                  <HierarchyNode
+                    node={{
+                      id: moduleId,
+                      identifier: moduleId,
+                      name: moduleName,
+                      description: moduleDescription,
+                      children: subtopics
+                    }}
+                    courseId={courseId}
+                    moduleId={moduleId}
+                    parentId={courseId}
+                    statusData={statusData}
+                    isFirstLevel={true}
+                    isParentUnlocked={true}
+                    t={t}
+                    router={router}
+                    expandedSubtopicId={expandedSubtopicId}
+                  />
+                </Box>
+              )}
             </Box>
           );
         })()}
@@ -323,7 +385,8 @@ export default function SubtopicDetailsPage() {
 
       {/* Fixed Bottom Buttons */}
       <Box sx={{ position: 'fixed', bottom: 65, left: 0, right: 0, px: 2, py: 1.5, bgcolor: '#fff', borderTop: '1px solid #F3F4F6', zIndex: 10 }}>
-        {isLevelComplete && !nextModule ? (
+        {effectiveView === 'course_completion' ? (
+          /* Explicit Course Completion View: Download Cert + Start Next Level */
           <Box sx={{ display: 'flex', gap: 2 }}>
             <Button variant="outlined" fullWidth disabled={certLoading} onClick={async () => {
                try {
@@ -337,11 +400,10 @@ export default function SubtopicDetailsPage() {
                  setShowCertificate(true);
                } catch (err) { console.error('Cert error:', err); } finally { setCertLoading(false); }
             }} sx={{ borderColor: PRIMARY, color: PRIMARY, borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>
-              {certLoading ? <CircularProgress size={20} /> : (t('LEARNER_APP.PROFILE.DOWNLOAD_CERTIFICATE') !== 'LEARNER_APP.PROFILE.DOWNLOAD_CERTIFICATE' ? t('LEARNER_APP.PROFILE.DOWNLOAD_CERTIFICATE') : 'Download Certificate')}
+              {certLoading ? <CircularProgress size={20} /> : 'Download Certificate'}
             </Button>
-            <Button variant="contained" fullWidth onClick={() => { 
+            <Button variant="contained" fullWidth onClick={() => {
               if (nextLevel) {
-                // If the next course level has modules, navigate to the first one
                 const firstModuleId = nextLevel.children?.[0]?.identifier;
                 if (firstModuleId) router.push(`/learn/${nextLevel.identifier}/${firstModuleId}`);
                 else router.push(`/learn/${nextLevel.identifier}`);
@@ -349,41 +411,55 @@ export default function SubtopicDetailsPage() {
                 router.push('/learn');
               }
             }} sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>
-              {t('LEARNER_APP.LEARN.START_NEXT_LEVEL')}
+              {nextLevel ? `Start ${nextLevel.name}` : 'Back to Learning'}
             </Button>
           </Box>
+        ) : effectiveView === 'module_completion' ? (
+          /* Explicit Module Completion View: Click to proceed to Course Completion */
+          <Button fullWidth variant="contained"
+            onClick={() => router.push(`/learn/${courseId}/${moduleId}?view=course_completion`)}
+            sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>
+            Course Completion
+          </Button>
+        ) : isModuleComplete && nextModule ? (
+          /* Module done, next module exists: Start [next module name] */
+          <Button fullWidth variant="contained"
+            onClick={() => router.push(`/learn/${courseId}/${nextModule.identifier}`)}
+            sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>
+            {`Start ${nextModule.name}`}
+          </Button>
+        ) : isModuleComplete && !nextModule ? (
+          /* Default Module View for completed module */
+          <Button fullWidth variant="contained" onClick={() => router.push('/learn')} sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>
+            Back to Learning
+          </Button>
         ) : (
-          <Button fullWidth variant="contained" 
+          /* Module in progress: Start next lesson */
+          <Button fullWidth variant="contained"
             onClick={() => {
-              if (isModuleComplete && nextModule) router.push(`/learn/${courseId}/${nextModule.identifier}`);
-              else {
-                const findFirstIncomplete = (node: any): any => {
-                  if (!node.children || node.children.length === 0) return node;
-                  const incomplete = (node.children || []).find((c: any) => Math.round(getNodeCompletionPercent(c, statusData)) < 100) || node.children[0];
-                  return findFirstIncomplete(incomplete);
-                };
-
-                const currentSubtopic = subtopics.find(s => s.isUnlocked && s.completionPercentage < 100) || subtopics[0];
-                if (currentSubtopic) {
-                  const lesson = findFirstIncomplete(currentSubtopic);
-                  const parentId = currentSubtopic.identifier === lesson.identifier ? moduleId : currentSubtopic.identifier;
-                  router.push(`/learn/${courseId}/${moduleId}/${parentId}/${lesson.identifier || lesson.id}`);
-                }
+              const findFirstIncomplete = (node: any): any => {
+                if (!node.children || node.children.length === 0) return node;
+                const incomplete = (node.children || []).find((c: any) => Math.round(getNodeCompletionPercent(c, statusData)) < 70) || node.children[0];
+                return findFirstIncomplete(incomplete);
+              };
+              const currentSubtopic = subtopics.find(s => s.isUnlocked && s.completionPercentage < 70) || subtopics[0];
+              if (currentSubtopic) {
+                const lesson = findFirstIncomplete(currentSubtopic);
+                const parentId = currentSubtopic.identifier === lesson.identifier ? moduleId : currentSubtopic.identifier;
+                router.push(`/learn/${courseId}/${moduleId}/${parentId}/${lesson.identifier || lesson.id}`);
               }
             }}
             sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>
-            {isModuleComplete ? (nextModule ? (t('LEARNER_APP.LEARN.START_MODULE', { moduleName: nextModule.name }) !== 'LEARNER_APP.LEARN.START_MODULE' ? t('LEARNER_APP.LEARN.START_MODULE', { moduleName: nextModule.name }) : `Start ${nextModule.name}`) : t('LEARNER_APP.LEARN.BACK_TO_LEARNING')) 
-              : (() => {
-                  const findFirstIncomplete = (node: any): any => {
-                    if (!node.children || node.children.length === 0) return node;
-                    const incomplete = (node.children || []).find((c: any) => Math.round(getNodeCompletionPercent(c, statusData)) < 100) || node.children[0];
-                    return findFirstIncomplete(incomplete);
-                  };
-                  const currentSubtopic = subtopics.find(s => s.isUnlocked && s.completionPercentage < 100) || subtopics[0];
-                  const lesson = currentSubtopic ? findFirstIncomplete(currentSubtopic) : null;
-                  const name = lesson?.name || currentSubtopic?.name || '';
-                  return t('LEARNER_APP.LEARN.START_SUBTOPIC', { subtopicName: name }) !== 'LEARNER_APP.LEARN.START_SUBTOPIC' ? t('LEARNER_APP.LEARN.START_SUBTOPIC', { subtopicName: name }) : `Start ${name}`;
-                })()}
+            {(() => {
+              const findFirstIncomplete = (node: any): any => {
+                if (!node.children || node.children.length === 0) return node;
+                const incomplete = (node.children || []).find((c: any) => Math.round(getNodeCompletionPercent(c, statusData)) < 70) || node.children[0];
+                return findFirstIncomplete(incomplete);
+              };
+              const currentSubtopic = subtopics.find(s => s.isUnlocked && s.completionPercentage < 70) || subtopics[0];
+              const lesson = currentSubtopic ? findFirstIncomplete(currentSubtopic) : null;
+              return `Start ${lesson?.name || currentSubtopic?.name || ''}`;
+            })()}
           </Button>
         )}
       </Box>
@@ -421,48 +497,67 @@ const getNodeCompletionPercent = (node: any, statusList: any[]): number => {
   return found?.completionPercentage ?? (found?.status === 2 ? 100 : 0);
 };
 
-const isNodeDone = (node: any, statusList: any[]): boolean => Math.round(getNodeCompletionPercent(node, statusList)) >= 100;
+const isNodeDone = (node: any, statusList: any[]): boolean => Math.round(getNodeCompletionPercent(node, statusList)) >= 70; // 70% threshold
 
 /* ── Recursive Component ── */
 interface HierarchyNodeProps {
   node: any; courseId: string; moduleId: string; parentId: string; statusData: any[]; isFirstLevel?: boolean; isParentUnlocked?: boolean; prevNode?: any; t: any; router: any; expandedSubtopicId?: string | null;
+  onNonLeafClick?: (courseId: string, node: any) => void;
 }
-export function HierarchyNode({ node, courseId, moduleId, parentId, statusData, isFirstLevel = false, isParentUnlocked = true, prevNode = null, t, router, expandedSubtopicId }: HierarchyNodeProps) {
+export function HierarchyNode({ node, courseId, moduleId, parentId, statusData, isFirstLevel = false, isParentUnlocked = true, prevNode = null, t, router, expandedSubtopicId, onNonLeafClick }: HierarchyNodeProps) {
   const completionPercentage = Math.round(getNodeCompletionPercent(node, statusData));
-  const isCompleted = completionPercentage >= 100;
+  const isCompleted = completionPercentage >= 70; // green check at 70%+
   const [isLocalExpanded, setIsLocalExpanded] = useState((isFirstLevel && expandedSubtopicId === node.id) || isCompleted);
   const isUnlocked = isParentUnlocked && (!prevNode || isNodeDone(prevNode, statusData));
+  const isCurrent = isUnlocked && !isCompleted;
   const hasChildren = node.children && node.children.length > 0;
   const isLeaf = !hasChildren;
 
   const handleToggle = () => {
-    if (isUnlocked) {
-      if (isLeaf) router.push(`/learn/${courseId}/${moduleId}/${parentId}/${node.identifier || node.id}`);
-      else setIsLocalExpanded(!isLocalExpanded);
+    if (!isUnlocked) return;
+    if (isLeaf) {
+      router.push(`/learn/${courseId}/${moduleId}/${parentId}/${node.identifier || node.id}`);
+    } else if (isFirstLevel) {
+      setIsLocalExpanded(!isLocalExpanded);
+    } else if (onNonLeafClick) {
+      // Custom navigation (e.g. from next-level preview — navigate to module page)
+      onNonLeafClick(courseId, node);
+    } else {
+      // Default: subtopic page
+      router.push(`/learn/${courseId}/${moduleId}/${node.identifier || node.id}`);
     }
   };
 
   return (
-    <Box sx={{ mb: isFirstLevel ? 2 : 0, borderRadius: '16px', overflow: 'hidden', border: isFirstLevel ? `1.5px solid ${isLocalExpanded ? PRIMARY : '#E5E7EB'}` : 'none', bgcolor: isFirstLevel ? 'background.paper' : 'transparent', opacity: isUnlocked ? 1 : 0.7 }}>
-      <Box onClick={handleToggle} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: isFirstLevel ? 2 : 1.5, cursor: isUnlocked ? 'pointer' : 'not-allowed', border: !isFirstLevel ? `1.5px solid ${isUnlocked ? (isCompleted ? SUCCESS : (isLocalExpanded ? PRIMARY : '#F3F4F6')) : '#F3F4F6'}` : 'none', borderRadius: !isFirstLevel ? '16px' : 0, bgcolor: !isFirstLevel ? '#fff' : 'transparent', mb: !isFirstLevel ? 1.5 : 0 }}>
+    <Box sx={{ mb: isFirstLevel ? 2 : 0, borderRadius: '16px', overflow: 'hidden', border: isFirstLevel ? `1.5px solid ${isCompleted ? SUCCESS : (isLocalExpanded ? PRIMARY : '#E5E7EB')}` : 'none', bgcolor: isFirstLevel ? 'background.paper' : 'transparent', opacity: isUnlocked ? 1 : 0.7 }}>
+      <Box onClick={handleToggle} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: isFirstLevel ? 2 : 1.5, cursor: isUnlocked ? 'pointer' : 'not-allowed', border: !isFirstLevel ? `1.5px solid ${isCurrent ? PRIMARY : (isCompleted ? SUCCESS : '#E5E7EB')}` : 'none', borderRadius: !isFirstLevel ? '16px' : 0, bgcolor: !isFirstLevel ? '#fff' : 'transparent', mb: !isFirstLevel ? 1.5 : 0, '&:hover': { bgcolor: isUnlocked && !isFirstLevel ? '#FFF7F0' : undefined } }}>
         <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: isFirstLevel ? 44 : 28, height: isFirstLevel ? 44 : 28, flexShrink: 0 }}>
           {!isUnlocked ? <LockIcon sx={{ color: '#C0C4CC', fontSize: isFirstLevel ? 28 : 20 }} /> : isCompleted ? <CheckCircleRoundedIcon sx={{ color: SUCCESS, fontSize: isFirstLevel ? 44 : 28 }} /> : (
             <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <CircularProgress variant="determinate" value={100} size={isFirstLevel ? 40 : 28} thickness={4} sx={{ color: '#E5E7EB', position: 'absolute' }} />
-              <CircularProgress variant="determinate" value={completionPercentage} size={isFirstLevel ? 40 : 28} thickness={4} sx={{ color: completionPercentage > 0 ? PRIMARY : 'transparent' }} />
-              <Typography sx={{ position: 'absolute', fontSize: isFirstLevel ? 10 : 8, fontWeight: 700, color: completionPercentage > 0 ? PRIMARY : '#9CA3AF' }}>{completionPercentage}%</Typography>
+              <CircularProgress variant="determinate" value={completionPercentage} size={isFirstLevel ? 40 : 28} thickness={4} sx={{ color: completionPercentage >= 70 ? SUCCESS : (completionPercentage > 0 ? PRIMARY : 'transparent') }} />
+              <Typography sx={{ position: 'absolute', fontSize: isFirstLevel ? 10 : 8, fontWeight: 700, color: completionPercentage >= 70 ? SUCCESS : (completionPercentage > 0 ? PRIMARY : '#9CA3AF') }}>{completionPercentage}%</Typography>
             </Box>
           )}
         </Box>
         <Box sx={{ flex: 1 }}>
           <Typography sx={{ fontWeight: isFirstLevel ? 800 : 600, fontSize: isFirstLevel ? 14 : 13, color: 'text.primary' }}>{node.name}</Typography>
-          <Typography sx={{ fontSize: 10, color: 'text.secondary' }}>{isLeaf ? t('LEARNER_APP.LEARN.LESSON') : t('LEARNER_APP.LEARN.COMPLETED_LESSONS', { completed: (node.children || []).filter((c: any) => isNodeDone(c, statusData)).length, total: (node.children || []).length })}</Typography>
+          <Typography sx={{ fontSize: 10, color: 'text.secondary', mt: 0.3 }}>{isLeaf ? t('LEARNER_APP.LEARN.LESSON') : t('LEARNER_APP.LEARN.COMPLETED_LESSONS', { completed: (node.children || []).filter((c: any) => isNodeDone(c, statusData)).length, total: (node.children || []).length })}</Typography>
+          {node.description && node.mimeType !== 'application/vnd.sunbird.questionset' && (
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#6B7280', mt: 0.8 }}>{node.description}</Typography>
+          )}
         </Box>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>{isUnlocked && (isLeaf ? <ChevronRightIcon color={isCompleted ? SUCCESS : PRIMARY} /> : (isLocalExpanded ? <KeyboardArrowUpIcon sx={{ color: PRIMARY }} /> : <KeyboardArrowDownIcon sx={{ color: PRIMARY }} />))}</Box>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          {isUnlocked && (
+            isLeaf ? <ChevronRightIcon color={isCompleted ? SUCCESS : PRIMARY} />
+            : isFirstLevel ? (isLocalExpanded ? <KeyboardArrowUpIcon sx={{ color: isCompleted ? SUCCESS : PRIMARY }} /> : <KeyboardArrowDownIcon sx={{ color: isCompleted ? SUCCESS : PRIMARY }} />)
+            : <KeyboardArrowRightIcon sx={{ color: isCompleted ? SUCCESS : PRIMARY, fontSize: 22 }} />
+          )}
+        </Box>
       </Box>
-      {!isLeaf && <Collapse in={isLocalExpanded && isUnlocked}><Box sx={{ px: 2, pb: 2, pl: isFirstLevel ? 2 : 4, borderLeft: !isFirstLevel ? '1.5px dashed #E5E7EB' : 'none', ml: !isFirstLevel ? 1.5 : 0, display: 'flex', flexDirection: 'column', gap: isFirstLevel ? 0 : 0 }}>
+      {!isLeaf && isFirstLevel && <Collapse in={isLocalExpanded && isUnlocked}><Box sx={{ px: 2, pb: 2, pl: 2, display: 'flex', flexDirection: 'column', gap: 0 }}>
         {(node.children || []).map((child: any, cIdx: number) => (
-          <HierarchyNode key={child.identifier || child.id} node={child} courseId={courseId} moduleId={moduleId} parentId={node.identifier || node.id} statusData={statusData} isFirstLevel={false} isParentUnlocked={isUnlocked} prevNode={cIdx === 0 ? null : node.children[cIdx - 1]} t={t} router={router} />
+          <HierarchyNode key={child.identifier || child.id} node={child} courseId={courseId} moduleId={moduleId} parentId={node.identifier || node.id} statusData={statusData} isFirstLevel={false} isParentUnlocked={isUnlocked} prevNode={cIdx === 0 ? null : node.children[cIdx - 1]} t={t} router={router} onNonLeafClick={onNonLeafClick} />
         ))}
       </Box></Collapse>}
     </Box>

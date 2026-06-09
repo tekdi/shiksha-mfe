@@ -18,7 +18,7 @@ export default function SplashScreen() {
       if (isTokenValid()) {
         const role = localStorage.getItem('userRole');
         // const userId = localStorage.getItem('userId');
-        if (role === 'CFL' || role === 'cfl' ) {
+        if (role === 'CFL' || role === 'cfl' || role === "DI") {
           router.push('/cfl/home');
         } else {
           router.push('/swadhaar-home');

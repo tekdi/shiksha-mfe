@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Box, Typography, TextField, Button, CircularProgress, useMediaQuery, useTheme } from '@mui/material';
+import { Box, Typography, TextField, Button, CircularProgress, useMediaQuery, useTheme, Modal } from '@mui/material';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { checkUserExistenceWithTenant } from '@learner/utils/API/userService';
@@ -258,23 +258,25 @@ export default function SwadhaarLoginPage() {
   // ── Desktop branch ────────────────────────────────────────
   if (isDesktop) {
     return (
-      <SwadhaarDesktopLogin
-        mobile={mobile}
-        otp={otp}
-        otpSent={otpSent}
-        isSendingOtp={isSendingOtp}
-        isSigningIn={isSigningIn}
-        resendTimer={resendTimer}
-        resendAttempts={resendAttempts}
-        canSendOtp={canSendOtp}
-        canSignIn={canSignIn}
-        onMobileChange={(v) => setMobile(v)}
-        onOtpChange={handleOtpChange}
-        onOtpKeyDown={(idx, e) => { if (e.key === 'Backspace' && otp[idx] === '' && idx > 0) focusOtpInput(idx - 1); }}
-        onOtpPaste={handleOtpPaste}
-        onSendOtp={handleSendOtp}
-        onSignIn={handleSignIn}
-      />
+      <>
+        <SwadhaarDesktopLogin
+          mobile={mobile}
+          otp={otp}
+          otpSent={otpSent}
+          isSendingOtp={isSendingOtp}
+          isSigningIn={isSigningIn}
+          resendTimer={resendTimer}
+          resendAttempts={resendAttempts}
+          canSendOtp={canSendOtp}
+          canSignIn={canSignIn}
+          onMobileChange={(v) => setMobile(v)}
+          onOtpChange={handleOtpChange}
+          onOtpKeyDown={(idx, e) => { if (e.key === 'Backspace' && otp[idx] === '' && idx > 0) focusOtpInput(idx - 1); }}
+          onOtpPaste={handleOtpPaste}
+          onSendOtp={handleSendOtp}
+          onSignIn={handleSignIn}
+        />
+      </>
     );
   }
 
@@ -376,7 +378,7 @@ export default function SwadhaarLoginPage() {
         <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.secondary', mb: 0.75, fontFamily: 'Inter, sans-serif' }}>
           {t('LEARNER_APP.LOGIN.OTP_LABEL')}
         </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.2, mb: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.2, mb: 2.75 }}>
           {otp.map((digit, idx) => (
             <TextField
               key={idx}
@@ -430,7 +432,7 @@ export default function SwadhaarLoginPage() {
           {isSigningIn ? <CircularProgress size={20} sx={{ color: '#fff' }} /> : t('LEARNER_APP.LOGIN.SIGN_IN')}
         </Button>
         {/* Send/Resend OTP — right aligned */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 3,mt:2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3,mt:2 }}>
           <Box
             component="span"
             onClick={canSendOtp ? handleSendOtp : undefined}
@@ -457,6 +459,7 @@ export default function SwadhaarLoginPage() {
           </Box>
         </Box>
       </Box>
+
     </Box>
   );
 }

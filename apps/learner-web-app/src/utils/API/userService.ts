@@ -207,11 +207,11 @@ export const checkUserExistenceWithTenant = async (
   const apiUrl: string = `${process.env.NEXT_PUBLIC_BASE_URL}/user/list`;
 
   // Helper to build request body — always searches by mobile, parameterised by role
-  const buildRequestBody = (tenantIdToUse: string, role: "Learner" | "CFL") => {
+  const buildRequestBody = (tenantIdToUse: string, role: "Learner" | "CFL" | "DI") => {
     const filters: any = {
       role,
       tenantId: tenantIdToUse,
-      username: identifier,
+      mobile: identifier,
     };
 
     const requestBody: any = {
@@ -305,6 +305,7 @@ export const checkUserExistenceWithTenant = async (
       }
       throw error;
     }
+    
   } catch (error) {
     console.error("error in checking user existence with tenant", error);
     throw error;

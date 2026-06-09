@@ -42,6 +42,7 @@ export interface CompletionModalProps {
   nextLevelName?: string;
   courseId?: string;
   upNext?: UpNextGroup;
+  continueText?: string;
   onContinue?: () => void;
   onClose: () => void;
   onStartNextLevel?: () => void;
@@ -79,6 +80,7 @@ const SwadhaarDesktopCompletionModal: React.FC<CompletionModalProps> = ({
   nextLevelName = '',
   courseId,
   upNext,
+  continueText,
   onContinue,
   onClose,
   onStartNextLevel,
@@ -233,7 +235,7 @@ const SwadhaarDesktopCompletionModal: React.FC<CompletionModalProps> = ({
                     variant="contained" fullWidth onClick={() => { onClose(); onStartNextLevel?.(); }}
                     sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.4, fontSize: 13.5, boxShadow: 'none', '&:hover': { bgcolor: PRIMARY, boxShadow: 'none' } }}
                   >
-                    Start Next Level
+                    {continueText || (nextLevelName ? 'Start Next Level' : 'Back to Learning')}
                   </Button>
                 </Box>
               ) : (
@@ -241,7 +243,7 @@ const SwadhaarDesktopCompletionModal: React.FC<CompletionModalProps> = ({
                   variant="contained" fullWidth onClick={() => { onClose(); onContinue?.(); }}
                   sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.6, fontSize: 14.5, boxShadow: '0 4px 12px rgba(230,135,60,0.2)', '&:hover': { bgcolor: PRIMARY, boxShadow: 'none' } }}
                 >
-                  Continue
+                  {continueText || 'Continue'}
                 </Button>
               )}
             </Box>

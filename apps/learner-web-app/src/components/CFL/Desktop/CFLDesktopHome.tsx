@@ -76,19 +76,19 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
 
   const completedCount = trainers.filter(t => t.progress >= 100).length;
 
-  // Map actual course completion percentages to the table columns instead of mocking
   const detailedTrainers = trainers.map(t => {
-    const beginnerCourse = t.courses?.[0];
-    const intermediateCourse = t.courses?.[1];
-    const advanceCourse = t.courses?.[2];
+    const inProgressCourse = t.courses?.find((c: any) => c.status === 'in-progress');
+    const lockedCourse = t.courses?.find((c: any) => c.status === 'locked');
+    let dynamicCurrentLevel = 'Completed All';
+    if (inProgressCourse) {
+       dynamicCurrentLevel = inProgressCourse.name;
+    } else if (lockedCourse) {
+       dynamicCurrentLevel = lockedCourse.name;
+    }
 
     return {
       ...t,
-      currentLevel: t.currentLevel || (t.progress >= 100 ? 'Advance' : t.progress > 50 ? 'Intermediate' : 'Beginner'),
-      beginnerProgress: t.beginnerProgress ?? (beginnerCourse?.completionPercentage || 0),
-      intermediateProgress: t.intermediateProgress ?? (intermediateCourse?.completionPercentage || 0),
-      advanceProgress: t.advanceProgress ?? (advanceCourse?.completionPercentage || 0),
-      newContentProgress: t.newContentProgress ?? 100
+      currentLevel: dynamicCurrentLevel,
     };
   });
 
@@ -156,7 +156,7 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
           ) : error ? (
             <Alert severity="error">{error}</Alert>
           ) : (
-            <CFLDesktopTrainerTable trainers={detailedTrainers} />
+            <CFLDesktopTrainerTable trainers={detailedTrainers} dynamicCourses={dynamicCourses} />
           )}
         </Box>
 

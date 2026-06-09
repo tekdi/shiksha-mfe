@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Trainer, CourseProgress } from '../types';
-import { getTrainerList, getTrainerProgress,cfllearnerlist } from '../services/cflService';
+import { getTrainerList, getTrainerProgress,cfllearnerlist, getDICohorts } from '../services/cflService';
 
 export const useCFLTrainers = (tenantId: string) => {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -13,8 +13,13 @@ export const useCFLTrainers = (tenantId: string) => {
     const tenantIdcheck = localStorage.getItem("tenantId") || tenantId || '';
     setLoading(true);
     try {
-      // const data = await getTrainerList(tenantIdcheck);
-      const data = await cfllearnerlist();
+      const role = localStorage.getItem('userRole');
+      let data;
+      if (role === 'DI') {
+        data = await getDICohorts();
+      } else {
+        data = await cfllearnerlist();
+      }
 
       setTrainers(data);
       setError(null);

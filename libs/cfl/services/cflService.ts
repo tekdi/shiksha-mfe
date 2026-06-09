@@ -56,7 +56,7 @@ export const getTrainerList = async (tenantId: string): Promise<Trainer[]> => {
 };
 
 export const cfllearnerlist = async () => {
-  const apiUrl = 'https://shiksha-dev-interface.tekdinext.com/interface/v1/cohortmember/list';
+  const apiUrl = 'https://interface.tekdinext.com/interface/v1/cohortmember/list';
   
   let storageUserId = '';
   let storageAcademicYearId = '';
@@ -74,9 +74,7 @@ export const cfllearnerlist = async () => {
     storageUserRole = localStorage.getItem('userRole') || '';
   }
 
-  const finalCohortId = (storageUserRole === 'CFL' && storageCohortId)
-    ? storageCohortId
-    : (storageCohortId || '19388f9f-5aca-4bcd-8576-b3254d0ae942');
+  const finalCohortId = storageCohortId || "19388f9f-5aca-4bcd-8576-b3254d0ae942";
     //
   const finalAcademicYearId = storageAcademicYearId || 'edf1d200-21d8-417e-b844-1d04f92435f4';
   const finalTenantId = storageTenantId || '8cf74da8-392d-4d02-8ac3-ae2204e34c0a';
@@ -87,7 +85,7 @@ export const cfllearnerlist = async () => {
     filters: {
       cohortId: finalCohortId,
       status: ['active'],
-      // role: 'Learner',
+      role: 'Learner',
     }
   };
 
@@ -113,7 +111,7 @@ export const cfllearnerlist = async () => {
     const data = response?.data?.data || response?.data;
     const userDetails = data?.result?.userDetails || [];
 
-    const searchUrl = 'https://shiksha-dev-interface.tekdinext.com/interface/v1/action/composite/v3/search';
+    const searchUrl = 'https://interface.tekdinext.com/interface/v1/action/composite/v3/search';
     let liveCourses: any[] = [];
     try {
       const searchPayload = {
@@ -133,7 +131,7 @@ export const cfllearnerlist = async () => {
       console.warn("Search API fetch failed", e);
     }
 
-    const trackingUrl = 'https://shiksha-dev-interface.tekdinext.com/interface/v1/tracking/content/course/status';
+    const trackingUrl = `${BASE_URL}/tracking/content/course/status`;
     const trainerIds = userDetails.map((u: any) => u.userId);
     const courseIds = liveCourses.map((c: any) => c.identifier);
     let trackingData: Record<string, any[]> = {};
@@ -184,9 +182,14 @@ export const cfllearnerlist = async () => {
             status = 'completed';
             completionPct = 100;
           } else if (rawStatus === 'in-progress' || item.in_progress > 0 || item.status === 1 || item.completed > 0) {
-            status = 'in-progress';
             completionPct = item.completionPercentage ?? 0;
-            if (completionPct === 10) completionPct = 0; // Strip phantom 10% fallbacks
+            if (completionPct >= 70) {
+              status = 'completed';
+              completionPct = 100;
+            } else {
+              status = 'in-progress';
+              if (completionPct === 10) completionPct = 0; // Strip phantom 10% fallbacks
+            }
           }
         }
 
@@ -223,6 +226,101 @@ export const cfllearnerlist = async () => {
     return trainers;
   } catch (error) {
     console.error('Error fetching CFL learner list:', error);
+    throw error;
+  }
+};
+
+export const getDICohorts = async () => {
+  const apiUrl = 'https://interface.tekdinext.com/interface/v1/cohort/search';
+
+  let storageAcademicYearId = '';
+  let storageTenantId = '';
+  let token = '';
+  let storageCohortId = '';
+
+  let storageUserId = '';
+
+  if (typeof window !== 'undefined' && window.localStorage) {
+    storageAcademicYearId = localStorage.getItem('academicYearId') || '';
+    storageTenantId = localStorage.getItem('tenantId') || '';
+    token = localStorage.getItem('token') || '';
+    storageCohortId = localStorage.getItem('cohortId') || '';
+    storageUserId = localStorage.getItem('userId') || '';
+  }
+
+  const finalCohortId = storageCohortId || "19388f9f-5aca-4bcd-8576-b3254d0ae942";
+  const finalAcademicYearId = storageAcademicYearId || 'edf1d200-21d8-417e-b844-1d04f92435f4';
+  const finalTenantId = storageTenantId || '8cf74da8-392d-4d02-8ac3-ae2204e34c0a';
+
+  // 1. First call: get all cohorts to find the parentId
+  const initialPayload = {
+    limit: 0,
+    offset: 0,
+    sort: ["createdAt", "desc"],
+    filters: {
+      type: "COHORT",
+      tenantId: finalTenantId,
+    }
+  };
+
+  const headers: Record<string, string> = {
+    'academicyearid': finalAcademicYearId,
+    'tenantid': finalTenantId,
+    'accept': 'application/json, text/plain, */*',
+    'accept-language': 'en-GB,en;q=0.9',
+    'content-type': 'application/json'
+  };
+
+  if (token) {
+    headers['authorization'] = `Bearer ${token}`;
+  }
+
+  try {
+    const firstResponse = await axios.post(apiUrl, initialPayload, { headers });
+    const allCohorts = firstResponse.data?.result?.results?.cohortDetails || [];
+    
+    // Find the cohort matching localstorage cohortId to extract its parentId
+    const matchedCohort = allCohorts.find((c: any) => c.cohortId === finalCohortId);
+    
+    if (!matchedCohort || !matchedCohort.parentId) {
+      console.warn("Could not find matching cohort or parentId in first call.");
+      return [];
+    }
+
+    const targetParentId = matchedCohort.parentId;
+
+    // 2. Second call: fetch the actual list using the found parentId
+    const secondPayload = {
+      limit: 10,
+      offset: 0,
+      sort: ["createdAt", "desc"],
+      filters: {
+        type: "COHORT",
+        tenantId: finalTenantId,
+        parentId: [targetParentId]
+      }
+    };
+
+    const secondResponse = await axios.post(apiUrl, secondPayload, { headers });
+    const cohortDetails = secondResponse.data?.result?.results?.cohortDetails || [];
+
+    const trainers = cohortDetails.map((cohort: any) => {
+      return {
+        id: cohort.cohortId,
+        name: cohort.name || 'CFL Incharge',
+        avatarUrl: null,
+        currentLevel: 'Beginner Level',
+        location: 'District Level',
+        progress: 0, 
+        courses: [
+          { id: '1', name: 'Beginner Level', status: 'locked', completionPercentage: 0, completionCount: 0, totalCount: 4 },
+          { id: '2', name: 'Intermediate Level', status: 'locked', completionPercentage: 0, completionCount: 0, totalCount: 4 },
+        ]
+      };
+    });
+    return trainers;
+  } catch (error) {
+    console.error('Error fetching DI cohorts:', error);
     throw error;
   }
 };

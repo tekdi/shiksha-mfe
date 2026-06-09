@@ -48,7 +48,7 @@ const SwadhaarBottomNav: React.FC = () => {
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const role = localStorage.getItem('userRole');
-      if (role === 'CFL' || role === 'cfl') {
+      if (role === 'CFL' || role === 'cfl' || role === "DI") {
         setHomePath('/cfl/home');
       }
     }

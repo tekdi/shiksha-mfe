@@ -17,6 +17,7 @@ import SwadhaarDesktopHeader from './SwadhaarDesktopHeader';
 import SwadhaarDesktopCompletionModal, { CompletionMode, CompletionModalProps } from './SwadhaarDesktopCompletionModal';
 import SwadhaarDesktopAlertsPanel from './SwadhaarDesktopAlertsPanel';
 import SwadhaarDesktopEditProfileModal from './SwadhaarDesktopEditProfileModal';
+import SwadhaarQuizFailModal from '@learner/components/Swadhaar/Player/SwadhaarQuizFailModal';
 import ConfirmationModal from '@learner/components/ConfirmationModal/ConfirmationModal';
 import { getUnreadCount } from '@learner/utils/alertsStore';
 import { useTenant } from '@learner/context/TenantContext';
@@ -46,10 +47,12 @@ const calculateNodeCompletion = (node: any, statusMap: Map<string, any>): number
 const ProgressCircle: React.FC<{ percentage: number; isCurrent?: boolean; isLocked?: boolean; size?: number }> = ({ 
   percentage, isCurrent, isLocked, size = 24 
 }) => {
-  const isDone = percentage >= 100;
+  const isFullyDone = percentage >= 100;
+  const isPassing = percentage >= 70; // >= 70% = green arc
+  const arcColor = isPassing ? SUCCESS : PRIMARY; // green at 70+, orange below
   
   if (isLocked) return <LockRoundedIcon sx={{ fontSize: size - 4, color: '#9CA3AF', flexShrink: 0 }} />;
-  if (isDone) return <CheckCircleRoundedIcon sx={{ fontSize: size, color: SUCCESS, flexShrink: 0 }} />;
+  if (isFullyDone) return <CheckCircleRoundedIcon sx={{ fontSize: size, color: SUCCESS, flexShrink: 0 }} />;
   
   const strokeWidth = size > 30 ? 4 : size > 20 ? 3 : 2;
   const radius = (size / 2) - (strokeWidth / 2);
@@ -63,7 +66,7 @@ const ProgressCircle: React.FC<{ percentage: number; isCurrent?: boolean; isLock
         <circle stroke="#E0E0E0" strokeWidth={strokeWidth} fill="transparent" r={radius} cx={size / 2} cy={size / 2} />
         {showProgress && (
           <circle
-            stroke={PRIMARY}
+            stroke={arcColor}
             strokeWidth={strokeWidth}
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
@@ -82,7 +85,7 @@ const ProgressCircle: React.FC<{ percentage: number; isCurrent?: boolean; isLock
       </svg>
       {showProgress && (
         <Box sx={{ top: 0, left: 0, bottom: 0, right: 0, position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography sx={{ fontSize: size * 0.32, fontWeight: 800, color: PRIMARY, letterSpacing: -0.5 }}>
+          <Typography sx={{ fontSize: size * 0.32, fontWeight: 800, color: arcColor, letterSpacing: -0.5 }}>
             {Math.round(percentage)}%
           </Typography>
         </Box>
@@ -112,6 +115,8 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
   } | null>(null);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+
+  const [quizFailOpen, setQuizFailOpen] = useState(false);
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
 
@@ -287,7 +292,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
 
   const getStatusInfo = (id: string) => {
     const perc = completionCache.get(id) ?? 0;
-    return { state: perc >= 100 ? 'done' : perc > 0 ? 'progress' : 'todo', percentage: perc };
+    return { state: perc >= 70 ? 'done' : perc > 0 ? 'progress' : 'todo', percentage: perc };
   };
 
   const currentCompletion = useMemo(() => {
@@ -303,98 +308,6 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
   const nextLessonInCourseRef = React.useRef<any>(null);
   const currentLessonRef = React.useRef<any>(currentLesson);
   currentLessonRef.current = currentLesson;
-
-  const handleTrackingComplete = useCallback(async () => {
-    const id = currentLessonRef.current?.identifier;
-    if (!id) return;
-
-    console.log('[COMPLETION] Milestone reached for:', id);
-    
-    // 1. Wait a bit for useContentTracking's internal sync to fire
-    await new Promise((r) => setTimeout(r, 600));
-
-    // 2. Fetch fresh status from backend
-    await syncStatus();
-    
-    // 3. Wait for React render cycle to propagate
-    await new Promise((r) => setTimeout(r, 800));
-
-    const ch = hierarchyRef.current;
-    const lesson = currentLessonRef.current;
-    const activeModuleId = lesson.parentModuleId || moduleId;
-    const currentMod = (ch.children || []).find((m: any) => (m.identifier || m.id) === activeModuleId);
-    
-    // 4. Position-based completion: avoid stale statusData from previous sessions
-    clearSessionGuard(id);
-    
-    const hasMoreInCourse = nextLessonInCourseRef.current !== null;
-    const smap = buildStatusMap(statusRef.current);
-    const modPerc = currentMod ? calculateNodeCompletion(currentMod, smap) : 0;
-
-    if (hasMoreInCourse && modPerc >= 99) {
-      // More course content exists AND module is done → MODULE COMPLETE
-      
-      // Find the NEXT module to show in "Up Next"
-      const modules = ch.children || [];
-      const currentModIdx = modules.findIndex((m: any) => (m.identifier || m.id) === activeModuleId);
-      const nextMod = currentModIdx !== -1 && currentModIdx < modules.length - 1 ? modules[currentModIdx + 1] : null;
-
-      console.log('[COMPLETION] Triggering MODULE modal');
-      setCompletionModal({
-        mode: 'module',
-        upNext: {
-          groupName: nextMod?.name || 'Next Module',
-          groupSubtitle: `Up Next in ${ch.name || 'Course'}`,
-          items: (nextMod?.children || []).map((s: any) => {
-            const lessons = s.children || [];
-            const isLesson = !lessons.length;
-            const perc = Math.round(completionCache.get(s.identifier || s.id) ?? 0);
-            return {
-              id: s.identifier || s.id,
-              name: s.name,
-              subtitle: isLesson ? 'Lesson' : `${lessons.length} Lessons`,
-              completionPercentage: perc,
-              status: perc >= 100 ? 2 : perc > 0 ? 1 : 0,
-            };
-          }),
-        },
-      });
-    } else if (!hasMoreInCourse && modPerc >= 99) {
-      // No more content AND module is done → COURSE COMPLETE
-      const modules = ch.children || [];
-      console.log('[COMPLETION] Triggering COURSE modal');
-      setCompletionModal({
-        mode: 'course',
-        levelName: ch.name || '',
-        upNext: {
-          groupName: ch.name || 'Course Complete',
-          groupSubtitle: `${modules.length} Modules Finished`,
-          items: modules.map((m: any) => ({
-            id: m.identifier || m.id,
-            name: m.name,
-            subtitle: `${m.children?.length || 0} Subtopics`,
-            completionPercentage: 100,
-            status: 2,
-          })),
-        },
-      });
-    }
-  }, [syncStatus, moduleId, completionCache, buildStatusMap]);
-
-  const { handleProgress: handleProgressInner, handleComplete } = useContentTracking({
-    contentId: currentLesson?.identifier || '',
-    courseId, moduleId, subtopicId, lessonId,
-    setStatusData,
-    onComplete: handleTrackingComplete,
-  });
-
-  const handleProgress = useCallback((percentage: number) => {
-    const id = currentLesson?.identifier;
-    if (id && percentage < 100) {
-      updateSessionGuard(id, { percentage: Math.round(percentage), status: 1 });
-    }
-    handleProgressInner(percentage);
-  }, [currentLesson?.identifier, handleProgressInner]);
 
   // Scope navigation to lessons within the current module shown in the sidebar.
   // allLessons spans the entire course; we need module-scoped so Next/Prev stays
@@ -414,12 +327,12 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
     };
   }, [moduleScopedLessons, currentLesson, lessonId]);
 
-  const goTo = (lesson: any) => {
+  const goTo = useCallback((lesson: any) => {
     setCurrentLesson(lesson); // Immediate UI update
     const targetMod = lesson.parentModuleId || moduleId;
     const targetSub = lesson.parentSubtopicId || subtopicId;
     router.push(`/learn/${courseId}/${targetMod}/${targetSub}/${lesson.identifier}`, { scroll: false });
-  };
+  }, [courseId, moduleId, subtopicId, router]);
 
   const handleLogoutConfirm = () => {
     localStorage.clear();
@@ -436,48 +349,95 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
   // Keep ref in sync so the async handleTrackingComplete always reads the latest value
   nextLessonInCourseRef.current = nextLessonInCourse;
 
-  const handleNext = () => {
-    if (!currentLesson) return;
+  const evaluateCompletionBoundaries = useCallback((isAutoTrigger: boolean = false, forceMode?: 'module' | 'course') => {
+    const ch = hierarchyRef.current;
+    const lesson = currentLessonRef.current;
+    if (!lesson || !ch) return;
 
-    // Use actual parent IDs from the current lesson (not stale URL params)
-    const activeModuleId = currentLesson.parentModuleId || moduleId;
+    const activeModuleId = lesson.parentModuleId || moduleId;
+    const activeSubtopicId = lesson.parentSubtopicId || subtopicId;
 
-    console.log('[DEBUG] handleNext', {
-      lessonId: currentLesson.identifier,
-      activeModuleId,
-      nextLesson: nextLesson?.identifier,
-      nextLessonInCourse: nextLessonInCourse?.identifier,
-      allLessonsCount: allLessons.length,
-      currentLessonIndex: allLessons.findIndex(l => l.identifier === currentLesson.identifier)
-    });
+    const modules = ch.children || [];
+    const currentModIdx = modules.findIndex((m: any) => (m.identifier || m.id) === activeModuleId);
+    const currentMod = currentModIdx !== -1 ? modules[currentModIdx] : null;
 
-    if (nextLesson) {
-      // Navigate to next lesson within this module's sidebar list
+    const subtopics = currentMod?.children || [];
+    const currentSubIdx = subtopics.findIndex((s: any) => (s.identifier || s.id) === activeSubtopicId);
+    const currentSub = currentSubIdx !== -1 ? subtopics[currentSubIdx] : null;
+
+    const smap = buildStatusMap(statusRef.current);
+    
+    // Check if module is purely direct lessons (no subtopics)
+    const isDirectLessons = currentMod && (!currentMod.children || currentMod.children.length === 0 || currentMod.children.every((c: any) => !c.children));
+
+    const subPerc = currentSub ? calculateNodeCompletion(currentSub, smap) : 100;
+    const modPerc = currentMod ? calculateNodeCompletion(currentMod, smap) : 0;
+
+    const nextSub = currentSubIdx !== -1 && currentSubIdx < subtopics.length - 1 ? subtopics[currentSubIdx + 1] : null;
+    const nextMod = currentModIdx !== -1 && currentModIdx < modules.length - 1 ? modules[currentModIdx + 1] : null;
+
+    const hasMoreInCourse = nextLessonInCourseRef.current !== null;
+
+    // If auto-triggering, we only want to show modals at boundaries (not navigate to next lesson automatically)
+    if (isAutoTrigger && !forceMode && !(!nextLesson && (subPerc >= 70 || modPerc >= 70))) {
+       return;
+    }
+
+    if (!isAutoTrigger && !forceMode && nextLesson) {
+      // Manual click and next lesson exists -> just go to it
       goTo(nextLesson);
-    } else if (nextLessonInCourse) {
-      // Last lesson in this module, but course has more content → MODULE COMPLETE
-      
-      // Find the NEXT module to show in "Up Next"
-      const modules = courseHierarchy?.children || [];
-      const currentModIdx = modules.findIndex((m: any) => (m.identifier || m.id) === activeModuleId);
-      const nextMod = currentModIdx !== -1 && currentModIdx < modules.length - 1 ? modules[currentModIdx + 1] : null;
+      return;
+    }
 
-      // Only show modal if the current module is genuinely 100% complete
-      const currentModObj = modules[currentModIdx];
-      const smap = buildStatusMap(statusData);
-      const modPerc = currentModObj ? calculateNodeCompletion(currentModObj, smap) : 0;
+    // --- Boundary Logic ---
 
-      if (modPerc < 99) {
-          // If module incomplete, just stay here (Next button will remain disabled anyway)
-          console.log('[DEBUG] handleNext: Module incomplete, not showing modal');
-          return;
-      }
+    if (!forceMode && subPerc >= 70 && !isDirectLessons && !nextLesson) {
+      console.log('[COMPLETION] Triggering SUBTOPIC modal');
+      setCompletionModal({
+        mode: 'subtopic',
+        continueText: nextSub ? `Start ${nextSub.name}` : 'Module Completion',
+        onContinue: () => {
+          if (nextSub) {
+             const firstLesson = (nextSub.children || [])[0];
+             if (firstLesson) goTo({ ...firstLesson, parentModuleId: activeModuleId, parentSubtopicId: nextSub.identifier });
+          } else {
+             // Chain to Module Modal
+             evaluateCompletionBoundaries(true, 'module');
+          }
+        },
+        upNext: {
+          groupName: nextSub ? nextSub.name : (currentMod?.name || 'Module'),
+          groupSubtitle: nextSub ? `Up Next in ${currentMod?.name || 'Module'}` : 'Module Complete',
+          items: nextSub ? [{
+             id: nextSub.identifier || nextSub.id,
+             name: nextSub.name,
+             subtitle: `${(nextSub.children || []).length} Lessons`,
+             completionPercentage: Math.round(completionCache.get(nextSub.identifier || nextSub.id) ?? 0),
+             status: (completionCache.get(nextSub.identifier || nextSub.id) ?? 0) >= 70 ? 2 : 0,
+          }] : [],
+        },
+      });
+      return;
+    }
 
+    if (forceMode === 'module' || (modPerc >= 70 && hasMoreInCourse && (!nextLesson || isAutoTrigger))) {
+      console.log('[COMPLETION] Triggering MODULE modal');
       setCompletionModal({
         mode: 'module',
+        continueText: nextMod ? `Start ${nextMod.name}` : 'Course Completion',
+        onContinue: () => {
+          if (nextMod) {
+             const firstSub = (nextMod.children || [])[0];
+             const firstLesson = firstSub?.children ? firstSub.children[0] : firstSub;
+             if (firstLesson) goTo({ ...firstLesson, parentModuleId: nextMod.identifier, parentSubtopicId: firstSub?.identifier });
+          } else {
+             // Chain to Course Modal
+             evaluateCompletionBoundaries(true, 'course');
+          }
+        },
         upNext: {
           groupName: nextMod?.name || 'Next Module',
-          groupSubtitle: `Up Next in ${courseHierarchy?.name || 'Course'}`,
+          groupSubtitle: `Up Next in ${ch.name || 'Course'}`,
           items: (nextMod?.children || []).map((s: any) => {
             const lessons = s.children || [];
             const isLesson = !lessons.length;
@@ -492,14 +452,16 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
           }),
         },
       });
-    } else {
-      // Last lesson in the entire course → COURSE COMPLETE
-      const modules = courseHierarchy?.children || [];
+      return;
+    }
+
+    if (forceMode === 'course' || (modPerc >= 70 && !hasMoreInCourse && (!nextLesson || isAutoTrigger))) {
+      console.log('[COMPLETION] Triggering COURSE modal');
       setCompletionModal({
         mode: 'course',
-        levelName: courseHierarchy?.name || '',
+        levelName: ch.name || '',
         upNext: {
-          groupName: courseHierarchy?.name || 'Course Complete',
+          groupName: ch.name || 'Course Complete',
           groupSubtitle: `${modules.length} Modules Finished`,
           items: modules.map((m: any) => ({
             id: m.identifier || m.id,
@@ -510,8 +472,53 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
           })),
         },
       });
+      return;
     }
-  };
+
+    // Fallback if manual click but not enough progress for modal
+    if (!isAutoTrigger && !forceMode && nextLessonInCourseRef.current) {
+       goTo(nextLessonInCourseRef.current);
+    }
+  }, [moduleId, subtopicId, completionCache, goTo, nextLesson, buildStatusMap]);
+
+  const handleTrackingComplete = useCallback(async () => {
+    const id = currentLessonRef.current?.identifier;
+    if (!id) return;
+
+    console.log('[COMPLETION] Milestone reached for:', id);
+    
+    // 1. Wait a bit for useContentTracking's internal sync to fire
+    await new Promise((r) => setTimeout(r, 600));
+
+    // 2. Fetch fresh status from backend
+    await syncStatus();
+    
+    // 3. Wait for React render cycle to propagate
+    await new Promise((r) => setTimeout(r, 800));
+
+    // 4. Position-based completion: avoid stale statusData from previous sessions
+    clearSessionGuard(id);
+
+    // Auto-trigger completion boundaries if needed
+    evaluateCompletionBoundaries(true);
+  }, [syncStatus, evaluateCompletionBoundaries]);
+
+  const { handleProgress: handleProgressInner, handleComplete } = useContentTracking({
+    contentId: currentLesson?.identifier || '',
+    courseId, moduleId, subtopicId, lessonId,
+    setStatusData,
+    onComplete: handleTrackingComplete,
+  });
+
+  const handleProgress = useCallback((percentage: number) => {
+    const id = currentLesson?.identifier;
+    if (id && percentage < 100) {
+      updateSessionGuard(id, { percentage: Math.round(percentage), status: 1 });
+    }
+    handleProgressInner(percentage);
+  }, [currentLesson?.identifier, handleProgressInner]);
+
+  const handleNext = () => evaluateCompletionBoundaries(false);
 
   const currentModule = (courseHierarchy?.children || []).find((m: any) => m.identifier === moduleId);
 
@@ -544,7 +551,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
           {currentModule && (() => {
             const mId = currentModule.identifier || currentModule.id;
             const modPerc = Math.round(completionCache.get(mId) ?? 0);
-            const modDone = modPerc >= 100;
+            const modDone = modPerc >= 70;
             const allModLessons = (currentModule.children || []).flatMap((s: any) => s.children || []);
             const modStroke = 4;
             const modR = 22;
@@ -590,11 +597,11 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
             const isCurrentSub = sId === subtopicId;
             const subExpanded = expandedSubtopics.has(sId);
             const subPerc = Math.round(completionCache.get(sId) ?? 0);
-            const subDone = subPerc >= 100;
-            const subInProgress = subPerc > 0 && subPerc < 100;
+            const subDone = subPerc >= 70;
+            const subInProgress = subPerc > 0 && subPerc < 70;
             const subLessons = sub.children || [];
-            const doneCount = subLessons.filter(l => (completionCache.get(l.identifier || l.id) ?? 0) >= 100).length;
-            const isLocked = sIdx > 0 && (completionCache.get(currentModule.children[sIdx - 1].identifier || currentModule.children[sIdx - 1].id) ?? 0) < 100;
+            const doneCount = subLessons.filter((l: any) => (completionCache.get(l.identifier || l.id) ?? 0) >= 70).length;
+            const isLocked = sIdx > 0 && (completionCache.get(currentModule.children[sIdx - 1].identifier || currentModule.children[sIdx - 1].id) ?? 0) < 70;
             const subStatusColor = isLocked ? '#E5E7EB' : (subDone ? SUCCESS : (subInProgress ? PRIMARY : '#DADADA'));
 
             return (
@@ -636,7 +643,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
                         const lId = lesson.identifier || lesson.id;
                         const isCurrent = lId === (currentLesson?.identifier || lessonId);
                         const lInfo = getStatusInfo(lId);
-                        const lDone = lInfo.state === 'done';
+                        const lDone = lInfo.state === 'done'; // lInfo already uses 70% gate
                         return (
                           <Box key={lId}>
                             <Box onClick={() => goTo({ ...lesson, parentModuleId: moduleId, parentSubtopicId: sId })} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pl: 2, pr: 2, py: 1.5, cursor: 'pointer', bgcolor: isCurrent ? '#FFF7F0' : 'transparent', '&:hover': { bgcolor: isCurrent ? '#FFF7F0' : '#F3F4F6' } }}>
@@ -696,6 +703,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
                       isCompleted={currentCompletion >= 100}
                       onProgress={handleProgress}
                       onComplete={handleComplete}
+                      onQuizFail={() => setQuizFailOpen(true)}
                     />
                   </Box>
                 </Box>
@@ -709,7 +717,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
             <Typography sx={{ fontWeight: 700, fontSize: 13, color: DARK_NAV, px: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200, textAlign: 'center' }}>{currentLesson?.name || ''}</Typography>
             <Button 
               variant="contained" 
-              disabled={currentCompletion < 100} 
+              disabled={currentCompletion < 70} 
               onClick={handleNext}
               sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '10px', fontWeight: 700, textTransform: 'none', fontSize: 13, px: 3, minWidth: 110, boxShadow: 'none', '&:hover': { bgcolor: '#D4762B', boxShadow: 'none' }, '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' } }}
             >
@@ -727,20 +735,40 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
 
       {completionModal && (
         <SwadhaarDesktopCompletionModal
-          open={true}
+          open={!!completionModal}
           mode={completionModal.mode}
           levelName={completionModal.levelName}
           courseId={courseId}
           upNext={completionModal.upNext}
+          continueText={completionModal.continueText}
           onClose={() => setCompletionModal(null)}
           onContinue={() => {
             setCompletionModal(null);
-            if (nextLessonInCourse) goTo(nextLessonInCourse);
-            else router.push('/swadhaar-home');
+            if (completionModal.onContinue) {
+              completionModal.onContinue();
+            } else {
+              if (nextLessonInCourse) goTo(nextLessonInCourse);
+              else router.push('/swadhaar-home');
+            }
           }}
           onStartNextLevel={() => router.push('/swadhaar-home')}
         />
       )}
+
+      {/* Quiz Fail Modal — shown when quiz score < 70% */}
+      <SwadhaarQuizFailModal
+        open={quizFailOpen}
+        onOkay={() => {
+          setQuizFailOpen(false);
+          // Navigate to the very first lesson of the entire course
+          const firstLesson = allLessons[0];
+          if (firstLesson) {
+            goTo(firstLesson);
+          } else {
+            router.push('/swadhaar-home');
+          }
+        }}
+      />
 
       <SwadhaarDesktopEditProfileModal
         open={editProfileOpen}

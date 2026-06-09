@@ -55,6 +55,7 @@ export interface SwadhaarContentPlayerProps {
   isCompleted?: boolean;
   onProgress?: (percentage: number) => void;
   onComplete: (score?: number) => void;
+  onQuizFail?: () => void;
 }
 
 type BlobType = "video" | "image" | "questionset" | "text" | "sunbird";
@@ -83,7 +84,7 @@ async function fetchContentDetails(identifier: string): Promise<Record<string, a
 
 export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
   identifier, courseId, unitId, mimeType, contentType, contentUrl: propContentUrl, posterImage: propPosterImage,
-  name, description, body: propBody, subheading, children, attempts, initialProgress, isCompleted, onProgress, onComplete,
+  name, description, body: propBody, subheading, children, attempts, initialProgress, isCompleted, onProgress, onComplete, onQuizFail,
 }) => {
   const blobType = resolveBlobType(mimeType, contentType);
   const needsUrl = blobType === "video" || blobType === "image";
@@ -92,6 +93,7 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
   const [body, setBody] = useState<string>(propBody || "");
   const [questionItems, setQuestionItems] = useState<Question[]>(children || []);
   const [maxAttempts, setMaxAttempts] = useState<number>(5);
+  const [questionsetInstructions, setQuestionsetInstructions] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -109,6 +111,22 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
       const data = await fetchContentDetails(identifier);
       
       if (data.maxAttempts) setMaxAttempts(data.maxAttempts);
+      // Extract instructions field from questionset (used in "Before you begin" section)
+      if (blobType === 'questionset' && data.instructions) {
+        const instrHtml = typeof data.instructions === 'string'
+          ? data.instructions
+          : data.instructions?.default || '';
+        setQuestionsetInstructions(instrHtml);
+      }
+      if (blobType === 'questionset' && data.description) {
+        setQuestionsetDescription(data.description);
+      }
+      
+      if (blobType === 'questionset' && data.children && data.children.length > 0) {
+        const firstSection = data.children[0];
+        if (firstSection.name) setSectionName(firstSection.name);
+        if (firstSection.description) setSectionDescription(firstSection.description);
+      }
 
       if (needsUrl && !propContentUrl) {
         const url = normalizeContentUrl(data.streamingUrl || data.artifactUrl || data.downloadUrl || "");
@@ -198,6 +216,9 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
   const [hasStartedAttempt, setHasStartedAttempt] = useState(false);
   const [prevAttempts, setPrevAttempts] = useState(attempts);
   const [refreshedAttempts, setRefreshedAttempts] = useState<number | null>(null);
+  const [questionsetDescription, setQuestionsetDescription] = useState<string | undefined>(undefined);
+  const [sectionName, setSectionName] = useState<string | undefined>(undefined);
+  const [sectionDescription, setSectionDescription] = useState<string | undefined>(undefined);
 
   // Local storage tracking keyed by userId+identifier so it is user-specific.
   // This means the same device shared by multiple users won't leak attempt counts.
@@ -244,7 +265,12 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
   const handleQuizComplete = React.useCallback(async (score?: number) => {
     const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : '';
     const tenantId = typeof window !== 'undefined' ? localStorage.getItem('tenantId') : '';
-    
+
+    // Determine pass/fail (70% threshold)
+    const totalQs = questionItems.length;
+    const scorePct = (totalQs > 0 && score !== undefined) ? (score / totalQs) * 100 : 0;
+    const quizPassed = scorePct >= 70;
+
     const newCount = (localAttempts || 0) + 1;
     setLocalAttempts(newCount);
     setHasStartedAttempt(false);
@@ -255,22 +281,22 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
     if (userId && tenantId && courseId) {
       try {
         const { updateContentStatus, getContentCourseStatus } = await import('@learner/utils/API/SwadhaarService');
-        
-        // 1. Send update to backend WITH the new attempts count
+
+        // 1. Send update to backend — completed only if passed, else in-progress
         await updateContentStatus({
           userId,
           courseId,
           contentId: identifier,
-          status: 2, // completed
-          completionPercentage: 100,
+          status: quizPassed ? 2 : 1,
+          completionPercentage: Math.round(scorePct),
           score,
-          attempts: newCount // SOLUTION 2: Send attempts to backend
+          attempts: newCount,
         });
 
         // 2. Refresh status to see if backend accepted our number
         const afterStatus = await getContentCourseStatus([userId], [courseId, identifier], tenantId);
         const contentStatus = afterStatus.find(s => s.contentId === identifier);
-        
+
         if (contentStatus?.attempts && contentStatus.attempts > newCount) {
           setLocalAttempts(contentStatus.attempts);
           localStorage.setItem(getAttemptKey(), contentStatus.attempts.toString());
@@ -279,9 +305,14 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
         console.warn('[QUIZ_PLAYER] Failed to sync status:', e);
       }
     }
-    
-    onComplete?.(score);
-  }, [courseId, identifier, localAttempts, onComplete]);
+
+    if (quizPassed) {
+      onComplete?.(score);
+    } else {
+      // Score < 70% — show fail modal instead of completion flow
+      onQuizFail?.();
+    }
+  }, [courseId, identifier, localAttempts, onComplete, onQuizFail, questionItems.length]);
 
   if (loading) {
     return (
@@ -305,21 +336,30 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
     case "image":
       if (!contentUrl) return <SunbirdPlayer identifier={identifier} courseId={courseId} unitId={unitId} isEmbedded={true} userIdLocalstorageName="userId" mode={isReviewMode ? "review" : "play"} />;
       return <ImageBlob name={name} contentUrl={contentUrl} description={description} onComplete={onComplete} />;
-    case "questionset":
+    case "questionset": {
+      // Derive already-passed status from backend initialProgress (persists across remounts)
+      const alreadyPassed = (initialProgress !== undefined && initialProgress >= 70) || isCompleted === true;
       return (
-        <QuestionSetPlayer 
-          name={name} 
-          questions={questionItems || []} 
-          maxAttempts={maxAttempts} 
-          currentAttempts={effectiveAttempts} 
+        <QuestionSetPlayer
+          name={name}
+          description={description}
+          questions={questionItems || []}
+          maxAttempts={maxAttempts}
+          currentAttempts={effectiveAttempts}
           mode={isReviewMode ? 'review' : 'play'}
+          instructions={questionsetInstructions}
+          questionsetDescription={questionsetDescription}
+          sectionName={sectionName}
+          sectionDescription={sectionDescription}
+          initiallyPassed={alreadyPassed}
           onStart={() => {
             setHasStartedAttempt(true);
             import('@learner/utils/API/SwadhaarService').then(m => m.trackCourseClick(courseId, identifier));
           }}
-          onComplete={handleQuizComplete} 
+          onComplete={handleQuizComplete}
         />
       );
+    }
     case "text":
       return <TextCardBlob name={name} body={body || description || ""} subheading={subheading} description={description} onComplete={onComplete} />;
     default:

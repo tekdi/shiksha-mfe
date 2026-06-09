@@ -280,7 +280,8 @@
       "CURRENT_LABEL": "Current: {{name}}",
       "LESSON_LABEL": "Lesson: {{name}}",
       "LESSON": "Lesson",
-      "BACK_TO_LEARNING": "Back to Learning"
+      "BACK_TO_LEARNING": "Back to Learning",
+      "DESCRIPTION": "Description"
     },
     "MODULE_COMPLETE": "Module Complete",
     "ALERTS": {

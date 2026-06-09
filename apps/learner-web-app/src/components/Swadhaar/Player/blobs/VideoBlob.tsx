@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Box, Typography, LinearProgress } from '@mui/material';
+import { Box, Typography, LinearProgress, useMediaQuery, useTheme } from '@mui/material';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 
@@ -30,6 +30,8 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
   onComplete, 
   onLoadError 
 }) => {
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const isYoutube = (mimeType || '').toLowerCase() === 'video/x-youtube' || 
                     contentUrl.includes('youtube.com') || 
                     contentUrl.includes('youtu.be');
@@ -392,11 +394,13 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
   }
 
   return (
-    <Box sx={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid #E5E7EB', bgcolor: '#fff', mb: 2 }}>
-      <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: 700 }}>Video Lesson</Typography>
-        {(completed || isCompleted) && <CheckCircleRoundedIcon sx={{ color: '#4CAF50', fontSize: 20 }} />}
-      </Box>
+    <Box sx={{ borderRadius: '12px', overflow: 'hidden', border: isDesktop ? 'none' : '1px solid #E5E7EB', bgcolor: isDesktop ? 'transparent' : '#fff', mb: isDesktop ? 0 : 2 }}>
+      {!isDesktop && (
+        <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: 700 }}>Video Lesson</Typography>
+          {(completed || isCompleted) && <CheckCircleRoundedIcon sx={{ color: '#4CAF50', fontSize: 20 }} />}
+        </Box>
+      )}
       
       <Box sx={{ bgcolor: '#0B1426', position: 'relative', minHeight: 200 }}>
         {isYoutube ? (
@@ -482,9 +486,11 @@ export const VideoBlob: React.FC<VideoBlobProps> = ({
         </Box>
       )}
       
-      <Box sx={{ px: 2, py: 1.5 }}>
-        <Typography sx={{ fontSize: 12, color: '#6B7280' }}>{name}</Typography>
-      </Box>
+      {!isDesktop && (
+        <Box sx={{ px: 2, py: 1.5 }}>
+          <Typography sx={{ fontSize: 12, color: '#6B7280' }}>{name}</Typography>
+        </Box>
+      )}
     </Box>
   );
 };

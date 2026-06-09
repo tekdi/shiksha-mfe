@@ -262,7 +262,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
               }}
             >
               {/* Language */}
-              <Box sx={{ mb: 1.5 }}>
+              {/* <Box sx={{ mb: 1.5 }}>
                 <Typography sx={{ fontSize: 11, color: '#6B7280', mb: 0.5, fontWeight: 500, fontFamily: 'Inter, sans-serif' }}>
                   {t('LEARNER_APP.PROFILE.FIELD_LANGUAGE')}
                 </Typography>
@@ -289,7 +289,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
                     ))}
                   </Select>
                 </FormControl>
-              </Box>
+              </Box> */}
 
               {/* Name */}
               {isEditingName ? (

@@ -137,13 +137,14 @@ export default function LearnPage() {
         const children = course?.children || [];
         const moduleDetails = children.map((m: any) => {
           const modulePerc = calculateNodeCompletion(m, status);
-          return { isModuleComplete: modulePerc >= 100, modulePerc };
+          return { isModuleComplete: modulePerc >= 70, modulePerc }; // 70% threshold
         });
         const completedModulesCount = moduleDetails.filter((md: any) => md.isModuleComplete).length;
         const levelPerc = children.length > 0 ? (moduleDetails.reduce((acc: number, curr: any) => acc + curr.modulePerc, 0) / children.length) : 0;
         return {
           id: course.identifier,
           name: course.name,
+          description: course.description,
           completedModules: completedModulesCount,
           totalModules: children.length,
           completionPercentage: Math.round(levelPerc),
@@ -152,14 +153,14 @@ export default function LearnPage() {
       });
 
       const finalLevels = levelList.map((level, idx) => {
-        const previousCompleted = idx === 0 || levelList[idx - 1].completionPercentage >= 100;
+        const previousCompleted = idx === 0 || levelList[idx - 1].completionPercentage >= 70; // Unlock next level at 70%
         const isUnlocked = previousCompleted;
         return { ...level, isUnlocked };
       });
 
       const sortedLevels = finalLevels;
       setLevels(sortedLevels);
-      const active = sortedLevels.find((l) => l.isUnlocked && l.completionPercentage < 100) || sortedLevels[0];
+      const active = sortedLevels.find((l) => l.isUnlocked && l.completionPercentage < 70) || sortedLevels[0];
       if (active) setExpandedLevelId(active.id);
     } catch (err) {
       console.error('Error loading learn page:', err);
@@ -244,11 +245,13 @@ export default function LearnPage() {
             key={level.id}
             levelId={level.id}
             levelName={level.name}
+            levelDescription={level.description}
             completedModules={level.completedModules}
             totalModules={level.totalModules}
             completionPercentage={level.completionPercentage}
             isUnlocked={level.isUnlocked}
             isExpanded={expandedLevelId === level.id}
+            showDescriptions={true}
             onToggle={() => {
               telemetryFactory.interact({ eid: 'INTERACT', edata: { id: `level-accordion-${level.id}`, type: 'CLICK', pageid: 'learn', uid: localStorage.getItem('userId') || '' } });
               setExpandedLevelId((prev) => prev === level.id ? null : level.id);

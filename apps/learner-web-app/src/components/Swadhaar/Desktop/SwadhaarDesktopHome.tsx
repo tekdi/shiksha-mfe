@@ -21,6 +21,7 @@ const PRIMARY = '#E6873C';
 interface LevelData {
   id: string;
   name: string;
+  description?: string;
   completedModules: number;
   totalModules: number;
   completionPercentage: number;
@@ -56,7 +57,7 @@ function findCurrentLesson(level: LevelData | null, statusData: any[]) {
         const lesson = lessons[li];
         const s = statusMap.get(lesson.identifier);
         const perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
-        if (perc < 100) {
+        if (perc < 70) { // lesson counts as done at 70%
           return {
             subtopicName: sub.name,
             lessonName: lesson.name,
@@ -85,7 +86,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
   // Accordion expand state
   const [expandedLevels, setExpandedLevels] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
-    levels.forEach((l) => { init[l.id] = l.isUnlocked && l.completionPercentage < 100; });
+    levels.forEach((l) => { init[l.id] = l.isUnlocked && l.completionPercentage < 70; });
     return init;
   });
 
@@ -133,7 +134,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
           // Direct lesson child: subtopicId = moduleId
           const s = statusMap.get(child.identifier);
           const perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
-          if (perc < 100) {
+          if (perc < 70) { // 70% threshold = done
             firstLesson = { subId: moduleId, lessonId: child.identifier };
             break;
           }
@@ -142,7 +143,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
           for (const lesson of child.children || []) {
             const s = statusMap.get(lesson.identifier);
             const perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
-            if (perc < 100) {
+            if (perc < 70) {
               firstLesson = { subId: child.identifier, lessonId: lesson.identifier };
               break;
             }
@@ -240,12 +241,12 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
             />
 
             {/* Current Lesson card */}
-            {currentLesson && (
+            {/* {currentLesson && (
               <SwadhaarDesktopCurrentLesson
                 currentLesson={currentLesson}
                 onStartContinue={handleStartContinue}
               />
-            )}
+            )} */}
 
             {/* Error state */}
             {error && (
@@ -275,11 +276,62 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
                   {t('LEARNER_APP.HOME.LEARNING_PROGRESS')}
                 </Typography>
 
+                {/* ── Congratulations banners for completed courses (>= 70%) ── */}
+                {levels.filter(l => l.completionPercentage >= 70).map(level => (
+                  <Box key={`congrats-${level.id}`} sx={{
+                    mb: 2.5, borderRadius: '16px', overflow: 'hidden',
+                    background: 'linear-gradient(135deg, #1C2B4A 0%, #2D4270 60%, #1C2B4A 100%)',
+                    boxShadow: '0 6px 24px rgba(28,43,74,0.35)',
+                    position: 'relative',
+                  }}>
+                    <Box sx={{ position: 'absolute', top: -30, right: -30, width: 140, height: 140, borderRadius: '50%', bgcolor: 'rgba(230,135,60,0.12)', filter: 'blur(30px)' }} />
+                    <Box sx={{ position: 'absolute', bottom: -15, left: 80, width: 80, height: 80, borderRadius: '50%', bgcolor: 'rgba(76,175,80,0.18)', filter: 'blur(20px)' }} />
+
+                    {/* <Box sx={{ p: 3, position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 2.5 }}> */}
+                      {/* Trophy */}
+                      {/* <Box sx={{
+                        width: 72, height: 72, borderRadius: '18px', flexShrink: 0,
+                        background: 'linear-gradient(135deg, #F2BC33, #E6873C)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 6px 20px rgba(242,188,51,0.45)', fontSize: 36,
+                      }}>🏆</Box> */}
+
+                      {/* <Box sx={{ flex: 1 }}>
+                        <Typography sx={{ fontSize: 12, color: '#F2BC33', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.2, mb: 0.5 }}>
+                          Congratulations!
+                        </Typography>
+                        <Typography sx={{ fontSize: 18, fontWeight: 800, color: '#fff', mb: 0.5 }}>
+                          {level.name}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+                          <Box sx={{ flex: 1, height: 5, borderRadius: 3, bgcolor: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+                            <Box sx={{ height: '100%', width: `${level.completionPercentage}%`, bgcolor: '#4CAF50', borderRadius: 3, transition: 'width 1.2s ease' }} />
+                          </Box>
+                          <Typography sx={{ fontSize: 14, fontWeight: 800, color: '#4CAF50', minWidth: 40 }}>{level.completionPercentage}%</Typography>
+                        </Box>
+                        <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.55)' }}>
+                          You've successfully completed this course! 🎉
+                        </Typography>
+                      </Box> */}
+
+                      {/* PASSED pill */}
+                      {/* <Box sx={{
+                        bgcolor: 'rgba(76,175,80,0.2)', border: '1.5px solid rgba(76,175,80,0.5)',
+                        borderRadius: '14px', px: 2, py: 1, textAlign: 'center', flexShrink: 0,
+                      }}>
+                        <Typography sx={{ fontSize: 28 }}>✅</Typography>
+                        <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#4CAF50', mt: 0.5 }}>PASSED</Typography>
+                      </Box> */}
+                    {/* </Box> */}
+                  </Box>
+                ))}
+
                 {levels.map((level) => (
                   <SwadhaarDesktopLevelAccordion
                     key={level.id}
                     levelId={level.id}
                     levelName={level.name}
+                    levelDescription={level.description}
                     completedModules={level.completedModules}
                     totalModules={level.totalModules}
                     completionPercentage={level.completionPercentage}
@@ -289,6 +341,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
                     statusData={statusData}
                     modules={level.rawChildren}
                     onModuleClick={(mid) => handleModuleClick(level.id, mid)}
+                    showDescriptions={true}
                   />
                 ))}
               </>

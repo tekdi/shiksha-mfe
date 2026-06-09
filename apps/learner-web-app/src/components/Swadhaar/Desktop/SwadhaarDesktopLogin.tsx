@@ -115,7 +115,7 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
         </Box>
 
         {/* ── Language ── */}
-        <Typography
+        {/* <Typography
           sx={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.75 }}
         >
           Language
@@ -138,7 +138,7 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
               </MenuItem>
             ))}
           </Select>
-        </FormControl>
+        </FormControl> */}
 
         {/* ── Mobile Number ── */}
         <Typography
@@ -171,7 +171,7 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
         >
           {t('LEARNER_APP.LOGIN.OTP_LABEL')}
         </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 0.75 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 2.75 }}>
           {otp.map((digit, idx) => (
             <TextField
               key={idx}
@@ -229,7 +229,7 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
             : t('LEARNER_APP.LOGIN.SIGN_IN')}
         </Button>
          {/* ── Send / Resend OTP ── */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2.5 ,mt: 2.5}}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 ,mt: 2.5}}>
           <Box
             id="swadhaar-send-otp-btn"
             component="span"

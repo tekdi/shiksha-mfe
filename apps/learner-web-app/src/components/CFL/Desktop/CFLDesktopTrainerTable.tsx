@@ -23,9 +23,10 @@ interface Trainer {
 
 interface CFLDesktopTrainerTableProps {
   trainers: Trainer[];
+  dynamicCourses?: any[];
 }
 
-const CFLDesktopTrainerTable: React.FC<CFLDesktopTrainerTableProps> = ({ trainers }) => {
+const CFLDesktopTrainerTable: React.FC<CFLDesktopTrainerTableProps> = ({ trainers, dynamicCourses = [] }) => {
   const [selectedTrainerAlert, setSelectedTrainerAlert] = React.useState<Trainer | null>(null);
 
   return (
@@ -42,12 +43,12 @@ const CFLDesktopTrainerTable: React.FC<CFLDesktopTrainerTableProps> = ({ trainer
       <Table sx={{ minWidth: 800 }} aria-label="trainer progress table">
         <TableHead>
           <TableRow sx={{ bgcolor: '#fff' }}>
-            <TableCell align="center" sx={{ fontWeight: 800, color: '#374151', py: 2.5 }}>Trainers</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 800, color: '#374151' }}>Current Level</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 800, color: '#374151' }}>New Content %</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 800, color: '#374151' }}>Beginner Progress</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 800, color: '#374151' }}>Intermediate Progress</TableCell>
-            <TableCell align="center" sx={{ fontWeight: 800, color: '#374151' }}>Advance Progress</TableCell>
+            <TableCell align="left" sx={{ fontWeight: 800, color: '#374151', py: 2.5, pl: 4 }}>Trainers</TableCell>
+            {dynamicCourses.map((course: any) => (
+              <TableCell key={course.id} align="center" sx={{ fontWeight: 800, color: '#374151' }}>
+                {course.name}
+              </TableCell>
+            ))}
             <TableCell align="center" sx={{ fontWeight: 800, color: '#374151' }}>Actions</TableCell>
           </TableRow>
         </TableHead>
@@ -57,51 +58,42 @@ const CFLDesktopTrainerTable: React.FC<CFLDesktopTrainerTableProps> = ({ trainer
               key={trainer.id}
               sx={{ '&:last-child td, &:last-child th': { border: 0 }, '&:hover': { bgcolor: '#F9FAFB' } }}
             >
-              <TableCell align="center">
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5 }}>
+              <TableCell align="left" sx={{ pl: 4 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: 2 }}>
                   <Avatar 
                     src={trainer.avatarUrl || undefined}
                     sx={{ 
-                      width: 32, 
-                      height: 32, 
+                      width: 40, 
+                      height: 40, 
                       bgcolor: '#1C2B4A', 
                       color: '#fff',
                       border: `2px solid ${PRIMARY}`,
-                      fontSize: 14
+                      fontSize: 14,
+                      fontWeight: 700
                     }}
                   >
                     {trainer.name.charAt(0).toUpperCase()}
                   </Avatar>
-                  <Typography sx={{ fontWeight: 600, fontSize: 14, color: '#4B5563' }}>
-                    {trainer.name}
-                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#4B5563' }}>
+                      {trainer.name}
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: '#6B7280', fontWeight: 500, mt: 0.5 }}>
+                      Current Level: {trainer.currentLevel}
+                    </Typography>
+                  </Box>
                 </Box>
               </TableCell>
-              <TableCell align="center">
-                <Typography sx={{ fontSize: 14, color: '#6B7280', fontWeight: 500 }}>
-                  {trainer.currentLevel}
-                </Typography>
-              </TableCell>
-              <TableCell align="center">
-                <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#111' }}>
-                  {Math.round(trainer.newContentProgress || 100)}%
-                </Typography>
-              </TableCell>
-              <TableCell align="center">
-                <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#111' }}>
-                  {Math.round(trainer.beginnerProgress || 0)}%
-                </Typography>
-              </TableCell>
-              <TableCell align="center">
-                <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#111' }}>
-                  {Math.round(trainer.intermediateProgress || 0)}%
-                </Typography>
-              </TableCell>
-              <TableCell align="center">
-                <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#111' }}>
-                  {Math.round(trainer.advanceProgress || 0)}%
-                </Typography>
-              </TableCell>
+              {dynamicCourses.map((dynamicCourse: any) => {
+                const courseData = trainer.courses?.find((c: any) => c.id === dynamicCourse.id);
+                return (
+                  <TableCell key={dynamicCourse.id} align="center">
+                    <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#111' }}>
+                      {Math.round(courseData?.completionPercentage || 0)}%
+                    </Typography>
+                  </TableCell>
+                );
+              })}
               <TableCell align="center">
                 <Button
                   variant="contained"
