@@ -31,9 +31,11 @@ const NameEditField: React.FC<NameEditFieldProps> = ({
     setLoading(true);
     try {
       await onSave(value);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError(t('LEARNER_APP.PROFILE.UPDATE_FAILED'));
+      if (err?.message !== 'validation_failed') {
+        setError(t('LEARNER_APP.PROFILE.UPDATE_FAILED'));
+      }
     } finally {
       setLoading(false);
     }
@@ -43,10 +45,11 @@ const NameEditField: React.FC<NameEditFieldProps> = ({
     <Box sx={{ mb: 2 }}>
       <Typography
         sx={{
-          fontSize: "12px",
-          color: "#6B7280",
+          fontSize: "13px",
+          fontFamily:'Open Sans',
+          color: "#1A1A1A",
           mb: 0.5,
-          fontWeight: 400,
+          fontWeight: 600,
         }}
       >
         {label}
@@ -70,8 +73,9 @@ const NameEditField: React.FC<NameEditFieldProps> = ({
             height: "48px",
             borderRadius: "10px",
             fontSize: "14px",
-            fontFamily: "Manrope",
-            fontWeight: 600,
+            fontFamily: "Open Sans",
+            color:'#1A1A1A',
+            fontWeight: 400,
             "& .MuiOutlinedInput-notchedOutline": {
               borderColor: "#E6873C",
               borderWidth: "2px",

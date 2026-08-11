@@ -36,6 +36,9 @@ export default function ClientLayout({
     const handleForceLogout = (event: CustomEvent) => {
       // Clear all storage
       try {
+        const role = localStorage.getItem("userRole")?.trim().toUpperCase();
+        const redirectPath = (role === "CFL" || role === "DI") ? "/swadhaar-login" : "/login";
+
         localStorage.clear();
         sessionStorage.clear();
 
@@ -50,7 +53,7 @@ export default function ClientLayout({
         });
 
         // Redirect to login page
-        window.location.href = "/login";
+        window.location.href = redirectPath;
       } catch (error) {
         console.error("Error during force logout:", error);
         // Fallback redirect

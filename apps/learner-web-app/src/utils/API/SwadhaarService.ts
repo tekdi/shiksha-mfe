@@ -1,11 +1,16 @@
 import { API_ENDPOINTS } from "./EndUrls";
 import { post, get, put } from "./RestClient";
+import { filterCoursesByLanguage, extractCourseLanguages } from "@learner/utils/courseLanguageUtils";
 
 /**
  * Service for Swadhaar specific API calls and data processing.
  */
 
-export const fetchSwadhaarLevelCourses = async (): Promise<any[]> => {
+/**
+ * Queries Composite Search API for all live courses in the channel,
+ * and extracts all unique contentLanguage values configured across those courses.
+ */
+export const fetchAvailableCourseLanguagesFromSearch = async (): Promise<string[]> => {
   const apiUrl = API_ENDPOINTS.compositeSearch;
   const body = {
     request: {
@@ -15,7 +20,7 @@ export const fetchSwadhaarLevelCourses = async (): Promise<any[]> => {
         channel: "swadhaar-channel",
       },
       query: "",
-      limit: 20,
+      limit: 100,
       offset: 0,
     },
   };
@@ -23,6 +28,66 @@ export const fetchSwadhaarLevelCourses = async (): Promise<any[]> => {
   try {
     const response = await post(apiUrl, body);
     const content = response?.data?.result?.content || [];
+
+    const uniqueLanguages = new Set<string>();
+
+    content.forEach((course: any) => {
+      const extracted = extractCourseLanguages(course);
+      extracted.forEach((lang) => {
+        if (lang) uniqueLanguages.add(lang);
+      });
+    });
+
+    const result = Array.from(uniqueLanguages);
+    return result.length > 0 ? result : ['English'];
+  } catch (error) {
+    console.error('Error fetching course languages from search API:', error);
+    return ['English'];
+  }
+};
+
+export const fetchSwadhaarLevelCourses = async (languageOverride?: string): Promise<any[]> => {
+  const apiUrl = API_ENDPOINTS.compositeSearch;
+
+  let language = languageOverride;
+  if (!language && typeof window !== 'undefined') {
+    language = localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage') || undefined;
+  }
+
+  if (language) {
+    const norm = String(language).trim().toLowerCase();
+    if (['marathi', 'mr'].includes(norm)) language = 'Marathi';
+    else if (['hindi', 'hi'].includes(norm)) language = 'Hindi';
+    else if (['english', 'en'].includes(norm)) language = 'English';
+  }
+
+  const filters: Record<string, any> = {
+    status: ["Live", "live"],
+    primaryCategory: ["Course"],
+    channel: "swadhaar-channel",
+  };
+
+  // For non-English languages, filter directly at Search API level.
+  // For English, do not pass filters.contentLanguage so legacy courses (without contentLanguage) are fetched too.
+  if (language && language !== 'English') {
+    filters.contentLanguage = [language];
+  }
+
+  const body = {
+    request: {
+      filters,
+      query: "",
+      limit: 20,
+      offset: 0,
+    },
+  };
+
+  try {
+    const response = await post(apiUrl, body);
+    let content = response?.data?.result?.content || [];
+
+    // Filter courses based on selected language rules (English includes missing contentLanguage courses)
+    content = filterCoursesByLanguage(content, language);
 
     // Preserve backend/API order as primary sort strategy.
     // Each item gets its original API position as a fallback index.

@@ -84,7 +84,9 @@ const AuthGuard: React.FC<AuthGuardProps> = ({ children }) => {
         const isSwadhaar = currentPath.startsWith("/swadhaar") || 
                           currentPath.startsWith("/swadhar") || 
                           currentPath.startsWith("/learn") || 
-                          currentPath.startsWith("/alerts");
+                          currentPath.startsWith("/alerts") ||
+                          currentPath.startsWith("/cfl") ||
+                          currentPath.startsWith("/di");
         
         window.location.replace(isSwadhaar ? "/swadhaar-login" : "/login");
         // Return loading spinner while redirecting

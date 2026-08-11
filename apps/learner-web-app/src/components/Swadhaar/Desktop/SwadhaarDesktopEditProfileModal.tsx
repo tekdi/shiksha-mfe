@@ -85,6 +85,15 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
     ? new Date(profileData.createdAt).toLocaleDateString('en-GB')
     : '12/03/2026';
 
+  const getDisplayRole = (role: string) => {
+    if (!role) return t("CFL_DASHBOARD.TRAINER");
+    const r = role.trim().toUpperCase();
+    if (r === "ARM") return "ARM";
+    if (r === "CFL" || r === "CFL INCHARGE") return t("CFL_DASHBOARD.DISTRICT_INCHARGE");
+    if (r === "TRAINER" || r === "LEARNER") return t("CFL_DASHBOARD.TRAINER");
+    return role;
+  };
+
   const handleSaveName = async (newName: string) => {
     try {
       const userId = localStorage.getItem('userId');
@@ -93,6 +102,16 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
         const parts = trimmed.split(/\s+/);
         const firstName = capitalize(parts[0] || '');
         const lastName = parts.length > 1 ? capitalize(parts.slice(1).join(' ')) : '';
+
+        if (!firstName) {
+          showToastMessage('First name is required', 'error');
+          throw new Error('validation_failed');
+        }
+        if (!lastName) {
+          showToastMessage('Last name is required', 'error');
+          throw new Error('validation_failed');
+        }
+
         await editEditUser(userId, { firstName, lastName });
         showToastMessage(t('LEARNER_APP.PROFILE.NAME_UPDATED_SUCCESS'), 'success');
         setIsEditingName(false);
@@ -102,9 +121,11 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
         fetchProfile();
         onProfileUpdated?.();
       }
-    } catch {
-      showToastMessage(t('LEARNER_APP.PROFILE.ERROR_UPDATING_NAME'), 'error');
-      throw new Error('save failed');
+    } catch (error: any) {
+      if (error?.message !== 'validation_failed') {
+        showToastMessage(t('LEARNER_APP.PROFILE.ERROR_UPDATING_NAME'), 'error');
+      }
+      throw error;
     }
   };
 
@@ -157,9 +178,9 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
       open={open}
       onClose={(_event, reason) => {
         // Allow closing by clicking backdrop or pressing Escape
-       if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
-      return;
-    }
+        if (reason === 'backdropClick' || reason === 'escapeKeyDown') {
+          return;
+        }
       }}
       maxWidth="xs"
       fullWidth
@@ -171,38 +192,33 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
         },
       }}
     >
-      <DialogContent sx={{ p: 0 }}>
-        {/* Modal header */}
+      {/* Modal header */}
+      <Box
+        sx={{
+          bgcolor: DARK_NAV,
+          px: 3,
+          py: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+        }}
+      >
         <Box
+          id="swadhaar-edit-profile-close-btn"
+          onClick={onClose}
           sx={{
-            bgcolor: DARK_NAV,
-            borderRadius: '16px 16px 0 0',
-            px: 3,
-            py: 2,
+            cursor: 'pointer',
+            color: 'rgba(255,255,255,0.7)',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            '&:hover': { color: '#fff' },
           }}
         >
-          <Typography
-            sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 16, color: '#fff' }}
-          >
-            Edit Profile
-          </Typography>
-          <Box
-            id="swadhaar-edit-profile-close-btn"
-            onClick={onClose}
-            sx={{
-              cursor: 'pointer',
-              color: 'rgba(255,255,255,0.7)',
-              display: 'flex',
-              alignItems: 'center',
-              '&:hover': { color: '#fff' },
-            }}
-          >
-            <CloseIcon sx={{ fontSize: 20 }} />
-          </Box>
+          <Typography sx={{ fontWeight: 600, fontSize: '15px', fontFamily: 'Open Sans' }}>{t('COMMON.CLOSE')}</Typography>
         </Box>
+      </Box>
+
+      <DialogContent sx={{ p: 0 }}>
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
@@ -210,6 +226,19 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
           </Box>
         ) : (
           <Box sx={{ px: 3, py: 2.5, bgcolor: '#F9FAFB' }}>
+            <Typography
+              sx={{
+                fontFamily: 'Open Sans',
+                fontWeight: 700,
+                fontSize: '20px',
+                color: '#1A1A1A',
+                textAlign: 'center',
+                mb: 2.5,
+              }}
+            >
+              {t('LEARNER_APP.EDIT_PROFILE.TITLE')}
+            </Typography>
+
             {/* Avatar + Upload */}
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2.5 }}>
               <ProfileAvatar
@@ -234,9 +263,9 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
                   bgcolor: PRIMARY,
                   color: '#fff',
                   borderRadius: '10px',
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: 'Open Sans',
                   fontWeight: 600,
-                  fontSize: 13,
+                  fontSize: 15,
                   textTransform: 'none',
                   px: 3,
                   py: 0.75,
@@ -244,7 +273,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
                   '&:hover': { bgcolor: '#D4762B', boxShadow: 'none' },
                 }}
               >
-                {uploading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Upload Photo'}
+                {uploading ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : t('LEARNER_APP.PROFILE.UPLOAD_PHOTO')}
               </Button>
             </Box>
 
@@ -309,7 +338,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
                 />
               )}
 
-              <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={profileData?.role || 'Trainer'} />
+              <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={getDisplayRole(profileData?.role)} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_CFL_LOCATION')} value={cflLocation} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_MOBILE')} value={profileData?.mobile || ''} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_EMAIL')} value={profileData?.email || ''} />
@@ -325,17 +354,17 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
                 fullWidth
                 sx={{
                   borderColor: '#E5E7EB',
-                  color: '#6B7280',
+                  color: '#E6873C',
                   borderRadius: '10px',
-                  fontFamily: 'Inter, sans-serif',
+                  fontFamily: 'Open Sans',
                   fontWeight: 600,
-                  fontSize: 13,
+                  fontSize: 15,
                   textTransform: 'none',
                   py: 1,
                   '&:hover': { borderColor: '#D1D5DB', bgcolor: '#F9FAFB' },
                 }}
               >
-                Cancel
+                {t('COMMON.CANCEL')}
               </Button>
               <Button
                 id="swadhaar-edit-profile-save-btn"
@@ -344,8 +373,8 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
                   setSaving(true);
                   try {
                     if (selectedLanguage) {
-                      const { updateLanguageInProfile } = await import('@learner/utils/API/userService');
-                      await updateLanguageInProfile(selectedLanguage);
+                      const { updateWebsiteLanguageInProfile } = await import('@learner/utils/API/userService');
+                      await updateWebsiteLanguageInProfile(selectedLanguage);
                     }
                   } finally {
                     setSaving(false);
@@ -358,16 +387,16 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
                   bgcolor: PRIMARY,
                   color: '#fff',
                   borderRadius: '10px',
-                  fontFamily: 'Inter, sans-serif',
-                  fontWeight: 700,
-                  fontSize: 13,
+                  fontFamily: 'Open Sans',
+                  fontWeight: 600,
+                  fontSize: 15,
                   textTransform: 'none',
                   py: 1,
                   boxShadow: 'none',
-                  '&:hover': { bgcolor: '#D4762B', boxShadow: 'none' },
+                  '&:hover': { bgcolor: '#E6873C', boxShadow: 'none' },
                 }}
               >
-                {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : 'Save'}
+                {saving ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : t('LEARNER_APP.COMMON.SAVE')}
               </Button>
             </Box>
           </Box>

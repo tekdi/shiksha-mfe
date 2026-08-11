@@ -89,7 +89,7 @@ const OtpVerificationComponent = ({
         We’ve sent an OTP to verify your number <strong>{maskedNumber}</strong>
       </Typography>
 
-      <Stack direction="row" justifyContent="center" spacing={2} mb={2}>
+      <Stack direction="row" justifyContent="center" spacing={{ xs: 1, sm: 2 }} mb={2}>
         {otp.map((digit, idx) => (
           <TextField
             key={idx}
@@ -105,7 +105,14 @@ const OtpVerificationComponent = ({
               style: { textAlign: 'center', fontSize: '20px' },
               onPaste: (e: any) => handlePaste(idx, e),
             }}
-            sx={{ width: 50 }}
+            sx={{
+              flex: 1,
+              minWidth: 0,
+              maxWidth: 50,
+              '& .MuiInputBase-input': {
+                p: { xs: '12px 4px', sm: '16.5px 14px' },
+              },
+            }}
           />
         ))}
       </Stack>

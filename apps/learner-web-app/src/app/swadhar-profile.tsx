@@ -151,6 +151,15 @@ const ProfilePage = () => {
   const cflLocation = getCustomFieldValue("cflLocation") || "CFL Jharkhand - Torpa";
   const joiningDate = profileData?.createdOn ? new Date(profileData.createdOn).toLocaleDateString("en-GB") : "12/03/2026";
 
+  const getDisplayRole = (role: string) => {
+    if (!role) return t("CFL_DASHBOARD.TRAINER");
+    const r = role.trim().toUpperCase();
+    if (r === "ARM" || r === "DI" || r === "DISTRICT INCHARGE") return "ARM";
+    if (r === "CFL" || r === "CFL INCHARGE") return t("CFL_DASHBOARD.DISTRICT_INCHARGE");
+    if (r === "TRAINER" || r === "LEARNER") return t("CFL_DASHBOARD.TRAINER");
+    return role;
+  };
+
   return (
     <Layout onlyHideElements={["footer", "topBar"]}>
       <Box sx={{ bgcolor: "#F9FAFB", minHeight: "100vh" }}>
@@ -166,7 +175,7 @@ const ProfilePage = () => {
           }}
         >
           <Typography variant="h6" sx={{ fontWeight: 700, fontSize: "20px", color: "#1F2937" }}>
-            Profile
+            {t("CFL_DASHBOARD.PROFILE")}
           </Typography>
           <Box onClick={() => router.push("/alerts")} sx={{ display: "flex", flexDirection: "column", alignItems: "center", cursor: "pointer" }}>
             <Badge
@@ -198,7 +207,7 @@ const ProfilePage = () => {
                 <CircleNotificationsRoundedIcon sx={{ fontSize: 24, color: '#E6873C' }} />
               </Box>
             </Badge>
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: "#E6873C", mt: 0.5 }}>Alerts</Typography>
+            <Typography sx={{ fontSize: 10, fontWeight: 700, color: "#E6873C", mt: 0.5 }}>{t("CFL_DASHBOARD.ALERTS")}</Typography>
           </Box>
         </Box>
 
@@ -238,7 +247,7 @@ const ProfilePage = () => {
                 },
               }}
             >
-              Upload Photo
+              {t("CFL_DASHBOARD.UPLOAD_PHOTO")}
             </Button>
           </Box>
 
@@ -247,7 +256,7 @@ const ProfilePage = () => {
             {/* Language Field with Dropdown */}
             <Box sx={{ mb: 2 }}>
               <Typography sx={{ fontSize: "12px", color: "#6B7280", mb: 0.5, fontWeight: 400 }}>
-                Language
+                {t("CFL_DASHBOARD.LANGUAGE")}
               </Typography>
               <FormControl fullWidth>
                 <Select
@@ -296,7 +305,7 @@ const ProfilePage = () => {
               />
             )}
 
-            <ProfileField label="Designation" value={profileData?.role || "Trainer"} />
+            <ProfileField label="Designation" value={getDisplayRole(profileData?.role)} />
             <ProfileField label="CFL Location" value={cflLocation} />
             <ProfileField label="Mobile Number" value={profileData?.mobile || ""} />
             <ProfileField label="Email" value={profileData?.email || ""} />
@@ -322,7 +331,7 @@ const ProfilePage = () => {
                 },
               }}
             >
-              Logout
+              {t("CFL_DASHBOARD.LOGOUT")}
             </Button>
           </Box>
         </Container>
@@ -334,12 +343,12 @@ const ProfilePage = () => {
       {/* Confirmation Modal */}
       <ConfirmationModal
         modalOpen={logoutModalOpen}
-        message="Are you sure you want to log out?"
+        message={t("COMMON.SURE_LOGOUT")}
         handleAction={confirmLogout}
         handleCloseModal={() => setLogoutModalOpen(false)}
         buttonNames={{
-          primary: "Logout",
-          secondary: "Cancel",
+          primary: t("COMMON.LOGOUT"),
+          secondary: t("COMMON.CANCEL"),
         }}
       />
       

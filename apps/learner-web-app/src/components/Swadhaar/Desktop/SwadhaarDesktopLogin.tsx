@@ -103,12 +103,12 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
             />
           </Box>
           <Typography
-            sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 22, color: '#1F2937' }}
+            sx={{ fontFamily: 'Open Sans', fontWeight: 700, fontSize: 22, color: '#1A1A1A' }}
           >
             {t('LEARNER_APP.LOGIN.SIGN_IN')}
           </Typography>
           <Typography
-            sx={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#6B7280', mt: 0.5 }}
+            sx={{ fontFamily: 'Open Sans',fontWeight:400, fontSize: 13, color: '#6B7280', mt: 0.5 }}
           >
             {t('LEARNER_APP.LOGIN.SUBTITLE')}
           </Typography>
@@ -142,7 +142,7 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
 
         {/* ── Mobile Number ── */}
         <Typography
-          sx={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.75 }}
+          sx={{ fontFamily: 'Open Sans', fontSize: 13, fontWeight: 600, color: '#1A1A1A', mb: 0.75 }}
         >
           {t('LEARNER_APP.LOGIN.MOBILE_LABEL')}
         </Typography>
@@ -159,7 +159,7 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
             '& .MuiOutlinedInput-root': {
               borderRadius: '8px',
               fontSize: 14,
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'Open Sans',
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
             },
           }}
@@ -167,7 +167,7 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
 
         {/* ── OTP ── */}
         <Typography
-          sx={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 600, color: '#374151', mb: 0.75 }}
+          sx={{ fontFamily: 'Open Sans', fontSize: 13, fontWeight: 600, color: '#1A1A1A', mb: 0.75 }}
         >
           {t('LEARNER_APP.LOGIN.OTP_LABEL')}
         </Typography>
@@ -183,13 +183,14 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
               inputProps={{
                 maxLength: 1,
                 inputMode: 'numeric',
-                style: { textAlign: 'center', fontSize: 20, fontWeight: 700, padding: '10px 0' },
+                style: { textAlign: 'center', fontSize: 14, fontWeight: 400, fontFamily: 'Open Sans', padding: '10px 0' },
                 onPaste: (e: any) => onOtpPaste(idx, e),
               }}
               sx={{
                 flex: 1,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '10px',
+                  fontFamily: 'Open Sans',
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
                   '& .MuiOutlinedInput-notchedOutline': {
                     borderColor: digit ? PRIMARY : '#D1D5DB',
@@ -214,8 +215,8 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
             bgcolor: canSignIn ? PRIMARY : '#E5E7EB',
             color: canSignIn ? '#fff' : '#9CA3AF',
             borderRadius: '10px',
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 700,
+            fontFamily: 'Open Sans',
+            fontWeight: 600,
             fontSize: 15,
             textTransform: 'none',
             boxShadow: canSignIn ? `0 4px 16px rgba(230,135,60,0.35)` : 'none',
@@ -235,10 +236,10 @@ const SwadhaarDesktopLogin: React.FC<SwadhaarDesktopLoginProps> = ({
             component="span"
             onClick={canSendOtp ? onSendOtp : undefined}
             sx={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: 15,
+              fontFamily: 'Open Sans',
+              fontSize: 13,
               fontWeight: 600,
-              color: canSendOtp ? '#1C2B4A' : '#9CA3AF',
+              color: canSendOtp ? '#E6873C' : '#9CA3AF',
               cursor: canSendOtp ? 'pointer' : 'default',
               display: 'flex',
               alignItems: 'center',

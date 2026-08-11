@@ -13,6 +13,7 @@ import {
   Description as DescriptionIcon,
   EmojiEvents as EmojiEventsIcon,
   Info as InfoIcon,
+  ArrowForwardRounded as ArrowForwardRoundedIcon,
 } from '@mui/icons-material';
 import { AlertCard } from '@learner/utils/alertsStore';
 import { useTranslation } from "@shared-lib";
@@ -30,7 +31,7 @@ function getTypeIcon(type: AlertCard['type'], isLocked?: boolean) {
     case 'lesson':
       return <MenuBookIcon sx={{ color, fontSize: 24 }} />;
     case 'feedback':
-      return <GroupIcon sx={{ color, fontSize: 40 }} />;
+      return <GroupIcon sx={{ color, width: '40.33px', height: '29.33px' }} />;
     case 'badge':
     case 'completion':
       return <EmojiEventsIcon sx={{ color, fontSize: 24 }} />;
@@ -45,53 +46,57 @@ function getTypeIcon(type: AlertCard['type'], isLocked?: boolean) {
 interface AlertListRowProps {
   alert: AlertCard;
   onClick: (alert: AlertCard) => void;
+  isExpanded?: boolean;
 }
 
-export const AlertListRow: React.FC<AlertListRowProps> = ({ alert, onClick }) => {
+export const AlertListRow: React.FC<AlertListRowProps> = ({ alert, onClick, isExpanded }) => {
   const { t } = useTranslation();
   const isLocked = alert.locked;
-  const isClickable = alert.type === 'feedback';
+  const isClickable = !isLocked;
+  const bodyText = alert.metadata?.messageBody || alert.message;
 
   return (
     <Box
-      onClick={() => isClickable && onClick(alert)}
       sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 2,
-        py: 1.5,
         mb: 1,
-        borderRadius: '12px',
+        borderRadius: '8px',
         bgcolor: isLocked ? '#F3F4F6' : alert.isRead ? '#F9FAFB' : '#FFFFFF',
-        boxShadow: alert.isRead || isLocked ? 'none' : '0 2px 8px rgba(0,0,0,0.08)',
-        cursor: isLocked ? 'not-allowed' : isClickable ? 'pointer' : 'default',
+        border: isLocked ? '1px solid #E5E7EB' : '1px solid #E6873C',
+        boxShadow: 'none',
         transition: 'background 0.15s',
+        overflow: 'hidden',
         '&:hover': { bgcolor: isLocked ? '#F3F4F6' : isClickable ? '#FEF3E8' : (alert.isRead ? '#F9FAFB' : '#FFFFFF') },
-        minHeight: 72,
-        border: isLocked
-          ? '1px solid #E6873C'
-          : alert.isRead
-            ? '1px solid #E6873C'
-            : '1px solid rgba(230,135,60,0.15)',
-        opacity: isLocked ? 0.65 : 1,
       }}
     >
-      {/* Icon Circle */}
       <Box
+        onClick={() => isClickable && onClick(alert)}
         sx={{
-          width: 44,
-          height: 44,
-          borderRadius: '50%',
-          bgcolor: isLocked ? 'rgba(156,163,175,0.12)' : 'rgba(230,135,60,0.12)',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          position: 'relative',
+          gap: 1.5,
+          px: 1.5,
+          py: 1.5,
+          cursor: isLocked ? 'not-allowed' : isClickable ? 'pointer' : 'default',
+          opacity: isLocked ? 0.65 : 1,
         }}
       >
-        {getTypeIcon(alert.type, isLocked)}
+        {/* Icon Circle */}
+        <Box
+          sx={{
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            bgcolor: isLocked ? '#9CA3AF' : (alert.type === 'feedback' ? 'transparent' : '#E6873C'),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            flexShrink: 0,
+            position: 'relative',
+          }}
+        >
+          {alert.type === 'feedback'
+            ? getTypeIcon(alert.type, isLocked)
+            : React.cloneElement(getTypeIcon(alert.type, isLocked) as React.ReactElement, { sx: { color: '#fff', fontSize: 24 } })}
 
         {isLocked && (
           <Box
@@ -117,15 +122,30 @@ export const AlertListRow: React.FC<AlertListRowProps> = ({ alert, onClick }) =>
       {/* Content */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Typography
-          sx={{
-            fontWeight: 700,
-            fontSize: 14,
-            color: isLocked ? '#9CA3AF' : '#1F2937',
-            fontFamily: 'Inter, sans-serif',
-            lineHeight: 1.4,
-          }}
+          sx={
+            alert.type === 'feedback'
+              ? {
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  color: '#1A1A1A',
+                  fontFamily: 'Inter',
+                  fontStyle: 'normal',
+                  lineHeight: 1.4,
+                }
+              : {
+                  fontWeight: 700,
+                  fontSize: 12,
+                  color: isLocked ? '#9CA3AF' : '#1A1A1A',
+                  fontFamily: 'Inter',
+                  lineHeight: 1.4,
+                }
+          }
         >
-          {alert.title}
+          {alert.type === 'feedback' 
+            ? (alert.metadata?.senderDesignation === 'District Incharge' ? 'District Incharge Feedback Received' : 'Trainer Feedback Received')
+            : ((typeof window !== 'undefined' && (localStorage.getItem('userRole') === 'DI' || localStorage.getItem('userRole') === 'DISTRICT INCHARGE' || localStorage.getItem('userRole') === 'ARM') && (alert.metadata?.senderDesignation === 'District Incharge' || alert.metadata?.senderDesignation === 'CFL' || alert.title?.includes('Alert from District Incharge') || alert.title?.includes('Alert from CFL'))) 
+                ? 'Raise to ARM Alert' 
+                : alert.title)}
         </Typography>
 
         <Typography
@@ -135,7 +155,7 @@ export const AlertListRow: React.FC<AlertListRowProps> = ({ alert, onClick }) =>
             fontFamily: 'Inter, sans-serif',
             overflow: 'hidden',
             display: '-webkit-box',
-            WebkitLineClamp: 2,
+            WebkitLineClamp: 1,
             WebkitBoxOrient: 'vertical',
             lineHeight: 1.5,
             mt: 0.25,
@@ -147,13 +167,47 @@ export const AlertListRow: React.FC<AlertListRowProps> = ({ alert, onClick }) =>
         </Typography>
       </Box>
 
-      {/* Arrow or Lock */}
-      <Box sx={{ flexShrink: 0 }}>
-        {isLocked ? (
-          <LockIcon sx={{ color: '#9CA3AF', fontSize: 18 }} />
-        ) : isClickable ? (
-          <ChevronRightIcon sx={{ color: '#E6873C', fontSize: 20 }} />
-        ) : null}
+        {/* Arrow or Lock */}
+        <Box sx={{ flexShrink: 0 }}>
+          {isLocked ? (
+            <LockIcon sx={{ color: '#9CA3AF', fontSize: 18 }} />
+          ) : !isExpanded ? (
+            <ArrowForwardRoundedIcon sx={{ color: '#E6873C', fontSize: 20 }} />
+          ) : null}
+        </Box>
+      </Box>
+
+      {/* ── Expanded detail card ── */}
+      <Box sx={{ overflow: 'hidden' }}>
+        <Box
+          sx={{
+            maxHeight: isExpanded ? '500px' : '0px',
+            opacity: isExpanded ? 1 : 0,
+            transition: 'all 0.3s ease-in-out',
+            mx: 2, mb: isExpanded ? 2 : 0, mt: isExpanded ? -1 : 0,
+            p: isExpanded ? 1.5 : 0,
+            bgcolor: '#fff',
+            border: isExpanded ? `1px solid #E5E7EB` : 'none',
+            borderTop: 'none',
+            borderRadius: '0 0 8px 8px',
+          }}
+        >
+          {isExpanded && (
+            <>
+              <Typography sx={{ fontWeight: 700, fontSize: 12, color: '#1F2937', mb: 1, fontFamily: 'Inter, sans-serif' }}>
+                Message
+              </Typography>
+              <Typography
+                sx={{
+                  fontFamily: 'Inter, sans-serif', fontSize: 12,
+                  color: '#4B5563', lineHeight: 1.6,
+                }}
+              >
+                {bodyText}
+              </Typography>
+            </>
+          )}
+        </Box>
       </Box>
     </Box>
   );
@@ -165,12 +219,14 @@ interface AlertDateGroupProps {
   label: string;
   alerts: AlertCard[];
   onAlertClick: (alert: AlertCard) => void;
+  expandedId?: string | null;
 }
 
 export const AlertDateGroup: React.FC<AlertDateGroupProps> = ({
   label,
   alerts,
   onAlertClick,
+  expandedId,
 }) => {
   return (
     <Box sx={{ mb: 2.5 }}>
@@ -190,7 +246,12 @@ export const AlertDateGroup: React.FC<AlertDateGroupProps> = ({
       </Typography>
 
       {alerts.map((alert) => (
-        <AlertListRow key={alert.id} alert={alert} onClick={onAlertClick} />
+        <AlertListRow 
+          key={alert.id} 
+          alert={alert} 
+          onClick={onAlertClick} 
+          isExpanded={expandedId === alert.id}
+        />
       ))}
     </Box>
   );

@@ -1,34 +1,45 @@
 import React from 'react';
-import { Fab } from '@mui/material';
-import MessageIcon from '@mui/icons-material/Message';
+import { IconButton } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 
 interface FABButtonProps {
   trainerId: string;
   trainerName?: string;
+  targetRole?: 'trainer' | 'cfl_incharge';
+  avatarUrl?: string;
 }
 
-const FABButton: React.FC<FABButtonProps> = ({ trainerId, trainerName }) => {
+const FABButton: React.FC<FABButtonProps> = ({ trainerId, trainerName, targetRole, avatarUrl }) => {
   const router = useRouter();
 
   return (
-    <Fab
-      color="primary"
+    <IconButton
       aria-label="add"
       sx={{
         position: 'fixed',
-        bottom: 80,
+        bottom: 24,
         right: 20,
-        bgcolor: '#1C2B4A', // Dark Navy like in Figma
-        '&:hover': { bgcolor: '#121d33' }
+        padding: 0,
+        '&:hover': { opacity: 0.9 },
+        zIndex: 1000
       }}
       onClick={() => {
-        const url = trainerName ? `/cfl/alert?trainerId=${trainerId}&name=${encodeURIComponent(trainerName)}` : `/cfl/alert?trainerId=${trainerId}`;
+        const roleQuery = targetRole ? `&targetRole=${targetRole}` : '';
+        const avatarQuery = avatarUrl ? `&avatarUrl=${encodeURIComponent(avatarUrl)}` : '';
+        const url = trainerName 
+          ? `/cfl/alert?trainerId=${trainerId}&name=${encodeURIComponent(trainerName)}${roleQuery}${avatarQuery}` 
+          : `/cfl/alert?trainerId=${trainerId}${roleQuery}${avatarQuery}`;
         router.push(url);
       }}
     >
-      <MessageIcon />
-    </Fab>
+      <Image 
+        src="/assets/images/Notification_fab.png" 
+        alt="Create Notification" 
+        width={44} 
+        height={44} 
+      />
+    </IconButton>
   );
 };
 

@@ -73,10 +73,11 @@ export default function SplashScreen() {
 
       {/* Title */}
       <Typography
-        variant="h4"
         sx={{
-          color: 'common.white',
+          fontFamily: 'Open Sans',
           fontWeight: 700,
+          fontSize: '26px',
+          color: '#FFFFFF',
           textAlign: 'center',
           mb: 1,
           px: 3,
@@ -87,9 +88,11 @@ export default function SplashScreen() {
 
       {/* Tagline */}
       <Typography
-        variant="body2"
         sx={{
-          color: 'rgba(255,255,255,0.6)',
+          fontFamily: 'Open Sans',
+          fontWeight: 400,
+          fontSize: '14px',
+          color: '#FFFFFF8C',
           textAlign: 'center',
         }}
       >
@@ -99,11 +102,13 @@ export default function SplashScreen() {
 
       {/* Footer */}
       <Typography
-        variant="caption"
         sx={{
           position: 'absolute',
           bottom: 32,
-          color: 'rgba(255,255,255,0.4)',
+          fontFamily: 'Open Sans',
+          fontWeight: 400,
+          fontSize: '11px',
+          color: '#FFFFFF4D',
           textAlign: 'center',
           px: 2,
         }}

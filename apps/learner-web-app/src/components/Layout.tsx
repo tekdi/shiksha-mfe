@@ -8,7 +8,6 @@ import {
   DrawerItemProp,
 } from "@shared-lib";
 import {
-  AccountCircleOutlined,
   Home,
   AssignmentOutlined,
   Logout,
@@ -34,6 +33,7 @@ const getClubStyleNavConfig = ({
   getLinkStyle,
   currentPage,
   setAnchorEl,
+  handleProfileMenuOpen,
 }: {
   router: any;
   t: any;
@@ -41,6 +41,7 @@ const getClubStyleNavConfig = ({
   getLinkStyle: (active: boolean) => React.CSSProperties;
   currentPage: string;
   setAnchorEl: (el: boolean) => void;
+  handleProfileMenuOpen: () => void;
 }): NewDrawerItemProp[] => {
   const navLinks: NewDrawerItemProp[] = [
     {
@@ -52,7 +53,7 @@ const getClubStyleNavConfig = ({
     },
     {
       title: t("LEARNER_APP.COMMON.PROFILE"),
-      icon: <AccountCircleOutlined sx={{ width: 28, height: 28 }} />,
+      icon: <img src="/images/default.png" alt="Profile" style={{ width: 28, height: 28, borderRadius: '50%' }} />,
       to: () => handleProfileMenuOpen(),
       isActive: currentPage === "/profile",
       customStyle: getLinkStyle(currentPage === "/profile"),
@@ -73,6 +74,7 @@ const NAV_CONFIG: Record<
     handleProfileClick: () => void;
     handleLogoutModal: () => void;
     setAnchorEl: (el: boolean) => void;
+    handleProfileMenuOpen: () => void;
     getLinkStyle: (active: boolean) => React.CSSProperties;
     currentPage: string;
     checkAuth: boolean;
@@ -89,6 +91,7 @@ const NAV_CONFIG: Record<
     getLinkStyle,
     currentPage,
     checkAuth,
+    handleProfileMenuOpen,
   }) => {
     const navLinks: NewDrawerItemProp[] = [
       {
@@ -118,7 +121,7 @@ const NAV_CONFIG: Record<
         navLinks.push(
           {
             title: t("LEARNER_APP.COMMON.PROFILE"),
-            icon: <AccountCircleOutlined sx={{ width: 28, height: 28 }} />,
+            icon: <img src="/images/default.png" alt="Profile" style={{ width: 28, height: 28, borderRadius: '50%' }} />,
             to: () => handleNavClick(handleProfileClick),
             isActive: currentPage === "/profile",
             customStyle: getLinkStyle(currentPage === "/profile"),
@@ -151,7 +154,7 @@ const NAV_CONFIG: Record<
     // Always add Profile link at the end
     navLinks.push({
       title: t("LEARNER_APP.COMMON.PROFILE"),
-      icon: <AccountCircleOutlined sx={{ width: 28, height: 28 }} />,
+      icon: <img src="/images/default.png" alt="Profile" style={{ width: 28, height: 28, borderRadius: '50%' }} />,
       to: () => handleProfileMenuOpen(),
       isActive: currentPage === "/profile",
       customStyle: getLinkStyle(currentPage === "/profile"),
@@ -167,6 +170,7 @@ const NAV_CONFIG: Record<
     getLinkStyle,
     currentPage,
     setAnchorEl,
+    handleProfileMenuOpen,
   }) =>
     getClubStyleNavConfig({
       router,
@@ -175,6 +179,7 @@ const NAV_CONFIG: Record<
       getLinkStyle,
       currentPage,
       setAnchorEl,
+      handleProfileMenuOpen,
     }),
 
   Pragyanpath: ({
@@ -184,6 +189,7 @@ const NAV_CONFIG: Record<
     getLinkStyle,
     currentPage,
     setAnchorEl,
+    handleProfileMenuOpen,
   }) =>
     getClubStyleNavConfig({
       router,
@@ -192,6 +198,7 @@ const NAV_CONFIG: Record<
       getLinkStyle,
       currentPage,
       setAnchorEl,
+      handleProfileMenuOpen,
     }),
 };
 
@@ -290,6 +297,7 @@ const App: React.FC<LayoutProps> = ({ children, onlyHideElements, ...props }) =>
           handleProfileClick,
           handleLogoutModal,
           setAnchorEl,
+          handleProfileMenuOpen,
           getLinkStyle,
           currentPage,
           checkAuth: checkAuth(),
@@ -319,6 +327,7 @@ const App: React.FC<LayoutProps> = ({ children, onlyHideElements, ...props }) =>
           handleProfileClick,
           handleLogoutModal,
           setAnchorEl,
+          handleProfileMenuOpen,
           getLinkStyle,
           currentPage,
           checkAuth: checkAuth(),

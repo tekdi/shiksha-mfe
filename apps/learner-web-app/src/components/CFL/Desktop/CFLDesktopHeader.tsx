@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Typography, Badge } from '@mui/material';
+import { Box, Typography, Badge, Avatar, Select, MenuItem, FormControl, SelectChangeEvent } from '@mui/material';
 import Image from 'next/image';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
-import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+
 import { useTranslation } from '@shared-lib';
+import { LANGUAGE_OPTIONS } from '@learner/utils/constants/language';
 
 const PRIMARY = '#E6873C';
 const DARK_NAV = '#1C2B4A';
@@ -25,9 +26,14 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
   onEditProfile,
   onLogout,
 }) => {
-  const { t } = useTranslation();
+  const { t, language, setLanguage } = useTranslation();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleLangChange = (e: SelectChangeEvent<string>) => {
+    setLanguage(e.target.value);
+    if (typeof window !== 'undefined') localStorage.setItem('lang', e.target.value);
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -77,12 +83,12 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
           <Image
             src="/images/swadhar_logo.png"
             alt="CFL Logo"
-            width={32}
-            height={32}
-            style={{ objectFit: 'contain' }}
+            width={55}
+            height={55}
+            style={{ objectFit: 'contain', borderRadius: '10px' }}
           />
         </Box>
-        <Typography
+        {/* <Typography
           variant="h6"
           sx={{
             fontFamily: 'Inter, sans-serif',
@@ -92,11 +98,44 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
           }}
         >
           CFL Incharge
-        </Typography>
+        </Typography> */}
       </Box>
 
       {/* Right actions */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+        
+        {/* ── Language ── */}
+        <FormControl size="small" sx={{ minWidth: 100 }}>
+          <Select
+            id="cfl-header-language-select"
+            value={language || 'en'}
+            onChange={handleLangChange}
+            sx={{
+              borderRadius: '8px',
+              fontFamily: 'Open Sans',
+              fontSize: 15,
+              fontWeight: 600,
+              height: 34,
+              color: '#757575',
+              '& .MuiOutlinedInput-notchedOutline': {
+                borderColor: '#E5E7EB',
+              },
+              '&:hover .MuiOutlinedInput-notchedOutline': {
+                borderColor: PRIMARY,
+              },
+              '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                borderColor: PRIMARY,
+              },
+            }}
+          >
+            {LANGUAGE_OPTIONS.map((opt) => (
+              <MenuItem key={opt.value} value={opt.value} sx={{ fontFamily: 'Open Sans', fontSize: 15,color:'#757575' }}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+
         {/* Alerts */}
         <Box
           onClick={onAlertsClick}
@@ -135,13 +174,13 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
           </Badge>
           <Typography
             sx={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: 13,
+              fontFamily: 'Open Sans',
+              fontSize: 15,
               fontWeight: 600,
-              color: alertsPanelOpen || unreadCount > 0 ? PRIMARY : '#1F2937',
+              color: alertsPanelOpen || unreadCount > 0 ? PRIMARY : '#757575',
             }}
           >
-            Alerts
+            {t("CFL_DASHBOARD.ALERTS")}
           </Typography>
         </Box>
 
@@ -162,16 +201,16 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
               bgcolor: profileMenuOpen ? 'rgba(28,43,74,0.07)' : 'transparent',
             }}
           >
-            <PersonRoundedIcon sx={{ fontSize: 22, color: '#1F2937' }} />
+            <img src="/assets/images/material-symbols_account-circle%20(2).png" width={24} height={24} alt="Profile" />
             <Typography
               sx={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 13,
+                fontFamily: 'Open Sans',
+                fontSize: 15,
                 fontWeight: 600,
-                color: '#1F2937',
+                color: '#757575',
               }}
             >
-              Profile
+              {t("CFL_DASHBOARD.PROFILE")}
             </Typography>
           </Box>
 
@@ -211,13 +250,13 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
               >
                 <Typography
                   sx={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 700,
-                    fontSize: 13,
+                    fontFamily: 'Open Sans',
+                    fontWeight: 600,
+                    fontSize: 15,
                     color: '#fff',
                   }}
                 >
-                  Edit Profile
+                  {t('LEARNER_APP.EDIT_PROFILE.TITLE')}
                 </Typography>
               </Box>
 
@@ -240,13 +279,13 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
               >
                 <Typography
                   sx={{
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: 'Open Sans',
                     fontWeight: 600,
-                    fontSize: 13,
-                    color: '#EF4444',
+                    fontSize: 15,
+                    color: '#E53935',
                   }}
                 >
-                  Logout
+                  {t("CFL_DASHBOARD.LOGOUT")}
                 </Typography>
               </Box>
             </Box>

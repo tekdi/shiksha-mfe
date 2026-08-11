@@ -166,10 +166,9 @@ ${
 }
 
 .course-name{
-  font-size:20px;
-  font-weight:400;
-  color:#F7941D;
-  border-bottom:2px solid #07336dff;
+  font-size:28px;
+  font-weight:700;
+  color:#000000;
   padding-bottom:12px;
   line-height:1.3;
   width:50%;
@@ -259,12 +258,10 @@ ${
 </div>
 
 <div class="description">
-  For successfully completing the
+  For successfully completing the <span  class="course-name">${levelName} </span>
 </div>
 
-<div class="course-name">
-  ${levelName}
-</div>
+
 
 <div class="circle"></div>
 

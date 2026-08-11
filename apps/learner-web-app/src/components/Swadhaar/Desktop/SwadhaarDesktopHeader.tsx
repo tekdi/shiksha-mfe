@@ -193,15 +193,7 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
               bgcolor: profileMenuOpen ? 'rgba(28,43,74,0.07)' : 'transparent',
             }}
           >
-            <ProfileAvatar
-              initials={(() => {
-                if (!userName) return 'U';
-                return userName.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
-              })()}
-              imageUrl={profileImageUrl || null}
-              size={24}
-              primaryColor={PRIMARY}
-            />
+            <img src="/assets/images/material-symbols_account-circle%20(2).png" width={24} height={24} alt="Profile" />
             <Typography
               sx={{
                 fontFamily: 'Inter, sans-serif',
@@ -210,7 +202,7 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
                 color: '#1F2937',
               }}
             >
-              {t('LEARNER_APP.PROFILE.TITLE')}
+              {t('CFL_DASHBOARD.PROFILE')}
             </Typography>
           </Box>
 
@@ -252,13 +244,13 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
               >
                 <Typography
                   sx={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 700,
-                    fontSize: 13,
+                    fontFamily: 'Open Sans',
+                    fontWeight: 600,
+                    fontSize: 15,
                     color: '#fff',
                   }}
                 >
-                  Edit Profile
+                  {t('LEARNER_APP.EDIT_PROFILE.TITLE')}
                 </Typography>
               </Box>
 
@@ -282,13 +274,13 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
               >
                 <Typography
                   sx={{
-                    fontFamily: 'Inter, sans-serif',
+                    fontFamily: 'Open Sans',
                     fontWeight: 600,
-                    fontSize: 13,
-                    color: '#EF4444',
+                    fontSize: 15,
+                    color: '#E53935',
                   }}
                 >
-                  Logout
+                  {t('COMMON.LOGOUT')}
                 </Typography>
               </Box>
             </Box>

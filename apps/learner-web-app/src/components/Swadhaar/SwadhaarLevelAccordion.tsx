@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Box, Typography, Collapse, CircularProgress, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Collapse, CircularProgress, useTheme, useMediaQuery, Chip } from '@mui/material';
 import LockIcon from '@mui/icons-material/Lock';
+import TranslateIcon from '@mui/icons-material/Translate';
 import { useTranslation } from '@shared-lib';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import UnfoldLessRoundedIcon from '@mui/icons-material/UnfoldLessRounded';
@@ -27,6 +28,8 @@ interface SwadhaarLevelAccordionProps {
   onModuleClick: (moduleId: string, subtopicId?: string, lessonId?: string) => void;
   modules: any[];
   showDescriptions?: boolean;
+  selectedLanguage?: string;
+  onChangeLanguage?: () => void;
 }
 
 /* ─── Helper: Build a lookup map from statusData for O(1) access ── */
@@ -91,8 +94,8 @@ const LessonNode: React.FC<{
       onClick={() => !isLocked && onClick()}
       sx={{
         display: 'flex', alignItems: 'center', gap: 1.5, pl: 6, pr: 2, py: 1.2,
-        cursor: isLocked ? 'not-allowed' : 'pointer', 
-        borderLeft: '2px solid #F3F4F6', 
+        cursor: isLocked ? 'not-allowed' : 'pointer',
+        borderLeft: '2px solid #F3F4F6',
         '&:hover': { bgcolor: isLocked ? 'transparent' : '#F9FAFB' },
         opacity: isLocked ? 0.6 : 1
       }}
@@ -118,7 +121,7 @@ const LessonNode: React.FC<{
         )}
         <Typography sx={{ fontSize: 9, fontFamily: 'Inter, sans-serif', color: '#9CA3AF' }}>{isCompleted ? 'Completed' : `${Math.round(effectivePerc)}% Complete`}</Typography>
       </Box>
-      <ArrowForwardIcon sx={{ fontSize: 18, color: '#D1D5DB' }} />
+      <ArrowForwardIcon sx={{ fontSize: 18, color: isLocked ? '#D1D5DB' : (isCompleted ? '#4CAF50' : '#E6873C') }} />
     </Box>
   );
 });
@@ -158,7 +161,12 @@ const ModuleNode: React.FC<{
 
   const handleModuleClick = () => {
     if (isLocked) return;
-    onNavigate(node.identifier);
+    if (isCompleted && children.length > 0) {
+      // If module is completed, skip module list page and go straight to the subtopic completion page.
+      onNavigate(node.identifier, children[0].identifier || children[0].id);
+    } else {
+      onNavigate(node.identifier);
+    }
   };
 
   const subtopicLabel = t('LEARNER_APP.LEARN.COMPLETED_SUBTOPICS', { completed: completedChildCount, total: children.length });
@@ -182,30 +190,30 @@ const ModuleNode: React.FC<{
             </Box>
           )}
         </Box>
-          <Box
-            onClick={handleModuleClick}
-            sx={{
-              flex: 1, display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, borderRadius: '16px', bgcolor: '#fff',
-              border: `1.5px solid ${borderColor}`, cursor: isLocked ? 'not-allowed' : 'pointer',
-              '&:hover': { bgcolor: isLocked ? 'transparent' : '#F9FAFB' },
-              opacity: isLocked ? 0.7 : 1
-            }}
-          >
-            <Box sx={{ flex: 1 }}>
-              <Typography sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 12, color: isLocked ? '#9CA3AF' : '#1F2937' }}>{node.name.toLowerCase().includes('module') ? node.name : `Module: ${node.name}`}</Typography>
-              {showDescriptions && node.description && (
-                <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#6B7280', mt: 0.5, lineHeight: 1.3 }}>
-                  {node.description}
-                </Typography>
-              )}
-              <Typography sx={{ fontSize: 10, fontFamily: 'Inter, sans-serif', color: '#9CA3AF', mt: 0.3 }}>
-                {subtopicText}
+        <Box
+          onClick={handleModuleClick}
+          sx={{
+            flex: 1, display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5, borderRadius: '16px', bgcolor: '#fff',
+            border: `1.5px solid ${borderColor}`, cursor: isLocked ? 'not-allowed' : 'pointer',
+            '&:hover': { bgcolor: isLocked ? 'transparent' : '#F9FAFB' },
+            opacity: isLocked ? 0.7 : 1
+          }}
+        >
+          <Box sx={{ flex: 1 }}>
+            <Typography sx={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 12, color: isLocked ? '#9CA3AF' : '#1A1A1A' }}>{node.name.toLowerCase().includes('module') ? node.name : `Module: ${node.name}`}</Typography>
+            {showDescriptions && node.description && (
+              <Typography sx={{ fontFamily: 'Inter', fontSize: 10, color: '#999999', mt: 0.5, lineHeight: 1.3, fontWeight: 400 }}>
+                {node.description}
               </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <ArrowForwardIcon sx={{ color: isLocked ? '#D1D5DB' : (isCompleted ? SUCCESS : PRIMARY), fontSize: 24 }} />
-            </Box>
+            )}
+            <Typography sx={{ fontSize: 10, fontFamily: 'Inter', color: '#999999', mt: 0.3, fontWeight: 400 }}>
+              {subtopicText}
+            </Typography>
           </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <ArrowForwardIcon sx={{ color: isLocked ? '#D1D5DB' : (isCompleted ? SUCCESS : PRIMARY), fontSize: 24 }} />
+          </Box>
+        </Box>
       </Box>
     </Box>
   );
@@ -216,7 +224,8 @@ ModuleNode.displayName = 'ModuleNode';
 /* ─── Main Component: SwadhaarLevelAccordion ───────────── */
 const SwadhaarLevelAccordion: React.FC<SwadhaarLevelAccordionProps> = ({
   levelId, levelName, levelDescription, completedModules, totalModules, completionPercentage,
-  isUnlocked, isExpanded, onToggle, statusData, onModuleClick, modules: rawModules, showDescriptions = false
+  isUnlocked, isExpanded, onToggle, statusData, onModuleClick, modules: rawModules, showDescriptions = false,
+  selectedLanguage, onChangeLanguage
 }) => {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -244,9 +253,9 @@ const SwadhaarLevelAccordion: React.FC<SwadhaarLevelAccordionProps> = ({
   }, [rawModules, completionCache]);
 
   return (
-    <Box 
-      sx={{ 
-        mb: 2, borderRadius: '16px', overflow: 'hidden', 
+    <Box
+      sx={{
+        mb: 2, borderRadius: '16px', overflow: 'hidden',
         border: (theme) => `1px solid ${isLocked ? '#E5E7EB' : isCompletedLevel ? SUCCESS : isExpanded ? PRIMARY : '#E5E7EB'}`,
         bgcolor: 'background.paper', opacity: isLocked ? 0.7 : 1,
         boxShadow: isExpanded ? '0 4px 12px rgba(230,135,60,0.12)' : 'none',
@@ -255,33 +264,63 @@ const SwadhaarLevelAccordion: React.FC<SwadhaarLevelAccordionProps> = ({
     >
       <Box
         onClick={() => !isLocked && onToggle()}
-        sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 2, cursor: isLocked ? 'not-allowed' : 'pointer' }}
+        sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, px: 2, py: 2, cursor: isLocked ? 'not-allowed' : 'pointer' }}
       >
         {isLocked && (
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mt: 0.2 }}>
             <LockIcon sx={{ color: '#9CA3AF', fontSize: 24 }} />
           </Box>
         )}
         <Box sx={{ flex: 1 }}>
-          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 700, fontSize: 12, color: isLocked ? '#9CA3AF' : '#1F2937' }}>{levelName}</Typography>
-          {showDescriptions && levelDescription && (
-            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 13, color: '#6B7280', mt: 0.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, pr: 0.5 }}>
+            <Typography sx={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 12, color: isLocked ? '#9CA3AF' : '#1A1A1A' }}>{levelName}</Typography>
+            {selectedLanguage && (
+              <Box
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onChangeLanguage?.();
+                }}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: '12px',
+                  bgcolor: isCompletedLevel ? 'rgba(76,175,80,0.1)' : 'rgba(230,135,60,0.1)',
+                  border: `1px solid ${isCompletedLevel ? SUCCESS : PRIMARY}`,
+                  color: isCompletedLevel ? SUCCESS : PRIMARY,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s ease',
+                  '&:hover': { bgcolor: isCompletedLevel ? 'rgba(76,175,80,0.2)' : 'rgba(230,135,60,0.2)' }
+                }}
+              >
+                {/* <TranslateIcon sx={{ fontSize: 12, color: isCompletedLevel ? SUCCESS : PRIMARY }} /> */}
+                <span>{selectedLanguage}</span>
+              </Box>
+            )}
+          </Box>
+          <Typography sx={{ fontWeight: 400, fontSize: 10, fontFamily: 'Inter', color: '#999999', mt: 0.5 }}>
+            {t('LEARNER_APP.LEARN.COMPLETED_MODULES', { completed: completedModules, total: totalModules })}
+          </Typography>
+          {showDescriptions && levelDescription && isExpanded && (
+            <Typography sx={{ fontFamily: 'Inter', fontSize: 10, color: '#999999', mt: 0.5, fontWeight: 400 }}>
               {levelDescription}
             </Typography>
           )}
-          <Typography sx={{ fontSize: 10, fontFamily: 'Inter, sans-serif', color: '#9CA3AF', mt: 0.5 }}>
-            {isCompletedLevel ? t('LEARNER_APP.HOME.COMPLETED') : t('LEARNER_APP.LEARN.COMPLETED_MODULES', { completed: completedModules, total: totalModules })}
-          </Typography>
         </Box>
         {!isDesktop && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-               {isExpanded ? (
-                 <UnfoldLessRoundedIcon sx={{ color: isLocked ? '#D1D5DB' : (isCompletedLevel ? SUCCESS : PRIMARY), fontSize: 28 }} />
-               ) : (
-                 <UnfoldMoreRoundedIcon sx={{ color: isLocked ? '#D1D5DB' : (isCompletedLevel ? SUCCESS : PRIMARY), fontSize: 28 }} />
-               )}
-             </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              {isExpanded ? (
+                <UnfoldLessRoundedIcon sx={{ color: isLocked ? '#D1D5DB' : (isCompletedLevel ? SUCCESS : PRIMARY), fontSize: 28 }} />
+              ) : (
+                <UnfoldMoreRoundedIcon sx={{ color: isLocked ? '#D1D5DB' : (isCompletedLevel ? SUCCESS : PRIMARY), fontSize: 28 }} />
+              )}
+            </Box>
           </Box>
         )}
       </Box>

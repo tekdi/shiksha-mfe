@@ -11,6 +11,7 @@ import {
   getContentCourseStatus,
 } from '@learner/utils/API/SwadhaarService';
 import { useParams, useRouter } from 'next/navigation';
+import { useTranslation } from '@shared-lib';
 
 const PRIMARY = '#E6873C';
 
@@ -37,12 +38,15 @@ const calculateNodeLessons = (node: any, statusList: any[]): { total: number; co
 export default function TrainerDetailPage() {
   const { id } = useParams();
   const router = useRouter();
+  const { t } = useTranslation();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   const [tenantId, setTenantId] = useState('');
-  const [trainerName, setTrainerName] = useState('Trainer');
-  const [cflName, setCflName] = useState('CFL');
+  const [userRole, setUserRole] = useState('');
+  const [trainerName, setTrainerName] = useState('Trainer/CFL Incharge');
+  const [trainerAvatar, setTrainerAvatar] = useState<string | undefined>(undefined);
+  const [cflName, setCflName] = useState('District Incharge');
   const [isLoading, setIsLoading] = useState(true);
   const [levels, setLevels] = useState<any[]>([]);
   const [statusData, setStatusData] = useState<any[]>([]);
@@ -51,11 +55,14 @@ export default function TrainerDetailPage() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setTenantId(localStorage.getItem('tenantId') || '');
+      setUserRole(localStorage.getItem('userRole')?.trim().toUpperCase() || '');
       // Try to get trainer name from query or localStorage
       const searchParams = new URLSearchParams(window.location.search);
       const nameParam = searchParams.get('name');
+      const avatarParam = searchParams.get('avatarUrl');
       if (nameParam) setTrainerName(nameParam);
-      setCflName(`CFL: ${localStorage.getItem('stateName') || 'Jharkhand'} - ${localStorage.getItem('districtName') || 'Torpa'}`);
+      if (avatarParam) setTrainerAvatar(avatarParam);
+      setCflName(`District Incharge: ${localStorage.getItem('stateName') || 'Jharkhand'} - ${localStorage.getItem('districtName') || 'Torpa'}`);
     }
   }, [id]);
 
@@ -182,15 +189,17 @@ export default function TrainerDetailPage() {
     );
   }
 
+  const isDI = userRole === 'District Incharge';
+
   return (
     <Box sx={{ pb: 10, bgcolor: '#F9FAFB', minHeight: '100vh' }}>
-      <CFLHeader title="Trainer Progress" showBack />
+      <CFLHeader title={isDI ? t('CFL_DASHBOARD.DISTRICT_INCHARGE') : t('CFL_DASHBOARD.TRAINER')} showBack />
 
       <Box sx={{ p: 2, maxWidth: isDesktop ? 900 : '100%', mx: 'auto' }}>
-        <ProfileCard username={trainerName} location={cflName} />
+        <ProfileCard username={trainerName} location={cflName} avatarUrl={trainerAvatar} hideGreeting />
 
         <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, mt: 3, color: '#1C2B4A', fontSize: '16px', fontFamily: 'Inter, sans-serif' }}>
-          Course Progress
+          {t("CFL_DASHBOARD.CONTENT_PROGRESS")}
         </Typography>
 
         {levels.length > 0 ? (
@@ -208,7 +217,7 @@ export default function TrainerDetailPage() {
                 onToggle={() => setExpandedLevelId(expandedLevelId === level.id ? null : level.id)}
                 statusData={statusData}
                 onModuleClick={(mid) => {
-                  // CFL viewing trainer progress — no navigation needed, just toggle
+                  router.push(`/learn/${level.id}/${mid}?trainerId=${id}&isCFL=true&name=${encodeURIComponent(trainerName)}&avatarUrl=${encodeURIComponent(trainerAvatar || '')}`);
                 }}
                 modules={level.rawChildren}
               />
@@ -216,12 +225,12 @@ export default function TrainerDetailPage() {
           </Box>
         ) : (
           <Typography align="center" color="textSecondary" sx={{ py: 5 }}>
-            No course data found for this trainer.
+            {t("CFL_DASHBOARD.NO_COURSE_DATA_FOUND_FOR_THIS_TRAINER")}
           </Typography>
         )}
       </Box>
 
-      <FABButton trainerId={id as string} trainerName={trainerName} />
+      <FABButton trainerId={id as string} trainerName={trainerName} avatarUrl={trainerAvatar} />
     </Box>
   );
 }

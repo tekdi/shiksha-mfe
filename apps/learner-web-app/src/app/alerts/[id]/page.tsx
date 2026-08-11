@@ -71,7 +71,7 @@ export default function AlertDetailPage() {
           <Typography sx={{ fontSize: 18 }}>←</Typography>
         </Button> */}
           <IconButton onClick={() => router.back()}>
-          <ArrowBackIcon sx={{ color: '#E6873C', fontSize: 20 }} />
+          <ArrowBackIcon sx={{ color: '#1A1A1A', fontSize: 20 }} />
         </IconButton>
         <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#1F2937', flex: 1 }}>Alert</Typography>
       </Box>

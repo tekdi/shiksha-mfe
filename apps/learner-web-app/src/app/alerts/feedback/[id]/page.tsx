@@ -7,6 +7,8 @@ import { checkAuth } from '@shared-lib-v2/utils/AuthService';
 import SwadhaarBottomNav from '@learner/components/Swadhaar/SwadhaarBottomNav';
 import { getAlerts, markAsRead, AlertCard } from '@learner/utils/alertsStore';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import { getUserDetails } from '@learner/utils/API/services/ProfileService';
+
 export default function FeedbackPage() {
   const router = useRouter();
   const params = useParams();
@@ -34,6 +36,23 @@ export default function FeedbackPage() {
   }, [feedbackId]);
 
   const meta = feedback?.metadata;
+  const [senderAvatarUrl, setSenderAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (meta?.senderAvatar) {
+      setSenderAvatarUrl(meta.senderAvatar);
+    } else if (meta?.senderId) {
+      getUserDetails(meta.senderId, true)
+        .then(res => {
+          const nameField = res?.result?.userData?.name;
+          if (nameField && (nameField.startsWith('http') || nameField.startsWith('https'))) {
+            setSenderAvatarUrl(nameField);
+          }
+        })
+        .catch(err => console.error('Failed to fetch sender profile image:', err));
+    }
+  }, [meta]);
+
   const senderInitials = meta?.senderName
     ? meta.senderName.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
     : '?';
@@ -48,7 +67,7 @@ export default function FeedbackPage() {
         }}
       >
         <IconButton onClick={() => router.back()} sx={{ p: 0.5 }}>
-           <ArrowBackIcon sx={{ color: '#E6873C', fontSize: 20 }} />
+           <ArrowBackIcon sx={{ color: '#1A1A1A', fontSize: 20 }} />
         </IconButton>
         <Typography sx={{ fontWeight: 700, fontSize: 20, color: '#1F2937', fontFamily: 'Inter, sans-serif' }}>
           Feedback
@@ -70,54 +89,49 @@ export default function FeedbackPage() {
               }}
             >
               <Box sx={{ flex: 1, minWidth: 0, pr: 1.5 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: 16, color: '#fff', fontFamily: 'Inter, sans-serif' }}>
-                  {meta?.senderRole
-                    ? `${meta.senderRole}: ${meta.senderName}`
-                    : meta?.senderName || feedback.title}
+                <Typography sx={{ fontWeight: 700, fontSize: '15px', color: '#fff', fontFamily: 'Open Sans' }}>
+                  {meta?.senderName 
+                    ? `${meta?.senderDesignation === 'District Incharge' ? 'District Incharge' : (meta?.senderDesignation ? meta.senderDesignation + ' Incharge' : 'CFL Incharge')} : ${meta.senderName}` 
+                    : feedback.title}
                 </Typography>
-                {(meta?.senderDesignation || meta?.senderLocation) && (
-                  <Typography sx={{ fontSize: 12, color: '#E6873C', fontFamily: 'Inter, sans-serif', mt: 0.25 }}>
-                    {[meta?.senderDesignation, meta?.senderLocation].filter(Boolean).join(' — ')}
-                  </Typography>
-                )}
-                {!meta?.senderName && (
-                  <Typography sx={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', fontFamily: 'Inter, sans-serif', mt: 0.25 }}>
-                    {feedback.type === 'completion' ? 'Course Completion' : 'System Notification'}
-                  </Typography>
-                )}
+                <Typography sx={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', fontWeight: 400, fontFamily: 'Open Sans', mt: 0.25 }}>
+                  {meta?.senderName 
+                    ? (meta?.senderLocation || (meta?.senderDesignation === 'District Incharge' ? 'District Incharge: CFL Jharkhand - Torpa' : 'CFL: CFL Jharkhand - Torpa')) 
+                    : (feedback.type === 'completion' ? 'Course Completion' : 'System Notification')}
+                </Typography>
               </Box>
-              {/* Avatar / Icon */}
               <Box
                 sx={{
-                  width: 44, height: 44, borderRadius: '50%', bgcolor: '#E6873C',
+                  width: 44, height: 44, borderRadius: '50%',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  overflow: 'hidden'
                 }}
               >
-                {meta?.senderName ? (
-                  <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 15 }}>{senderInitials}</Typography>
+                {senderAvatarUrl ? (
+                  <img src={senderAvatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff">
-                    <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                  </svg>
+                  <img src="/images/home_profile_default.png" alt="Default Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 )}
               </Box>
             </Box>
 
             {/* Message Card */}
-            <Typography
-              sx={{ fontSize: 12, color: '#E6873C', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, mb: 1, fontFamily: 'Inter, sans-serif' }}
-            >
-              Message
-            </Typography>
             <Box
               sx={{
-                bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: '10px',
-                p: 2, lineHeight: 1.7,
+                bgcolor: '#fff', border: '1px solid #E5E7EB', borderRadius: '12px',
+                overflow: 'hidden'
               }}
             >
-              <Typography sx={{ fontSize: 14, color: '#1F2937', fontFamily: 'Inter, sans-serif', lineHeight: 1.7 }}>
-                {meta?.messageBody || feedback.message}
-              </Typography>
+              <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1 }}>
+                <Typography sx={{ fontSize: '11px', color: '#FFFFFF', fontWeight: 600, fontFamily: 'Open Sans' }}>
+                  Message
+                </Typography>
+              </Box>
+              <Box sx={{ p: 2 }}>
+                <Typography sx={{ fontSize: '12px', color: '#555555', fontWeight: 400, fontFamily: 'Inter', lineHeight: 1.7 }}>
+                  {meta?.messageBody || feedback.message}
+                </Typography>
+              </Box>
             </Box>
           </>
         )}

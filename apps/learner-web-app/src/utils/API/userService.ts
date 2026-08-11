@@ -43,18 +43,76 @@ export const userCheck = async ({
     throw error;
   }
 };
-function setLocalStorageFromCustomFields(fields: any) {
+export function extractCustomFieldValue(field: any): string | null {
+  if (!field) return null;
+
+  if (Array.isArray(field.selectedValues) && field.selectedValues.length > 0) {
+    const item = field.selectedValues[0];
+    if (typeof item === 'string') return item;
+    if (typeof item === 'number') return String(item);
+    if (typeof item === 'object' && item !== null) {
+      return item.value || item.id || item.label || null;
+    }
+  }
+
+  if (Array.isArray(field.value) && field.value.length > 0) {
+    const item = field.value[0];
+    if (typeof item === 'string') return item;
+    if (typeof item === 'number') return String(item);
+    if (typeof item === 'object' && item !== null) {
+      return item.value || item.id || item.label || null;
+    }
+  } else if (typeof field.value === 'string' || typeof field.value === 'number') {
+    return String(field.value);
+  }
+
+  return null;
+}
+
+export function getCustomFieldValueByLabel(fields: any[], labels: string[]): string | null {
+  if (!fields || !Array.isArray(fields)) return null;
+  const lowerLabels = labels.map((l) => l.toLowerCase());
+  const field = fields.find(
+    (f: any) =>
+      labels.includes(f.label) ||
+      labels.includes(f.fieldId) ||
+      labels.includes(f.name) ||
+      labels.includes(f.title) ||
+      (f.label && lowerLabels.includes(f.label.toLowerCase())) ||
+      (f.fieldId && lowerLabels.includes(f.fieldId.toLowerCase())) ||
+      (f.name && lowerLabels.includes(f.name.toLowerCase())) ||
+      (f.title && lowerLabels.includes(f.title.toLowerCase()))
+  );
+  return extractCustomFieldValue(field);
+}
+
+export function getCustomFieldIdByLabel(fields: any[], labels: string[]): string | null {
+  if (!fields || !Array.isArray(fields)) return null;
+  const lowerLabels = labels.map((l) => l.toLowerCase());
+  const field = fields.find(
+    (f: any) =>
+      labels.includes(f.label) ||
+      labels.includes(f.fieldId) ||
+      labels.includes(f.name) ||
+      labels.includes(f.title) ||
+      (f.label && lowerLabels.includes(f.label.toLowerCase())) ||
+      (f.fieldId && lowerLabels.includes(f.fieldId.toLowerCase())) ||
+      (f.name && lowerLabels.includes(f.name.toLowerCase())) ||
+      (f.title && lowerLabels.includes(f.title.toLowerCase()))
+  );
+  return field?.fieldId || null;
+}
+
+export function setLocalStorageFromCustomFields(fields: any) {
+  if (!fields || !Array.isArray(fields)) return;
+
   const getFieldId = (labelKey: any) => {
-    const field = fields?.find?.((f: any) => f.label === labelKey);
-    console.log("statename", field?.selectedValues?.[0]?.value);
-    //  localStorage.setItem("stateName", field?.selectedValues?.[0]?.value)
+    const field = fields?.find?.((f: any) => f.label === labelKey || f.name === labelKey);
     return field?.selectedValues?.[0]?.id ?? null;
   };
   const getFieldLabel = (labelKey: any) => {
-    const field = fields?.find?.((f: any) => f.label === labelKey);
-    console.log("statename", field?.selectedValues?.[0]?.value);
-    // localStorage.setItem("stateName", field?.selectedValues?.[0]?.value)
-    return field?.selectedValues?.[0]?.value ?? null;
+    const field = fields?.find?.((f: any) => f.label === labelKey || f.name === labelKey);
+    return extractCustomFieldValue(field);
   };
 
   const stateId = getFieldId("STATE");
@@ -71,9 +129,72 @@ function setLocalStorageFromCustomFields(fields: any) {
   if (blockId) localStorage.setItem("mfe_block", String(blockId));
   localStorage.setItem("roleName", "Learner");
 
-  const preferredLanguage = getFieldLabel("PREFERRED_LANGUAGE") || fields?.find?.((f: any) => f.label === "PREFERRED_LANGUAGE")?.selectedValues?.[0];
-  if (preferredLanguage && typeof preferredLanguage === 'string') {
-    localStorage.setItem("lang", preferredLanguage);
+  const langField = fields?.find?.(
+    (f: any) =>
+      f.label === "LANGUAGE" ||
+      f.label === "language" ||
+      f.label === "PREFERRED_LANGUAGE" ||
+      f.label === "contentLanguage" ||
+      f.label === "CONTENT_LANGUAGE" ||
+      f.name === "language" ||
+      f.name === "PREFERRED_LANGUAGE" ||
+      // f.fieldId === "b8ece495-ac34-4b29-9f97-afe4b64a7512"
+      f.fieldId === "b5beb279-cef5-4fe8-aaae-f655c39081d8"
+  );
+
+  const extractValues = (valContainer: any): string[] => {
+    if (!valContainer) return [];
+    if (Array.isArray(valContainer)) {
+      return valContainer.map((item: any) => {
+        if (typeof item === 'string') return item;
+        if (typeof item === 'number') return String(item);
+        if (typeof item === 'object' && item !== null) {
+          return item.value || item.id || item.label || null;
+        }
+        return null;
+      }).filter(Boolean);
+    }
+    if (typeof valContainer === 'string') return [valContainer];
+    if (typeof valContainer === 'number') return [String(valContainer)];
+    if (typeof valContainer === 'object' && valContainer !== null) {
+      const v = valContainer.value || valContainer.id || valContainer.label;
+      return v ? [String(v)] : [];
+    }
+    return [];
+  };
+
+  const selectedVals = extractValues(langField?.selectedValues);
+  const rawValues = extractValues(langField?.value);
+  const preferredLanguage = getCustomFieldValueByLabel(fields, ["language", "PREFERRED_LANGUAGE", "LANGUAGE"]);
+  const contentLanguage = getCustomFieldValueByLabel(fields, ["contentLanguage", "CONTENT_LANGUAGE", "content_language"]);
+
+  const allVals = Array.from(new Set([...selectedVals, ...rawValues, preferredLanguage, contentLanguage].filter(Boolean)));
+
+  let siteLangCode: string | null = null;
+  let courseLangName: string | null = null;
+
+  for (const val of allVals) {
+    const norm = String(val).trim().toLowerCase();
+    if (['en', 'hi', 'mr'].includes(norm)) {
+      siteLangCode = norm;
+    } else if (norm === 'english' || norm === 'en-in') {
+      courseLangName = 'English';
+    } else if (norm === 'hindi' || norm === 'hi-in') {
+      courseLangName = 'Hindi';
+    } else if (norm === 'marathi' || norm === 'mr-in') {
+      courseLangName = 'Marathi';
+    } else if (val && typeof val === 'string' && val.length > 2) {
+      courseLangName = val.charAt(0).toUpperCase() + val.slice(1);
+    }
+  }
+
+  if (siteLangCode) {
+    localStorage.setItem("lang", siteLangCode);
+  }
+
+  if (courseLangName) {
+    localStorage.setItem("swadhaarLanguage", courseLangName);
+    localStorage.setItem("contentLanguage", courseLangName);
   }
 }
 
@@ -101,36 +222,37 @@ export const profileComplitionCheck = async (): Promise<any> => {
           header: {},
         },
         {
-          fetchUrl: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/form/read?context=${FormContext.learner.context}&contextType=${FormContext.learner.contextType}`,
-          header: {
-            tenantid: localStorage.getItem("tenantId"),
-          },
+          fetchUrl: `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/form/read?context=${FormContext.volunteer.context}&contextType=${FormContext.volunteer.contextType}`,
+          header: {},
         },
       ]);
-      console.log("responseForm", responseForm?.schema);
-      console.log("userData", userData);
-      
-      // Safety check: if userData or schema is missing, assume profile is incomplete
-      if (!userData || !responseForm?.schema) {
+
+      if (userData && responseForm) {
+        if (userData?.dob) {
+          userData.isUnderEighteen = isUnderEighteen(userData.dob);
+        }
+        const schema = isVolunteer
+          ? responseForm[1]?.schema
+          : responseForm[0]?.schema;
+
+        if (isVolunteer) {
+          delete schema?.properties?.dob;
+        } else {
+          delete schema?.properties?.mobile;
+        }
+        const result = getMissingFields(schema, userData);
+        console.log("result", result);
+        delete result?.properties?.is_volunteer;
+
+        const isPropertiesEmpty =
+          Object.keys(result?.properties || {}).length === 0;
+        return isPropertiesEmpty;
+      } else {
         console.warn("profileComplitionCheck: userData or schema is missing");
         return false;
       }
-      
-      if (!isUnderEighteen(userData?.dob)) {
-        delete responseForm?.schema.properties.guardian_relation;
-        delete responseForm?.schema.properties.guardian_name;
-        delete responseForm?.schema.properties.parent_phone;
-      } else {
-        delete responseForm?.schema.properties.mobile;
-      }
-      const result = getMissingFields(responseForm?.schema, userData);
-      console.log("result", result);
-      delete result?.properties?.is_volunteer;
-
-      const isPropertiesEmpty =
-        Object.keys(result?.properties || {}).length === 0;
-      return isPropertiesEmpty;
     }
+    return false;
   } catch (error) {
     console.error("error in login", error);
     throw error;
@@ -152,24 +274,113 @@ export const updateUser = async (
   }
 };
 
-export const updateLanguageInProfile = async (languageCode: string) => {
+export const updateContentLanguageInProfile = async (languageInput: string) => {
   try {
     const userId = localStorage.getItem("userId");
     if (userId) {
+      let contentLangName = languageInput;
+
+      const inputNorm = (languageInput || "").trim().toLowerCase();
+      if (["english", "en"].includes(inputNorm)) {
+        contentLangName = "English";
+      } else if (["hindi", "hi"].includes(inputNorm)) {
+        contentLangName = "Hindi";
+      } else if (["marathi", "mr"].includes(inputNorm)) {
+        contentLangName = "Marathi";
+      } else if (languageInput && languageInput.trim()) {
+        const trimmed = languageInput.trim();
+        contentLangName = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+      }
+
+      localStorage.setItem("swadhaarLanguage", contentLangName);
+      localStorage.setItem("contentLanguage", contentLangName);
+
+      // let langFieldId = "b8ece495-ac34-4b29-9f97-afe4b64a7512";
+      let langFieldId = "b5beb279-cef5-4fe8-aaae-f655c39081d8"
+      try {
+        const userRes = await getUserDetails(userId, true);
+        const existingFields = userRes?.result?.userData?.customFields || [];
+        let foundLangId = getCustomFieldIdByLabel(existingFields, ["language", "PREFERRED_LANGUAGE", "LANGUAGE"]);
+        if (foundLangId) langFieldId = foundLangId;
+      } catch (err) {
+        console.warn("Could not fetch user customFields prior to update", err);
+      }
+
+      const currentSiteLang = localStorage.getItem("lang") || "en";
+
+      const customFieldsUpdate: any[] = [
+        {
+          fieldId: langFieldId,
+          value: [currentSiteLang, contentLangName],
+          selectedValues: [currentSiteLang, contentLangName]
+        }
+      ];
+
       await updateUser(userId, {
         userData: {},
-        customFields: [
-          {
-            label: "PREFERRED_LANGUAGE",
-            selectedValues: [{ value: languageCode }]
-          }
-        ]
+        customFields: customFieldsUpdate
       });
     }
   } catch (error) {
-    console.error("Failed to update language in profile", error);
+    console.error("Failed to update content language in profile", error);
   }
 };
+
+export const updateWebsiteLanguageInProfile = async (languageInput: string) => {
+  try {
+    const userId = localStorage.getItem("userId");
+    if (userId) {
+      let langCode = languageInput;
+
+      const inputNorm = (languageInput || "").trim().toLowerCase();
+      if (["english", "en"].includes(inputNorm)) {
+        langCode = "en";
+      } else if (["hindi", "hi"].includes(inputNorm)) {
+        langCode = "hi";
+      } else if (["marathi", "mr"].includes(inputNorm)) {
+        langCode = "mr";
+      }
+
+      // Store ONLY website translation language in localStorage
+      localStorage.setItem("lang", langCode);
+
+      // Resolve fieldId for language custom field
+      // let langFieldId = "b8ece495-ac34-4b29-9f97-afe4b64a7512";
+      let langFieldId = "b5beb279-cef5-4fe8-aaae-f655c39081d8"
+      try {
+        const userRes = await getUserDetails(userId, true);
+        const existingFields = userRes?.result?.userData?.customFields || [];
+        let foundLangId = getCustomFieldIdByLabel(existingFields, ["language", "PREFERRED_LANGUAGE", "LANGUAGE"]);
+        if (foundLangId) langFieldId = foundLangId;
+      } catch (err) {
+        console.warn("Could not fetch user customFields prior to update", err);
+      }
+
+      const currentCourseLang = localStorage.getItem("swadhaarLanguage") || localStorage.getItem("contentLanguage");
+
+      const valuesToSave = [langCode];
+      if (currentCourseLang) {
+        valuesToSave.push(currentCourseLang);
+      }
+
+      const customFieldsUpdate: any[] = [
+        {
+          fieldId: langFieldId,
+          value: valuesToSave
+        }
+      ];
+
+      await updateUser(userId, {
+        userData: {},
+        customFields: customFieldsUpdate
+      });
+    }
+  } catch (error) {
+    console.error("Failed to update website language in profile", error);
+  }
+};
+
+export const updateLanguageInProfile = updateWebsiteLanguageInProfile;
 export const getUserDetails = async (
   userId: string | string[],
   fieldValue: boolean
@@ -291,11 +502,29 @@ export const checkUserExistenceWithTenant = async (
     try {
       const requestBody = buildRequestBody(tenantIdToUse, "Learner");
       const response = await post(apiUrl, requestBody, headers);
-      console.log("[checkUserExistenceWithTenant] Learner role search result:", response?.data);
+      if (hasUsers(response?.data)) {
+        console.log("[checkUserExistenceWithTenant] ✅ User found with role: Learner");
+        return response?.data;
+      }
+      console.warn("[checkUserExistenceWithTenant] No user found with role: Learner — trying DI…");
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      console.warn("[checkUserExistenceWithTenant] Learner search returned not-found — trying DI…");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // 3️⃣  Fallback: search with role: "DI"
+    // ─────────────────────────────────────────────────────────────────────────
+    try {
+      const requestBody = buildRequestBody(tenantIdToUse, "DI");
+      const response = await post(apiUrl, requestBody, headers);
+      console.log("[checkUserExistenceWithTenant] DI role search result:", response?.data);
       return response?.data;
     } catch (error) {
       if (isNotFoundError(error)) {
-        // Neither role found — return a standard not-found shape so callers
+        // None of the roles found — return a standard not-found shape so callers
         // can show "User does not exist" without an uncaught exception.
         return {
           responseCode: 404,
@@ -305,7 +534,7 @@ export const checkUserExistenceWithTenant = async (
       }
       throw error;
     }
-    
+
   } catch (error) {
     console.error("error in checking user existence with tenant", error);
     throw error;

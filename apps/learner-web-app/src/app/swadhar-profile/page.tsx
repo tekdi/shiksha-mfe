@@ -92,15 +92,26 @@ const ProfilePage = () => {
         const nameParts = trimmedName.split(/\s+/);
         const firstName = capitalize(nameParts[0] || "");
         const lastName = nameParts.length > 1 ? capitalize(nameParts.slice(1).join(" ")) : "";
-        
+
+        if (!firstName) {
+          showToastMessage('First name is required', 'error');
+          throw new Error('validation_failed');
+        }
+        if (!lastName) {
+          showToastMessage('Last name is required', 'error');
+          throw new Error('validation_failed');
+        }
+
         await editEditUser(userId, { firstName, lastName });
         showToastMessage(t("LEARNER_APP.PROFILE.NAME_UPDATED_SUCCESS"), "success");
         setIsEditingName(false);
         fetchProfile();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating name", error);
-      showToastMessage(t("LEARNER_APP.PROFILE.ERROR_UPDATING_NAME"), "error");
+      if (error?.message !== 'validation_failed') {
+        showToastMessage(t("LEARNER_APP.PROFILE.ERROR_UPDATING_NAME"), "error");
+      }
       throw error;
     }
   };
@@ -201,6 +212,15 @@ const ProfilePage = () => {
     ? new Date(profileData.createdAt).toLocaleDateString("en-GB")
     : "12/03/2026";
 
+  const getDisplayRole = (role: string) => {
+    if (!role) return t("CFL_DASHBOARD.TRAINER");
+    const r = role.trim().toUpperCase();
+    if (r === "ARM") return "ARM";
+    if (r === "CFL" || r === "CFL INCHARGE") return t("CFL_DASHBOARD.DISTRICT_INCHARGE");
+    if (r === "TRAINER" || r === "LEARNER") return t("CFL_DASHBOARD.TRAINER");
+    return role;
+  };
+
   return (
     <Layout onlyHideElements={["footer", "topBar"]}>
       <Box sx={{ bgcolor: "#F9FAFB", minHeight: "100vh" }}>
@@ -219,8 +239,8 @@ const ProfilePage = () => {
             zIndex: 100,
           }}
         >
-          <Typography sx={{ fontWeight: 700, fontSize: "24px", color: "#1F2937", fontFamily: "Manrope" }}>
-            Profile
+          <Typography sx={{ fontWeight: 600, fontSize: "17px", color: "#1A1A1A", fontFamily: "Open Sans" }}>
+            {t("CFL_DASHBOARD.PROFILE")}
           </Typography>
           <Box
             onClick={() => router.push("/alerts")}
@@ -228,40 +248,40 @@ const ProfilePage = () => {
           >
             <Badge
               badgeContent={unreadCount > 0 ? unreadCount : null}
-             sx={{
-              '& .MuiBadge-badge': {
-                fontSize: 9,
-                height: 16,
-                minWidth: 16,
-                backgroundColor: '#FFFFFF',
-                color: '#E6873C',
-                border: '1px solid #E6873C',
-                top: 2,
-                right: 2
-              }
-            }}
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: 9,
+                  height: 16,
+                  minWidth: 16,
+                  backgroundColor: '#FFFFFF',
+                  color: '#E6873C',
+                  border: '1px solid #E6873C',
+                  top: 2,
+                  right: 2
+                }
+              }}
             >
               <Box
                 sx={{
-                width: 20,
-                height: 20,
-                borderRadius: '50%',
-                backgroundColor: 'rgba(230,135,60,0.15)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(230,135,60,0.15)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
               >
                 <CircleNotificationsRoundedIcon sx={{ fontSize: 24, color: '#E6873C' }} />
               </Box>
             </Badge>
-            <Typography sx={{ fontSize: 12, fontWeight: 700, color: "#E6873C", mt: 0.2, fontFamily: "Manrope" }}>
-              Alerts
+            <Typography sx={{ fontSize: 10, fontWeight: 500, color: "#6B7280", mt: 0.2, fontFamily: "Open Sans" }}>
+              {t("CFL_DASHBOARD.ALERTS")}
             </Typography>
           </Box>
         </Box>
 
-        <Container maxWidth="sm" sx={{ py: 0,px:0 }}>
+        <Container maxWidth="sm" sx={{ py: 0, px: 0 }}>
           {/* Avatar Section */}
           <Box
             sx={{
@@ -300,9 +320,9 @@ const ProfilePage = () => {
                 backgroundColor: "#E6873C",
                 color: "#FFFFFF",
                 textTransform: "none",
-                fontWeight: 700,
-                fontSize: "18px",
-                fontFamily: "Manrope",
+                fontWeight: 600,
+                fontSize: "15px",
+                fontFamily: "Open Sans",
                 height: "56px",
                 boxShadow: "none",
                 "&:hover": { backgroundColor: "#D97706", boxShadow: "none" },
@@ -311,7 +331,7 @@ const ProfilePage = () => {
               {uploading ? (
                 <CircularProgress size={24} sx={{ color: "#FFFFFF" }} />
               ) : (
-                "Upload Photo"
+                t("CFL_DASHBOARD.UPLOAD_PHOTO")
               )}
             </Button>
           </Box>
@@ -320,7 +340,7 @@ const ProfilePage = () => {
           <Box sx={{ p: 3, bgcolor: "#FFFFFF", borderRadius: "16px", boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
             {/* Language Selector */}
             <Box sx={{ mb: 2 }}>
-              <Typography sx={{ fontSize: "12px", color: "#6B7280", mb: 0.5, fontWeight: 500, fontFamily: "Manrope" }}>
+              <Typography sx={{ fontSize: "13px", color: "#1A1A1A", mb: 0.5, fontWeight: 600, fontFamily: "Open Sans" }}>
                 {t('LEARNER_APP.PROFILE.FIELD_LANGUAGE')}
               </Typography>
               <FormControl fullWidth>
@@ -332,6 +352,8 @@ const ProfilePage = () => {
                     height: "48px",
                     borderRadius: "10px",
                     fontSize: "14px",
+                    fontFamily: 'Open Sans',
+                    fontWeight: 400,
                     color: "#1F2937",
                     "& .MuiOutlinedInput-notchedOutline": { borderColor: "#E5E7EB" },
                     "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#E5E7EB" },
@@ -339,7 +361,7 @@ const ProfilePage = () => {
                   }}
                 >
                   {LANGUAGE_OPTIONS.map((option: any) => (
-                    <MenuItem key={option.value} value={option.value}>
+                    <MenuItem sx={{ fontFamily: 'Open Sans', fontWeight: 400, fontSize: 14, color: '#1A1A1A' }} key={option.value} value={option.value}>
                       {option.label}
                     </MenuItem>
                   ))}
@@ -351,6 +373,7 @@ const ProfilePage = () => {
               <NameEditField
                 label={t('LEARNER_APP.PROFILE.FIELD_NAME')}
                 initialValue={fullName}
+
                 onSave={handleSaveName}
                 onCancel={() => setIsEditingName(false)}
               />
@@ -364,7 +387,7 @@ const ProfilePage = () => {
               />
             )}
 
-            <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={profileData?.role || "Trainer"} />
+            <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={getDisplayRole(profileData?.role)} />
             <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_CFL_LOCATION')} value={cflLocation} />
             <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_MOBILE')} value={profileData?.mobile || ""} />
             <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_EMAIL')} value={profileData?.email || ""} />
@@ -378,19 +401,20 @@ const ProfilePage = () => {
               sx={{
                 mt: 4,
                 borderRadius: "10px",
-                borderColor: "#FF6B6B",
-                color: "#FF6B6B",
+                borderColor: "#E53935",
+                color: "#E53935",
                 textTransform: "none",
                 fontWeight: 600,
                 height: "48px",
-                fontSize: "16px",
+                fontSize: "15px",
+                fontFamily: 'Open Sans',
                 "&:hover": {
-                  borderColor: "#EE5253",
+                  borderColor: "#E53935",
                   backgroundColor: "rgba(255, 107, 107, 0.04)",
                 },
               }}
             >
-              Logout
+              {t("CFL_DASHBOARD.LOGOUT")}
             </Button>
           </Box>
         </Container>
@@ -400,10 +424,10 @@ const ProfilePage = () => {
 
       <ConfirmationModal
         modalOpen={logoutModalOpen}
-        message="Are you sure you want to log out?"
+        message={t("COMMON.SURE_LOGOUT")}
         handleAction={confirmLogout}
         handleCloseModal={() => setLogoutModalOpen(false)}
-        buttonNames={{ primary: "Logout", secondary: "Cancel" }}
+        buttonNames={{ primary: t("COMMON.LOGOUT"), secondary: t("COMMON.CANCEL") }}
       />
 
       <SwadhaarBottomNav />

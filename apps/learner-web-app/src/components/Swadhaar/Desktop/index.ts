@@ -7,4 +7,4 @@ export { default as SwadhaarDesktopLevelAccordion } from './SwadhaarDesktopLevel
 export { default as SwadhaarDesktopAlertsPanel } from './SwadhaarDesktopAlertsPanel';
 export { default as SwadhaarDesktopEditProfileModal } from './SwadhaarDesktopEditProfileModal';
 export { default as SwadhaarDesktopCompletionModal } from './SwadhaarDesktopCompletionModal';
-export { default as SwadhaarDesktopLessonPlayer } from './SwadhaarDesktopLessonPlayer';
+export { default as SwadhaarDesktopLessonPlayer, type SwadhaarDesktopLessonPlayerProps } from './SwadhaarDesktopLessonPlayer';

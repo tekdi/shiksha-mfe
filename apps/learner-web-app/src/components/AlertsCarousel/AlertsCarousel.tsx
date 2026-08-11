@@ -17,7 +17,7 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   quiz: <WatchLaterIcon fontSize="large" sx={{color:'#F8AC4F'}} />,
   content: <DescriptionIcon fontSize="small" />,
   lesson: <MenuBookIcon fontSize="small" />,
-  feedback: <GroupIcon fontSize="large" sx={{ color: '#E6873C' }} />,
+  feedback: <GroupIcon sx={{ color: '#E6873C', width: '40.33px', height: '29.33px' }} />,
   badge: <EmojiEventsIcon fontSize="small" />,
   system: <InfoIcon fontSize="large" />,
 };

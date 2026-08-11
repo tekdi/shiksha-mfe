@@ -274,17 +274,14 @@ options.push(t('LEARNER_APP.USER_PROFILE_CARD.EDIT_PROFILE'));
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Avatar
+              src="/images/default.png"
               sx={{
                 width: 60,
                 height: 60,
-                backgroundColor: 'rgba(31,27,19,0.1)',
-                fontSize: '1.5rem',
-                fontWeight: 700,
-                color: '#1F1B13',
+                backgroundColor: '#fff',
+                border: '1px solid #ccc',
               }}
-            >
-              {fullName.charAt(0).toUpperCase()}
-            </Avatar>
+            />
             <Box>
               <Typography
                 variant="h5"

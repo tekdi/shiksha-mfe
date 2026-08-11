@@ -103,15 +103,15 @@ const SwadhaarDesktopProfileBanner: React.FC<SwadhaarDesktopProfileBannerProps> 
         onClick={onProfileClick}
         sx={{ cursor: 'pointer', flexShrink: 0, transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.05)' } }}
       >
-        <ProfileAvatar initials={getInitials(userName)} imageUrl={profileImageUrl} size={56} primaryColor={PRIMARY} />
+        <ProfileAvatar initials={getInitials(userName)} imageUrl={profileImageUrl || '/images/home_profile_default.png'} size={56} primaryColor={PRIMARY} />
       </Box>
 
       {/* Name + Designation */}
       <Box sx={{ minWidth: 160, flexShrink: 0 }}>
-        <Typography sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 17, color: '#fff', lineHeight: 1.2 }}>
+        <Typography sx={{ fontFamily: 'Open sans', fontWeight: 700, fontSize: 15, color: '#fff', lineHeight: 1.2 }}>
           {t('LEARNER_APP.HOME.GREETING', { name: userName })}
         </Typography>
-        <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.6)', mt: 0.5 }}>
+        <Typography sx={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.6)', mt: 0.5 }}>
           {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {designation}
         </Typography>
       </Box>
@@ -154,11 +154,14 @@ const SwadhaarDesktopProfileBanner: React.FC<SwadhaarDesktopProfileBannerProps> 
               {/* Text + Progress Bar Column */}
               <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.2 }}>
                 <Typography
+                  title={level.name}
                   sx={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: 14, fontWeight: 700,
+                    fontFamily: 'Inter',
+                    fontSize: 10, fontWeight: 700,
                     color: isLocked ? 'rgba(255,255,255,0.35)' : '#fff',
                     whiteSpace: 'nowrap', lineHeight: 1.2,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
                   {level.name}
@@ -166,13 +169,15 @@ const SwadhaarDesktopProfileBanner: React.FC<SwadhaarDesktopProfileBannerProps> 
                 
                 <Typography
                   sx={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: 10, fontWeight: 600,
-                    color: isLocked ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.5)',
+                    fontFamily: 'Inter',
+                    fontSize: 8, fontWeight: 400,
+                    color: isLocked ? 'rgba(255,255,255,0.25)' : '#999999',
                     whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
                   }}
                 >
-                  {isLocked ? t('LEARNER_APP.HOME.LOCKED') : isCompleted ? `${t('LEARNER_APP.HOME.PROGRESS')}: 100% ${t('LEARNER_APP.HOME.COMPLETED')}` : `${t('LEARNER_APP.HOME.PROGRESS')}: ${perc}% ${t('LEARNER_APP.HOME.COMPLETED')}`}
+                  {isLocked ? t('LEARNER_APP.HOME.LOCKED') : t('LEARNER_APP.HOME.PROGRESS_TEXT', { percent: perc })}
                 </Typography>
 
                 {!isLocked && (

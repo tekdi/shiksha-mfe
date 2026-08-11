@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@shared-lib';
@@ -14,6 +14,7 @@ import SwadhaarDesktopCurrentLesson from './SwadhaarDesktopCurrentLesson';
 import SwadhaarDesktopLevelAccordion from './SwadhaarDesktopLevelAccordion';
 import SwadhaarDesktopAlertsPanel from './SwadhaarDesktopAlertsPanel';
 import SwadhaarDesktopEditProfileModal from './SwadhaarDesktopEditProfileModal';
+import AlertsCarousel from '@learner/components/AlertsCarousel/AlertsCarousel';
 
 const PRIMARY = '#E6873C';
 
@@ -41,7 +42,13 @@ interface SwadhaarDesktopHomeProps {
   isLoading: boolean;
   error: string | null;
   onAlertClick: (alert: AlertCard) => void;
-  onReload: () => void;
+  onReload: (silent?: boolean) => void;
+  externalEditProfileOpen?: boolean;
+  onExternalEditProfileClose?: () => void;
+  /** Optional intercept: parent wraps navigation (e.g. language modal) */
+  onBeforeNavigate?: (navigate: () => void) => void;
+  selectedLanguage?: string;
+  onLanguageClick?: () => void;
 }
 
 /* ─── Helper: find current lesson ──────────────────────── */
@@ -79,6 +86,8 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
   levels, activeLevel, statusData, alerts, unreadCount,
   userName, designation, profileImageUrl,
   isLoading, error, onAlertClick, onReload,
+  externalEditProfileOpen = false, onExternalEditProfileClose,
+  onBeforeNavigate, selectedLanguage, onLanguageClick,
 }) => {
   const router = useRouter();
   const { t } = useTranslation();
@@ -92,10 +101,21 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
 
   // Inline alerts sidebar (pushes content)
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
+  // Local unread count: starts from prop but can be updated by the alerts panel
+  const [localUnreadCount, setLocalUnreadCount] = useState(unreadCount);
+
+  // Keep in sync when the parent re-fetches (e.g. on page reload)
+  useEffect(() => { setLocalUnreadCount(unreadCount); }, [unreadCount]);
 
   // Profile modal & logout confirmation
-  const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [internalEditProfileOpen, setInternalEditProfileOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+
+  const editProfileOpen = internalEditProfileOpen || externalEditProfileOpen;
+  const handleEditProfileClose = () => {
+    setInternalEditProfileOpen(false);
+    onExternalEditProfileClose?.();
+  };
 
   const toggleLevel = useCallback((id: string) => {
     setExpandedLevels((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -164,14 +184,27 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
         }
       }
 
-      if (firstLesson) {
-        router.push(`/learn/${levelId}/${moduleId}/${firstLesson.subId}/${firstLesson.lessonId}`);
+      const doNavigate = () => {
+        if (firstLesson) {
+          router.push(`/learn/${levelId}/${moduleId}/${firstLesson.subId}/${firstLesson.lessonId}`);
+        } else {
+          // Fallback to module page if no lessons found
+          router.push(`/learn/${levelId}/${moduleId}`);
+        }
+      };
+
+      if (onBeforeNavigate) {
+        onBeforeNavigate(doNavigate);
       } else {
-        // Fallback to module page if no lessons found
-        router.push(`/learn/${levelId}/${moduleId}`);
+        doNavigate();
       }
     } else {
-      router.push(`/learn/${levelId}/${moduleId}`);
+      const doNavigate = () => router.push(`/learn/${levelId}/${moduleId}`);
+      if (onBeforeNavigate) {
+        onBeforeNavigate(doNavigate);
+      } else {
+        doNavigate();
+      }
     }
   };
   const handleLogoutConfirm = () => {
@@ -196,10 +229,10 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
     >
       {/* ── Header ── */}
       <SwadhaarDesktopHeader
-        unreadCount={unreadCount}
+        unreadCount={localUnreadCount}
         alertsPanelOpen={alertsPanelOpen}
         onAlertsClick={() => setAlertsPanelOpen((prev) => !prev)}
-        onEditProfile={() => setEditProfileOpen(true)}
+        onEditProfile={() => setInternalEditProfileOpen(true)}
         onLogout={() => setLogoutConfirmOpen(true)}
         profileImageUrl={profileImageUrl}
         userName={userName}
@@ -261,15 +294,27 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
               </Box>
             )}
 
+            {/* Alerts Carousel */}
+            {unreadCount > 0 && !error && !alertsPanelOpen && (
+              <>
+                <Typography sx={{ fontWeight: 800, fontFamily: 'Inter, sans-serif', fontSize: '18px', mb: 2, color: 'text.primary', mt: 3 }}>
+                  {t('LEARNER_APP.HOME.ALERTS_TITLE')}
+                </Typography>
+                <Box sx={{ mb: 4 }}>
+                  <AlertsCarousel alerts={alerts} onAlertClick={() => setAlertsPanelOpen(true)} />
+                </Box>
+              </>
+            )}
+
             {/* Learning Progress */}
             {!error && (
               <>
                 <Typography
                   sx={{
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 800,
-                    fontSize: 18,
-                    color: '#1F2937',
+                    fontFamily: 'Open sans',
+                    fontWeight: 700,
+                    fontSize: 20,
+                    color: '#1A1A1A',
                     mb: 2,
                   }}
                 >
@@ -337,6 +382,8 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
                     completionPercentage={level.completionPercentage}
                     isUnlocked={level.isUnlocked}
                     isExpanded={!!expandedLevels[level.id]}
+                    selectedLanguage={selectedLanguage}
+                    onChangeLanguage={onLanguageClick}
                     onToggle={() => toggleLevel(level.id)}
                     statusData={statusData}
                     modules={level.rawChildren}
@@ -364,6 +411,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
             <SwadhaarDesktopAlertsPanel
               userId={userId}
               onClose={() => setAlertsPanelOpen(false)}
+              onUnreadCountChange={(count) => setLocalUnreadCount(count)}
             />
           </Box>
         )}
@@ -372,17 +420,17 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
       {/* ── Edit Profile Modal ── */}
       <SwadhaarDesktopEditProfileModal
         open={editProfileOpen}
-        onClose={() => setEditProfileOpen(false)}
-        onProfileUpdated={onReload}
+        onClose={handleEditProfileClose}
+        onProfileUpdated={() => onReload(true)}
       />
 
       {/* ── Logout Confirmation ── */}
       <ConfirmationModal
         modalOpen={logoutConfirmOpen}
-        message="Are you sure you want to log out?"
+        message={t('COMMON.SURE_LOGOUT')}
         handleAction={handleLogoutConfirm}
         handleCloseModal={() => setLogoutConfirmOpen(false)}
-        buttonNames={{ primary: 'Logout', secondary: 'Cancel' }}
+        buttonNames={{ primary: t('COMMON.LOGOUT'), secondary: t('COMMON.CANCEL') }}
       />
     </Box>
   );

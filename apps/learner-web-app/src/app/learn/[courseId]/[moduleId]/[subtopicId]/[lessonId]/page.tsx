@@ -327,60 +327,62 @@ export default function LessonViewerPage() {
       ) : (
         <Box sx={{ minHeight: '100dvh', bgcolor: '#F9FAFB', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
       <Box sx={{ bgcolor: '#fff', px: 1, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid #F3F4F6' }}>
-        <IconButton onClick={() => router.push(`/learn/${courseId}/${moduleId}`)}><ArrowBackIcon sx={{ color: '#E6873C', fontSize: 20 }} /></IconButton>
-        <Typography variant="h2" sx={{ fontWeight: 800, fontSize: 18, color: 'text.primary', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLesson?.name || subtopicName}</Typography>
-        <Box onClick={() => router.push('/alerts')} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', pr: 1 }}>
-          <Badge badgeContent={unreadCount > 0 ? unreadCount : null} sx={{ '& .MuiBadge-badge': { fontSize: 9, height: 16, minWidth: 16, backgroundColor: '#FFFFFF', color: '#E6873C', border: '1px solid #E6873C', top: 2, right: 2 } }}>
-            <Box sx={{ width: 20, height: 20, borderRadius: '50%', backgroundColor: 'rgba(230,135,60,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircleNotificationsRoundedIcon sx={{ fontSize: 24, color: '#E6873C' }} /></Box>
-          </Badge>
-          <Typography sx={{ fontSize: 10, fontWeight: 700, color: PRIMARY, mt: 0.5 }}>{t('LEARNER_APP.ALERTS.TITLE')}</Typography>
-        </Box>
+        <IconButton onClick={() => router.push(`/learn/${courseId}/${moduleId}`)}><ArrowBackIcon sx={{ color: '#1A1A1A', fontSize: 20 }} /></IconButton>
+        <Typography sx={{ fontWeight: 800, fontSize: 18, color: 'text.primary', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLesson?.name || subtopicName}</Typography>
       </Box>
 
       <Box sx={{ px: 2, pt: 2, flex: 1, pb: 22 }}>
-        {!isQuiz && (
           <Box sx={{
             bgcolor: '#fff', borderRadius: '16px',
             border: `1.5px solid ${showCompletedBanner ? '#4CAF50' : '#E5E7EB'}`,
             p: 2, mb: 3, transition: 'border-color 0.5s ease'
           }}>
             <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1.5, color: '#1F2937' }}>{t('LEARNER_APP.LEARN.LESSON_PROGRESS')}</Typography>
-            {/* {showCompletedBanner ? (
-              <Box sx={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
-                bgcolor: 'rgba(76, 175, 80, 0.08)', borderRadius: '10px', py: 1,
-              }}>
-                <CheckIcon sx={{ color: '#4CAF50', fontSize: 22 }} />
-                <Typography sx={{ fontWeight: 800, fontSize: 14, color: '#4CAF50', letterSpacing: 0.3 }}>
-                  Lesson Completed!
-                </Typography>
-                <Box sx={{ bgcolor: 'rgba(76,175,80,0.15)', px: 1, py: 0.25, borderRadius: '10px', ml: 0.5 }}>
-                  <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#4CAF50' }}>100%</Typography>
-                </Box>
-              </Box>
-            ) : ( */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <LinearProgress variant="determinate" value={displayCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: displayCompletion >= 70 ? '#4CAF50' : '#E6873C' } }} />
                 <Box sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', px: 1, py: 0.25, borderRadius: '10px' }}>
                   <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#36B368' }}>{Math.round(displayCompletion)}%</Typography>
                 </Box>
               </Box>
-            {/* // )} */}
           </Box>
-        )}
 
-        {currentLesson?.description && currentLesson.mimeType !== 'application/vnd.sunbird.questionset' && (
+        {(currentLesson?.subtitle || currentLesson?.description || currentLesson?.body) && (
           <Box sx={{
-            bgcolor: '#fff', borderRadius: '16px',
-            border: `1.5px solid #E5E7EB`,
-            p: 2, mb: 3
+            borderRadius: '12px',
+            overflow: 'hidden',
+            border: `1px solid #E5E7EB`,
+            mb: 3,
+            boxShadow: '0px 2px 4px rgba(0,0,0,0.02)'
           }}>
-            <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1, color: '#1F2937' }}>
-              {t('LEARNER_APP.LEARN.DESCRIPTION') || 'Description'}
-            </Typography>
-            <Typography sx={{ fontSize: 14, color: '#4B5563', lineHeight: 1.6 }}>
-              {currentLesson.description}
-            </Typography>
+            {/* Header */}
+            <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1.5 }}>
+              <Typography sx={{ color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'Inter' }}>
+                {t('LEARNER_APP.LEARN.DESCRIPTION') || 'Description'}
+              </Typography>
+            </Box>
+            {/* Body */}
+            <Box sx={{ bgcolor: '#fff', pt: 2, pb: 1, px: 2 }}>
+              <Box sx={{ borderBottom: (currentLesson.description || currentLesson.body) ? '1px solid #F3F4F6' : 'none', pb: (currentLesson.description || currentLesson.body) ? 1.5 : 0, mb: (currentLesson.description || currentLesson.body) ? 1.5 : 0 }}>
+                <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#111827', fontFamily: 'Open Sans', mb: 0.5, lineHeight: 1.3 }}>
+                  {currentLesson.name}
+                </Typography>
+                {currentLesson.subtitle && (
+                  <Typography sx={{ fontSize: 11, color: '#E6873C', fontFamily: 'Open Sans', fontWeight: 600, lineHeight: 1.4 }}>
+                    {currentLesson.subtitle}
+                  </Typography>
+                )}
+              </Box>
+              {currentLesson.description && (
+                <Typography sx={{ fontFamily: 'Open Sans', fontSize: '10px', color: '#1A1A1A', fontWeight: 400, fontStyle: 'normal', lineHeight: 1.5, mb: currentLesson.body ? 1 : 0 }}>
+                  {currentLesson.description}
+                </Typography>
+              )}
+              {currentLesson.body && (
+                <Typography sx={{ fontFamily: 'Open Sans', fontSize: '12px', color: '#1A1A1A', fontWeight: 400, lineHeight: 1.5 }}>
+                  {currentLesson.body}
+                </Typography>
+              )}
+            </Box>
           </Box>
         )}
 
@@ -405,7 +407,7 @@ export default function LessonViewerPage() {
       <Box sx={{ position: 'fixed', bottom: 65, left: 0, right: 0, bgcolor: '#fff', borderTop: '1px solid #F3F4F6', px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
         <Button variant="outlined" onClick={() => prevLesson ? router.push(`/learn/${courseId}/${prevLesson.parentModuleId}/${prevLesson.parentSubtopicId}/${prevLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}/${subtopicId}`)} sx={{ borderRadius: '10px', borderColor: PRIMARY, color: PRIMARY, fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0 }}>{t('LEARNER_APP.LEARN.PREVIOUS')}</Button>
         <Typography sx={{ fontWeight: 700, fontSize: 12, color: DARK_NAV, textAlign: 'center', flex: 1, px: 1, fontFamily: 'Inter', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLesson?.name}</Typography>
-        <Button variant="contained" disabled={effectiveCompletion < 70} onClick={() => nextLesson ? router.push(`/learn/${courseId}/${nextLesson.parentModuleId}/${nextLesson.parentSubtopicId}/${nextLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}/${subtopicId}`)} sx={{ borderRadius: '10px', bgcolor: PRIMARY, color: '#fff', fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0, boxShadow: 'none', '&:hover': { bgcolor: '#D1752D' }, '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' } }}>{t('LEARNER_APP.LEARN.NEXT')}</Button>
+        <Button variant="contained" disabled={effectiveCompletion < 70} onClick={() => nextLesson ? router.push(`/learn/${courseId}/${nextLesson.parentModuleId}/${nextLesson.parentSubtopicId}/${nextLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}?view=module_completion`)} sx={{ borderRadius: '10px', bgcolor: PRIMARY, color: '#fff', fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0, boxShadow: 'none', '&:hover': { bgcolor: '#D1752D' }, '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' } }}>{t('LEARNER_APP.LEARN.NEXT')}</Button>
       </Box>
       <SwadhaarBottomNav />
 

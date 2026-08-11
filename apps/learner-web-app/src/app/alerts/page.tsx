@@ -51,6 +51,7 @@ export default function AlertsPage() {
   const [loading, setLoading] = useState(true);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   React.useLayoutEffect(() => {
     if (typeof window !== 'undefined' && !checkAuth()) {
@@ -97,11 +98,11 @@ export default function AlertsPage() {
       markNotificationsRead(userId, [alert.id]).catch(() => {});
     }
 
-    // Route to actionUrl or alert detail page
+    // Route to actionUrl or toggle expand
     if (alert.actionUrl) {
       router.push(alert.actionUrl);
     } else {
-      router.push(`/alerts/${alert.id}`);
+      setExpandedId((prev) => (prev === alert.id ? null : alert.id));
     }
   };
 
@@ -126,7 +127,8 @@ export default function AlertsPage() {
     }
   };
 
-  const groups = groupByDate(alerts);
+  const unreadAlerts = alerts.filter(a => !a.isRead);
+  const groups = groupByDate(unreadAlerts);
 
   return (
     <Box sx={{ minHeight: '100dvh', bgcolor: '#F9FAFB', pb: '80px', fontFamily: 'Manrope, sans-serif' }}>
@@ -138,18 +140,12 @@ export default function AlertsPage() {
         }}
       >
         <IconButton onClick={() => router.back()} sx={{ p: 0.5 }}>
-                    <ArrowBackIcon sx={{ color: '#E6873C', fontSize: 20 }} />
+                    <ArrowBackIcon sx={{ color: '#1A1A1A', fontSize: 20 }} />
 
         </IconButton>
         <Typography sx={{ fontWeight: 800, fontSize: 22, color: '#1F2937', fontFamily: 'Manrope, sans-serif', flex: 1 }}>
           {t('LEARNER_APP.ALERTS.TITLE')}
         </Typography>
-        <IconButton onClick={handleMarkAllRead} disabled={loading || alerts.filter(a => !a.isRead).length === 0} sx={{ p: 0.5 }}>
-          <DoneAllIcon sx={{ color: '#E6873C', fontSize: 22 }} />
-        </IconButton>
-        <IconButton onClick={loadAlerts} disabled={loading} sx={{ p: 0.5 }}>
-          <RefreshRoundedIcon sx={{ color: '#E6873C', fontSize: 22 }} />
-        </IconButton>
       </Box>
 
       <Box sx={{ px: 2, py: 2 }}>
@@ -157,7 +153,7 @@ export default function AlertsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress sx={{ color: '#E6873C' }} />
           </Box>
-        ) : alerts.length === 0 ? (
+        ) : unreadAlerts.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 8 }}>
             {/* Bell SVG */}
             <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
@@ -184,6 +180,7 @@ export default function AlertsPage() {
               label={group.label}
               alerts={group.items}
               onAlertClick={handleAlertClick}
+              expandedId={expandedId}
             />
           ))
         )}

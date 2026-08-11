@@ -45,11 +45,9 @@ const CFLDesktopTrainerCard: React.FC<CFLDesktopTrainerCardProps> = ({ trainer, 
     >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <Avatar 
-          src={trainer.avatarUrl} 
-          sx={{ width: 36, height: 36, bgcolor: '#1C2B4A', border: `2px solid ${PRIMARY}44` }}
-        >
-          {trainer.name.charAt(0)}
-        </Avatar>
+          src={trainer.avatarUrl || '/images/default.png'} 
+          sx={{ width: 36, height: 36, bgcolor: '#fff', border: `2px solid ${PRIMARY}44` }}
+        />
         <Box>
           <Typography
             sx={{

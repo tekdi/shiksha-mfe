@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Box, Typography, CircularProgress, Badge, Collapse, Button, useMediaQuery, useTheme, Modal
 } from '@mui/material';
@@ -17,6 +17,7 @@ import SimpleModal from '@learner/components/SimpleModal/SimpleModal';
 import AlertsCarousel from '@learner/components/AlertsCarousel/AlertsCarousel';
 import SwadhaarLevelAccordion from '@learner/components/Swadhaar/SwadhaarLevelAccordion';
 import ProfileAvatar from '@learner/components/Profile/ProfileAvatar';
+import LanguagePreferenceModal, { SupportedLanguage } from '@learner/components/LanguagePreferenceModal/LanguagePreferenceModal';
 import {
   fetchSwadhaarLevelCourses,
   getContentCourseStatus,
@@ -83,11 +84,30 @@ export default function SwadhaarHomePage() {
   const [alerts, setAlerts] = useState<AlertCard[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // ── Language preference state ──
+  const [languageModalOpen, setLanguageModalOpen] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage | null>(null);
+  // Stores the navigation callback to execute after language selection
+  const pendingNavigationRef = useRef<(() => void) | null>(null);
+  // Forward ref for loadData so handleLanguageSelect can call it safely
+  const loadDataRef = useRef<(silent?: boolean) => void>(() => { });
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const unreadAlerts = getAlerts().filter(a => !a.isRead);
       setAlerts(unreadAlerts.slice(0, 3));
       setUnreadCount(unreadAlerts.length);
+
+      // Restore saved language preference
+      const rawSavedLang = localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage');
+      if (rawSavedLang) {
+        let normLang: SupportedLanguage = 'English';
+        const norm = rawSavedLang.toLowerCase();
+        if (['marathi', 'mr'].includes(norm)) normLang = 'Marathi';
+        else if (['hindi', 'hi'].includes(norm)) normLang = 'Hindi';
+        else if (['english', 'en'].includes(norm)) normLang = 'English';
+        setSelectedLanguage(normLang);
+      }
     }
   }, []);
   const [userName, setUserName] = useState('');
@@ -96,6 +116,7 @@ export default function SwadhaarHomePage() {
   const [expandedActive, setExpandedActive] = useState(true);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [showUpdateProfilePrompt, setShowUpdateProfilePrompt] = useState(false);
+  const [desktopEditProfileOpen, setDesktopEditProfileOpen] = useState(false);
 
   const getInitials = (name: string) => {
     if (!name) return "U";
@@ -113,19 +134,56 @@ export default function SwadhaarHomePage() {
         window.location.replace('/swadhaar-login');
       } else {
         console.log("userRole---->", localStorage.getItem("userRole"))
-        
+
         const role = localStorage.getItem('userRole');
-        // const userId = localStorage.getItem('userId');
-        if (role === 'CFL' || role === 'cfl' || role === "DI") {
-          router.push('/cfl/home');
+        const normalizedRole = role?.trim().toUpperCase();
+        if (normalizedRole === 'CFL' || normalizedRole === 'DI') {
+          window.location.replace('/cfl/home');
         }
       }
     }
   }, [router]);
 
-  const loadData = useCallback(async () => {
+  // ── Language helpers ──
+  const handleCourseCardClick = useCallback((navigate: () => void) => {
+    const rawSavedLang = typeof window !== 'undefined'
+      ? (localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage'))
+      : null;
+    if (!selectedLanguage && !rawSavedLang) {
+      pendingNavigationRef.current = navigate;
+      setLanguageModalOpen(true);
+    } else {
+      navigate();
+    }
+  }, [selectedLanguage]);
+
+  const handleLanguageSelect = useCallback(async (lang: SupportedLanguage) => {
+    setSelectedLanguage(lang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('swadhaarLanguage', lang);
+      localStorage.setItem('contentLanguage', lang);
+    }
+    setLanguageModalOpen(false);
+
     try {
-      setIsLoading(true);
+      const { updateContentLanguageInProfile } = await import('@learner/utils/API/userService');
+      await updateContentLanguageInProfile(lang);
+    } catch (error) {
+      console.error('Failed to update content language in profile', error);
+    }
+
+    loadDataRef.current(true);
+
+    if (pendingNavigationRef.current) {
+      // pendingNavigationRef.current();
+      pendingNavigationRef.current = null;
+    }
+  }, []);
+
+  const loadData = useCallback(async (silent = false) => {
+    loadDataRef.current = (s = false) => loadData(s);
+    try {
+      if (!silent) setIsLoading(true);
       setError(null);
 
       const userId = localStorage.getItem('userId') || '';
@@ -143,20 +201,25 @@ export default function SwadhaarHomePage() {
       if (userId) {
         try {
           const { getUserDetails } = await import('@learner/utils/API/services/ProfileService');
+          const { setLocalStorageFromCustomFields } = await import('@learner/utils/API/userService');
           const profileResponse = await getUserDetails(userId, true);
           const profileData = profileResponse?.result?.userData;
+          if (profileData?.customFields) {
+            setLocalStorageFromCustomFields(profileData.customFields);
+          }
           // The photo URL is stored in the `name` field by the uploadProfilePhoto flow
           const freshImageUrl = profileData?.name || null;
           setProfileImageUrl(freshImageUrl);
           if (profileData?.firstName) {
-            setUserName(profileData.firstName);
-            currentFirstName = profileData.firstName.trim();
+            const fnStr = String(profileData.firstName);
+            setUserName(fnStr);
+            currentFirstName = fnStr.trim();
           }
           if (profileData?.lastName) {
-            currentLastName = profileData.lastName.trim();
+            currentLastName = String(profileData.lastName).trim();
           }
-          if (profileData?.mobile) {
-            currentMobile = profileData.mobile.trim();
+          if (profileData?.mobile != null) {
+            currentMobile = String(profileData.mobile).trim();
           }
         } catch (e) {
           console.error('Error fetching user profile image from API:', e);
@@ -165,7 +228,7 @@ export default function SwadhaarHomePage() {
 
       console.log('Mobile Check Data:', { currentMobile, currentFirstName, currentLastName });
 
-      const needsUpdate = 
+      const needsUpdate =
         (currentMobile && (currentFirstName === currentMobile || currentLastName === currentMobile)) ||
         (/^\d+$/.test(currentFirstName) && currentFirstName.length >= 10);
 
@@ -173,7 +236,10 @@ export default function SwadhaarHomePage() {
         setShowUpdateProfilePrompt(true);
       }
 
-      const levelCourses = await fetchSwadhaarLevelCourses();
+      const savedLang = typeof window !== 'undefined'
+        ? (localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage') || undefined)
+        : undefined;
+      const levelCourses = await fetchSwadhaarLevelCourses(savedLang);
       if (!levelCourses || levelCourses.length === 0) {
         setError(t('LEARNER_APP.HOME.LOAD_ERROR'));
         setIsLoading(false);
@@ -223,21 +289,24 @@ export default function SwadhaarHomePage() {
       setStatusData(status);
 
       // Recursive filter: removes nodes (Levels, Modules, Subtopics) that do not contain any lessons
-      const filterHierarchy = (items: any[]): any[] => {
+      const filterHierarchy = (items: any[], isTopLevel = true): any[] => {
         return items
           .map((item) => {
             if (item.children && item.children.length > 0) {
-              const filteredChildren = filterHierarchy(item.children);
+              const filteredChildren = filterHierarchy(item.children, false);
               return { ...item, children: filteredChildren };
             }
             return item;
           })
           .filter((item) => {
-            const isContainer = item.mimeType === 'application/vnd.ekstep.content-collection' || 
-                               item.contentType === 'CourseUnit' || 
-                               item.contentType === 'TextBookUnit';
-            if (item.children) {
-              return item.children.length > 0;
+            const isContainer = item.mimeType === 'application/vnd.ekstep.content-collection' ||
+              item.contentType === 'CourseUnit' ||
+              item.contentType === 'TextBookUnit';
+            if (item.children && item.children.length > 0) {
+              return true;
+            }
+            if (isTopLevel) {
+              return true;
             }
             return !isContainer;
           });
@@ -249,12 +318,12 @@ export default function SwadhaarHomePage() {
       // Map dynamic levels from search API results based on filtered hierarchy
       const levelDataList = filteredLevelCourses.map((course: any, idx: number, filteredLevels: any[]) => {
         const children = course?.children || [];
-        
+
         const moduleDetails = children.map((m: any) => {
           const modulePerc = calculateNodeCompletion(m, status);
           return { isModuleComplete: Math.round(modulePerc) >= 70, modulePerc };
         });
-        
+
         const levelStats = calculateNodeLessons(course, status);
         const levelPerc = levelStats.total > 0 ? (levelStats.completed / levelStats.total) * 100 : 0;
 
@@ -286,7 +355,7 @@ export default function SwadhaarHomePage() {
       const sortedLevels = levelDataList;
 
       setLevels(sortedLevels);
-      
+
       // Prioritize in-progress courses (progress > 0 and < 70) over not-started ones
       const active =
         levelDataList.find((l) => l.isUnlocked && l.completionPercentage > 0 && l.completionPercentage < 70)
@@ -300,19 +369,19 @@ export default function SwadhaarHomePage() {
       // );
       // Seed alerts for newly detected content
       // newContentItems.forEach((item) => {
-        // const isCourseLocked = !levelDataList.find((l: any) => l.id === item.courseId)?.isUnlocked;
-        // addAlert({
-        //   id: `new-${item.type}-${item.contentId}`,
-        //   type: item.type === 'quiz' ? 'quiz' : 'content',
-        //   title: item.type === 'quiz' ? 'New Quiz Available' : 'New Content Reminder',
-        //   message: `New ${item.type} added in ${item.name}`,
-        //   timestamp: new Date().toISOString(),
-        //   isRead: false,
-        //   actionUrl: `/learn/${item.courseId}`,
-        //   locked: isCourseLocked,
-        //   lockedMessage: isCourseLocked ? 'Complete previous course to unlock.' : undefined,
-        //   metadata: { courseId: item.courseId },
-        // });
+      // const isCourseLocked = !levelDataList.find((l: any) => l.id === item.courseId)?.isUnlocked;
+      // addAlert({
+      //   id: `new-${item.type}-${item.contentId}`,
+      //   type: item.type === 'quiz' ? 'quiz' : 'content',
+      //   title: item.type === 'quiz' ? 'New Quiz Available' : 'New Content Reminder',
+      //   message: `New ${item.type} added in ${item.name}`,
+      //   timestamp: new Date().toISOString(),
+      //   isRead: false,
+      //   actionUrl: `/learn/${item.courseId}`,
+      //   locked: isCourseLocked,
+      //   lockedMessage: isCourseLocked ? 'Complete previous course to unlock.' : undefined,
+      //   metadata: { courseId: item.courseId },
+      // });
       // });
 
       // ── Component 6: Quiz reminder trigger ──
@@ -372,14 +441,14 @@ export default function SwadhaarHomePage() {
     } catch (err) {
       setError(t('LEARNER_APP.HOME.LOAD_ERROR'));
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   }, [tenant, t]);
 
   const handleAlertClick = async (alert: AlertCard) => {
     // Mark locally
     markAsRead(alert.id);
-    
+
     // Update local state immediately
     const updatedAlerts = getAlerts().filter(a => !a.isRead);
     setAlerts(updatedAlerts.slice(0, 3));
@@ -388,7 +457,7 @@ export default function SwadhaarHomePage() {
     // Mark on server
     const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
     if (userId) {
-      markNotificationsRead(userId, [alert.id]).catch(() => {});
+      markNotificationsRead(userId, [alert.id]).catch(() => { });
     }
 
     // Navigate to actionUrl or detail page
@@ -399,19 +468,8 @@ export default function SwadhaarHomePage() {
     }
   };
 
-  useEffect(() => { 
-    loadData(); 
-    
-    // Sync alerts from API on mount
-    const userId = localStorage.getItem('userId');
-    if (userId) {
-      fetchAndSyncAlerts(userId).then(() => {
-        const unread = getUnreadCount();
-        setUnreadCount(unread);
-        setAlerts(getAlerts().filter(a => !a.isRead).slice(0, 3));
-      }).catch(() => {});
-    }
-
+  useEffect(() => {
+    loadData();
     telemetryFactory.impression({
       edata: {
         type: 'workflow',
@@ -421,6 +479,24 @@ export default function SwadhaarHomePage() {
       }
     });
   }, [loadData]);
+
+  useEffect(() => {
+    // Sync alerts from API on mount and periodically
+    const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') : null;
+    if (userId) {
+      const syncAlerts = () => {
+        fetchAndSyncAlerts(userId).then(() => {
+          const unread = getUnreadCount();
+          setUnreadCount(unread);
+          setAlerts(getAlerts().filter(a => !a.isRead).slice(0, 3));
+        }).catch(() => { });
+      };
+
+      syncAlerts(); // initial fetch
+      const intervalId = setInterval(syncAlerts, 10000); // poll every 15s
+      return () => clearInterval(intervalId);
+    }
+  }, []);
 
   if (isLoading) {
     return <Box sx={{ display: 'flex', height: '100dvh', alignItems: 'center', justifyContent: 'center', bgcolor: '#F9FAFB' }}><CircularProgress sx={{ color: PRIMARY }} /></Box>;
@@ -443,12 +519,38 @@ export default function SwadhaarHomePage() {
           error={error}
           onAlertClick={handleAlertClick}
           onReload={loadData}
+          externalEditProfileOpen={desktopEditProfileOpen}
+          onExternalEditProfileClose={() => setDesktopEditProfileOpen(false)}
+          onBeforeNavigate={handleCourseCardClick}
+          selectedLanguage={selectedLanguage}
+          onLanguageClick={() => setLanguageModalOpen(true)}
         />
-        <Modal open={showUpdateProfilePrompt} onClose={() => {}}>
-          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, bgcolor: 'background.paper', borderRadius: 4, p: 4, textAlign: 'center', boxShadow: 24, outline: 'none' }}>
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#1F2937', mb: 2 }}>Update Profile</Typography>
-            <Typography sx={{ color: '#4B5563', mb: 3 }}>Please update your profile details such as name information.</Typography>
-            <Button fullWidth variant="contained" onClick={() => { setShowUpdateProfilePrompt(false); router.push('/swadhar-profile'); }} sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>Okay</Button>
+
+        {/* ── Language Preference Modal (desktop) ── */}
+        <LanguagePreferenceModal
+          open={languageModalOpen}
+          onClose={() => {
+            setLanguageModalOpen(false);
+            pendingNavigationRef.current = null;
+          }}
+          onSelect={handleLanguageSelect}
+          selectedLanguage={selectedLanguage}
+        />
+
+        <Modal open={showUpdateProfilePrompt} onClose={() => setShowUpdateProfilePrompt(false)}>
+          <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 400, bgcolor: 'background.paper', borderRadius: 4, overflow: 'hidden', boxShadow: 24, outline: 'none' }}>
+            {/* Header */}
+            <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+              <Typography onClick={() => setShowUpdateProfilePrompt(false)} sx={{ color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+                Close
+              </Typography>
+            </Box>
+            {/* Body */}
+            <Box sx={{ p: 3, textAlign: 'center' }}>
+              <Typography sx={{ fontWeight: 700, fontStyle: "bold", fontSize: '16px', color: '#1F2937', mb: 1, fontFamily: 'Open Sans', textAlign: 'center' }}>Update Name</Typography>
+              <Typography sx={{ color: '#4B5563', mb: 4, fontSize: 12, fontFamily: 'Open Sans' }}>Please update your profile name on the edit profile page.</Typography>
+              <Button fullWidth variant="outlined" onClick={() => { setShowUpdateProfilePrompt(false); setDesktopEditProfileOpen(true); }} sx={{ borderColor: PRIMARY, color: PRIMARY, borderRadius: '12px', fontWeight: 700, textTransform: 'none', py: 1.5, fontSize: 15, fontFamily: 'Inter, sans-serif', '&:hover': { borderColor: PRIMARY, bgcolor: 'rgba(230,135,60,0.04)' } }}>Go to Edit Profile</Button>
+            </Box>
           </Box>
         </Modal>
       </>
@@ -490,7 +592,7 @@ export default function SwadhaarHomePage() {
               <CircleNotificationsRoundedIcon sx={{ fontSize: 24, color: '#E6873C' }} />
             </Box>
           </Badge>
-          <Typography sx={{ fontSize: 10, fontWeight: 700, color: PRIMARY, mt: 0.5 }}>{t('LEARNER_APP.ALERTS.TITLE')}</Typography>
+          <Typography sx={{ fontSize: 10, fontWeight: 700, color: PRIMARY, mt: 0.5, fontFamily: 'Open Sans' }}>{t('LEARNER_APP.ALERTS.TITLE')}</Typography>
         </Box>
       </Box>
 
@@ -500,11 +602,11 @@ export default function SwadhaarHomePage() {
           <Box sx={{ bgcolor: 'info.primary', borderRadius: '16px', p: 2, pb: viewMore ? 2 : 4 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2.5 }}>
               <Box>
-                <Typography sx={{fontFamily:"Inter, sans-serif", color: 'common.white', fontWeight: 700 }}>
+                <Typography sx={{ fontFamily: "Open sans", color: '#FFFFFF', fontWeight: 700, fontSize: '15px' }}>
                   {t('LEARNER_APP.HOME.GREETING', { name: userName })}
                 </Typography>
-                <Typography sx={{ fontFamily:"Inter, sans-serif", color: 'rgba(255,255,255,0.7)', fontSize: 12, mt: 0.5 }}>
-                   {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {designation}
+                <Typography sx={{ fontFamily: "Inter", color: '#FFFFFF', fontSize: 11, fontWeight: 400, mt: 0.5 }}>
+                  {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {designation}
                 </Typography>
               </Box>
 
@@ -516,9 +618,9 @@ export default function SwadhaarHomePage() {
                 }}
                 onClick={() => router.push('/swadhar-profile')}
               >
-                <ProfileAvatar 
+                <ProfileAvatar
                   initials={getInitials(userName)}
-                  imageUrl={profileImageUrl}
+                  imageUrl={profileImageUrl || '/images/home_profile_default.png'}
                   size={52}
                   primaryColor={PRIMARY}
                 />
@@ -540,19 +642,19 @@ export default function SwadhaarHomePage() {
                 }}
               >
                 <Box sx={{ flex: 1 }}>
-                  <Typography sx={{ fontWeight: 700, color: 'text.primary',fontFamily:"Inter, sans-serif" ,fontSize:'12px'}}>
+                  <Typography sx={{ fontWeight: 700, color: '#1A1A1A', fontFamily: "Inter", fontSize: '10px' }}>
                     {activeLevel.name}
                   </Typography>
-                  <Typography sx={{ color: 'text.secondary', mt: 0.5,fontSize:'10px',fontFamily:"Inter, sans-serif" }}>
+                  <Typography sx={{ color: '#999999', mt: 0.5, fontSize: '8px', fontFamily: "Inter", fontWeight: 400 }}>
                     {t('LEARNER_APP.HOME.PROGRESS_TEXT', { percent: activeLevel.completionPercentage })}
                   </Typography>
                 </Box>
                 <Box sx={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                   <img 
-                     src={activeLevel.completionPercentage >= 70 ? '/assets/images/badge-complete.png' : '/assets/images/badge-incomplete.png'} 
-                     alt="badge" 
-                     style={{ width: 40, height: 40, objectFit: 'contain' }} 
-                   />
+                  <img
+                    src={activeLevel.completionPercentage >= 70 ? '/assets/images/badge-complete.png' : '/assets/images/badge-incomplete.png'}
+                    alt="badge"
+                    style={{ width: 40, height: 40, objectFit: 'contain' }}
+                  />
                 </Box>
               </Box>
             )}
@@ -579,21 +681,21 @@ export default function SwadhaarHomePage() {
                       }}
                     >
                       <Box sx={{ flex: 1 }}>
-                        <Typography sx={{ fontWeight: 700, fontSize: 12, color: 'text.primary', fontFamily: 'Inter, sans-serif' }}>
+                        <Typography sx={{ fontWeight: 700, fontSize: 10, color: '#1A1A1A', fontFamily: 'Inter' }}>
                           {l.name}
                         </Typography>
-                        <Typography sx={{ color: 'text.secondary', fontSize: 10, mt: 0.3, fontWeight: 500, fontFamily: 'Inter, sans-serif' }}>
+                        <Typography sx={{ color: '#999999', fontSize: 8, mt: 0.3, fontWeight: 400, fontFamily: 'Inter' }}>
                           {t('LEARNER_APP.HOME.PROGRESS_TEXT', { percent: l.completionPercentage })}
                         </Typography>
                       </Box>
                       {l.isUnlocked ? (
-                         <img 
-                           src={l.completionPercentage >= 70 ? '/assets/images/badge-complete.png' : '/assets/images/badge-incomplete.png'} 
-                           alt="badge" 
-                           style={{ width: 40, height: 40, objectFit: 'contain' }} 
-                         />
+                        <img
+                          src={l.completionPercentage >= 70 ? '/assets/images/badge-complete.png' : '/assets/images/badge-incomplete.png'}
+                          alt="badge"
+                          style={{ width: 40, height: 40, objectFit: 'contain' }}
+                        />
                       ) : (
-                         <svg width="20" height="20" viewBox="0 0 24 24" fill="#9CA3AF"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#9CA3AF"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" /></svg>
                       )}
                     </Box>
                   ))}
@@ -631,7 +733,7 @@ export default function SwadhaarHomePage() {
                 zIndex: 5,
               }}
             >
-              <Typography sx={{ fontSize: 11, color: 'info.primary', fontWeight: 500,fontFamily:"Inter, sans-serif" }}>
+              <Typography sx={{ fontSize: 11, color: 'info.primary', fontWeight: 500, fontFamily: "Inter, sans-serif" }}>
                 {viewMore ? t('LEARNER_APP.HOME.VIEW_LESS') : t('LEARNER_APP.HOME.VIEW_MORE')}
               </Typography>
             </Box>
@@ -640,14 +742,14 @@ export default function SwadhaarHomePage() {
 
         {unreadCount > 0 && (
           <>
-            <Typography  sx={{ fontWeight: 800, fontFamily: 'Inter, sans-serif', fontSize:'18px', mb: 2, color: 'text.primary' }}>{t('LEARNER_APP.HOME.ALERTS_TITLE')}</Typography>
+            <Typography sx={{ fontWeight: 700, fontFamily: 'Open sans', fontSize: '14px', mb: 2, color: '#1A1A1' }}>{t('LEARNER_APP.HOME.ALERTS_TITLE')}</Typography>
             <Box sx={{ mb: 4 }}>
               <AlertsCarousel alerts={alerts} onAlertClick={handleAlertClick} />
             </Box>
           </>
         )}
 
-        <Typography sx={{ fontWeight: 800, fontFamily: 'Inter, sans-serif', fontSize:'18px', mb: 1.5, color: 'text.primary' }}>{t('LEARNER_APP.HOME.START_LEARNING')}</Typography>
+        <Typography sx={{ fontWeight: 700, fontFamily: 'Open sans', fontSize: '14px', mb: 1.5, color: '#1A1A1A' }}>{t('LEARNER_APP.HOME.START_LEARNING')}</Typography>
 
         {/* ── SCREEN 5.3: Level Complete Celebration ── */}
         {/* {(() => {
@@ -746,33 +848,63 @@ export default function SwadhaarHomePage() {
         })()} */}
 
         {activeLevel && (
-           <SwadhaarLevelAccordion
-              levelId={activeLevel.id}
-              levelName={activeLevel.name}
-              levelDescription={activeLevel.description}
-              completedModules={activeLevel.completedModules}
-              totalModules={activeLevel.totalModules}
-              completionPercentage={activeLevel.completionPercentage}
-              isUnlocked={activeLevel.isUnlocked}
-              isExpanded={expandedActive}
-              onToggle={() => setExpandedActive(!expandedActive)}
-              statusData={statusData}
-              onModuleClick={(mid) => {
-                  trackCourseClick(mid);
-                  // Always go to the module details page so the subtopic accordion is shown
-                    router.push(`/learn/${activeLevel.id}/${mid}`);
-               }}
-              modules={activeLevel.rawChildren}
-           />
+          <SwadhaarLevelAccordion
+            levelId={activeLevel.id}
+            levelName={activeLevel.name}
+            levelDescription={activeLevel.description}
+            completedModules={activeLevel.completedModules}
+            totalModules={activeLevel.totalModules}
+            completionPercentage={activeLevel.completionPercentage}
+            isUnlocked={activeLevel.isUnlocked}
+            isExpanded={expandedActive}
+            selectedLanguage={selectedLanguage || undefined}
+            onChangeLanguage={() => setLanguageModalOpen(true)}
+            onToggle={() => setExpandedActive(!expandedActive)}
+            statusData={statusData}
+            onModuleClick={(mid, sId, lId) => {
+              handleCourseCardClick(() => {
+                trackCourseClick(mid);
+                if (lId && sId) {
+                  router.push(`/learn/${activeLevel.id}/${mid}/${sId}/${lId}`);
+                } else if (sId) {
+                  router.push(`/learn/${activeLevel.id}/${mid}/${sId}`);
+                } else {
+                  router.push(`/learn/${activeLevel.id}/${mid}`);
+                }
+              });
+            }}
+            modules={activeLevel.rawChildren}
+          />
         )}
       </Box>
 
       <SwadhaarBottomNav />
-      <Modal open={showUpdateProfilePrompt} onClose={() => {}}>
-        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 320, bgcolor: 'background.paper', borderRadius: 4, p: 4, textAlign: 'center', boxShadow: 24, outline: 'none' }}>
-          <Typography variant="h6" sx={{ fontWeight: 800, color: '#1F2937', mb: 2 }}>Update Profile</Typography>
-          <Typography sx={{ color: '#4B5563', mb: 3 }}>Please update your profile details such as name information.</Typography>
-          <Button fullWidth variant="contained" onClick={() => { setShowUpdateProfilePrompt(false); router.push('/swadhar-profile'); }} sx={{ bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.5, fontSize: 15 }}>Okay</Button>
+
+      {/* ── Language Preference Modal ── */}
+      <LanguagePreferenceModal
+        open={languageModalOpen}
+        onClose={() => {
+          setLanguageModalOpen(false);
+          pendingNavigationRef.current = null;
+        }}
+        onSelect={handleLanguageSelect}
+        selectedLanguage={selectedLanguage}
+      />
+
+      <Modal open={showUpdateProfilePrompt} onClose={() => setShowUpdateProfilePrompt(false)}>
+        <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 340, bgcolor: 'background.paper', borderRadius: 4, overflow: 'hidden', boxShadow: 24, outline: 'none' }}>
+          {/* Header */}
+          <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1.5, display: 'flex', justifyContent: 'flex-end' }}>
+            <Typography onClick={() => setShowUpdateProfilePrompt(false)} sx={{ color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'Inter, sans-serif' }}>
+              Close
+            </Typography>
+          </Box>
+          {/* Body */}
+          <Box sx={{ p: 3, textAlign: 'left' }}>
+            <Typography sx={{ fontSize: '20', fontWeight: 700, fontStyle: "bold", color: '#1F2937', mb: 1, fontFamily: 'Open Sans', textAlign: 'left' }}>Update Name</Typography>
+            <Typography sx={{ color: '#4B5563', mb: 4, fontSize: 14, fontFamily: 'Open Sans' }}>Please update your profile name on the edit profile page.</Typography>
+            <Button fullWidth variant="outlined" onClick={() => { setShowUpdateProfilePrompt(false); router.push('/swadhar-profile'); }} sx={{ borderColor: PRIMARY, color: PRIMARY, borderRadius: '12px', fontWeight: 700, textTransform: 'none', py: 1.5, fontSize: 15, fontFamily: 'Inter, sans-serif', '&:hover': { borderColor: PRIMARY, bgcolor: 'rgba(230,135,60,0.04)' } }}>Go to Edit Profile</Button>
+          </Box>
         </Box>
       </Modal>
     </Box>

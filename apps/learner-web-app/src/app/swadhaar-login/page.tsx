@@ -8,7 +8,7 @@ import { checkUserExistenceWithTenant } from '@learner/utils/API/userService';
 import { sendOTP, verifyOTP } from '@learner/utils/API/OtPService';
 import { getUserId } from '@learner/utils/API/LoginService';
 import { showToastMessage } from '@learner/components/ToastComponent/Toastify';
-import { profileComplitionCheck, getUserDetails } from '@learner/utils/API/userService';
+import { profileComplitionCheck, getUserDetails, setLocalStorageFromCustomFields } from '@learner/utils/API/userService';
 import { ensureAcademicYearForTenant } from '@learner/utils/API/ProgramService';
 import { useTenant } from '@learner/context/TenantContext';
 import { useTranslation } from '@shared-lib';
@@ -138,7 +138,7 @@ export default function SwadhaarLoginPage() {
 
       // Handle nested userData if present
       const userData = userResp?.userData || userResp;
-
+console.log("USER data---",userData)
       const userRole = userData?.tenantData?.[0]?.roleName;
       const userId = userData?.userId;
       const tenantId = userData?.tenantData?.[0]?.tenantId;
@@ -159,8 +159,10 @@ export default function SwadhaarLoginPage() {
       // Fetch full profile to get the image URL (stored in 'name' field)
       try {
         const fullProfile = await getUserDetails(userId, true);
-        const imageUrl = fullProfile?.result?.userData?.name || fullProfile?.result?.userData?.basicDetails?.image || '';
+        const userProf = fullProfile?.result?.userData;
+        const imageUrl = userProf?.name || userProf?.basicDetails?.image || '';
         if (imageUrl) localStorage.setItem('profilePicture', imageUrl);
+        if (userProf?.customFields) setLocalStorageFromCustomFields(userProf.customFields);
       } catch (e) { console.error('Failed to fetch full profile for image', e); }
 
       const templateId = userData?.tenantData?.[0]?.templateId || 'cm7nbogii000moc3gth63l863';
@@ -284,7 +286,6 @@ export default function SwadhaarLoginPage() {
     <Box sx={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
            {/* Top-left: Sign In text */}
         <Typography
-          variant="h3"
           sx={{
             position: 'absolute',
             top: 16,
@@ -333,10 +334,10 @@ export default function SwadhaarLoginPage() {
               />
             </Box>
 
-        <Typography variant="h4" sx={{ fontWeight: 700, color: 'common.white', mb: 0.5 }}>
+        <Typography sx={{fontFamily:'Open Sans',fontSize:26, fontWeight: 700, color: 'common.white', mb: 0.5 }}>
           {t('LEARNER_APP.LOGIN.WELCOME')}
         </Typography>
-        <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+        <Typography  sx={{fontFamily:'Open Sans',fontSize:14,fontWeight:400, color: '#FFFFFF8C' }}>
           {t('LEARNER_APP.LOGIN.SUBTITLE')}
         </Typography>
       </Box>
@@ -354,7 +355,7 @@ export default function SwadhaarLoginPage() {
         }}
       >
         {/* Mobile Number */}
-        <Typography  sx={{fontFamily:"Inter, sans-serif",fontSize: 13, fontWeight: 700, color: 'text.secondary', mb: 0.75 }}>
+        <Typography  sx={{fontFamily:"Open Sans",fontSize: 13, fontWeight: 600, color: '#1A1A1A', mb: 0.75 }}>
           {t('LEARNER_APP.LOGIN.MOBILE_LABEL')}
         </Typography>
         <TextField
@@ -367,18 +368,23 @@ export default function SwadhaarLoginPage() {
             mb: 2.5,
             '& .MuiOutlinedInput-root': {
               borderRadius: '8px',
-              fontSize: 15,
               '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
+            },
+            '& .MuiInputBase-input': {
+              fontSize: 14,
+              fontFamily: 'Open Sans',
+              fontWeight: 400,
+              color: '#1A1A1A',
             },
             '& .MuiOutlinedInput-notchedOutline': { borderColor: '#999999ff' },
           }}
         />
 
         {/* OTP */}
-        <Typography sx={{ fontSize: 13, fontWeight: 600, color: 'text.secondary', mb: 0.75, fontFamily: 'Inter, sans-serif' }}>
+        <Typography sx={{ fontSize: 13, fontWeight: 600, color: '#1A1A1A', mb: 0.75, fontFamily: 'Open Sans' }}>
           {t('LEARNER_APP.LOGIN.OTP_LABEL')}
         </Typography>
-        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1.2, mb: 2.75 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: { xs: 1.5, sm: 2 }, mb: 2.75 }}>
           {otp.map((digit, idx) => (
             <TextField
               key={idx}
@@ -392,15 +398,23 @@ export default function SwadhaarLoginPage() {
               inputProps={{
                 maxLength: 1,
                 inputMode: 'numeric',
-                style: { textAlign: 'center', fontSize: 20 },
+                style: { textAlign: 'center' },
                 onPaste: (e: any) => handleOtpPaste(idx, e),
               }}
               sx={{
-                width: 58,
+                flex: 1,
+                minWidth: 0,
+                maxWidth: 58,
                 '& .MuiOutlinedInput-root': {
                   borderRadius: '8px',
-                  fontSize: 15,
                   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: PRIMARY },
+                },
+                '& .MuiInputBase-input': {
+                  fontSize: { xs: 14, sm: 16 },
+                  fontFamily: 'Open Sans',
+                  fontWeight: 400,
+                  color: '#1A1A1A',
+                  p: { xs: '12px 4px', sm: '16.5px 14px' }, // Decrease padding to avoid text overflow on small widths
                 },
                 '& .MuiOutlinedInput-notchedOutline': { borderColor: '#999999ff' },
               }}
@@ -423,7 +437,7 @@ export default function SwadhaarLoginPage() {
             fontWeight: 600,
             fontSize: 15,
             textTransform: 'none',
-            fontFamily: 'Inter, sans-serif',
+            fontFamily: 'Open Sans',
             boxShadow: canSignIn ? `0 4px 14px rgba(230,135,60,0.35)` : 'none',
             '&:hover': { bgcolor: canSignIn ? '#d4782e' : '#E5E7EB' },
             '&:disabled': { color: '#9CA3AF', bgcolor: '#E5E7EB' },
@@ -437,11 +451,11 @@ export default function SwadhaarLoginPage() {
             component="span"
             onClick={canSendOtp ? handleSendOtp : undefined}
             sx={{
-              fontSize: 16,
-              color: canSendOtp ? DARK_NAV : '#9CA3AF',
+              fontSize: 13,
+              color: canSendOtp ? '#E6873C' : '#9CA3AF',
               fontWeight: 600,
               cursor: canSendOtp ? 'pointer' : 'not-allowed',
-              fontFamily: 'Inter, sans-serif',
+              fontFamily: 'Open Sans',
               display: 'flex',
               alignItems: 'center',
               gap: 0.5,

@@ -119,7 +119,9 @@
       "in_progress": "प्रगति पर",
       "enrolled_not_started": "नामांकित, शुरू नहीं हुआ",
       "not_started": "शुरू नहीं हुआ"
-    }
+    },
+    "ACTIVE": "सक्रिय",
+    "CONTINUE": "जारी रखें"
   },
   "LEARNER_APP": {
     "COMPLETE_PROFILE_BANNER": {
@@ -250,15 +252,46 @@
       "SEND_OTP_ERROR": "ओटीपी भेजने में विफल। कृपया पुनः प्रयास करें।"
     },
     "ALERTS": {
-      "TITLE": "सूचनाएं",
-      "NO_NOTIFICATIONS": "अभी कोई सूचना नहीं है",
-      "LOCKED_MESSAGE": "अनलॉक करने के लिए पिछला कोर्स पूरा करें।"
+      "TITLE": "अलर्ट",
+      "NO_NOTIFICATIONS": "अभी तक कोई नोटिफिकेशन नहीं",
+      "NO_NEW_ALERTS": "कोई नए अलर्ट नहीं।",
+      "NEW_ALERT": "नया अलर्ट"
     },
     "PROFILE": {
-      "NAME_REQUIRED": "नाम खाली नहीं हो सकता",
-      "NAME_UPDATED_SUCCESS": "नाम सफलतापूर्वक अपडेट किया गया!",
-      "UPDATE_FAILED": "नाम अपडेट करने में विफल",
-      "TITLE": "प्रोफ़ाइल"
+      "FIELD_LANGUAGE": "भाषा",
+      "FIELD_NAME": "नाम",
+      "FIELD_DESIGNATION": "पदनाम",
+      "FIELD_CFL_LOCATION": "CFL स्थान",
+      "FIELD_MOBILE": "मोबाइल नंबर",
+      "FIELD_EMAIL": "ईमेल",
+      "FIELD_JOINING_DATE": "शामिल होने की तिथि",
+      "CERTIFICATION_ID_NOT_FOUND": "प्रमाणपत्र ID नहीं मिला",
+      "ERROR_OPENING_CERTIFICATE": "प्रमाणपत्र खोलने में त्रुटि। कृपया पुनः प्रयास करें।",
+      "COURSE_COMPLETION_CERTIFICATE": "पाठ्यक्रम पूर्णता प्रमाणपत्र",
+      "ERROR_LOADING_CERTIFICATES": "प्रमाणपत्र लोड करने में त्रुटि",
+      "BACK_TO_DASHBOARD": "डैशबोर्ड पर वापस जाएं",
+      "MY_PROFILE": "नमस्ते",
+      "MY_PROFILE_DESCRIPTION": "मेरी प्रोफ़ाइल",
+      "TRACK_LEARNING_JOURNEY": "अपनी सीखने की यात्रा और उपलब्धियों को ट्रैक करें",
+      "CONTACT_INFORMATION": "संपर्क जानकारी",
+      "PHONE_NUMBER": "फोन नंबर",
+      "NOT_AVAILABLE": "उपलब्ध नहीं",
+      "YOUTHNET_ACHIEVEMENTS": "YouthNet उपलब्धियां",
+      "MY_CERTIFICATES": "मेरे प्रमाणपत्र",
+      "CERTIFICATES_DESCRIPTION": "आपके पूर्ण पाठ्यक्रम और अर्जित प्रमाणपत्र",
+      "CERTIFICATE": "प्रमाणपत्र",
+      "CERTIFICATES": "प्रमाणपत्र",
+      "GO_TO_COURSES": "जारी रखें",
+      "UNTITLED_COURSE": "बिना शीर्षक का पाठ्यक्रम",
+      "NO_DESCRIPTION_AVAILABLE": "कोई विवरण उपलब्ध नहीं",
+      "CERTIFICATE_ID_NOT_AVAILABLE": "इस पाठ्यक्रम के लिए प्रमाणपत्र ID उपलब्ध नहीं है",
+      "NEED_HELP": "मदद चाहिए?",
+      "GET_IN_TOUCH_SUPPORT": "हमारे सहायता अधिकारियों से संपर्क करें",
+      "SUPPORT_PHONE": "+91 8754911609",
+      "SUPPORT_LINK": "https://www.tekdi.net/",
+      "PHOTO_UPLOADED_SUCCESS": "प्रोफ़ाइल फ़ोटो सफलतापूर्वक अपलोड की गई!",
+      "ERROR_UPLOADING_PHOTO": "फ़ोटो अपलोड करने में विफल। कृपया पुनः प्रयास करें।",
+      "UPLOAD_PHOTO": "फोटो अपलोड करें"
     },
     "HOME": {
       "GREETING": "नमस्ते, {{name}}!",
@@ -355,12 +388,19 @@
       "CURRENT_LABEL": "वर्तमान: {{name}}",
       "LESSON_LABEL": "सबक: {{name}}",
       "LESSON": "सबक",
-      "BACK_TO_LEARNING": "सीखने पर वापस जाएं"
+      "BACK_TO_LEARNING": "सीखने पर वापस जाएं",
+      "CURRENT_COURSE": "वर्तमान कोर्स",
+      "CURRENT_MODULE": "वर्तमान मॉड्यूल",
+      "CURRENT_SUBTOPIC": "वर्तमान उपविषय",
+      "COURSE_COMPLETION": "कोर्स पूर्ण",
+      "SUBTOPIC_COMPLETE": "उपविषय पूर्ण",
+      "MODULE_COMPLETE": "मॉड्यूल पूर्ण",
+      "UP_NEXT": "अगला",
+      "CONGRATULATIONS": "बधाई हो",
+      "YOU_HAVE_FINISHED": "आपने समाप्त कर लिया है ",
+      "DOWNLOAD_CERTIFICATE": "प्रमाण पत्र डाउनलोड करें"
     },
     "MODULE_COMPLETE": "मड्यूल पूरा हुआ",
-    "ALERTS": {
-      "TITLE": "अलर्ट"
-    },
     "LEVEL": {
       "BEGINNER": "प्रारंभिक स्तर",
       "INTERMEDIATE": "मध्यवर्ती स्तर",
@@ -379,8 +419,6 @@
     "EXPLORE": {
       "EXPLORE_ADDITIONAL_COURSES": "अतिरिक्त पाठ्यक्रम देखें"
     },
-
-
     "L_ONE_COURSE": {
       "IN_PROGRESS_TITLE": "प्रगति पर",
       "ONGOING_COURSES": "आपके पास {count} चल रहे पाठ्यक्रम हैं",
@@ -506,41 +544,6 @@
       "SEARCH_TEXT": "खोजें",
       "APP_NAME": "Shiksha myLearning",
       "ON_PLAYSTORE": "प्लेस्टोर पर"
-    },
-    "PROFILE": {
-      "FIELD_LANGUAGE": "भाषा",
-      "FIELD_NAME": "नाम",
-      "FIELD_DESIGNATION": "पदनाम",
-      "FIELD_CFL_LOCATION": "CFL स्थान",
-      "FIELD_MOBILE": "मोबाइल नंबर",
-      "FIELD_EMAIL": "ईमेल",
-      "FIELD_JOINING_DATE": "शामिल होने की तिथि",
-      "CERTIFICATION_ID_NOT_FOUND": "प्रमाणपत्र ID नहीं मिला",
-      "ERROR_OPENING_CERTIFICATE": "प्रमाणपत्र खोलने में त्रुटि। कृपया पुनः प्रयास करें।",
-      "COURSE_COMPLETION_CERTIFICATE": "पाठ्यक्रम पूर्णता प्रमाणपत्र",
-      "ERROR_LOADING_CERTIFICATES": "प्रमाणपत्र लोड करने में त्रुटि",
-      "BACK_TO_DASHBOARD": "डैशबोर्ड पर वापस जाएं",
-      "MY_PROFILE": "नमस्ते",
-      "MY_PROFILE_DESCRIPTION": "मेरी प्रोफ़ाइल",
-      "TRACK_LEARNING_JOURNEY": "अपनी सीखने की यात्रा और उपलब्धियों को ट्रैक करें",
-      "CONTACT_INFORMATION": "संपर्क जानकारी",
-      "PHONE_NUMBER": "फोन नंबर",
-      "NOT_AVAILABLE": "उपलब्ध नहीं",
-      "YOUTHNET_ACHIEVEMENTS": "YouthNet उपलब्धियां",
-      "MY_CERTIFICATES": "मेरे प्रमाणपत्र",
-      "CERTIFICATES_DESCRIPTION": "आपके पूर्ण पाठ्यक्रम और अर्जित प्रमाणपत्र",
-      "CERTIFICATE": "प्रमाणपत्र",
-      "CERTIFICATES": "प्रमाणपत्र",
-      "GO_TO_COURSES": "जारी रखें",
-      "UNTITLED_COURSE": "बिना शीर्षक का पाठ्यक्रम",
-      "NO_DESCRIPTION_AVAILABLE": "कोई विवरण उपलब्ध नहीं",
-      "CERTIFICATE_ID_NOT_AVAILABLE": "इस पाठ्यक्रम के लिए प्रमाणपत्र ID उपलब्ध नहीं है",
-      "NEED_HELP": "मदद चाहिए?",
-      "GET_IN_TOUCH_SUPPORT": "हमारे सहायता अधिकारियों से संपर्क करें",
-      "SUPPORT_PHONE": "+91 8754911609",
-      "SUPPORT_LINK": "https://www.tekdi.net/",
-      "PHOTO_UPLOADED_SUCCESS": "प्रोफ़ाइल फ़ोटो सफलतापूर्वक अपलोड की गई!",
-      "ERROR_UPLOADING_PHOTO": "फ़ोटो अपलोड करने में विफल। कृपया पुनः प्रयास करें।"
     },
     "ATTENDANCE": {
       "DAY_WISE_ATTENDANCE": "दिन-वार उपस्थिति",
@@ -834,5 +837,41 @@
     "SPACE_AND_SPECIAL_CHARACTERS_NOT_ALLOWED": "स्पेस और विशेष वर्णों की अनुमति नहीं है",
     "DATE_MUST_BE_ON_OR_BEFORE": "तिथि {{date}} या उससे पहले होनी चाहिए",
     "DATE_MUST_BE_ON_OR_AFTER": "तिथि {{date}} या उसके बाद होनी चाहिए"
+  },
+  "CFL_DASHBOARD": {
+    "NAMASTE": "नमस्ते",
+    "CFL_INCHARGES_COMPLETED_NEW_CONTENT": "जिला प्रभारियों ने नई सामग्री पूरी की",
+    "TRAINERS": "प्रशिक्षक/सीएफएल प्रभारी",
+    "TRAINERS_COMPLETED_NEW_CONTENT": "प्रशिक्षक/सीएफएल प्रभारियों ने नई सामग्री पूरी की",
+    "CFL_INCHARGE_PROGRESS": "जिला प्रभारी प्रगति",
+    "CFL_INCHARGES_COLUMN": "जिला प्रभारी",
+    "TRAINER_PROGRESS": "प्रशिक्षक/सीएफएल प्रभारी प्रगति",
+    "CONTENT_PROGRESS": "सामग्री प्रगति",
+    "CFL_INCHARGE_LIST": "जिला प्रभारी सूची",
+    "TRAINER_LIST": "प्रशिक्षक/सीएफएल प्रभारी सूची",
+    "CURRENT_LEVEL": "वर्तमान स्तर",
+    "VIEW_DETAILED_PROGRESS": "विस्तृत प्रगति देखें",
+    "COMPLETED": "पूर्ण",
+    "LOWER_COMPLETED": "पूर्ण",
+    "TRAINERS_COMPLETED": "प्रशिक्षक/सीएफएल प्रभारियों ने पूरा किया",
+    "PROGRESS_PERCENT_COMPLETED": "प्रगति: {{percent}}% पूर्ण",
+    "COURSE_PROGRESS": "पाठ्यक्रम प्रगति",
+    "NO_COURSE_DATA_FOUND_FOR_THIS_TRAINER": "इस प्रशिक्षक/सीएफएल प्रभारी के लिए कोई पाठ्यक्रम डेटा नहीं मिला।",
+    "UPLOAD_PHOTO": "फोटो अपलोड करें",
+    "PROFILE": "प्रोफ़ाइल",
+    "ALERTS": "सूचनाएं",
+    "LANGUAGE": "भाषा",
+    "LOGOUT": "लॉगआउट",
+    "CFL_INCHARGES": "जिला प्रभारी",
+    "ACTION_TYPE": "कार्रवाई का प्रकार",
+    "MESSAGE": "संदेश",
+    "CREATE_ALERT": "सूचना भेजें",
+    "TRAINERS_TABLE_HEADER": "प्रशिक्षक/सीएफएल प्रभारी",
+    "TRAINER_AND_CFL_INCHARGE": "जिला प्रभारी प्रगति",
+    "ACTIONS": "कार्रवाइयां",
+    "SEND_ALERT": "सूचना भेजें",
+    "DISTRICT_INCHARGE": "जिला प्रभारी",
+    "CFL_INCHARGE": "जिला प्रभारी",
+    "TRAINER": "प्रशिक्षक/सीएफएल प्रभारी"
   }
 }

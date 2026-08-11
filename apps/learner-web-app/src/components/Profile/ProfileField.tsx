@@ -25,11 +25,11 @@ const ProfileField: React.FC<ProfileFieldProps> = ({
     <Box sx={{ mb: 2 }}>
       <Typography
         sx={{
-          fontSize: "12px",
-          color: "#6B7280",
+          fontSize: "13px",
+          color: "#1A1A1A",
           mb: 0.5,
-          fontWeight: 500,
-          fontFamily: "Manrope",
+          fontWeight: 600,
+          fontFamily: "Open Sans",
         }}
       >
         {label}
@@ -54,9 +54,9 @@ const ProfileField: React.FC<ProfileFieldProps> = ({
             backgroundColor: readOnly && !isEditable ? "#F9FAFB" : "#FFFFFF",
             borderRadius: "10px",
             fontSize: "14px",
-            fontWeight: 600,
-            fontFamily: "Manrope",
-            color: readOnly && !isEditable ? "#9CA3AF" : "#1F2937",
+            fontWeight: 400,
+            fontFamily: "Open Sans",
+            color: readOnly && !isEditable ? "#9CA3AF" : "#1A1A1A",
             "& .MuiOutlinedInput-notchedOutline": {
               borderColor: "#E5E7EB",
             },

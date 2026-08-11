@@ -15,10 +15,10 @@ export const useCFLTrainers = (tenantId: string) => {
     try {
       const role = localStorage.getItem('userRole');
       let data;
-      if (role === 'DI') {
+      if (role === 'ARM') {
         data = await getDICohorts();
       } else {
-        data = await cfllearnerlist();
+        data = await cfllearnerlist(undefined, undefined, undefined, undefined, true);
       }
 
       setTrainers(data);

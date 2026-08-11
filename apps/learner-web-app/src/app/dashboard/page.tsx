@@ -16,7 +16,7 @@ import { getTenantInfo } from "@learner/utils/API/ProgramService";
 import { gredientStyle } from "@learner/utils/style";
 import LearnerCourse from "@learner/components/Content/LearnerCourse";
 import GroupsManager from "@learner/components/Content/GroupsManager";
-import { AccountCircleOutlined } from "@mui/icons-material";
+import { Avatar } from "@mui/material";
 import ProfileMenu from "../../components/ProfileMenu/ProfileMenu";
 import ConfirmationModal from "../../components/ConfirmationModal/ConfirmationModal";
 import { useTenant } from "@learner/context/TenantContext";
@@ -555,7 +555,10 @@ const DashboardContent = () => {
                 },
               }}
             >
-              <AccountCircleOutlined />
+              <Avatar
+                src="/images/home_profile_default.png"
+                sx={{ width: 24, height: 24, bgcolor: "transparent" }}
+              />
             </IconButton>
           </Box>
 

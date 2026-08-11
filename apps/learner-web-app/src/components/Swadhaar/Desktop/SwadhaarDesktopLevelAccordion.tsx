@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import { Box, Typography, LinearProgress, Collapse } from '@mui/material';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import TranslateIcon from '@mui/icons-material/Translate';
 import { useTranslation } from '@shared-lib';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -57,8 +58,8 @@ const DesktopModuleCard: React.FC<{
   const borderColor = isLocked
     ? '#E5E7EB'
     : isCompleted
-    ? SUCCESS
-    : PRIMARY;
+      ? SUCCESS
+      : PRIMARY;
 
   return (
     <Box
@@ -85,10 +86,10 @@ const DesktopModuleCard: React.FC<{
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <Typography
           sx={{
-            fontFamily: 'Inter, sans-serif',
-            fontWeight: 600,
-            fontSize: 10,
-            color: '#9CA3AF',
+            fontFamily: 'Open sans',
+            fontWeight: 700,
+            fontSize: 9,
+            color: '#9E9E9E',
             textTransform: 'uppercase',
             letterSpacing: 0.5,
           }}
@@ -97,9 +98,9 @@ const DesktopModuleCard: React.FC<{
         </Typography>
         <Typography
           sx={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 10,
-            color: '#9CA3AF',
+            fontFamily: 'Open sans',
+            fontSize: 9,
+            color: '#9E9E9E',
           }}
         >
           {subtopicCount} {t('LEARNER_APP.LEARN.LESSONS_TITLE')}
@@ -109,16 +110,16 @@ const DesktopModuleCard: React.FC<{
       {/* Module name */}
       <Typography
         sx={{
-          fontFamily: 'Inter, sans-serif',
+          fontFamily: 'Open sans',
           fontWeight: 700,
           fontSize: 13,
-          color: isLocked ? '#9CA3AF' : '#1F2937',
+          color: isLocked ? '#9CA3AF' : '#1A1A1A',
           lineHeight: 1.3,
         }}
       >
         {module.name}
       </Typography>
-      {showDescriptions && module.description && (
+      {/* {showDescriptions && module.description && (
         <Typography
           sx={{
             fontFamily: 'Inter, sans-serif',
@@ -129,7 +130,7 @@ const DesktopModuleCard: React.FC<{
         >
           {module.description}
         </Typography>
-      )}
+      )} */}
 
       {/* Progress bar */}
       <LinearProgress
@@ -155,17 +156,17 @@ const DesktopModuleCard: React.FC<{
         ) : null}
         <Typography
           sx={{
-            fontFamily: 'Inter, sans-serif',
-            fontSize: 11,
-            fontWeight: 600,
-            color: isCompleted ? SUCCESS : isLocked ? '#9CA3AF' : PRIMARY,
+            fontFamily: 'Open Sans',
+            fontSize: 9,
+            fontWeight: 700,
+            color: isCompleted ? SUCCESS : isLocked ? '#9E9E9E' : PRIMARY,
           }}
         >
           {isCompleted
             ? `${perc}% ${t('LEARNER_APP.HOME.COMPLETED')}`
             : isLocked
-            ? t('LEARNER_APP.HOME.LOCKED')
-            : `${perc}% ${t('LEARNER_APP.HOME.COMPLETED')}`}
+              ? t('LEARNER_APP.HOME.LOCKED')
+              : `${perc}% ${t('LEARNER_APP.HOME.COMPLETED')}`}
         </Typography>
       </Box>
     </Box>
@@ -188,6 +189,8 @@ interface SwadhaarDesktopLevelAccordionProps {
   modules: any[];
   onModuleClick: (moduleId: string) => void;
   showDescriptions?: boolean;
+  selectedLanguage?: string;
+  onChangeLanguage?: () => void;
 }
 
 /* ─── Main Component ─────────────────────────────────────── */
@@ -205,6 +208,8 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
   modules: rawModules,
   onModuleClick,
   showDescriptions = false,
+  selectedLanguage,
+  onChangeLanguage,
 }) => {
   const { t } = useTranslation();
   const isLocked = !isUnlocked;
@@ -259,53 +264,84 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
             <LockRoundedIcon sx={{ color: '#9CA3AF', fontSize: 22, mt: 0.2 }} />
           )}
           <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, pr: 1 }}>
+              <Typography
+                sx={{
+                  fontFamily: 'Open Sans',
+                  fontWeight: 700,
+                  fontSize: 16,
+                  color: isLocked ? '#9CA3AF' : '#1A1A1A',
+                }}
+              >
+                {levelName}
+              </Typography>
+              {selectedLanguage && (
+                <Box
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChangeLanguage?.();
+                  }}
+                  sx={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: 1.25,
+                    py: 0.35,
+                    borderRadius: '12px',
+                    bgcolor: isCompletedLevel ? 'rgba(76,175,80,0.1)' : 'rgba(230,135,60,0.1)',
+                    border: `1px solid ${isCompletedLevel ? SUCCESS : PRIMARY}`,
+                    color: isCompletedLevel ? SUCCESS : PRIMARY,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s ease',
+                    '&:hover': { bgcolor: isCompletedLevel ? 'rgba(76,175,80,0.2)' : 'rgba(230,135,60,0.2)' }
+                  }}
+                >
+                  {/* <TranslateIcon sx={{ fontSize: 13, color: isCompletedLevel ? SUCCESS : PRIMARY }} /> */}
+                  <span>{selectedLanguage}</span>
+                </Box>
+              )}
+            </Box>
             <Typography
               sx={{
                 fontFamily: 'Inter, sans-serif',
-                fontWeight: 700,
-                fontSize: 14,
-                color: isLocked ? '#9CA3AF' : '#1F2937',
+                fontSize: 11,
+                color: isCompletedLevel ? SUCCESS : '#757575',
+                mt: 0.25,
+                fontWeight: isCompletedLevel ? 700 : 400,
               }}
             >
-              {levelName}
+              {isCompletedLevel
+                ? t('LEARNER_APP.HOME.COMPLETED')
+                : isLocked
+                  ? t('LEARNER_APP.HOME.LOCKED')
+                  : t('LEARNER_APP.LEARN.COMPLETED_MODULES', { completed: completedModules, total: totalModules })}
             </Typography>
-          <Typography
-            sx={{
-              fontFamily: 'Inter, sans-serif',
-              fontSize: 11,
-              color: isCompletedLevel ? SUCCESS : '#9CA3AF',
-              mt: 0.25,
-              fontWeight: isCompletedLevel ? 700 : 400,
-            }}
-          >
-            {isCompletedLevel
-              ? t('LEARNER_APP.HOME.COMPLETED')
-              : isLocked
-              ? t('LEARNER_APP.HOME.LOCKED')
-              : t('LEARNER_APP.LEARN.COMPLETED_MODULES', { completed: completedModules, total: totalModules })}
-          </Typography>
-          {showDescriptions && levelDescription && (
-            <Typography
-              sx={{
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 14,
-                color: '#6B7280',
-                mt: 0.8,
-              }}
-            >
-              {levelDescription}
-            </Typography>
-          )}
+            {showDescriptions && levelDescription && (
+              <Typography
+                sx={{
+                  fontFamily: 'Inter',
+                  fontSize: 10,
+                  fontWeight: 400,
+                  color: '#999999',
+                  mt: 0.8,
+                }}
+              >
+                {levelDescription}
+              </Typography>
+            )}
+          </Box>
         </Box>
-      </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, pt: 0.2, flexShrink: 0 }}>
           {isCompletedLevel && (
             <Typography
               sx={{
-                fontFamily: 'Inter, sans-serif',
+                fontFamily: 'Open Sans',
                 fontSize: 12,
-                fontWeight: 700,
+                fontWeight: 600,
                 color: SUCCESS,
                 whiteSpace: 'nowrap',
               }}
@@ -363,7 +399,7 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
             '&:hover': { bgcolor: '#F0F4FA' },
           }}
         >
-          <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 11, color: '#1C2B4A', fontWeight: 600 }}>
+          <Typography sx={{ fontFamily: 'Inter', fontSize: 6, color: '#1C2B4A', fontWeight: 600 }}>
             {isExpanded ? t('LEARNER_APP.HOME.VIEW_LESS') : t('LEARNER_APP.HOME.VIEW_MORE')}
           </Typography>
         </Box>

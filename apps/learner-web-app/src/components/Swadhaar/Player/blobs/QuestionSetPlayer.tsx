@@ -417,7 +417,6 @@ const QuestionScreen: React.FC<{
                     overflow: 'hidden',
                   }}
                 >
-                  {(isSelected || (reviewMode && isCorrect)) && <Box sx={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 4, bgcolor: reviewMode ? (isCorrect ? SUCCESS_GREEN : ERROR_RED) : PRIMARY }} />}
                   <Box sx={{
                     width: 32, height: 32, borderRadius: '8px',
                     bgcolor: reviewMode ? (isCorrect ? SUCCESS_GREEN : (isSelected ? ERROR_RED : '#aaa8a8ff')) : (isSelected ? PRIMARY : '#E0E0E0'),
@@ -624,10 +623,18 @@ export const QuestionSetPlayer: React.FC<QuestionSetPlayerProps> = ({
 }) => {
   const questions = useMemo(() => normalizeQuestions(rawQuestions || []), [rawQuestions]);
   const isSubjectiveSet = useMemo(() => questions.length > 0 && questions.every(isSubjective), [questions]);
-  const [phase, setPhase] = useState<'start' | 'quiz' | 'result'>('start');
+  const [phase, setPhase] = useState<'start' | 'quiz' | 'result'>(isSubjectiveSet ? 'quiz' : 'start');
   const [currentQ, setCurrentQ] = useState(0);
-  const [answers, setAnswers] = useState<any[]>([]);
+  const [answers, setAnswers] = useState<any[]>(isSubjectiveSet ? new Array(questions.length).fill(undefined) : []);
   const [isReview, setIsReview] = useState(mode === 'review');
+
+  // Auto-trigger onStart for subjective sets that bypass the start screen
+  React.useEffect(() => {
+    if (isSubjectiveSet && !isReview && onStart) {
+      onStart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // Seed lastScore from initiallyPassed so the start screen correctly shows 'Review Answers'
   // when the user has already passed this quiz (based on backend data), even after a page remount.
   const [lastScore, setLastScore] = useState<number | null>(

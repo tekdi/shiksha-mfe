@@ -15,10 +15,12 @@ interface CFLDesktopProfileBannerProps {
   completedTrainers: number;
   profileImageUrl?: string | null;
   onProfileClick?: () => void;
+  userRole?: string;
+  trainers?: any[];
 }
 
 const CFLDesktopProfileBanner: React.FC<CFLDesktopProfileBannerProps> = ({
-  userName, location, totalTrainers, completedTrainers, profileImageUrl, onProfileClick,
+  userName, location, totalTrainers, completedTrainers, profileImageUrl, onProfileClick, userRole, trainers = [],
 }) => {
   const { t } = useTranslation();
 
@@ -46,55 +48,80 @@ const CFLDesktopProfileBanner: React.FC<CFLDesktopProfileBannerProps> = ({
         onClick={onProfileClick}
         sx={{ cursor: 'pointer', flexShrink: 0, transition: 'transform 0.2s', '&:hover': { transform: 'scale(1.05)' } }}
       >
-        <ProfileAvatar 
-          initials={getInitials(userName)} 
-          imageUrl={profileImageUrl} 
-          size={64} 
-          primaryColor={PRIMARY} 
+        <ProfileAvatar
+          initials={getInitials(userName)}
+          imageUrl={profileImageUrl}
+          size={64}
+          primaryColor={PRIMARY}
         />
       </Box>
 
       {/* Name + Location */}
       <Box sx={{ flex: 1 }}>
-        <Typography sx={{ fontFamily: 'Inter, sans-serif', fontWeight: 800, fontSize: 20, color: '#fff', lineHeight: 1.2 }}>
+        <Typography sx={{ fontFamily: 'Open Sans', fontWeight: 700, fontStyle: 'bold', fontSize: 15, color: '#fff', lineHeight: 1.2 }}>
           {t('LEARNER_APP.HOME.GREETING', { name: userName })}
         </Typography>
-        <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 12, fontWeight: 500, color: 'rgba(255,255,255,0.6)', mt: 0.5 }}>
-          Designation: CFL Incharge - {location.startsWith('CFL') ? location : `Location: ${location}`}
+        <Typography sx={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.6)', mt: 0.5 }}>
+          {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {(userRole === 'ARM') ? 'ARM' : t('CFL_DASHBOARD.DISTRICT_INCHARGE')} - {t('LEARNER_APP.PROFILE.FIELD_CFL_LOCATION')}: {location.replace(/^(District Incharge|CFL|ARM):\s*/i, '').trim()}
         </Typography>
       </Box>
 
       {/* Stats Boxes */}
       <Box sx={{ display: 'flex', gap: 2 }}>
+        {(userRole === 'ARM') && (
+          <Box
+            sx={{
+              bgcolor: '#fff',
+              borderRadius: '12px',
+              p: 2,
+              minWidth: 100,
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              border: `1px solid ${PRIMARY}44`
+            }}
+          >
+            <Typography sx={{ color: '#1A1A1A', fontWeight: 700, fontSize: 20, lineHeight: 1 }}>
+              {trainers.filter(t => t.designation === 'CFL Incharge').length}
+            </Typography>
+            <Typography sx={{ color: '#6B7280', fontSize: 10, mt: 0.5, whiteSpace: 'nowrap' }}>
+              {t("CFL_DASHBOARD.CFL_INCHARGES")}
+            </Typography>
+          </Box>
+        )}
+
         {/* Total Trainers Box */}
-        <Box 
-          sx={{ 
-            bgcolor: '#fff', 
-            borderRadius: '12px', 
-            p: 2, 
-            minWidth: 100, 
-            textAlign: 'center',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            border: `1px solid ${PRIMARY}44`
-          }}
-        >
-          <Typography sx={{ color: '#111', fontWeight: 800, fontSize: 24, lineHeight: 1 }}>
-            {totalTrainers}
-          </Typography>
-          <Typography sx={{ color: '#6B7280', fontSize: 10, mt: 0.5, whiteSpace: 'nowrap' }}>
-            Trainers
-          </Typography>
-        </Box>
+        {!(userRole === 'DI' || userRole === 'DISTRICT INCHARGE' || userRole === 'ARM') && (
+          <Box
+            sx={{
+              bgcolor: '#fff',
+              borderRadius: '12px',
+              p: 2,
+              minWidth: 100,
+              textAlign: 'center',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              border: `1px solid ${PRIMARY}44`
+            }}
+          >
+            <Typography sx={{ color: '#1A1A1A', fontWeight: 700, fontSize: 20, lineHeight: 1, fontFamily: "Inter" }}>
+              {totalTrainers}
+            </Typography>
+            <Typography sx={{ color: '#999999', fontSize: 8, fontWeight: 400, mt: 0.5, whiteSpace: 'nowrap', fontFamily: "Inter" }}>
+              {t("CFL_DASHBOARD.TRAINERS")}
+            </Typography>
+          </Box>
+        )}
 
         {/* Completed Trainers Box */}
-        <Box 
-          sx={{ 
-            bgcolor: '#fff', 
-            borderRadius: '12px', 
-            p: 2, 
-            minWidth: 120, 
+        <Box
+          sx={{
+            bgcolor: '#fff',
+            borderRadius: '12px',
+            p: 2,
+            minWidth: 120,
             textAlign: 'center',
             display: 'flex',
             flexDirection: 'column',
@@ -102,11 +129,11 @@ const CFLDesktopProfileBanner: React.FC<CFLDesktopProfileBannerProps> = ({
             border: `1px solid ${PRIMARY}44`
           }}
         >
-          <Typography sx={{ color: '#111', fontWeight: 800, fontSize: 24, lineHeight: 1 }}>
+          <Typography sx={{ color: '#1A1A1A', fontWeight: 700, fontSize: 20, lineHeight: 1, fontFamily: "Inter" }}>
             {completedTrainers}/{totalTrainers}
           </Typography>
-          <Typography sx={{ color: '#6B7280', fontSize: 10, mt: 0.5, lineHeight: 1.2 }}>
-            Trainers completed<br/>new content
+          <Typography sx={{ color: '#999999', fontSize: 8, fontWeight: 400, mt: 0.5, lineHeight: 1.2, fontFamily: "Inter" }}>
+            {(userRole === 'DI' || userRole === 'DISTRICT INCHARGE' || userRole === 'ARM') ? t("CFL_DASHBOARD.CFL_INCHARGES_COMPLETED_NEW_CONTENT") : t("CFL_DASHBOARD.TRAINERS_COMPLETED_NEW_CONTENT")}
           </Typography>
         </Box>
       </Box>

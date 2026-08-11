@@ -25,6 +25,7 @@ export interface AlertCard {
     senderDesignation?: string;
     senderLocation?: string;
     senderAvatar?: string | null;
+    senderId?: string;
     messageBody?: string;
     link?: string;
   };
@@ -98,6 +99,7 @@ export function mapApiNotificationToAlertCard(n: ApiNotification): AlertCard {
       senderRole: n.metadata?.senderRole,
       senderDesignation: n.metadata?.senderDesignation,
       senderLocation: n.metadata?.senderLocation,
+      senderId: n.metadata?.senderId || (n as any).createdBy,
       messageBody: n.metadata?.messageBody || n.message,
       feedbackId: type === 'feedback' ? n.id : undefined,
     },
@@ -118,7 +120,17 @@ export async function fetchAndSyncAlerts(userId: string): Promise<AlertCard[]> {
       return getAlerts();
     }
 
-    const apiCards = apiNotifs.map(mapApiNotificationToAlertCard);
+    const localMap = new Map(getAlerts().map((a) => [a.id, a]));
+
+    const apiCards = apiNotifs.map((n) => {
+      const card = mapApiNotificationToAlertCard(n);
+      const local = localMap.get(card.id);
+      if (local && local.isRead) {
+        card.isRead = true; // Preserve local read state to prevent unread count from popping back up
+      }
+      return card;
+    });
+
     const apiIds = new Set(apiCards.map((c) => c.id));
 
     // Keep local-only alerts (seeded) that aren't in the API result

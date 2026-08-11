@@ -1,13 +1,15 @@
-import React from 'react';
 import { Box, Typography, Avatar } from '@mui/material';
+import { useTranslation } from '@shared-lib';
 
 interface ProfileCardProps {
   username: string;
   location: string;
   avatarUrl?: string;
+  hideGreeting?: boolean;
 }
 
-const ProfileCard: React.FC<ProfileCardProps> = ({ username, location, avatarUrl }) => {
+const ProfileCard: React.FC<ProfileCardProps> = ({ username, location, avatarUrl, hideGreeting }) => {
+  const { t } = useTranslation();
   return (
     <Box sx={{ 
       bgcolor: '#1C2B4A', 
@@ -21,20 +23,20 @@ const ProfileCard: React.FC<ProfileCardProps> = ({ username, location, avatarUrl
       boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
     }}>
       <Box>
-        <Typography sx={{ fontSize: '18px', fontWeight: 700, mb: 0.5 }}>
-          Namaste, {username}
+        <Typography sx={{ fontSize: '15px', fontWeight: 700,fontFamily:'Open Sans', mb: 0.5 }}>
+          {hideGreeting ? username : `${t("CFL_DASHBOARD.NAMASTE")}, ${username}`}
         </Typography>
-        <Typography sx={{ fontSize: '10px', opacity: 0.8 }}>
-          {location.startsWith('CFL') ? location : `CFL: ${location}`}
+        <Typography sx={{ fontSize: '11px',fontFamily:'Inter',fontWeight:400, opacity: 0.8 }}>
+          {location.startsWith('CFL') || location.startsWith('District Incharge') || location.startsWith('ARM') ? location : `CFL: ${location}`}
         </Typography>
       </Box>
       <Avatar 
-        src={avatarUrl} 
+        src={avatarUrl || '/images/default.png'} 
         sx={{ 
           width: 48, 
           height: 48, 
           border: '2px solid rgba(255,255,255,0.2)',
-          bgcolor: '#E6873C' 
+          bgcolor: 'transparent' 
         }} 
       />
     </Box>

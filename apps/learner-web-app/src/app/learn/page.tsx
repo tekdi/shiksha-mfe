@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Box, Typography, CircularProgress, Badge } from '@mui/material';
+import { Box, Typography, CircularProgress, Badge, Chip } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { checkAuth } from '@shared-lib-v2/utils/AuthService';
 import SwadhaarBottomNav from '@learner/components/Swadhaar/SwadhaarBottomNav';
@@ -24,10 +24,12 @@ import {
   CheckCircle as CheckCircleIcon,
   ArrowForward as ArrowForwardIcon,
   BookmarkRounded as BookmarkRoundedIcon,
+  Translate as TranslateIcon,
 } from '@mui/icons-material';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
 
 import { getAlerts, getUnreadCount } from '@learner/utils/alertsStore';
+import LanguagePreferenceModal, { SupportedLanguage } from '@learner/components/LanguagePreferenceModal/LanguagePreferenceModal';
 const PRIMARY = '#E6873C';
 
 /**
@@ -45,7 +47,7 @@ const calculateNodeCompletion = (node: any, statusList: any[]): number => {
 };
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  quiz: <WatchLaterIcon fontSize="large" sx={{color:'#F8AC4F'}} />,
+  quiz: <WatchLaterIcon fontSize="large" sx={{ color: '#F8AC4F' }} />,
   content: <DescriptionIcon fontSize="small" />,
   lesson: <MenuBookIcon fontSize="small" />,
   feedback: <PersonIcon fontSize="small" />,
@@ -65,6 +67,36 @@ export default function LearnPage() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [latestUnreadAlert, setLatestUnreadAlert] = useState<any>(null);
 
+  const [languageModalOpen, setLanguageModalOpen] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState<SupportedLanguage | null>(null);
+  const pendingNavigationRef = React.useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const rawSavedLang = localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage');
+      if (rawSavedLang) {
+        let normLang: SupportedLanguage = 'English';
+        const norm = rawSavedLang.toLowerCase();
+        if (['marathi', 'mr'].includes(norm)) normLang = 'Marathi';
+        else if (['hindi', 'hi'].includes(norm)) normLang = 'Hindi';
+        else if (['english', 'en'].includes(norm)) normLang = 'English';
+        setSelectedLanguage(normLang);
+      }
+    }
+  }, []);
+
+  const handleCourseCardClick = useCallback((navigate: () => void) => {
+    const rawSavedLang = typeof window !== 'undefined'
+      ? (localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage'))
+      : null;
+    if (!selectedLanguage && !rawSavedLang) {
+      pendingNavigationRef.current = navigate;
+      setLanguageModalOpen(true);
+    } else {
+      navigate();
+    }
+  }, [selectedLanguage]);
+
   React.useLayoutEffect(() => {
     if (typeof window !== 'undefined' && !checkAuth()) {
       window.location.replace('/swadhaar-login');
@@ -75,8 +107,26 @@ export default function LearnPage() {
     try {
       const userId = localStorage.getItem('userId') || '';
       const tenantId = localStorage.getItem('tenantId') || tenant?.tenantId || '';
-      const levelCourses = await fetchSwadhaarLevelCourses();
-      
+
+      if (userId) {
+        try {
+          const { getUserDetails } = await import('@learner/utils/API/services/ProfileService');
+          const { setLocalStorageFromCustomFields } = await import('@learner/utils/API/userService');
+          const userRes = await getUserDetails(userId, true);
+          const fields = userRes?.result?.userData?.customFields;
+          if (fields) {
+            setLocalStorageFromCustomFields(fields);
+          }
+        } catch (e) {
+          console.warn('Could not sync user custom fields on learn page', e);
+        }
+      }
+
+      const savedLang = typeof window !== 'undefined'
+        ? (localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage') || undefined)
+        : undefined;
+      const levelCourses = await fetchSwadhaarLevelCourses(savedLang);
+
       const allHierarchyIds: string[] = [];
       levelCourses.forEach((level: any) => {
         allHierarchyIds.push(level.identifier);
@@ -112,20 +162,25 @@ export default function LearnPage() {
 
       setStatusData(status);
 
-      const filterHierarchy = (items: any[]): any[] => {
+      const filterHierarchy = (items: any[], isTopLevel = true): any[] => {
         return items
           .map((item) => {
             if (item.children && item.children.length > 0) {
-              const filteredChildren = filterHierarchy(item.children);
+              const filteredChildren = filterHierarchy(item.children, false);
               return { ...item, children: filteredChildren };
             }
             return item;
           })
           .filter((item) => {
-            const isContainer = item.mimeType === 'application/vnd.ekstep.content-collection' || 
-                               item.contentType === 'CourseUnit' || 
-                               item.contentType === 'TextBookUnit';
-            if (item.children) return item.children.length > 0;
+            const isContainer = item.mimeType === 'application/vnd.ekstep.content-collection' ||
+              item.contentType === 'CourseUnit' ||
+              item.contentType === 'TextBookUnit';
+            if (item.children && item.children.length > 0) {
+              return true;
+            }
+            if (isTopLevel) {
+              return true;
+            }
             return !isContainer;
           });
       };
@@ -160,7 +215,10 @@ export default function LearnPage() {
 
       const sortedLevels = finalLevels;
       setLevels(sortedLevels);
-      const active = sortedLevels.find((l) => l.isUnlocked && l.completionPercentage < 70) || sortedLevels[0];
+      const savedCourseId = typeof window !== 'undefined' ? sessionStorage.getItem('lastViewedCourseId') : null;
+      const savedLevel = savedCourseId ? sortedLevels.find((l) => l.id === savedCourseId) : null;
+      const inProgressLevel = sortedLevels.find((l) => l.isUnlocked && l.completionPercentage < 70);
+      const active = savedLevel || inProgressLevel || sortedLevels[0];
       if (active) setExpandedLevelId(active.id);
     } catch (err) {
       console.error('Error loading learn page:', err);
@@ -168,6 +226,29 @@ export default function LearnPage() {
       setIsLoading(false);
     }
   }, [tenant]);
+
+  const handleLanguageSelect = useCallback(async (lang: SupportedLanguage) => {
+    setSelectedLanguage(lang);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('swadhaarLanguage', lang);
+      localStorage.setItem('contentLanguage', lang);
+    }
+    setLanguageModalOpen(false);
+
+    try {
+      const { updateContentLanguageInProfile } = await import('@learner/utils/API/userService');
+      await updateContentLanguageInProfile(lang);
+    } catch (error) {
+      console.error('Failed to update content language in profile', error);
+    }
+
+    loadLevels();
+
+    if (pendingNavigationRef.current) {
+      // pendingNavigationRef.current();
+      pendingNavigationRef.current = null;
+    }
+  }, [loadLevels]);
 
   useEffect(() => { loadLevels(); }, [loadLevels]);
 
@@ -216,12 +297,12 @@ export default function LearnPage() {
               <CircleNotificationsRoundedIcon sx={{ fontSize: 24, color: '#E6873C' }} />
             </Box>
           </Badge>
-          <Typography sx={{ fontSize: 10, fontWeight: 700, color: PRIMARY, mt: 0.5 }}>{t('LEARNER_APP.ALERTS.TITLE')}</Typography>
+          <Typography sx={{ fontFamily: 'Open Sans', fontSize: 10, fontWeight: 700, color: PRIMARY, mt: 0.5 }}>{t('LEARNER_APP.ALERTS.TITLE')}</Typography>
         </Box>
       </Box>
 
       <Box sx={{ px: 2, py: 2 }}>
-        {unreadCount > 0 && (
+        {/* {unreadCount > 0 && (
           <Box onClick={() => router.push('/alerts')} sx={{ bgcolor: '#1C2B4A', borderRadius: '12px', p: 1.5, mb: 1.5, cursor: 'pointer', border: '1px solid rgba(230,135,60,0.35)' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
               <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: 16, fontFamily:"Intern sans-serif" }}>{t('LEARNER_APP.LEARN.NEW_CONTENT_AVAILABLE')}</Typography>
@@ -236,9 +317,30 @@ export default function LearnPage() {
               <ArrowForwardIcon sx={{ color: PRIMARY, fontSize: 18, fontWeight: 800 }} />
             </Box>
           </Box>
-        )}
+        )} */}
 
-        <Typography sx={{ fontWeight: 700, color: 'text.primary', mb: 1.5,fontFamily:"Intern sans-serif",fontSize:14 }}>{t('LEARNER_APP.LEARN.LEVEL_PROGRESS')}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+          <Typography sx={{ fontWeight: 700, color: '#1A1A1A', fontFamily: "Open Sans", fontSize: 14 }}>{t('LEARNER_APP.LEARN.LEVEL_PROGRESS')}</Typography>
+          {/* {selectedLanguage && (
+            <Chip
+              // icon={<TranslateIcon sx={{ fontSize: 14, color: `${PRIMARY} !important` }} />}
+              label={selectedLanguage}
+              onClick={() => setLanguageModalOpen(true)}
+              size="small"
+              sx={{
+                bgcolor: 'rgba(230,135,60,0.1)',
+                color: PRIMARY,
+                fontWeight: 700,
+                fontSize: 11,
+                fontFamily: 'Open Sans',
+                borderRadius: '12px',
+                border: `1px solid ${PRIMARY}`,
+                cursor: 'pointer',
+                '&:hover': { bgcolor: 'rgba(230,135,60,0.2)' }
+              }}
+            />
+          )} */}
+        </Box>
 
         {levels.map((level) => (
           <SwadhaarLevelAccordion
@@ -252,19 +354,34 @@ export default function LearnPage() {
             isUnlocked={level.isUnlocked}
             isExpanded={expandedLevelId === level.id}
             showDescriptions={true}
+            selectedLanguage={selectedLanguage || undefined}
+            onChangeLanguage={() => setLanguageModalOpen(true)}
             onToggle={() => {
               telemetryFactory.interact({ eid: 'INTERACT', edata: { id: `level-accordion-${level.id}`, type: 'CLICK', pageid: 'learn', uid: localStorage.getItem('userId') || '' } });
-              setExpandedLevelId((prev) => prev === level.id ? null : level.id);
+              setExpandedLevelId((prev) => {
+                const next = prev === level.id ? null : level.id;
+                if (next && typeof window !== 'undefined') {
+                  sessionStorage.setItem('lastViewedCourseId', next);
+                }
+                return next;
+              });
             }}
             statusData={statusData}
             onModuleClick={(moduleId, subtopicId, lessonId) => {
-              telemetryFactory.interact({ eid: 'INTERACT', edata: { id: `module-click-${moduleId}`, type: 'CLICK', pageid: 'learn', uid: localStorage.getItem('userId') || '' } });
-              trackCourseClick(moduleId);
-              if (subtopicId && lessonId) {
-                router.push(`/learn/${level.id}/${moduleId}/${subtopicId}/${lessonId}`);
-              } else {
-                router.push(`/learn/${level.id}/${moduleId}`);
-              }
+              handleCourseCardClick(() => {
+                telemetryFactory.interact({ eid: 'INTERACT', edata: { id: `module-click-${moduleId}`, type: 'CLICK', pageid: 'learn', uid: localStorage.getItem('userId') || '' } });
+                trackCourseClick(moduleId);
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem('lastViewedCourseId', level.id);
+                }
+                if (subtopicId && lessonId) {
+                  router.push(`/learn/${level.id}/${moduleId}/${subtopicId}/${lessonId}`);
+                } else if (subtopicId) {
+                  router.push(`/learn/${level.id}/${moduleId}/${subtopicId}`);
+                } else {
+                  router.push(`/learn/${level.id}/${moduleId}`);
+                }
+              });
             }}
             modules={level.rawModules}
           />
@@ -273,6 +390,15 @@ export default function LearnPage() {
       </Box>
       <Box sx={{ height: 80, flexShrink: 0 }} />
       <SwadhaarBottomNav />
+      <LanguagePreferenceModal
+        open={languageModalOpen}
+        onClose={() => {
+          setLanguageModalOpen(false);
+          pendingNavigationRef.current = null;
+        }}
+        onSelect={handleLanguageSelect}
+        selectedLanguage={selectedLanguage}
+      />
     </Box>
   );
 }

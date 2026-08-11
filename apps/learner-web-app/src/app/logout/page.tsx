@@ -68,6 +68,15 @@ function Logout() {
         console.log(error);
       }
     };
+
+    let redirectPath = "/swadhaar-login";
+    if (typeof window !== "undefined" && window.localStorage) {
+      const role = localStorage.getItem("userRole")?.trim().toUpperCase();
+      if (role === "CFL" || role === "DI") {
+        redirectPath = "/swadhaar-login";
+      }
+    }
+
     userLogout();
     if (typeof window !== "undefined" && window.localStorage) {
       // Clear cookies first
@@ -75,7 +84,7 @@ function Logout() {
       // Specify the keys you want to keep
       preserveLocalStorage();
     }
-    router.replace("/home");
+    router.replace(redirectPath);
   }, []);
 
   return <Loader isLoading={true} />;

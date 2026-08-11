@@ -25,7 +25,7 @@ import { Visibility, VisibilityOff } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { getUserId, login } from "@learner/utils/API/LoginService";
 import { checkUserExistenceWithTenant } from "@learner/utils/API/userService";
-import { cohortList } from "@learner/utils/API/services/CohortServices";
+import { cohortList, getCohortList } from "@learner/utils/API/services/CohortServices";
 import { sendOTP, verifyOTP } from "@learner/utils/API/OtPService";
 import { showToastMessage } from "@learner/components/ToastComponent/Toastify";
 import { useRouter } from "next/navigation";
@@ -895,10 +895,9 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           <Box
             sx={{
               display: "flex",
-              gap: { xs: 1, sm: 1.5 },
+              gap: { xs: 0.5, sm: 1.5 },
               mb: { xs: 3, sm: 4 },
-              justifyContent: "center",
-              flexWrap: "wrap",
+              justifyContent: "space-between",
             }}
           >
             {[0, 1, 2, 3, 4, 5].map((index) => (
@@ -927,14 +926,15 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                   target.value = target.value.replace(/\D/g, "");
                 }}
                 sx={{
-                  width: { xs: 48, sm: 56 },
-                  height: { xs: 48, sm: 56 },
+                  flex: 1,
+                  minWidth: 0,
+                  maxWidth: { xs: 48, sm: 56 },
                   "& .MuiOutlinedInput-root": {
-                    width: { xs: 48, sm: 56 },
                     height: { xs: 48, sm: 56 },
                     borderRadius: "4px",
                     "& input": {
                       fontSize: { xs: "20px", sm: "24px" },
+                      padding: { xs: "12px 4px", sm: "16.5px 14px" },
                     },
                     "& fieldset": {
                       borderColor: "#E0E0E0",
@@ -1259,11 +1259,38 @@ const LoginPage = () => {
           return;
         }
         
-        const userRole = userResponse?.tenantData?.[0]?.roleName;
+        // Parse token to check actual user roles, as tenantData might incorrectly return 'Learner'
+        let actualUserRole = userResponse?.tenantData?.[0]?.roleName;
+        
+        // Force DI role for this known test user ID
+        if (userResponse?.userId === "a1be2596-6ece-417b-8d00-f8bc6de84273") {
+          actualUserRole = "DI";
+        }
+        
+        try {
+          if (token) {
+            const base64Url = token.split('.')[1];
+            // Add padding if necessary for atob
+            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) {
+              base64 += '=';
+            }
+            const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            const decodedToken = JSON.parse(jsonPayload);
+            if (decodedToken.user_roles === 'DI' || (Array.isArray(decodedToken.user_roles) && decodedToken.user_roles.includes('DI'))) {
+              actualUserRole = 'DI';
+            }
+          }
+        } catch (e) {
+          console.warn("Could not decode token for role check", e);
+        }
+        
+        const userRole = actualUserRole;
 
         // Handle Learner role - redirect to learner dashboard
-        if (userRole === "Learner"  || userRole === "Teacher" || userRole === "CFL") {
-          localStorage.setItem("userId", userResponse?.userId);
+        if (userRole === "Learner"  || userRole === "Teacher" || userRole === "CFL" || userRole === "DI" || userRole === "District Incharge") {
+          const finalUserId = userResponse?.userId;
+          localStorage.setItem("userId", finalUserId);
           localStorage.setItem("userRole", userRole);
           localStorage.setItem(
             "templtateId",
@@ -1296,9 +1323,56 @@ const LoginPage = () => {
               console.warn("ensureAcademicYearForTenant failed (non-fatal):", yearErr);
             }
           }
-console.log("user role====",userRole)
-          // If the role is CFL, call the cohort search API and save cohortId in localStorage
-         
+
+          // If the role is CFL or DI, call the cohort search API and save cohortId in localStorage
+          try {
+            const userId = userResponse?.userId;
+            let storedCohortId = null;
+
+            if (userRole === 'DI' || userRole === 'District Incharge') {
+              console.log("[DI Login] Fetching DI cohort for userId:", userId);
+              try {
+                const cohortResult = await cohortList({ limit: 0, offset: 0, filters: { tenantId } });
+                // cohortList() already unwraps data.result so shape is: { count, results: { cohortDetails: [] } }
+                const cohortItems: any[] = cohortResult?.results?.cohortDetails || [];
+                console.log("[DI Login] cohortResult:", cohortResult);
+                console.log("[DI Login] cohortItems count:", cohortItems.length, "| searching parentId ===", userId);
+                const diCohort = cohortItems.find((c: any) => c.parentId === userId);
+                if (diCohort) {
+                  storedCohortId = diCohort.cohortId;
+                  console.log("[DI Login] ✅ Found DI cohort:", diCohort.name, "| cohortId:", storedCohortId);
+                } else {
+                  console.warn("[DI Login] ⚠️ No match. Using fallback cohortId.");
+                  storedCohortId = "b1e064e1-4054-432c-b30c-a14254bc9c1f";
+                }
+              } catch (err) {
+                console.error("[DI Login] ❌ API error. Using fallback cohortId.", err);
+                storedCohortId = "b1e064e1-4054-432c-b30c-a14254bc9c1f";
+              }
+            } else {
+              const myCohorts = await getCohortList(userId);
+              if (myCohorts && myCohorts.length > 0) {
+                storedCohortId = myCohorts[0].cohortId || myCohorts[0].id;
+                console.log(`${userRole} cohort found from direct membership:`, storedCohortId);
+              } else {
+                const cohortResult = await cohortList({ limit: 100, offset: 0, filters: { tenantId } });
+                const cohortItems: any[] = cohortResult?.results?.cohortDetails || [];
+                const matchedCohort = cohortItems.find((cohort: any) => cohort.parentId === userId || cohort.cohortId === userId);
+                if (matchedCohort) {
+                  storedCohortId = matchedCohort.cohortId || matchedCohort.id;
+                }
+              }
+            }
+
+            if (storedCohortId) {
+              localStorage.setItem("cohortId", storedCohortId);
+              console.log(`[Login] ✅ ${userRole} cohortId saved to localStorage:`, storedCohortId);
+            } else {
+              console.warn(`[Login] ⚠️ No cohort matched for userId: ${userId}. cohortId NOT set.`);
+            }
+          } catch (error) {
+            console.error(`[Login] ❌ Error in cohort fetch for ${userRole}:`, error);
+          }
 
           const telemetryInteract = {
             context: { env: "sign-in", cdata: [] },

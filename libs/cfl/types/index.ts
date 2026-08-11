@@ -6,6 +6,7 @@ export interface Trainer {
   location: string;
   progress: number; // overall percentage
   courses: CourseStats[];
+  designation?: string;
 }
 
 export interface CourseStats {

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, Avatar } from '@mui/material';
 import ProgressCircle from '@learner/components/shared/ProgressCircle';
 import { useRouter } from 'next/navigation';
 
@@ -59,22 +59,16 @@ const UserLevelCard: React.FC<UserLevelCardProps> = ({
           )}
         </Box>
         {/* Avatar initials */}
-        <Box
+        <Avatar
+          src="/images/default.png"
           sx={{
             width: 44,
             height: 44,
-            borderRadius: '50%',
-            bgcolor: '#E6873C',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
+            bgcolor: '#fff',
+            border: '1px solid #ccc',
             flexShrink: 0,
           }}
-        >
-          <Typography sx={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>
-            {userName.charAt(0).toUpperCase()}
-          </Typography>
-        </Box>
+        />
       </Box>
 
       {/* Level rows */}

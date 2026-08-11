@@ -426,12 +426,10 @@ const CFLDesktopTrainerProgressModal: React.FC<CFLDesktopTrainerProgressModalPro
         <Box sx={{ p: 4, overflowY: 'auto', flex: 1 }}>
           {/* Trainer Info */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-            <Avatar
-              src={trainer.avatarUrl}
-              sx={{ width: 48, height: 48, bgcolor: PRIMARY, border: `2px solid ${PRIMARY}44` }}
-            >
-              {trainer.name.charAt(0)}
-            </Avatar>
+            <Avatar 
+              src={trainer?.avatarUrl || '/images/default.png'}
+              sx={{ width: 44, height: 44, bgcolor: '#fff', border: `1px solid #ccc` }}
+            />
             <Box>
               <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#111827', fontFamily: 'Inter, sans-serif' }}>
                 {trainer.name}

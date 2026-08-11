@@ -123,7 +123,7 @@
     "LAST_MONTH": "Last Month",
     "LAST_6_MONTHS": "Last 6 Months",
     "INPROGRESS": "In-Progress",
-    "SURE_LOGOUT": "Are you sure you want to Logout?",
+    "SURE_LOGOUT": "Are you sure you want to log out?",
     "LOGOUT": "Logout",
     "LOADING": "Loading..",
     "FAQS": "FAQ's",
@@ -143,14 +143,14 @@
     "RETURN_TO_LOGIN": "Return to Login",
     "YOU_DONT_HAVE_PERMISSION_TO_ACCESS_THIS_PAGE": "You don't have access to this page",
     "ACCESS_DENIED": "Access Denied",
-
     "STATUS": {
       "completed": "Completed",
       "in_progress": "In Progress",
       "enrolled_not_started": "Enrolled, not started",
       "not_started": "Not Started"
     },
-    "ACTIVE": "Active"
+    "ACTIVE": "Active",
+    "CONTINUE": "Continue"
   },
   "LEARNER_APP": {
     "COMPLETE_PROFILE_BANNER": {
@@ -235,7 +235,7 @@
       "MOBILE_PLACEHOLDER": "Enter mobile number",
       "OTP_LABEL": "OTP",
       "OTP_PLACEHOLDER": "Enter OTP",
-      "SEND_RESEND_OTP": "Send OTP",
+      "SEND_RESEND_OTP": "Send/Resend OTP",
       "RESEND_IN": "Resend in {{seconds}}",
       "SIGN_IN": "Sign In",
       "USER_ARCHIVED": "Your account is not active. Please contact your administrator.",
@@ -281,13 +281,25 @@
       "LESSON_LABEL": "Lesson: {{name}}",
       "LESSON": "Lesson",
       "BACK_TO_LEARNING": "Back to Learning",
-      "DESCRIPTION": "Description"
+      "DESCRIPTION": "Description",
+      "CURRENT_COURSE": "Current Course",
+      "CURRENT_MODULE": "Current Module",
+      "CURRENT_SUBTOPIC": "Current Subtopic",
+      "COURSE_COMPLETION": "Course Completion",
+      "SUBTOPIC_COMPLETE": "Subtopic complete",
+      "MODULE_COMPLETE": "Module complete",
+      "UP_NEXT": "Up next",
+      "CONGRATULATIONS": "Congratulations",
+      "YOU_HAVE_FINISHED": "you have finished ",
+      "DOWNLOAD_CERTIFICATE": "Download certificate"
     },
     "MODULE_COMPLETE": "Module Complete",
     "ALERTS": {
       "TITLE": "Alerts",
       "NO_NOTIFICATIONS": "No notifications yet",
-      "LOCKED_MESSAGE": "Complete previous course to unlock."
+      "LOCKED_MESSAGE": "Complete previous course to unlock.",
+      "NO_NEW_ALERTS": "No new alerts.",
+      "NEW_ALERT": "New Alert"
     },
     "HOME": {
       "GREETING": "Namaste, {{name}}!",
@@ -469,7 +481,8 @@
       "PHOTO_UPLOADED_SUCCESS": "Profile photo uploaded successfully!",
       "ERROR_UPLOADING_PHOTO": "Failed to upload photo. Please try again.",
       "FILE_TOO_LARGE": "File is too large. Please select a file smaller than 5MB.",
-      "INVALID_FILE_TYPE": "Invalid file type. Please select an image file."
+      "INVALID_FILE_TYPE": "Invalid file type. Please select an image file.",
+      "UPLOAD_PHOTO": "Upload Photo"
     },
     "ATTENDANCE": {
       "DAY_WISE_ATTENDANCE": "Day-Wise Attendance",
@@ -802,5 +815,41 @@
     "SPACE_AND_SPECIAL_CHARACTERS_NOT_ALLOWED": "Space and special characters are not allowed",
     "DATE_MUST_BE_ON_OR_BEFORE": "Date must be on or before {{date}}",
     "DATE_MUST_BE_ON_OR_AFTER": "Date must be on or after {{date}}"
+  },
+  "CFL_DASHBOARD": {
+    "NAMASTE": "Namaste",
+    "CFL_INCHARGES_COMPLETED_NEW_CONTENT": "District Incharges completed new content",
+    "TRAINERS": "Trainer/CFL Incharges",
+    "TRAINERS_COMPLETED_NEW_CONTENT": "Trainer/CFL Incharges completed new content",
+    "CFL_INCHARGE_PROGRESS": "District Incharge Progress",
+    "CFL_INCHARGES_COLUMN":"District Incharges",
+    "TRAINER_PROGRESS": "Trainer/CFL Incharge Progress",
+    "CONTENT_PROGRESS": "Content Progress",
+    "CFL_INCHARGE_LIST": "District Incharge List",
+    "TRAINER_LIST": "Trainer/CFL Incharge List",
+    "CURRENT_LEVEL": "Current Level",
+    "VIEW_DETAILED_PROGRESS": "View Detailed Progress",
+    "COMPLETED": "Completed",
+    "LOWER_COMPLETED": "completed",
+    "TRAINERS_COMPLETED": "Trainer/CFL Incharges Completed",
+    "PROGRESS_PERCENT_COMPLETED": "Progress: {{percent}}% Completed",
+    "COURSE_PROGRESS": "Course Progress",
+    "NO_COURSE_DATA_FOUND_FOR_THIS_TRAINER": "No course data found for this trainer/CFL incharge.",
+    "UPLOAD_PHOTO": "Upload Photo",
+    "PROFILE": "Profile",
+    "ALERTS": "Alerts",
+    "LANGUAGE": "Language",
+    "LOGOUT": "Logout",
+    "CFL_INCHARGES": "District Incharges",
+    "ACTION_TYPE": "Action Type",
+    "MESSAGE": "Message",
+    "CREATE_ALERT": "Send Alert",
+    "TRAINERS_TABLE_HEADER": "Trainer/CFL Incharges",
+    "TRAINER_AND_CFL_INCHARGE": "District Incharge Progress",
+    "ACTIONS": "Actions",
+    "SEND_ALERT": "Send Alert",
+    "DISTRICT_INCHARGE": "District Incharge",
+    "CFL_INCHARGE": "District Incharge",
+    "TRAINER": "Trainer/CFL Incharge"
   }
 }

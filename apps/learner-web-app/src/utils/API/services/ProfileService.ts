@@ -45,7 +45,6 @@ export const getUserDetails = async (
   fieldValue?: boolean
 ): Promise<any> => {
   let apiUrl: string = API_ENDPOINTS.userRead(userId, fieldValue ?? false);
-  apiUrl = fieldValue ? `${apiUrl}?fieldvalue=true` : apiUrl;
 
   try {
     const response = await get(apiUrl);

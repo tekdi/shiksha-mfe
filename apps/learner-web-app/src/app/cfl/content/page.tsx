@@ -44,7 +44,7 @@ export default function ContentProgressPage() {
 
   return (
     <Box sx={{ pb: 10, bgcolor: '#fbfbfb', minHeight: '100vh' }}>
-      <CFLHeader title="CFL Incharge" showBack />
+      <CFLHeader title="District Incharge" showBack />
       
       <Box sx={{ p: 2 }}>
         <Typography variant="h6" sx={{ fontWeight: 800, mb: 2, color: '#1C2B4A', fontSize: '16px' }}>
@@ -75,7 +75,7 @@ export default function ContentProgressPage() {
                   <Typography sx={{ fontWeight: 700, color: '#1C2B4A', fontSize: '14px' }}>{level.name}</Typography>
                 </Box>
                 <Typography sx={{ color: PRIMARY, fontWeight: 700, fontSize: '12px' }}>
-                  {level.completed}/{level.total} Trainers Completed
+                  {level.completed}/{level.total} Trainer/CFL Incharges Completed
                 </Typography>
               </Box>
             </AccordionSummary>
@@ -99,9 +99,7 @@ export default function ContentProgressPage() {
                     }
                   >
                     <ListItemAvatar>
-                      <Avatar src={trainer.avatarUrl} sx={{ bgcolor: '#eee' }}>
-                        {trainer.name.charAt(0)}
-                      </Avatar>
+                      <Avatar src={trainer.avatarUrl || '/images/default.png'} sx={{ bgcolor: '#fff', border: '1px solid #ccc' }} />
                     </ListItemAvatar>
                     <ListItemText
                       primary={trainer.name}
