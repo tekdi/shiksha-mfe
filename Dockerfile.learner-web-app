@@ -15,14 +15,13 @@ ENV npm_config_fetch_retry_maxtimeout=60000
 COPY package*.json ./
 
 # Install dependencies in stages to avoid memory issues
-RUN npm ci --legacy-peer-deps --no-audit --no-fund --cache /tmp/.npm --prefer-offline --ignore-scripts
-
-# Copy and run the patch script to fix Nx lockfile parsing bug
-COPY patch-nx.js ./
-RUN node patch-nx.js
+RUN npm install --legacy-peer-deps --no-audit --no-fund --cache /tmp/.npm --prefer-offline --ignore-scripts
 
 # Copy the entire NX workspace
 COPY . .
+
+# Run the patch script to fix Nx lockfile parsing bug and clean package-lock.json
+RUN node patch-nx.js
 
 # Build Specific Application
 # Build only specific applications
