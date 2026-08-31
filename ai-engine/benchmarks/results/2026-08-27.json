@@ -1,0 +1,174 @@
+{
+  "model": "openai/gpt-oss-20b",
+  "cores": 10,
+  "load_average": 8.3154296875,
+  "cpu_repeats": 5,
+  "pipeline_repeats": 3,
+  "sections": [
+    {
+      "title": "Ingestion \u2014 no model involved",
+      "rows": [
+        {
+          "label": "Ingestion (parse to structured JSON)",
+          "scale": "2-page PDF",
+          "notes": "606 words, 2 pages read",
+          "median_seconds": 0.023511874955147505,
+          "engine_seconds": 0.023511874955147505,
+          "provider_seconds": 0.0,
+          "samples": [
+            0.02243345812894404,
+            0.021819957997649908,
+            0.023682166822254658,
+            0.023511874955147505,
+            0.024660875089466572
+          ],
+          "provider_samples": []
+        },
+        {
+          "label": "Ingestion (parse to structured JSON)",
+          "scale": "20-page PDF",
+          "notes": "8,498 words, 20 pages read",
+          "median_seconds": 0.2845946669112891,
+          "engine_seconds": 0.2845946669112891,
+          "provider_seconds": 0.0,
+          "samples": [
+            0.3032877079676837,
+            0.34931499999947846,
+            0.2845946669112891,
+            0.2773240420501679,
+            0.2801550419535488
+          ],
+          "provider_samples": []
+        },
+        {
+          "label": "Ingestion (parse to structured JSON)",
+          "scale": "60-page PDF",
+          "notes": "26,066 words, 60 pages read",
+          "median_seconds": 0.8425363751593977,
+          "engine_seconds": 0.8425363751593977,
+          "provider_seconds": 0.0,
+          "samples": [
+            0.8376033748500049,
+            0.8506617918610573,
+            0.8425363751593977,
+            0.8477590000256896,
+            0.8330575411673635
+          ],
+          "provider_samples": []
+        }
+      ]
+    },
+    {
+      "title": "Packaging \u2014 no model involved",
+      "rows": [
+        {
+          "label": "Packaging \u2014 H5P Course Presentation",
+          "scale": "12-step lesson",
+          "notes": "2.0 KB written",
+          "median_seconds": 0.0004927918780595064,
+          "engine_seconds": 0.0004927918780595064,
+          "provider_seconds": 0.0,
+          "samples": [
+            0.0006430421490222216,
+            0.0005298750475049019,
+            0.0004927918780595064,
+            0.00039508379995822906,
+            0.0003567079547792673
+          ],
+          "provider_samples": []
+        },
+        {
+          "label": "Packaging \u2014 standalone HTML5 deck",
+          "scale": "12-step lesson",
+          "notes": "11.2 KB written",
+          "median_seconds": 4.287506453692913e-05,
+          "engine_seconds": 4.287506453692913e-05,
+          "provider_seconds": 0.0,
+          "samples": [
+            5.333311855792999e-05,
+            4.5082997530698776e-05,
+            4.287506453692913e-05,
+            4.212488420307636e-05,
+            4.187505692243576e-05
+          ],
+          "provider_samples": []
+        },
+        {
+          "label": "Packaging \u2014 SCORM 1.2 course",
+          "scale": "12-step lesson",
+          "notes": "6.7 KB written",
+          "median_seconds": 0.0006305829156190157,
+          "engine_seconds": 0.0006305829156190157,
+          "provider_seconds": 0.0,
+          "samples": [
+            0.000822083093225956,
+            0.0008147088810801506,
+            0.0006305829156190157,
+            0.0005743340589106083,
+            0.0005222922191023827
+          ],
+          "provider_samples": []
+        }
+      ]
+    },
+    {
+      "title": "End to end \u2014 split by where the time goes",
+      "rows": [
+        {
+          "label": "Whole course pipeline",
+          "scale": "2-page PDF",
+          "notes": "3 stages produced",
+          "median_seconds": 15.99492129101418,
+          "engine_seconds": 0.18033329071477056,
+          "provider_seconds": 15.814588000299409,
+          "samples": [
+            15.99492129101418,
+            15.524412541883066,
+            40.37478333408944
+          ],
+          "provider_samples": [
+            15.814588000299409,
+            15.455409249989316,
+            17.792076584650204
+          ]
+        },
+        {
+          "label": "Whole course pipeline",
+          "scale": "20-page PDF",
+          "notes": "3 stages produced",
+          "median_seconds": 35.69673333293758,
+          "engine_seconds": 0.08510295674204826,
+          "provider_seconds": 35.611630376195535,
+          "samples": [
+            166.1391739998944,
+            35.69673333293758,
+            31.91120974998921
+          ],
+          "provider_samples": [
+            166.04638229240663,
+            35.611630376195535,
+            31.82973829214461
+          ]
+        },
+        {
+          "label": "Whole course pipeline",
+          "scale": "60-page PDF",
+          "notes": "3 stages produced",
+          "median_seconds": 31.265410125022754,
+          "engine_seconds": 0.07895904197357595,
+          "provider_seconds": 31.188120623817667,
+          "samples": [
+            30.050379707943648,
+            31.73957887501456,
+            31.265410125022754
+          ],
+          "provider_samples": [
+            29.971420665970072,
+            31.470495876623318,
+            31.188120623817667
+          ]
+        }
+      ]
+    }
+  ]
+}

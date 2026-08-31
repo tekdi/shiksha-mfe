@@ -110,6 +110,77 @@ def parts_of(word: str) -> list[str]:
     return [p for p in pieces if p.lower() not in _COMPOUND_PARTS]
 
 
+#: British spellings, and the American form the dictionary actually carries.
+#:
+#: `pyspellchecker` ships one English dictionary and it is American, so "vapour",
+#: "metres" and "organise" are all reported as misspellings. The tenants this engine
+#: is built for teach in Indian English, which follows British spelling — so left
+#: alone the check tells a teacher that their own correct spelling is wrong, which
+#: is the fastest way to get a quality gate switched off.
+#:
+#: Longest suffix first, because "-ised" has to be tried before "-ise" or the wrong
+#: half is replaced. Plurals and participles are listed explicitly rather than
+#: stripped first: stripping is another guess, and this table is checkable by eye.
+_BRITISH_TO_AMERICAN: tuple[tuple[str, str], ...] = (
+    ("isations", "izations"), ("isation", "ization"),
+    ("isables", "izables"), ("isable", "izable"),
+    ("ising", "izing"), ("ised", "ized"), ("ises", "izes"), ("ise", "ize"),
+    ("ysing", "yzing"), ("ysed", "yzed"), ("yses", "yzes"), ("yse", "yze"),
+    ("res", "ers"), ("re", "er"),
+    ("ences", "enses"), ("ence", "ense"),
+    ("ogues", "ogs"), ("ogue", "og"),
+    ("lling", "ling"), ("lled", "led"), ("ller", "ler"),
+)
+#: The `-our` family is deliberately absent above and handled by the infix table
+#: below instead. Listing it in both places was the first version, and a mutation
+#: proved the endings entries could be deleted without changing a single result —
+#: the infix rule already produced the identical answer for every one of them. A
+#: rule that cannot change an outcome cannot be known to be right.
+
+#: The ones no suffix rule reaches.
+_BRITISH_IRREGULARS: dict[str, str] = {
+    "programme": "program", "programmes": "programs",
+    "practise": "practice", "practised": "practiced", "practising": "practicing",
+    "storey": "story", "storeys": "stories",
+    "grey": "gray", "moustache": "mustache", "plough": "plow",
+    "aluminium": "aluminum", "sulphur": "sulfur", "draught": "draft",
+}
+
+
+#: The same families, appearing inside a word rather than at its end. Tried only
+#: after every ending rule has failed, and only on a word the dictionary already
+#: rejected, so "journey" and "noise" never reach them.
+_BRITISH_INFIXES: tuple[tuple[str, str], ...] = (
+    ("our", "or"),
+    ("isation", "ization"),
+    ("ise", "ize"),
+)
+
+
+def american_spelling(word: str) -> str | None:
+    """The American form of a British spelling, or None if no rule applies.
+
+    Only ever consulted for a word the dictionary has already rejected, so a rule
+    firing on an ordinary word costs nothing — "four" and "hour" never reach here.
+    The residual risk is a genuine typo whose transformed form happens to be a real
+    word, and that trade is deliberate: wrongly accepting a rare typo is a much
+    smaller harm than wrongly telling a teacher that "vapour" is misspelt.
+    """
+    lowered = word.lower()
+    if lowered in _BRITISH_IRREGULARS:
+        return _BRITISH_IRREGULARS[lowered]
+    for british, american in _BRITISH_TO_AMERICAN:
+        if lowered.endswith(british) and len(lowered) > len(british):
+            return lowered[: -len(british)] + american
+    # The suffix rules only reach a word's ending, and several of these families run
+    # through the middle — "favourite", "colourful", "organisational". Substituting
+    # inside the word catches those; it is tried last so an ending rule always wins.
+    for british, american in _BRITISH_INFIXES:
+        if british in lowered:
+            return lowered.replace(british, american, 1)
+    return None
+
+
 @lru_cache(maxsize=8)
 def _checker(language: str):
     """A dictionary for `language`, or None if we do not have one.
@@ -201,7 +272,17 @@ class ProseChecker:
         if not pieces:
             return None
         unknown = self._spell.unknown(pieces)
+        # An English dictionary that only knows American spellings would report every
+        # British one as an error. Before flagging a piece, see whether it is simply
+        # the British form of a word the dictionary does know.
+        if unknown and self.language == "en":
+            unknown = {p for p in unknown if not self._is_british_form(p)}
         return next((p for p in pieces if p in unknown), None)
+
+    def _is_british_form(self, piece: str) -> bool:
+        """True when `piece` is a British spelling of a word the dictionary carries."""
+        american = american_spelling(piece)
+        return bool(american) and american not in self._spell.unknown([american])
 
     def check(self, text: str, field_path: str) -> list[ValidationIssue]:
         """Flag the words in one generated fragment that no dictionary knows."""

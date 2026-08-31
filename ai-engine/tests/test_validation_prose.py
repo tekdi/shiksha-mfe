@@ -20,7 +20,7 @@ from app.summarization.schema import (
     OutlineSection,
 )
 from app.validation import check_assessment, check_insights, supported_languages
-from app.validation.prose import ProseChecker, parts_of, words_in
+from app.validation.prose import ProseChecker, american_spelling, parts_of, words_in
 from tests.factories import make_set
 
 pytestmark = pytest.mark.skipif(
@@ -241,3 +241,102 @@ def test_a_lone_prefix_is_still_a_word_worth_checking():
     """"post" on its own is a real word; only a *split* compound skips its parts."""
     assert parts_of("post") == ["post"]
     assert parts_of("post-industrial") == ["industrial"]
+
+
+# --- British spelling, which the shipped dictionary does not carry ------------------
+#
+# `pyspellchecker` ships one English dictionary and it is American. The tenants this
+# engine serves teach in Indian English, which follows British spelling, so without
+# this the check reports a teacher's own correct spelling as an error — and the water
+# cycle content the demo uses contains "vapour" on the first slide.
+#
+# Both directions are tested deliberately. A fix that accepts British spellings by
+# weakening the check until it accepts everything would pass the first of these and
+# fail the second.
+
+
+BRITISH = [
+    "kilometres", "centimetres", "metres", "litres", "vapour", "colour", "colours",
+    "colourful", "behaviour", "behavioural", "organise", "organised", "organisational",
+    "realise", "analyse", "defence", "licence", "travelled", "labelled", "modelling",
+    "programme", "catalogue", "fibre", "theatre", "neighbour", "neighbourhood",
+    "favourite", "favourable", "recognise", "summarise", "harbour", "practise",
+    "flavour", "labour", "honour", "armour", "rumour",
+]
+
+#: Ordinary misspellings, including several that look like the British families above
+#: — "arguement" ends in a vowel-plus-ment the way "programme" ends in a double m.
+TYPOS = [
+    "recieve", "seperate", "occured", "definately", "enviroment", "independant",
+    "accomodate", "wich", "teh", "begining", "sucessful", "neccessary", "arguement",
+    "concious", "embarass", "goverment", "tomorow", "untill", "wierd", "adress",
+]
+
+
+@pytest.mark.parametrize("word", BRITISH)
+def test_a_british_spelling_is_not_an_error(word):
+    checker = ProseChecker("en")
+    if not checker.available:
+        pytest.skip("the optional spelling dependency is not installed")
+    assert checker.check(word, "field") == [], f"{word!r} is correct British English"
+
+
+@pytest.mark.parametrize("word", TYPOS)
+def test_an_ordinary_misspelling_is_still_caught(word):
+    """The half that stops the fix above from becoming "accept everything"."""
+    checker = ProseChecker("en")
+    if not checker.available:
+        pytest.skip("the optional spelling dependency is not installed")
+    assert checker.check(word, "field"), f"{word!r} is a misspelling and should be reported"
+
+
+def test_british_spellings_are_accepted_inside_a_sentence():
+    """The words above reach the checker inside generated prose, not one at a time."""
+    checker = ProseChecker("en")
+    if not checker.available:
+        pytest.skip("the optional spelling dependency is not installed")
+    sentence = (
+        "Water vapour rises several kilometres before it condenses, and the colour of "
+        "the resulting cloud depends on how the light behaves."
+    )
+    assert checker.check(sentence, "field") == []
+
+
+def test_a_misspelling_is_still_found_among_british_spellings():
+    """A sentence that is mostly correct British English must not mask a real error."""
+    checker = ProseChecker("en")
+    if not checker.available:
+        pytest.skip("the optional spelling dependency is not installed")
+    issues = checker.check("Water vapour rises kilometres before it condenses seperately.", "field")
+    assert len(issues) == 1
+    assert "seperately" in issues[0].message
+
+
+@pytest.mark.parametrize(
+    "british,american",
+    [
+        ("vapour", "vapor"), ("metres", "meters"), ("organise", "organize"),
+        ("analysed", "analyzed"), ("defence", "defense"), ("catalogue", "catalog"),
+        ("travelled", "traveled"), ("programme", "program"), ("favourite", "favorite"),
+    ],
+)
+def test_the_transform_maps_to_the_form_the_dictionary_carries(british, american):
+    """Asserted directly, so a broken rule names itself instead of showing up as a
+    checker that mysteriously accepts or rejects a word."""
+    assert american_spelling(british) == american
+
+
+def test_a_word_with_no_british_form_maps_to_nothing():
+    """The transform must not invent a variant for every unknown word — that is what
+    would turn it into "accept anything the rules can mangle into a real word"."""
+    assert american_spelling("recieve") is None
+    assert american_spelling("teh") is None
+
+
+def test_the_transform_is_only_consulted_for_english():
+    """A language whose dictionary we do have must not get English spelling rules
+    applied to it on the way past."""
+    checker = ProseChecker("es")
+    if not checker.available:
+        pytest.skip("no Spanish dictionary available")
+    assert checker.language == "es"

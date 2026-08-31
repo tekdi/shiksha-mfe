@@ -1,0 +1,19 @@
+# Everything the image does not need. A smaller context is a faster build, and it
+# also means a stray .env on a developer's machine cannot be copied into an image.
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+tests/
+benchmarks/
+scripts/
+docs/
+*.md
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -178,6 +178,21 @@ confirmation the manifest is complete.
 
 ## Run it
 
+In a container, which is one command and needs no Python on the host:
+
+```bash
+cd ai-engine
+cp .env.example .env           # then put a model API key in it
+docker compose up
+```
+
+`docker compose up` returns once the service can actually answer, not merely once
+the port is open — the health check asks the application rather than the socket.
+The image is 111 MB, starts in about three seconds, runs as a non-root user and
+runs with a read-only root filesystem.
+
+Or directly, which is what you want while developing:
+
 ```bash
 cd ai-engine
 python3.12 -m venv .venv
@@ -275,6 +290,49 @@ change nobody made. Refusing source distributions matters because installing fro
 source runs the package's own setup script on the runner. Regenerate the file the
 way its header describes — inside a Linux container, so the resolution matches the
 runner rather than whatever a developer's laptop happens to resolve.
+
+To check a deployment rather than the code — that the image was built from the code
+you think, that configuration reached it, and that every route answers from wherever
+it is running:
+
+```bash
+python -m scripts.smoke --base-url https://engine.example.org
+```
+
+It walks every endpoint the running service advertises, taking the list from the
+service's own schema so a route with no check is reported rather than quietly passing.
+
+Running it in production, what to watch when it misbehaves, and how a tenant puts
+the output into Moodle or Sunbird: [`docs/deployment.md`](docs/deployment.md).
+
+Every acceptance criterion in the project ticket, against the code that meets it, the
+endpoint that exposes it and the tests that hold it:
+[`docs/acceptance.md`](docs/acceptance.md).
+
+## Benchmarks
+
+```bash
+python -m benchmarks.run --offline    # no model calls, no cost
+python -m benchmarks.run              # everything, including live model calls
+```
+
+Separate from the test suite, because these reach a live provider and cost real
+calls. Every run splits its time into **engine time** — parsing, grounding,
+validation, packaging — and **provider time** spent waiting on the model gateway,
+measured at the HTTP transport so nothing instruments the shipped path.
+
+The headline result is that engine time stays between 79 and 180 milliseconds
+whatever the document size, which is under 1% of the wall clock; a 60-page PDF is
+parsed into structured content in under a second, and packaging a lesson costs
+microseconds. Capacity planning for this service is therefore about concurrent
+waiting and provider rate limits, not about CPU.
+
+Every run records the machine's load average beside its figures, because a CPU
+measurement without the conditions it was taken under is not reproducible — the same
+document measured 435 ms on an idle machine and 843 ms on a loaded one.
+
+Measured figures, the method behind them, and what is deliberately *not* measured
+are in [`docs/benchmarks.md`](docs/benchmarks.md).
 
 ## Configuration
 

@@ -1,0 +1,51 @@
+# One command to run the engine:
+#
+#     cp .env.example .env      # then put a key in it
+#     docker compose up
+#
+# One service, and that is not an omission. The engine holds no state: no database,
+# no cache, no queue, no volume. Every request carries its own input and the reply
+# carries the whole result, so there is nothing for a second container to keep.
+# Scaling it means running more replicas behind whatever the operator already uses.
+
+services:
+  engine:
+    build:
+      context: .
+      # Named so `docker compose build` and a plain `docker build` produce the same
+      # thing rather than two images that drift.
+      dockerfile: Dockerfile
+    image: lms-ai-engine:local
+    ports:
+      - "${AI_ENGINE_PORT:-8000}:8000"
+
+    # Configuration is environment only — the same variables `app/config.py`
+    # declares, so there is no container-specific way to configure this.
+    env_file:
+      - .env
+
+    # Unless the operator stopped it themselves. `always` would fight a deliberate
+    # `docker compose stop`, and `on-failure` would leave a crash-looping container
+    # down after a transient fault.
+    restart: unless-stopped
+
+    # The application writes nothing to disk. Making that explicit turns a future
+    # accidental write into a visible error rather than state that silently survives
+    # in a container layer and vanishes on the next deploy.
+    read_only: true
+    tmpfs:
+      # Uploads are streamed to a temporary file and unlinked, so this is the one
+      # writable path the engine genuinely needs.
+      - /tmp:size=256m
+
+    security_opt:
+      - no-new-privileges:true
+
+    # Compose waits on this before reporting the stack up, so `docker compose up`
+    # returning means the service can actually answer.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
