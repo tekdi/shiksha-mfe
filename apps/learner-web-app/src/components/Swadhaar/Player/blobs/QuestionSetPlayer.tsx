@@ -152,7 +152,6 @@ const StartScreen: React.FC<{
 
       {/* Combined card: description (big) → name (small) → instructions */}
       <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-        <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }} />
         <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
 
           {/* Description shown prominently at top; name shown as orange label below */}
@@ -237,11 +236,11 @@ const StartScreen: React.FC<{
           fullWidth
           variant="contained"
           onClick={() => onStart(false)}
-          sx={{ 
-            mt: 1, bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', 
-            fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 16, 
-            boxShadow: '0 6px 16px rgba(230,135,60,0.35)', 
-            '&:hover': { bgcolor: '#D1752D' } 
+          sx={{
+            mt: 1, bgcolor: PRIMARY, color: '#fff', borderRadius: '12px',
+            fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 16,
+            boxShadow: '0 6px 16px rgba(230,135,60,0.35)',
+            '&:hover': { bgcolor: '#D1752D' }
           }}
         >
           Go to FAQ
@@ -253,10 +252,10 @@ const StartScreen: React.FC<{
           variant="outlined"
           onClick={() => onStart(true)}
           startIcon={<VisibilityRoundedIcon />}
-          sx={{ 
-            mt: 1, borderColor: DARK_NAV, color: DARK_NAV, borderRadius: '12px', 
-            fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 15, 
-            '&:hover': { bgcolor: 'rgba(28,43,74,0.04)', borderColor: DARK_NAV } 
+          sx={{
+            mt: 1, borderColor: DARK_NAV, color: DARK_NAV, borderRadius: '12px',
+            fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 15,
+            '&:hover': { bgcolor: 'rgba(28,43,74,0.04)', borderColor: DARK_NAV }
           }}
         >
           Review Answers
@@ -269,11 +268,11 @@ const StartScreen: React.FC<{
           onClick={() => onStart(false)}
           // startIcon={currentAttempts > 0 ? <ReplayRoundedIcon /> : undefined}  // Commented out — attempts not tracked
           startIcon={<ReplayRoundedIcon />}
-          sx={{ 
-            mt: 1, bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', 
-            fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 16, 
-            boxShadow: '0 6px 16px rgba(230,135,60,0.35)', 
-            '&:hover': { bgcolor: '#D1752D' } 
+          sx={{
+            mt: 1, bgcolor: PRIMARY, color: '#fff', borderRadius: '12px',
+            fontWeight: 800, textTransform: 'none', py: 1.8, fontSize: 16,
+            boxShadow: '0 6px 16px rgba(230,135,60,0.35)',
+            '&:hover': { bgcolor: '#D1752D' }
           }}
         >
           {/* {currentAttempts > 0 ? 'Replay Quiz' : 'Start Quiz'} */}
@@ -307,7 +306,7 @@ const QuestionScreen: React.FC<{
   const fixRichText = (html: string) => {
     if (!html) return '';
     let processed = html;
-    
+
     if (question.media && Array.isArray(question.media)) {
       question.media.forEach((m) => {
         if (m.src && m.baseUrl) {
@@ -320,7 +319,7 @@ const QuestionScreen: React.FC<{
     const fallbackBaseUrl = process.env.NEXT_PUBLIC_BASE_URL_READ || 'https://interface.tekdinext.com';
     processed = processed.replace(/src="\/assets\//g, `src="${fallbackBaseUrl}/assets/`);
     processed = processed.replace(/src="\/content\/assets\//g, `src="${fallbackBaseUrl}/content/assets/`);
-    
+
     return processed;
   };
 
@@ -330,27 +329,23 @@ const QuestionScreen: React.FC<{
 
   return (
     <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-      <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: 10, fontWeight: 700, textTransform: 'uppercase' }}>
-          {reviewMode ? 'Review Mode' : (subjective ? 'FAQ' : 'Multiple Choice Question')}
-        </Typography>
-        <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: 700 }}>{qIndex + 1}/{total}</Typography>
-      </Box>
-
       <Box sx={{ p: 2 }}>
         {/* Progress bar */}
-        <LinearProgress
-          variant="determinate"
-          value={((qIndex + 1) / total) * 100}
-          sx={{ height: 4, borderRadius: 2, mb: 2, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: reviewMode ? DARK_NAV : PRIMARY } }}
-        />
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <LinearProgress
+            variant="determinate"
+            value={((qIndex + 1) / total) * 100}
+            sx={{ flex: 1, height: 4, borderRadius: 2, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: reviewMode ? DARK_NAV : PRIMARY }, mr: 2 }}
+          />
+          <Typography sx={{ color: '#9CA3AF', fontSize: 11, fontWeight: 700 }}>{qIndex + 1}/{total}</Typography>
+        </Box>
 
         {!subjective && (
           <Typography sx={{ fontSize: 11, color: PRIMARY, fontWeight: 700, mb: 0.5 }}>Quiz</Typography>
         )}
-        <Box 
+        <Box
           sx={{ fontWeight: 800, fontSize: 15, color: '#1F2937', mb: 3, lineHeight: 1.4, '& img': { maxWidth: '100%', height: 'auto', mt: 1, borderRadius: '8px' } }}
-          dangerouslySetInnerHTML={{ __html: fixRichText(questionText) }} 
+          dangerouslySetInnerHTML={{ __html: fixRichText(questionText) }}
         />
 
         {subjective ? (
@@ -475,23 +470,22 @@ const ResultScreen: React.FC<{
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
       {/* Score Circle */}
       <Box sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-        <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }} />
         <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', bgcolor: '#F9FAFB' }}>
-          <Box sx={{ 
-            width: 120, height: 120, borderRadius: '50%', 
-            bgcolor: passed ? '#6DBB6D' : ERROR_RED, 
-            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+          <Box sx={{
+            width: 120, height: 120, borderRadius: '50%',
+            bgcolor: passed ? '#6DBB6D' : ERROR_RED,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
             mb: 3,
             boxShadow: `0 4px 20px ${passed ? 'rgba(76,175,80,0.3)' : 'rgba(239,68,68,0.3)'}`
           }}>
-            <Box sx={{ 
-              width: 86, height: 86, borderRadius: '50%', 
-              bgcolor: passed ? '#388E3C' : '#DC2626', 
+            <Box sx={{
+              width: 86, height: 86, borderRadius: '50%',
+              bgcolor: passed ? '#388E3C' : '#DC2626',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {passed ? (
                 <svg width="42" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M5 12L10 17L20 7" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               ) : (
                 <Typography sx={{ fontSize: 28, fontWeight: 900, color: '#fff' }}>{percentage}%</Typography>
@@ -534,11 +528,10 @@ const ResultScreen: React.FC<{
 
       {/* Question Results */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        {results.map(({ q, isCorrect, isSubjectiveQ, submittedText } : any, i: number) => (
+        {results.map(({ q, isCorrect, isSubjectiveQ, submittedText }: any, i: number) => (
           <Box key={i} sx={{ bgcolor: '#fff', borderRadius: '16px', border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-            <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }} />
             <Box sx={{ p: 2 }}>
-              <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1F2937' }}>Q{i+1}: {stripHtml(q.editorState?.question || q.body || q.name || '')}</Typography>
+              <Typography sx={{ fontWeight: 800, fontSize: 15, color: '#1F2937' }}>Q{i + 1}: {stripHtml(q.editorState?.question || q.body || q.name || '')}</Typography>
               {isSubjectiveQ ? (
                 <Box sx={{ mt: 1 }}>
                   <Typography sx={{ fontSize: 11, color: '#3B82F6', fontWeight: 700, mb: 0.5 }}>Answered (Subjective)</Typography>
@@ -561,10 +554,10 @@ const ResultScreen: React.FC<{
           variant="outlined"
           onClick={onReview}
           startIcon={<VisibilityRoundedIcon />}
-          sx={{ 
-            borderColor: DARK_NAV, color: DARK_NAV, borderRadius: '12px', 
+          sx={{
+            borderColor: DARK_NAV, color: DARK_NAV, borderRadius: '12px',
             fontWeight: 700, textTransform: 'none', py: 1.5, fontSize: 14,
-            '&:hover': { bgcolor: 'rgba(28,43,74,0.04)', borderColor: DARK_NAV } 
+            '&:hover': { bgcolor: 'rgba(28,43,74,0.04)', borderColor: DARK_NAV }
           }}
         >
           Review
@@ -576,11 +569,11 @@ const ResultScreen: React.FC<{
             variant="contained"
             onClick={onReplay}
             startIcon={<ReplayRoundedIcon />}
-            sx={{ 
-              bgcolor: PRIMARY, color: '#fff', borderRadius: '12px', 
+            sx={{
+              bgcolor: PRIMARY, color: '#fff', borderRadius: '12px',
               fontWeight: 700, textTransform: 'none', py: 1.5, fontSize: 14,
-              boxShadow: '0 4px 12px rgba(230,135,60,0.25)', 
-              '&:hover': { bgcolor: '#D1752D' } 
+              boxShadow: '0 4px 12px rgba(230,135,60,0.25)',
+              '&:hover': { bgcolor: '#D1752D' }
             }}
           >
             Try Again
@@ -591,8 +584,8 @@ const ResultScreen: React.FC<{
             fullWidth
             variant="contained"
             disabled
-            sx={{ 
-              bgcolor: '#E5E7EB', color: '#9CA3AF', borderRadius: '12px', 
+            sx={{
+              bgcolor: '#E5E7EB', color: '#9CA3AF', borderRadius: '12px',
               fontWeight: 700, textTransform: 'none', py: 1.5, fontSize: 14,
               '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' }
             }}
@@ -754,10 +747,10 @@ export const QuestionSetPlayer: React.FC<QuestionSetPlayerProps> = ({
   }
 
   return (
-    <ResultScreen 
-      score={score} 
-      total={questions.length} 
-      results={results} 
+    <ResultScreen
+      score={score}
+      total={questions.length}
+      results={results}
       onReplay={handleReplay}
       onReview={handleReviewFromResults}
     />

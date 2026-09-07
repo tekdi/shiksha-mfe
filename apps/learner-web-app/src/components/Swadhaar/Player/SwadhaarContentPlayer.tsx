@@ -49,6 +49,7 @@ export interface SwadhaarContentPlayerProps {
   description?: string;
   body?: string;
   subheading?: string;
+  topicTitle?: string;
   children?: Question[];
   attempts?: number;
   initialProgress?: number;
@@ -84,7 +85,7 @@ async function fetchContentDetails(identifier: string): Promise<Record<string, a
 
 export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
   identifier, courseId, unitId, mimeType, contentType, contentUrl: propContentUrl, posterImage: propPosterImage,
-  name, description, body: propBody, subheading, children, attempts, initialProgress, isCompleted, onProgress, onComplete, onQuizFail,
+  name, description, body: propBody, subheading, topicTitle, children, attempts, initialProgress, isCompleted, onProgress, onComplete, onQuizFail,
 }) => {
   const blobType = resolveBlobType(mimeType, contentType);
   const needsUrl = blobType === "video" || blobType === "image";
@@ -342,6 +343,7 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
       return (
         <QuestionSetPlayer
           name={name}
+          sectionName={topicTitle || sectionName}
           description={description}
           questions={questionItems || []}
           maxAttempts={maxAttempts}

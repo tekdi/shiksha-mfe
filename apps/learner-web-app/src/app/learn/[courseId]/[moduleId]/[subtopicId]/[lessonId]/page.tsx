@@ -56,6 +56,7 @@ export default function LessonViewerPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [subtopicName, setSubtopicName] = useState('');
+  const [subtopicDescription, setSubtopicDescription] = useState('');
   const [currentLesson, setCurrentLesson] = useState<any>(null);
   const [allLessons, setAllLessons] = useState<any[]>([]);
   const [statusData, setStatusData] = useState<any[]>([]);
@@ -76,7 +77,7 @@ export default function LessonViewerPage() {
   };
 
   const setSessionGuard = (guard: Record<string, { percentage: number; status: number }>) => {
-    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(guard)); } catch {}
+    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(guard)); } catch { }
   };
 
   const updateSessionGuard = (contentId: string, entry: { percentage: number; status: number }) => {
@@ -115,10 +116,10 @@ export default function LessonViewerPage() {
           const flatLessons: any[] = [];
 
           const flattenLessons = (node: any, parentModuleId: string, parentSubId: string) => {
-            const isCollection = node.mimeType === 'application/vnd.ekstep.content-collection' || 
-                               node.contentType === 'CourseUnit' || 
-                               node.contentType === 'TextBookUnit';
-            
+            const isCollection = node.mimeType === 'application/vnd.ekstep.content-collection' ||
+              node.contentType === 'CourseUnit' ||
+              node.contentType === 'TextBookUnit';
+
             if (node.children && node.children.length > 0) {
               node.children.forEach((child: any) => {
                 // Identify module context: if node is course, its children are modules
@@ -132,16 +133,17 @@ export default function LessonViewerPage() {
 
           flattenLessons(courseHierarchy, courseId, courseId);
           currentFlatLessons = flatLessons;
-          
+
           const moduleHierarchy = await getCourseHierarchy(moduleId);
           const subtopics = moduleHierarchy?.children || [];
           const currentSubtopic = subtopics.find((s: any) => s.identifier === subtopicId) || await getCourseHierarchy(subtopicId);
           setSubtopicName(prev => prev === currentSubtopic?.name ? prev : (currentSubtopic?.name || 'Lesson Detail'));
-          
+          setSubtopicDescription(prev => prev === currentSubtopic?.description ? prev : (currentSubtopic?.description || ''));
+
           setAllLessons(flatLessons);
-          const activeLesson = flatLessons.find((l: any) => l.identifier === lessonId) 
+          const activeLesson = flatLessons.find((l: any) => l.identifier === lessonId)
             || (flatLessons.length > 0 ? flatLessons[0] : (currentSubtopic && !currentSubtopic.children ? currentSubtopic : null));
-          
+
           setCurrentLesson((prev: any) => prev?.identifier === activeLesson?.identifier ? prev : activeLesson);
         }
 
@@ -149,7 +151,7 @@ export default function LessonViewerPage() {
         const allIds = [...new Set([courseId, ...currentFlatLessons.map(l => l.identifier)])];
         status = await getContentCourseStatus([userId], allIds, tenantId).catch(() => []);
       }
-      
+
       const currentGuard = getSessionGuard();
       setStatusData(prev => {
         const merged = [...prev];
@@ -192,9 +194,9 @@ export default function LessonViewerPage() {
       });
       setAllLessons(flatLessons);
 
-      const activeLesson = flatLessons.find((l: any) => l.identifier === lessonId) 
+      const activeLesson = flatLessons.find((l: any) => l.identifier === lessonId)
         || (flatLessons.length > 0 ? flatLessons[0] : (currentSubtopic && !currentSubtopic.children ? currentSubtopic : null));
-      
+
       setCurrentLesson((prev: any) => prev?.identifier === activeLesson?.identifier ? prev : activeLesson);
     } catch (err) {
       console.error('Error loading lesson viewer:', err);
@@ -295,7 +297,7 @@ export default function LessonViewerPage() {
             await trackCourseClick(subtopicId);
             await trackCourseClick(lessonId);
           }
-        } catch (e) {}
+        } catch (e) { }
       };
       trackAll();
     }
@@ -310,6 +312,10 @@ export default function LessonViewerPage() {
       nextLesson: index !== -1 && index < allLessons.length - 1 ? allLessons[index + 1] : null,
     };
   }, [allLessons, currentLesson, lessonId]);
+
+  const currentTopicTitle = useMemo(() => {
+    return subtopicName || currentLesson?.topic || '';
+  }, [subtopicName, currentLesson]);
 
   return (
     <>
@@ -326,107 +332,123 @@ export default function LessonViewerPage() {
         </Box>
       ) : (
         <Box sx={{ minHeight: '100dvh', bgcolor: '#F9FAFB', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
-      <Box sx={{ bgcolor: '#fff', px: 1, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid #F3F4F6' }}>
-        <IconButton onClick={() => router.push(`/learn/${courseId}/${moduleId}`)}><ArrowBackIcon sx={{ color: '#1A1A1A', fontSize: 20 }} /></IconButton>
-        <Typography sx={{ fontWeight: 800, fontSize: 18, color: 'text.primary', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLesson?.name || subtopicName}</Typography>
-      </Box>
+          <Box sx={{ bgcolor: '#fff', px: 1, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid #F3F4F6' }}>
+            <IconButton onClick={() => router.push(`/learn/${courseId}/${moduleId}`)}><ArrowBackIcon sx={{ color: '#1A1A1A', fontSize: 20 }} /></IconButton>
+            <Typography sx={{ fontWeight: 800, fontSize: 18, color: 'text.primary', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {currentTopicTitle && currentTopicTitle !== currentLesson?.name ? `${currentTopicTitle} - ${currentLesson?.name}` : currentLesson?.name || subtopicName}
+            </Typography>
+          </Box>
 
-      <Box sx={{ px: 2, pt: 2, flex: 1, pb: 22 }}>
-          <Box sx={{
-            bgcolor: '#fff', borderRadius: '16px',
-            border: `1.5px solid ${showCompletedBanner ? '#4CAF50' : '#E5E7EB'}`,
-            p: 2, mb: 3, transition: 'border-color 0.5s ease'
-          }}>
-            <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1.5, color: '#1F2937' }}>{t('LEARNER_APP.LEARN.LESSON_PROGRESS')}</Typography>
+          <Box sx={{ px: 2, pt: 2, flex: 1, pb: 22 }}>
+            <Box sx={{
+              bgcolor: '#fff', borderRadius: '16px',
+              border: `1.5px solid ${showCompletedBanner ? '#4CAF50' : '#E5E7EB'}`,
+              p: 2, mb: 3, transition: 'border-color 0.5s ease'
+            }}>
+              <Typography sx={{ fontWeight: 800, fontSize: 15, mb: 1.5, color: '#1F2937' }}>{t('LEARNER_APP.LEARN.LESSON_PROGRESS')}</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <LinearProgress variant="determinate" value={displayCompletion} sx={{ flex: 1, height: 6, borderRadius: 3, bgcolor: '#F3F4F6', '& .MuiLinearProgress-bar': { bgcolor: displayCompletion >= 70 ? '#4CAF50' : '#E6873C' } }} />
                 <Box sx={{ bgcolor: 'rgba(74, 222, 128, 0.15)', px: 1, py: 0.25, borderRadius: '10px' }}>
                   <Typography sx={{ fontSize: 11, fontWeight: 800, color: '#36B368' }}>{Math.round(displayCompletion)}%</Typography>
                 </Box>
               </Box>
+            </Box>
+
+            {currentLesson && (() => {
+              const subtopicLessons = allLessons.filter(l => l.parentSubtopicId === subtopicId);
+              const isFirstLesson = subtopicLessons[0]?.identifier === currentLesson.identifier;
+              const rawDisplayDescription = isFirstLesson
+                ? (subtopicDescription || currentLesson.description || '-')
+                : (currentLesson.description || '-');
+              const displayDescription = rawDisplayDescription === '-' ? 'No description available' : rawDisplayDescription;
+
+              const subtopicName = currentTopicTitle || 'Description';
+
+              return (
+                <Box sx={{
+                  borderRadius: '12px',
+                  overflow: 'hidden',
+                  border: `1px solid #E5E7EB`,
+                  mb: 3,
+                  boxShadow: '0px 2px 4px rgba(0,0,0,0.02)'
+                }}>
+                  <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1.5 }}>
+                    <Typography sx={{ color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'Inter', textTransform: 'uppercase' }}>
+                      {subtopicName}
+                    </Typography>
+                  </Box>
+                  {/* Body */}
+                  <Box sx={{ bgcolor: '#fff', pt: 2, pb: 1, px: 2 }}>
+                    <Typography sx={{ fontFamily: 'Open Sans', fontWeight: 400, fontSize: '13px', color: '#1A1A1A', fontStyle: rawDisplayDescription === '-' ? 'italic' : 'normal', opacity: rawDisplayDescription === '-' ? 0.6 : 1 }}>
+                      {displayDescription}
+                    </Typography>
+                    {currentLesson.body && (
+                      <Typography sx={{ fontFamily: 'Open Sans', fontSize: '14px', color: '#1A1A1A', fontWeight: 400, lineHeight: 1.7, mt: 1.5 }}>
+                        {currentLesson.body}
+                      </Typography>
+                    )}
+                  </Box>
+                </Box>
+              );
+            })()}
+
+
+            {currentLesson && (
+              isSwadhaarTenant ? (
+                (() => {
+                  // Now we can just use the pre-computed currentTopicTitle
+                  const subtopicName = currentTopicTitle || 'Description';
+                  const showPlayerHeader = subtopicName !== currentLesson.name;
+
+                  return (
+                    <Box sx={{ borderRadius: '12px', overflow: 'hidden', mb: 1.5, border: '1px solid #E5E7EB', background: '#fff' }}>
+                      {showPlayerHeader && (
+                        <Typography sx={{ px: 2, py: 1, fontSize: 13, fontWeight: 700, color: '#fff', bgcolor: '#1C2B4A', fontFamily: 'Open Sans' }}>
+                          {currentLesson.name}
+                        </Typography>
+                      )}
+                      <SwadhaarContentPlayer
+                        key={currentLesson.identifier} identifier={currentLesson.identifier} courseId={courseId} unitId={subtopicId} mimeType={currentLesson.mimeType} contentType={currentLesson.contentType}
+                        contentUrl={currentLesson.artifactUrl || currentLesson.downloadUrl} posterImage={currentLesson.posterImage || currentLesson.appIcon} name={currentLesson.name} description={currentLesson.description}
+                        attempts={statusData.find(s => s.contentId === currentLesson.identifier)?.attempts || 0}
+                        topicTitle={currentTopicTitle}
+                        initialProgress={displayCompletion}
+                        isCompleted={lessonCompleted || currentCompletion >= 100}
+                        onProgress={handleProgress} onComplete={handleComplete}
+                        onQuizFail={() => setQuizFailOpen(true)}
+                      />
+                    </Box>
+                  );
+                })()
+              ) : (
+                <DefaultPlayer key={currentLesson.identifier} identifier={currentLesson.identifier} courseId={courseId} unitId={subtopicId} isEmbedded={true} />
+              )
+            )}
           </Box>
 
-        {(currentLesson?.subtitle || currentLesson?.description || currentLesson?.body) && (
-          <Box sx={{
-            borderRadius: '12px',
-            overflow: 'hidden',
-            border: `1px solid #E5E7EB`,
-            mb: 3,
-            boxShadow: '0px 2px 4px rgba(0,0,0,0.02)'
-          }}>
-            {/* Header */}
-            <Box sx={{ bgcolor: '#1C2B4A', px: 2, py: 1.5 }}>
-              <Typography sx={{ color: '#fff', fontSize: 11, fontWeight: 600, fontFamily: 'Inter' }}>
-                {t('LEARNER_APP.LEARN.DESCRIPTION') || 'Description'}
-              </Typography>
-            </Box>
-            {/* Body */}
-            <Box sx={{ bgcolor: '#fff', pt: 2, pb: 1, px: 2 }}>
-              <Box sx={{ borderBottom: (currentLesson.description || currentLesson.body) ? '1px solid #F3F4F6' : 'none', pb: (currentLesson.description || currentLesson.body) ? 1.5 : 0, mb: (currentLesson.description || currentLesson.body) ? 1.5 : 0 }}>
-                <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#111827', fontFamily: 'Open Sans', mb: 0.5, lineHeight: 1.3 }}>
-                  {currentLesson.name}
-                </Typography>
-                {currentLesson.subtitle && (
-                  <Typography sx={{ fontSize: 11, color: '#E6873C', fontFamily: 'Open Sans', fontWeight: 600, lineHeight: 1.4 }}>
-                    {currentLesson.subtitle}
-                  </Typography>
-                )}
-              </Box>
-              {currentLesson.description && (
-                <Typography sx={{ fontFamily: 'Open Sans', fontSize: '10px', color: '#1A1A1A', fontWeight: 400, fontStyle: 'normal', lineHeight: 1.5, mb: currentLesson.body ? 1 : 0 }}>
-                  {currentLesson.description}
-                </Typography>
-              )}
-              {currentLesson.body && (
-                <Typography sx={{ fontFamily: 'Open Sans', fontSize: '12px', color: '#1A1A1A', fontWeight: 400, lineHeight: 1.5 }}>
-                  {currentLesson.body}
-                </Typography>
-              )}
-            </Box>
+          <Box sx={{ position: 'fixed', bottom: 65, left: 0, right: 0, bgcolor: '#fff', borderTop: '1px solid #F3F4F6', px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
+            <Button variant="outlined" onClick={() => prevLesson ? router.push(`/learn/${courseId}/${prevLesson.parentModuleId}/${prevLesson.parentSubtopicId}/${prevLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}/${subtopicId}`)} sx={{ borderRadius: '10px', borderColor: PRIMARY, color: PRIMARY, fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0 }}>{t('LEARNER_APP.LEARN.PREVIOUS')}</Button>
+            <Typography sx={{ fontWeight: 700, fontSize: 12, color: DARK_NAV, textAlign: 'center', flex: 1, px: 1, fontFamily: 'Inter', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLesson?.name}</Typography>
+            <Button variant="contained" disabled={effectiveCompletion < 70} onClick={() => nextLesson ? router.push(`/learn/${courseId}/${nextLesson.parentModuleId}/${nextLesson.parentSubtopicId}/${nextLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}?view=module_completion`)} sx={{ borderRadius: '10px', bgcolor: PRIMARY, color: '#fff', fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0, boxShadow: 'none', '&:hover': { bgcolor: '#D1752D' }, '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' } }}>{t('LEARNER_APP.LEARN.NEXT')}</Button>
           </Box>
-        )}
+          <SwadhaarBottomNav />
 
-
-        {currentLesson && (
-          isSwadhaarTenant ? (
-            <SwadhaarContentPlayer
-              key={currentLesson.identifier} identifier={currentLesson.identifier} courseId={courseId} unitId={subtopicId} mimeType={currentLesson.mimeType} contentType={currentLesson.contentType}
-              contentUrl={currentLesson.artifactUrl || currentLesson.downloadUrl} posterImage={currentLesson.posterImage || currentLesson.appIcon} name={currentLesson.name} description={currentLesson.description}
-              attempts={statusData.find(s => s.contentId === currentLesson.identifier)?.attempts || 0}
-              initialProgress={displayCompletion}
-              isCompleted={lessonCompleted || currentCompletion >= 100}
-              onProgress={handleProgress} onComplete={handleComplete}
-              onQuizFail={() => setQuizFailOpen(true)}
-            />
-          ) : (
-            <DefaultPlayer key={currentLesson.identifier} identifier={currentLesson.identifier} courseId={courseId} unitId={subtopicId} isEmbedded={true} />
-          )
-        )}
-      </Box>
-
-      <Box sx={{ position: 'fixed', bottom: 65, left: 0, right: 0, bgcolor: '#fff', borderTop: '1px solid #F3F4F6', px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
-        <Button variant="outlined" onClick={() => prevLesson ? router.push(`/learn/${courseId}/${prevLesson.parentModuleId}/${prevLesson.parentSubtopicId}/${prevLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}/${subtopicId}`)} sx={{ borderRadius: '10px', borderColor: PRIMARY, color: PRIMARY, fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0 }}>{t('LEARNER_APP.LEARN.PREVIOUS')}</Button>
-        <Typography sx={{ fontWeight: 700, fontSize: 12, color: DARK_NAV, textAlign: 'center', flex: 1, px: 1, fontFamily: 'Inter', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentLesson?.name}</Typography>
-        <Button variant="contained" disabled={effectiveCompletion < 70} onClick={() => nextLesson ? router.push(`/learn/${courseId}/${nextLesson.parentModuleId}/${nextLesson.parentSubtopicId}/${nextLesson.identifier}`) : router.push(`/learn/${courseId}/${moduleId}?view=module_completion`)} sx={{ borderRadius: '10px', bgcolor: PRIMARY, color: '#fff', fontWeight: 700, textTransform: 'none', px: 2, minWidth: '100px', flexShrink: 0, boxShadow: 'none', '&:hover': { bgcolor: '#D1752D' }, '&.Mui-disabled': { bgcolor: '#E5E7EB', color: '#9CA3AF' } }}>{t('LEARNER_APP.LEARN.NEXT')}</Button>
-      </Box>
-      <SwadhaarBottomNav />
-
-      {/* Quiz Fail Modal — shown when quiz score < 70% */}
-      <SwadhaarQuizFailModal
-        open={quizFailOpen}
-        onOkay={() => {
-          setQuizFailOpen(false);
-          // Navigate to the very first lesson of the entire course
-          const firstLesson = allLessons[0];
-          if (firstLesson) {
-            router.push(`/learn/${courseId}/${firstLesson.parentModuleId}/${firstLesson.parentSubtopicId}/${firstLesson.identifier}`);
-          } else {
-            router.push(`/learn/${courseId}/${moduleId}`);
-          }
-        }}
-      />
-    </Box>
-    )}
+          {/* Quiz Fail Modal — shown when quiz score < 70% */}
+          <SwadhaarQuizFailModal
+            open={quizFailOpen}
+            onOkay={() => {
+              setQuizFailOpen(false);
+              // Navigate to the very first lesson of the entire course
+              const firstLesson = allLessons[0];
+              if (firstLesson) {
+                router.push(`/learn/${courseId}/${firstLesson.parentModuleId}/${firstLesson.parentSubtopicId}/${firstLesson.identifier}`);
+              } else {
+                router.push(`/learn/${courseId}/${moduleId}`);
+              }
+            }}
+          />
+        </Box>
+      )}
     </>
   );
 }

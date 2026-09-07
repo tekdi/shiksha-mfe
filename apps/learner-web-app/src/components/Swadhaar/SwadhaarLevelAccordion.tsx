@@ -10,6 +10,7 @@ import UnfoldLessRoundedIcon from '@mui/icons-material/UnfoldLessRounded';
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
+import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
 const PRIMARY = '#E6873C';
 const SUCCESS = '#4CAF50';
 
@@ -200,9 +201,14 @@ const ModuleNode: React.FC<{
           }}
         >
           <Box sx={{ flex: 1 }}>
-            <Typography sx={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 12, color: isLocked ? '#9CA3AF' : '#1A1A1A' }}>{node.name.toLowerCase().includes('module') ? node.name : `Module: ${node.name}`}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <MenuBookRoundedIcon sx={{ fontSize: 16, color: isLocked ? '#9CA3AF' : '#1A1A1A' }} />
+              <Typography sx={{ fontFamily: 'Inter', fontWeight: 700, fontSize: 14, color: isLocked ? '#9CA3AF' : '#1A1A1A' }}>
+                {node.name.toLowerCase().includes('module') ? node.name : `Module: ${node.name}`}
+              </Typography>
+            </Box>
             {showDescriptions && node.description && (
-              <Typography sx={{ fontFamily: 'Inter', fontSize: 10, color: '#999999', mt: 0.5, lineHeight: 1.3, fontWeight: 400 }}>
+              <Typography sx={{ fontFamily: 'Inter', fontSize: 11, color: '#999999', mt: 0.5, lineHeight: 1.3, fontWeight: 400 }}>
                 {node.description}
               </Typography>
             )}

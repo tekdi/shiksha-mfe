@@ -5,6 +5,8 @@ import { Box, Typography, LinearProgress, Collapse } from '@mui/material';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import TranslateIcon from '@mui/icons-material/Translate';
+import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded';
+import PlayCircleFilledWhiteRoundedIcon from '@mui/icons-material/PlayCircleFilledWhiteRounded';
 import { useTranslation } from '@shared-lib';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -84,18 +86,21 @@ const DesktopModuleCard: React.FC<{
     >
       {/* Header row */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <Typography
-          sx={{
-            fontFamily: 'Open sans',
-            fontWeight: 700,
-            fontSize: 9,
-            color: '#9E9E9E',
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-          }}
-        >
-          {module.name?.toLowerCase().includes('module') ? module.name : t('LEARNER_APP.HOME.MODULE')}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <MenuBookRoundedIcon sx={{ fontSize: 12, color: '#9E9E9E' }} />
+          <Typography
+            sx={{
+              fontFamily: 'Open sans',
+              fontWeight: 700,
+              fontSize: 10,
+              color: '#9E9E9E',
+              textTransform: 'uppercase',
+              letterSpacing: 0.5,
+            }}
+          >
+            {module.name?.toLowerCase().includes('module') ? module.name : t('LEARNER_APP.HOME.MODULE')}
+          </Typography>
+        </Box>
         <Typography
           sx={{
             fontFamily: 'Open sans',
@@ -107,14 +112,14 @@ const DesktopModuleCard: React.FC<{
         </Typography>
       </Box>
 
-      {/* Module name */}
       <Typography
         sx={{
           fontFamily: 'Open sans',
           fontWeight: 700,
-          fontSize: 13,
+          fontSize: 15,
           color: isLocked ? '#9CA3AF' : '#1A1A1A',
           lineHeight: 1.3,
+          mb: 0.5,
         }}
       >
         {module.name}
@@ -150,14 +155,16 @@ const DesktopModuleCard: React.FC<{
       {/* Progress label */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
         {isCompleted ? (
-          <CheckCircleRoundedIcon sx={{ fontSize: 14, color: SUCCESS }} />
+          <CheckCircleRoundedIcon sx={{ fontSize: 16, color: SUCCESS }} />
         ) : isLocked ? (
-          <LockRoundedIcon sx={{ fontSize: 14, color: '#9CA3AF' }} />
-        ) : null}
+          <LockRoundedIcon sx={{ fontSize: 16, color: '#9CA3AF' }} />
+        ) : (
+          <PlayCircleFilledWhiteRoundedIcon sx={{ fontSize: 16, color: PRIMARY }} />
+        )}
         <Typography
           sx={{
             fontFamily: 'Open Sans',
-            fontSize: 9,
+            fontSize: 11,
             fontWeight: 700,
             color: isCompleted ? SUCCESS : isLocked ? '#9E9E9E' : PRIMARY,
           }}

@@ -74,7 +74,7 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         <Box
           sx={{
-            width: 40,
+            width: 120,
             height: 40,
             borderRadius: '8px',
             overflow: 'hidden',
@@ -84,7 +84,7 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
           <Image
             src="/images/swadhar_logo.png"
             alt={t('LEARNER_APP.HOME.LOGO_ALT')}
-            width={40}
+            width={120}
             height={40}
             style={{ objectFit: 'contain', width: '100%', height: '100%' }}
           />

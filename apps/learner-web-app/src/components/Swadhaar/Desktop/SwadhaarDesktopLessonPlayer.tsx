@@ -774,50 +774,68 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
             {/* Main Content Area */}
             <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5 }}>
-                {currentLesson && (
-                  <>
-                    <Box sx={{ borderRadius: '12px', overflow: 'hidden', mb: 2.5, border: '1px solid #E5E7EB' }}>
-                      <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }}>
-                        {/* <Typography sx={{ color: '#fff', fontSize: '12px', fontWeight: 700, fontFamily: 'Open Sans' }}>Text Card</Typography> */}
+                {currentLesson && (() => {
+                  const currentSubtopic = (currentModule?.children || []).find((s: any) => s.identifier === subtopicId);
+                  const subtopicLessons = allLessons.filter(l => l.parentSubtopicId === subtopicId);
+                  const isFirstLesson = subtopicLessons[0]?.identifier === currentLesson.identifier;
+                  const rawDisplayDescription = isFirstLesson
+                    ? (currentSubtopic?.description || currentLesson.description || '-')
+                    : (currentLesson.description || '-');
+                  const displayDescription = rawDisplayDescription === '-' ? 'No description available' : rawDisplayDescription;
+
+                  const subtopicName = currentSubtopic?.name || 'Description';
+                  const showPlayerHeader = subtopicName !== currentLesson.name;
+
+                  return (
+                    <>
+                      <Box sx={{ borderRadius: '12px', overflow: 'hidden', mb: 2.5, border: '1px solid #E5E7EB' }}>
+                        <Box sx={{ bgcolor: DARK_NAV, px: 2, py: 1 }}>
+                          <Typography sx={{ color: '#fff', fontSize: '11px', fontWeight: 600, fontFamily: 'Inter', textTransform: 'uppercase' }}>
+                            {subtopicName}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ bgcolor: '#fff', p: 2.5 }}>
+                          <Typography sx={{ fontFamily: 'Open Sans', fontWeight: 400, fontSize: '13px', color: '#1A1A1A', fontStyle: rawDisplayDescription === '-' ? 'italic' : 'normal', opacity: rawDisplayDescription === '-' ? 0.6 : 1 }}>
+                            {displayDescription}
+                          </Typography>
+                          {currentLesson.body && (
+                            <Typography sx={{ fontFamily: 'Open Sans', fontSize: '14px', color: '#1A1A1A', fontWeight: 400, lineHeight: 1.7, mt: 1.5 }}>
+                              {currentLesson.body}
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
-                      <Box sx={{ bgcolor: '#fff', p: 2.5 }}>
-                        <Typography sx={{ fontFamily: 'Open Sans', fontWeight: 700, fontSize: '20px', color: '#1A1A1A', mb: 0.5 }}>{currentLesson.name}</Typography>
-                        {currentLesson.subtitle && <Typography sx={{ fontFamily: 'Open Sans', fontSize: '14px', color: PRIMARY, fontWeight: 600, mb: 1.5 }}>{currentLesson.subtitle}</Typography>}
-                        {(currentLesson.body || currentLesson.description || currentLesson.subtitle) && <Divider sx={{ borderColor: '#F3F4F6', mb: 1.5 }} />}
-                        {currentLesson.description && <Typography sx={{ fontFamily: 'Open Sans', fontWeight: 400, fontStyle: 'normal', fontSize: '13px', color: '#1A1A1A', mb: currentLesson.body ? 1.5 : 0 }}>{currentLesson.description}</Typography>}
-                        {currentLesson.body && <Typography sx={{ fontFamily: 'Open Sans', fontSize: '14px', color: '#1A1A1A', fontWeight: 400, lineHeight: 1.7 }}>{currentLesson.body}</Typography>}
+                      <Box sx={{ borderRadius: '12px', overflow: 'hidden', mb: 1.5, border: '1px solid #E5E7EB', background: '#fff' }}>
+                        {showPlayerHeader && (
+                          <Typography sx={{ px: 2, py: 1, fontSize: 13, fontWeight: 700, color: '#fff', bgcolor: '#1C2B4A', fontFamily: 'Open Sans' }}>
+                            {currentLesson.name}
+                          </Typography>
+                        )}
+                        <Box sx={{ bgcolor: 'transparent' }}>
+                          <SwadhaarContentPlayer
+                            key={currentLesson.identifier}
+                            identifier={currentLesson.identifier}
+                            courseId={courseId}
+                            unitId={subtopicId}
+                            mimeType={currentLesson.mimeType}
+                            contentType={currentLesson.contentType}
+                            contentUrl={currentLesson.artifactUrl || currentLesson.downloadUrl}
+                            posterImage={currentLesson.posterImage || currentLesson.appIcon}
+                            name={currentLesson.name}
+                            description={currentLesson.description}
+                            attempts={statusData.find((s) => s.contentId === currentLesson.identifier)?.attempts || 0}
+                            initialProgress={currentCompletion}
+                            isCompleted={currentCompletion >= 100}
+                            onProgress={handleProgress}
+                            onComplete={handleComplete}
+                            onQuizFail={() => setQuizFailOpen(true)}
+                          />
+                        </Box>
                       </Box>
-                    </Box>
-                    <Box sx={{ borderRadius: '12px', overflow: 'hidden', mb: 1.5, border: '1px solid #E5E7EB', background: currentLesson.mimeType?.startsWith('video/') ? '#1C2B4A' : '#fff' }}>
-                      {currentLesson.mimeType?.startsWith('video/') && (
-                        <Typography sx={{ px: 2, py: 0.75, fontSize: 11, fontWeight: 700, color: '#fff', bgcolor: '#1C2B4A' }}>
-                          Video
-                        </Typography>
-                      )}
-                      <Box sx={{ bgcolor: currentLesson.mimeType?.startsWith('video/') ? DARK_NAV : 'transparent' }}>
-                        <SwadhaarContentPlayer
-                          key={currentLesson.identifier}
-                          identifier={currentLesson.identifier}
-                          courseId={courseId}
-                          unitId={subtopicId}
-                          mimeType={currentLesson.mimeType}
-                          contentType={currentLesson.contentType}
-                          contentUrl={currentLesson.artifactUrl || currentLesson.downloadUrl}
-                          posterImage={currentLesson.posterImage || currentLesson.appIcon}
-                          name={currentLesson.name}
-                          description={currentLesson.description}
-                          attempts={statusData.find((s) => s.contentId === currentLesson.identifier)?.attempts || 0}
-                          initialProgress={currentCompletion}
-                          isCompleted={currentCompletion >= 100}
-                          onProgress={handleProgress}
-                          onComplete={handleComplete}
-                          onQuizFail={() => setQuizFailOpen(true)}
-                        />
-                      </Box>
-                    </Box>
-                    <Typography sx={{ fontSize: 11, color: '#9CA3AF', mb: 3, px: 0.5 }}>{currentLesson.name} — {currentLesson.topic || currentLesson.contentType || 'topic'}</Typography>
-                  </>
-                )}
+                      <Typography sx={{ fontSize: 11, color: '#9CA3AF', mb: 3, px: 0.5 }}>{currentLesson.name} — {currentLesson.topic || currentLesson.contentType || 'topic'}</Typography>
+                    </>
+                  );
+                })()}
               </Box>
 
               <Box sx={{ bgcolor: '#fff', borderTop: '1px solid #F3F4F6', px: 4, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2, flexShrink: 0 }}>
