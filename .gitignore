@@ -42,6 +42,7 @@ Thumbs.db
 .nx/workspace-data
 
 # Next.js
+**/.next
 .next
 out
 

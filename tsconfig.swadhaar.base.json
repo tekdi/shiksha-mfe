@@ -1,0 +1,25 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "rootDir": ".",
+    "sourceMap": true,
+    "declaration": false,
+    "moduleResolution": "node",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "es2015",
+    "module": "esnext",
+    "lib": ["es2020", "dom"],
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["apps/swadhaar-admin-repo/src/*"],
+      "@swadhaar-admin/*": ["apps/swadhaar-admin-repo/src/*"],
+      "@shared-lib": ["libs/shared-lib/src/index.ts"],
+      "@shared-lib-v2/*": ["libs/shared-lib-v2/src/*"]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}

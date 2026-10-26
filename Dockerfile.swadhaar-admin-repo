@@ -1,0 +1,36 @@
+FROM node:20-slim AS builder
+
+WORKDIR /workspace
+
+ENV NODE_OPTIONS="--max-old-space-size=8192"
+ENV CYPRESS_INSTALL_BINARY=0
+ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV npm_config_cache="/tmp/.npm"
+
+# Copy package manifests
+COPY package*.json ./
+
+# Install PM2 and dependencies using locked versions with scripts ignored
+RUN npm install -g pm2@6.0.8 --ignore-scripts && \
+    npm ci --legacy-peer-deps --no-audit --no-fund --ignore-scripts && \
+    npm cache clean --force
+
+# Copy only the workspace config and sources needed to build this app
+COPY nx.json tsconfig.base.json tsconfig.swadhaar.base.json jest.preset.js eslint.config.js ./
+COPY ecosystem.swadhaar-admin-repo.config.js ./
+COPY libs ./libs
+COPY apps/swadhaar-admin-repo ./apps/swadhaar-admin-repo
+
+# Build application, cleanup build caches, and configure non-root user permissions
+RUN ./node_modules/.bin/nx build swadhaar-admin-repo && \
+    rm -rf apps/swadhaar-admin-repo/.next/cache \
+           .nx/cache \
+           /tmp/.npm && \
+    chown -R node:node /workspace
+
+# Switch to non-root user provided by node base image
+USER node
+
+EXPOSE 3004
+
+CMD ["pm2-runtime", "ecosystem.swadhaar-admin-repo.config.js"]

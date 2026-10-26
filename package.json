@@ -6,7 +6,10 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "fetch_shiksha": ""
+    "fetch_shiksha": "",
+    "dev:swadhaar-admin": "npx nx dev swadhaar-admin-repo",
+    "build:swadhaar-admin": "npx nx build swadhaar-admin-repo",
+    "start:swadhaar-admin": "npx nx start swadhaar-admin-repo"
   },
   "private": true,
   "dependencies": {

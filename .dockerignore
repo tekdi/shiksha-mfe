@@ -1,0 +1,38 @@
+# Version control
+.git
+.gitignore
+
+# Environment variables & secrets
+.env
+.env.*
+.env.dev
+.env.dev.env.dev
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+
+# Build outputs and caches
+dist/
+tmp/
+out-tsc/
+coverage/
+.nx/cache/
+.nx/workspace-data/
+.next/
+**/.next/
+out/
+
+# IDE and editor settings
+.vscode/
+.idea/
+*.sublime-workspace
+
+# Logs and system files
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

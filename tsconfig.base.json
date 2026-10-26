@@ -42,7 +42,7 @@
       "@ContentDetails": ["mfes/content/src/pages/details/[identifier].tsx"],
       "@ContentPlayer": ["mfes/content/src/pages/player/[identifier].tsx"],
       "@shared-lib-v2/*": ["libs/shared-lib-v2/src/*"],
-
+      "@swadhaar-admin/*": ["apps/swadhaar-admin-repo/src/*"]
     }
   },
   "exclude": ["node_modules", "tmp"]
