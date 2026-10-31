@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -26,10 +26,13 @@ import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import ImageIcon from '@mui/icons-material/Image';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
+import { resolveMediaUrl } from '@/utils/API/APIEndpoints';
 import nextI18NextConfig from '../../../../../../next-i18next.config.js';
 import {
   getCourseHierarchy,
   createModule,
+  updateModule,
+  updateLmsLesson,
   CreateModulePayload,
   CourseHierarchy,
   parseCourseName,
@@ -39,6 +42,8 @@ import {
 
 export interface VideoItem {
   id: string;
+  /** LMS lesson this video is, when it was picked from the library */
+  lessonId?: string;
   title: string;
   duration?: string;
   sourceUrl?: string;
@@ -46,6 +51,8 @@ export interface VideoItem {
 
 export interface SectionBlock {
   id: string;
+  /** LMS lesson this block is, for PDFs picked from the library or lessons already in the module */
+  lessonId?: string;
   type: 'INTRO' | 'HOOK' | 'VIDEO WATCH' | 'CONCEPT' | 'ANALYSIS' | 'TEXT' | 'IMAGE' | 'PDF';
   text?: string;
   videos?: VideoItem[];
@@ -236,6 +243,9 @@ export default function CreateSectionPage() {
   const router = useRouter();
   const { id } = router.query;
   const courseId = typeof id === 'string' ? id : '';
+  // Lessons already attached to the module being edited; only newly picked ones are attached on save
+  const attachedLessonIds = useRef<Set<string>>(new Set());
+  const editingModuleId = typeof router.query.moduleId === 'string' ? router.query.moduleId : '';
   const basePath = router.asPath.startsWith('/courses') ? '/courses' : '/content/courses';
 
   const [course, setCourse] = useState<CourseHierarchy | null>(null);
@@ -305,6 +315,7 @@ export default function CreateSectionPage() {
             setSectionPrefix(`1.${targetModule.ordering || 1}`);
 
             const lessons = targetModule.lessons || [];
+            attachedLessonIds.current = new Set(lessons.map((l: any) => l.lessonId).filter(Boolean));
             if (lessons.length > 0) {
               const mappedBlocks: SectionBlock[] = lessons.map((l: any, lIdx: number) => {
                 const fmt = (l.format || l.primaryCategory || '').toLowerCase();
@@ -315,9 +326,10 @@ export default function CreateSectionPage() {
                     videos: [
                       {
                         id: `vid-${lIdx}`,
+                        lessonId: l.lessonId,
                         title: l.title || 'Video Lesson',
                         duration: l.idealTime ? `${l.idealTime} min` : l.duration || 'Video link',
-                        sourceUrl: l.media?.url || l.mediaUrl || '',
+                        sourceUrl: resolveMediaUrl(l.media?.source || l.media?.path || l.media?.url || l.mediaUrl || ''),
                       },
                     ],
                   };
@@ -325,9 +337,10 @@ export default function CreateSectionPage() {
                 if (fmt.includes('pdf')) {
                   return {
                     id: l.lessonId || `blk-pdf-${lIdx}-${Date.now()}`,
+                    lessonId: l.lessonId,
                     type: 'PDF',
                     mediaName: l.title || 'PDF Document',
-                    mediaUrl: l.media?.url || l.mediaUrl || l.downloadUrl || '',
+                    mediaUrl: resolveMediaUrl(l.media?.path || l.media?.source || l.media?.url || l.mediaUrl || l.downloadUrl || ''),
                     text: l.description || '',
                   };
                 }
@@ -490,6 +503,7 @@ export default function CreateSectionPage() {
       const selectedVideos = libraryVideos.filter((v) => selectedMediaIds.includes(v.id));
       const newVideoItems: VideoItem[] = selectedVideos.map((v) => ({
         id: `vid-${Date.now()}-${v.id}`,
+        lessonId: v.id,
         title: v.title,
         duration: v.duration.includes('link') ? v.duration : `${v.duration} · Video link`,
         sourceUrl: v.url,
@@ -531,6 +545,7 @@ export default function CreateSectionPage() {
       } else {
         const newPdfBlocks: SectionBlock[] = selectedPdfs.map((p, idx) => ({
           id: `blk-pdf-${Date.now()}-${idx}`,
+          lessonId: p.id,
           type: 'PDF',
           mediaName: p.title,
           mediaUrl: p.url,
@@ -685,9 +700,29 @@ export default function CreateSectionPage() {
         endDatetime,
       };
 
-      // Call the exact same API on both buttons (POST /lms-service/v1/modules)
-      const res = await createModule(payload);
-      const moduleId = res?.result?.moduleId || `mod-${Date.now()}`;
+      // Editing updates the module (PATCH); a new section creates it (POST). Draft and publish use the same call.
+      let moduleId: string;
+      if (editingModuleId) {
+        await updateModule(editingModuleId, {
+          title: effectiveTitle,
+          description: descHtml,
+          ordering,
+          status,
+        });
+        moduleId = editingModuleId;
+      } else {
+        const res = await createModule(payload);
+        moduleId = res?.result?.moduleId || `mod-${Date.now()}`;
+      }
+
+      // Put the picked videos and PDFs into the module: PATCH /lms-service/v1/lessons/:id { courseId, moduleId }
+      const lessonIds = blocks
+        .flatMap((b) => (b.type === 'VIDEO WATCH' ? (b.videos || []).map((v) => v.lessonId) : [b.lessonId]))
+        .filter((lessonId): lessonId is string => Boolean(lessonId) && !attachedLessonIds.current.has(lessonId as string));
+      const attachResults = await Promise.allSettled(
+        lessonIds.map((lessonId, idx) => updateLmsLesson(lessonId, { courseId, moduleId, ordering: idx + 1 }))
+      );
+      const failedAttach = attachResults.filter((r) => r.status === 'rejected').length;
 
       // Persist module to localStorage so it is immediately visible in Course Details page
       if (typeof window !== 'undefined') {
@@ -734,11 +769,13 @@ export default function CreateSectionPage() {
         }
       }
 
-      setSnackbarSeverity('success');
+      setSnackbarSeverity(failedAttach > 0 ? 'error' : 'success');
       setSnackbarMessage(
-        status === 'draft'
-          ? `Section "${effectiveTitle}" saved as draft successfully!`
-          : `Section "${effectiveTitle}" published successfully!`
+        failedAttach > 0
+          ? `Section "${effectiveTitle}" saved, but ${failedAttach} lesson(s) could not be added to it.`
+          : status === 'draft'
+            ? `Section "${effectiveTitle}" saved as draft successfully!`
+            : `Section "${effectiveTitle}" published successfully!`
       );
       setTimeout(() => {
         router.push(`${basePath}/${courseId}`);

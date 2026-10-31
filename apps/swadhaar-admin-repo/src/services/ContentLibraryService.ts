@@ -1,7 +1,7 @@
-import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
+import { API_ENDPOINTS, resolveMediaUrl } from '@/utils/API/APIEndpoints';
 import { post, get, patch, deleteApi } from './RestClient';
 import { SWADHAAR_CHANNEL_ID } from '@/utils/app.constant';
-import { detectLanguage } from './CourseService';
+import { detectLanguage, getLmsLessons, LessonItem } from './CourseService';
 import AssessmentService from './AssessmentService';
 
 export type ContentTabType = 'videos' | 'pdfs' | 'assessments';
@@ -173,6 +173,86 @@ export const inferCourseUsage = (item: any): string => {
   return 'Not used in any course yet';
 };
 
+/** GET /assessment/v1/tests: the list sits under `result`; its key and the total's key vary, so fall back to the first array */
+const readTestList = (res: any): { tests: any[]; count: number } => {
+  const result = res?.result ?? res?.data ?? res;
+  const tests: any[] = Array.isArray(result)
+    ? result
+    : result?.tests ||
+      result?.data ||
+      result?.items ||
+      result?.rows ||
+      (Object.values(result || {}).find(Array.isArray) as any[] | undefined) ||
+      [];
+  const count = result?.totalElements ?? result?.totalCount ?? result?.count ?? result?.total ?? tests.length;
+  return { tests, count: Number(count) || tests.length };
+};
+
+const mapTestToAssessmentItem = (t: any): ContentItem => {
+  const title = t.title || t.name || 'Untitled Assessment';
+  const minutes = t.timeDuration;
+  return {
+    identifier: t.testId || t.id,
+    name: title,
+    title,
+    description: t.description || '',
+    mimeType: 'application/vnd.sunbird.questionset',
+    primaryCategory: 'Practice Question Set',
+    status: t.status,
+    detectedLanguage: detectLanguage(title),
+    formattedDuration: minutes ? `${minutes} min` : '—',
+    source: 'In-house Assessment',
+    usedIn: title.includes('Course 0') ? 'Course 0' : title.includes('Course 1') ? 'Course 1' : 'Not used in any course yet',
+    questionsCount: t.totalQuestions ?? t.questionsCount ?? t.questionCount ?? 0,
+    passMark: t.passingMarks ? `${t.passingMarks}%` : '—',
+    attempts: t.attempts ? String(t.attempts) : 'Unlimited',
+    timeLimit: minutes ? `${minutes} min` : '—',
+    assignedTo: 'All Learners',
+    linkedTo: title.includes('Course 0') ? 'Course 0' : title.includes('Course 1') ? 'Course 1' : 'None',
+    createdOn: t.createdAt,
+    lastUpdatedOn: t.updatedAt,
+  } as ContentItem;
+};
+
+/** LMS lesson `format` values that back the Videos and Documents (PDF) tabs */
+const LESSON_FORMAT_BY_TAB: Record<'videos' | 'pdfs', string> = {
+  videos: 'video',
+  pdfs: 'document',
+};
+
+const mapLessonToContentItem = (lesson: LessonItem): ContentItem => {
+  const mediaPath = lesson.media?.path || lesson.media?.source || '';
+  const isPdf = lesson.format === 'document' || /\.pdf($|\?)/i.test(String(mediaPath));
+  const rawLanguage = lesson.language ?? lesson.params?.language;
+  const language = rawLanguage ? [String(rawLanguage)] : undefined;
+  const base: ContentItem = {
+    identifier: lesson.lessonId,
+    name: lesson.title,
+    status: lesson.status,
+    description: lesson.description,
+    mimeType: isPdf ? 'application/pdf' : 'video/mp4',
+    primaryCategory: 'Learning Resource',
+    artifactUrl: resolveMediaUrl(mediaPath) || undefined,
+    posterImage: lesson.image || undefined,
+    duration: lesson.duration ?? undefined,
+    language,
+    createdOn: lesson.createdAt,
+    lastUpdatedOn: lesson.updatedAt,
+    lessonId: lesson.lessonId,
+    format: lesson.format,
+    subFormat: lesson.subFormat,
+  };
+  const subFormat = (lesson.subFormat || '').toLowerCase();
+  const source = subFormat.includes('youtube') ? 'YouTube' : detectContentSource(base);
+  return {
+    ...base,
+    detectedLanguage: detectLanguage(lesson.title || '', language),
+    formattedDuration: formatDurationString(base),
+    source,
+    usedIn: inferCourseUsage({ ...base, usedIn: lesson.courseTitle }),
+  };
+};
+
 /**
  * Search content based on tab, query, and filters
  */
@@ -181,45 +261,37 @@ export const searchContentLibrary = async (
 ): Promise<{ count: number; content: ContentItem[] }> => {
   try {
     if (params.tab === 'assessments') {
-      try {
-        const testRes = await AssessmentService.getAllTests({
-          search: params.query || undefined,
-          limit: params.limit ?? 20,
-          offset: params.offset ?? 0,
-        });
-        const tests = testRes?.result?.tests || testRes?.result || testRes?.data || [];
-        if (Array.isArray(tests) && tests.length > 0) {
-          const mappedTests: ContentItem[] = tests.map((t: any) => {
-            const title = t.title || t.name || 'Untitled Assessment';
-            return {
-              identifier: t.id || t.testId || `test-${Math.random()}`,
-              name: title,
-              title,
-              description: t.description || '',
-              mimeType: 'application/vnd.sunbird.questionset',
-              primaryCategory: 'Practice Question Set',
-              status: t.status || 'Live',
-              detectedLanguage: detectLanguage(title),
-              formattedDuration: t.timeDuration ? `${t.timeDuration} min` : '15 min',
-              source: 'In-house Assessment',
-              usedIn: title.includes('Course 0') ? 'Course 0' : 'Course 1',
-              questionsCount: t.totalQuestions || t.questionsCount || 10,
-              passMark: t.passingMarks ? `${t.passingMarks}%` : '70%',
-              attempts: t.attempts ? String(t.attempts) : 'Unlimited',
-              timeLimit: t.timeDuration ? `${t.timeDuration} min` : '—',
-              assignedTo: 'All Learners',
-              linkedTo: title.includes('Course 0') ? 'Course 0' : 'Course 1',
-            };
-          });
+      // Assessments are tests in the assessment service, not LMS lessons
+      const res = await AssessmentService.getAllTests({
+        status: 'published',
+        search: params.query || undefined,
+        limit: params.limit ?? 20,
+        offset: params.offset ?? 0,
+      });
+      const { tests, count } = readTestList(res);
+      return { count, content: tests.map(mapTestToAssessmentItem) };
+    }
 
-          return {
-            count: testRes?.result?.totalCount ?? testRes?.result?.count ?? mappedTests.length,
-            content: mappedTests,
-          };
-        }
-      } catch {
-        // Fall back to composite search
+    if (params.tab === 'videos' || params.tab === 'pdfs') {
+      const { count, lessons } = await getLmsLessons({
+        status: 'published',
+        format: LESSON_FORMAT_BY_TAB[params.tab],
+        query: params.query,
+        limit: params.limit ?? 20,
+        offset: params.offset ?? 0,
+      });
+      let items = lessons.map(mapLessonToContentItem);
+      if (params.languageFilter && params.languageFilter !== 'all') {
+        items = items.filter(
+          (c) => c.detectedLanguage?.toLowerCase() === params.languageFilter?.toLowerCase()
+        );
       }
+      if (params.courseFilter && params.courseFilter !== 'all') {
+        items = items.filter((c) =>
+          c.usedIn?.toLowerCase().includes(params.courseFilter?.toLowerCase() || '')
+        );
+      }
+      return { count, content: items };
     }
 
     const apiUrl = API_ENDPOINTS.compositeSearch;
@@ -295,60 +367,17 @@ export const searchContentLibrary = async (
  * Fetch counts for all 3 tabs to populate tab header badges
  */
 export const fetchContentTabCounts = async (): Promise<ContentTabCounts> => {
-  try {
-    const apiUrl = API_ENDPOINTS.compositeSearch;
+  const [vid, pdf, assess] = await Promise.allSettled([
+    getLmsLessons({ format: LESSON_FORMAT_BY_TAB.videos, limit: 1 }),
+    getLmsLessons({ format: LESSON_FORMAT_BY_TAB.pdfs, limit: 1 }),
+    AssessmentService.getAllTests({ status: 'published', limit: 1, offset: 0 }),
+  ]);
 
-    const [vidResp, pdfResp, assResp] = await Promise.allSettled([
-      post<any>(apiUrl, {
-        request: {
-          filters: getFiltersForTab('videos'),
-          query: '',
-          limit: 1,
-          offset: 0,
-        },
-      }),
-      post<any>(apiUrl, {
-        request: {
-          filters: getFiltersForTab('pdfs'),
-          query: '',
-          limit: 1,
-          offset: 0,
-        },
-      }),
-      post<any>(apiUrl, {
-        request: {
-          filters: getFiltersForTab('assessments'),
-          query: '',
-          limit: 1,
-          offset: 0,
-        },
-      }),
-    ]);
-
-    const videoCount =
-      vidResp.status === 'fulfilled' ? vidResp.value?.data?.result?.count ?? 15 : 15;
-    const pdfCount =
-      pdfResp.status === 'fulfilled' ? pdfResp.value?.data?.result?.count ?? 0 : 0;
-    const assessmentCount =
-      assResp.status === 'fulfilled'
-        ? (assResp.value?.data?.result?.count ??
-           assResp.value?.data?.result?.QuestionSet?.length ??
-           87)
-        : 87;
-
-    return {
-      videos: videoCount,
-      pdfs: pdfCount,
-      assessments: assessmentCount,
-    };
-  } catch (error) {
-    console.warn('Error fetching tab counts, falling back to defaults:', error);
-    return {
-      videos: 15,
-      pdfs: 0,
-      assessments: 87,
-    };
-  }
+  return {
+    videos: vid.status === 'fulfilled' ? vid.value.count : 0,
+    pdfs: pdf.status === 'fulfilled' ? pdf.value.count : 0,
+    assessments: assess.status === 'fulfilled' ? readTestList(assess.value).count : 0,
+  };
 };
 
 /**
@@ -445,3 +474,54 @@ export const retireContent = async (doId: string): Promise<any> => {
   }
 };
 
+
+/* =========================================================================
+ * Question bank (GET /assessment/v1/questions)
+ * ========================================================================= */
+
+export interface BankQuestion {
+  questionId: string;
+  text: string;
+  type: string;
+  level?: string;
+  marks?: number;
+  description?: string;
+  allowPartialScoring?: boolean;
+  status?: string;
+  options: Array<{ text: string; isCorrect: boolean; position?: number }>;
+}
+
+export const mapBankQuestion = (q: any): BankQuestion => ({
+  questionId: q.questionId || q.id,
+  text: q.text || '',
+  type: q.type || 'mcq',
+  level: q.level,
+  marks: q.marks,
+  description: q.description || '',
+  allowPartialScoring: q.allowPartialScoring,
+  status: q.status,
+  options: [...(q.options || [])]
+    .sort((a: any, b: any) => (a.position ?? a.ordering ?? 0) - (b.position ?? b.ordering ?? 0))
+    .map((opt: any) => ({ text: opt.text || '', isCorrect: Boolean(opt.isCorrect), position: opt.position })),
+});
+
+/** Published questions across all tests; the list sits under `result`, under a key that varies by deployment */
+export const fetchQuestionBank = async (params: {
+  search?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ questions: BankQuestion[]; count: number }> => {
+  const res = await AssessmentService.getAllQuestions({
+    status: 'published',
+    search: params.search?.trim() || undefined,
+    limit: params.limit ?? 20,
+    offset: params.offset ?? 0,
+  });
+  const result = res?.result ?? res?.data ?? res;
+  const list: any[] = Array.isArray(result)
+    ? result
+    : result?.questions || result?.data || result?.items || result?.rows ||
+      (Object.values(result || {}).find(Array.isArray) as any[] | undefined) || [];
+  const count = Number(result?.totalElements ?? result?.totalCount ?? result?.count ?? result?.total ?? list.length) || list.length;
+  return { questions: list.map(mapBankQuestion), count };
+};

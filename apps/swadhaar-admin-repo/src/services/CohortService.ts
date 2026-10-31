@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
 import { post, put } from './RestClient';
+import { getServiceHeaders, getSessionTenantId } from '@/utils/API/serviceHeaders';
 
 export interface CohortCustomField {
   fieldId: string;
@@ -60,16 +61,19 @@ export interface CohortSearchResponse {
     };
   };
 }
-import { getCohortServiceHeaders } from '@/utils/API/aspireHeaders';
-
 export const getCohortSearch = async (
   payload: CohortSearchParams,
   customHeaders: Record<string, string> = {}
 ): Promise<CohortSearchResponse> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortSearch;
-    const headers = getCohortServiceHeaders(customHeaders);
-    const response = await post(apiUrl, payload, headers);
+    const headers = getServiceHeaders(customHeaders);
+    // The search API scopes results by the tenant given in the filters
+    const body: CohortSearchParams = {
+      ...payload,
+      filters: { tenantId: getSessionTenantId(), ...payload.filters },
+    };
+    const response = await post(apiUrl, body, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in getCohortSearch:', error);
@@ -101,7 +105,7 @@ export const getCohortMemberListApplication = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberListApplication;
-    const headers = getCohortServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
@@ -128,7 +132,7 @@ export const getCohortMemberList = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberList;
-    const headers = getCohortServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
@@ -150,7 +154,7 @@ export const getCohortContentSearch = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortContentSearch;
-    const headers = getCohortServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
@@ -165,7 +169,7 @@ export const createCohort = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortCreate;
-    const headers = getCohortServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
@@ -181,7 +185,7 @@ export const updateCohort = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortUpdate(cohortId);
-    const headers = getCohortServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await put(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
@@ -196,7 +200,7 @@ export const deleteCohort = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortUpdate(cohortId);
-    const headers = getCohortServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await put(apiUrl, { status: 'archived' }, headers);
     return response?.data;
   } catch (error) {
@@ -217,7 +221,7 @@ export const bulkCreateCohortMembers = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberBulkCreate;
-    const headers = getCohortServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
@@ -233,7 +237,7 @@ export const updateCohortMember = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberUpdate(membershipId);
-    const headers = getCohortServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await put(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {

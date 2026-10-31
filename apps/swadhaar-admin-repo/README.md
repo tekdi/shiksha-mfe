@@ -21,7 +21,7 @@ Swadhaar Admin operates as a **completely standalone Next.js application** that 
 - **Channel ID:** `swadhaar-channel`
 - **Content Framework:** `swadhaar-framework`
 - **Collection Framework:** `swadhaar-framework`
-- **Academic Year ID:** `edf1d200-21d8-417e-b844-1d04f92435f4`
+- **Academic Year ID:** `7708b7c0-08a1-41a7-8755-a06e767b0ed6`
 
 ## Environment Variables
 
@@ -43,7 +43,7 @@ production silently points the app at QA — always set them explicitly outside 
 | `NEXT_PUBLIC_TENANT_ID` | Swadhaar `tenantid` header | `35529b5d-526f-4da5-bc6e-64f740023d26` |
 | `NEXT_PUBLIC_CHANNEL_ID` | Swadhaar `channelid` header | `swadhaar-channel` |
 | `NEXT_PUBLIC_ORG_ID` | Organisation ID header | `d36d9079-0f42-4ba3-be03-26c9e79509ee` |
-| `NEXT_PUBLIC_ACADEMIC_YEAR_ID` | Academic year ID header | `edf1d200-21d8-417e-b844-1d04f92435f4` |
+| `NEXT_PUBLIC_ACADEMIC_YEAR_ID` | Academic year ID header | `7708b7c0-08a1-41a7-8755-a06e767b0ed6` |
 | `NEXT_PUBLIC_TELEMETRY_URL` | Telemetry proxy target (`next.config.mjs` rewrites) | `https://telemetry.tekdinext.com` |
 | `CLOUD_STORAGE_URL` | Optional public asset proxy (`/assets/public/*`) | not set (rewrite disabled) |
 

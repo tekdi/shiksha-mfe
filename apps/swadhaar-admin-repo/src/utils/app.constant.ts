@@ -1,7 +1,9 @@
 export const SWADHAAR_TENANT_ID = '35529b5d-526f-4da5-bc6e-64f740023d26';
+/** Role assigned to users created from the admin portal (user/v1/create) */
+export const SWADHAAR_USER_ROLE_ID = 'a0262d32-6200-4ba1-adbb-bb2883ba27a2';
 export const SWADHAAR_CHANNEL_ID = 'swadhaar-channel';
 export const SWADHAAR_FRAMEWORK = 'swadhaar-framework';
-export const SWADHAAR_ACADEMIC_YEAR_ID = 'edf1d200-21d8-417e-b844-1d04f92435f4';
+export const SWADHAAR_ACADEMIC_YEAR_ID = '7708b7c0-08a1-41a7-8755-a06e767b0ed6';
 
 export const limit: number = 200;
 

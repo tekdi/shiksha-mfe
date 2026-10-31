@@ -22,6 +22,7 @@ export default function LogoutPage() {
           localStorage.removeItem('token');
           localStorage.removeItem('refreshToken');
           localStorage.removeItem('adminInfo');
+          localStorage.removeItem('academicYearId');
         }
         router.replace('/login');
       }

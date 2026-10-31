@@ -1,4 +1,5 @@
-import { SWADHAAR_TENANT_ID } from './app.constant';
+import { SWADHAAR_TENANT_ID, SWADHAAR_USER_ROLE_ID } from './app.constant';
+import { getSessionTenantId } from '@/utils/API/serviceHeaders';
 import { CreateUserPayload, UpdateUserPayload } from '@/services/UserService';
 
 export const SWADHAAR_FIELD_IDS = {
@@ -55,6 +56,8 @@ export interface UserInputFields {
   email?: string;
   phone?: string;
   employeeId?: string;
+  username?: string;
+  password?: string;
   gender?: string;
   role?: string;
   state?: string;
@@ -100,24 +103,26 @@ export const buildCreateUserPayload = (
   tenantId?: string,
   providedPassword?: string
 ): CreateUserPayload => {
-  const targetTenantId = tenantId || SWADHAAR_TENANT_ID;
-  const { nameTrimmed, firstName, lastName } = splitFullName(input.fullName);
+  const targetTenantId = tenantId || getSessionTenantId() || SWADHAAR_TENANT_ID;
+  const { firstName, lastName } = splitFullName(input.fullName);
   const mobile = (input.phone || '').trim();
   const email = (input.email || '').trim();
   const employeeId = (input.employeeId || '').trim();
-  const roleId = resolveRoleId(input.role);
+  // Bulk upload may name a role per row; the create form always uses the standard Swadhaar user role
+  const roleId = input.role ? resolveRoleId(input.role) : SWADHAAR_USER_ROLE_ID;
   const gender = sanitizeGender(input.gender);
-  const password = providedPassword || generateSecureTemporaryPassword();
+  const password = providedPassword || (input.password || '').trim() || generateSecureTemporaryPassword();
+  const username = (input.username || '').trim() || employeeId || mobile || email;
   const customFields = buildLocationCustomFields(input);
 
   const payload: CreateUserPayload = {
-    name: nameTrimmed,
-    username: employeeId || mobile || email,
+    username,
     password,
     firstName,
     lastName,
     email,
     mobile,
+    type: /admin/i.test(input.role || '') ? 'Admin' : 'Student',
     tenantCohortRoleMapping: [
       {
         tenantId: targetTenantId,

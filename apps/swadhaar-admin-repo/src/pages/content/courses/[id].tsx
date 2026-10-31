@@ -190,7 +190,23 @@ export default function CourseDetailsPage() {
           // ignore
         }
       }
-      setSections([...apiSections, ...customSections]);
+      // Locally cached modules are only a fallback; skip any the API already returns
+      const apiIds = new Set(
+        apiSections.flatMap((s: any) => [s.moduleId, s.identifier, s.id].filter(Boolean))
+      );
+      const pendingCustom = customSections.filter(
+        (c: any) => !apiIds.has(c.moduleId) && !apiIds.has(c.identifier)
+      );
+      if (typeof window !== 'undefined' && pendingCustom.length !== customSections.length) {
+        try {
+          const key = `swadhaar_custom_modules_${courseId}`;
+          if (pendingCustom.length) localStorage.setItem(key, JSON.stringify(pendingCustom));
+          else localStorage.removeItem(key);
+        } catch {
+          // ignore
+        }
+      }
+      setSections([...apiSections, ...pendingCustom]);
     } catch (err) {
       console.error('Failed to load course hierarchy:', err);
       let customSections: CourseHierarchyChild[] = [];
@@ -324,6 +340,13 @@ export default function CourseDetailsPage() {
     router.push(`${basePath}/${courseId}/sections/create`);
   };
 
+  // Opens the section editor (the same page as "Add Module / Section") on this module
+  const handleEditSection = (section: CourseHierarchyChild) => {
+    const moduleId = (section as any).moduleId || section.identifier;
+    const basePath = router.asPath.startsWith('/courses') ? '/courses' : '/content/courses';
+    router.push(`${basePath}/${courseId}/sections/create?moduleId=${encodeURIComponent(moduleId)}`);
+  };
+
   const renderSectionList = () => {
     if (loading) {
       return (
@@ -432,7 +455,7 @@ export default function CourseDetailsPage() {
                         aria-label={t('COURSES.DETAIL.EDIT_CONTENT')}
                         onClick={(e) => {
                           e.stopPropagation();
-                          alert(t('COURSES.DETAIL.EDITING_CONTENT_FOR', { name: section.name }));
+                          handleEditSection(section);
                         }}
                         sx={{
                           color: NEUTRAL.muted,

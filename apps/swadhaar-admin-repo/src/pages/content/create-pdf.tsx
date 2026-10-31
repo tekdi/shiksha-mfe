@@ -13,16 +13,23 @@ import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
+import { inferCourseUsage } from '@/services/ContentLibraryService';
 import {
-  getContentRead,
-  createContent,
-  updateContent,
-  inferCourseUsage,
-  resolveEditableDuration,
-} from '@/services/ContentLibraryService';
-import { detectLanguage } from '@/services/CourseService';
+  detectLanguage,
+  createDocumentLesson,
+  uploadLessonMedia,
+  getLmsLessonById,
+  updateLmsLesson,
+  lessonDescriptionToText,
+} from '@/services/CourseService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
 import { ContentFormHeader, FormAlerts, FormCardHeader, DescriptionField, LanguageSelect, UsedInCard, CARD_SX, LabeledTextField } from '@/components/content/ContentFormParts';
+
+/** "20" or "20 min" -> 20 */
+const parseIdealMinutes = (value: string): number | undefined => {
+  const minutes = value.trim().match(/^(\d+)/);
+  return minutes ? Number(minutes[1]) : undefined;
+};
 
 const toLanguageOption = (language: string): 'Hindi' | 'English' => (language === 'Hindi' ? 'Hindi' : 'English');
 
@@ -36,6 +43,7 @@ export default function CreatePdfPage() {
   const [readingTime, setReadingTime] = useState('');
   const [language, setLanguage] = useState('Hindi');
   const [fileName, setFileName] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [allowDownload, setAllowDownload] = useState(true);
   const [usedIn, setUsedIn] = useState<string>((router.query.usedIn as string) || '');
 
@@ -78,19 +86,18 @@ export default function CreatePdfPage() {
   useEffect(() => {
     if (id && typeof id === 'string') {
       setLoading(true);
-      getContentRead(id)
-        .then((res: any) => {
-          const content = res?.content || res;
-          if (content) {
-            const loadedTitle = content.name || content.title || '';
-            const loadedDesc = content.description || '';
-            const loadedDur = resolveEditableDuration(content);
-            const loadedLang = detectLanguage(loadedTitle, content.language || content.languageCode);
+      getLmsLessonById(id)
+        .then((lesson: any) => {
+          if (lesson) {
+            const loadedTitle = lesson.title || '';
+            const loadedDesc = lessonDescriptionToText(lesson.description);
+            const loadedDur = lesson.idealTime ? `${lesson.idealTime} min` : '';
+            const loadedLang = detectLanguage(loadedTitle, lesson.language ?? lesson.params?.language);
             const loadedFile =
-              content.artifactUrl?.split('/').pop() ||
-              content.downloadUrl?.split('/').pop() ||
+              (lesson.media?.path || lesson.media?.source || '').split('?')[0].split('/').pop() ||
               'document.pdf';
-            const courseUsage = (router.query.usedIn as string) || inferCourseUsage(content);
+            const courseUsage =
+              (router.query.usedIn as string) || inferCourseUsage({ usedIn: lesson.courseTitle });
 
             setTitle(loadedTitle);
             setDescription(loadedDesc);
@@ -121,27 +128,35 @@ export default function CreatePdfPage() {
       setError('PDF title is required.');
       return;
     }
+    if (!isEditing && !pdfFile) {
+      setError('Please choose a PDF file.');
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
       if (isEditing && typeof id === 'string') {
-        await updateContent(id, {
-          name: title.trim(),
-          description: description.trim(),
-          duration: readingTime.trim() || undefined,
-          language: [language],
-          status: isDraft ? 'Draft' : 'Live',
+        // A newly chosen file replaces the stored one; otherwise the existing media is kept
+        const newPath = pdfFile ? (await uploadLessonMedia(pdfFile, 'document')).path : undefined;
+        await updateLmsLesson(id, {
+          title: title.trim(),
+          description: description.trim() ? `<p>${description.trim()}</p>` : '',
+          status: isDraft ? 'unpublished' : 'published',
+          idealTime: parseIdealMinutes(readingTime),
+          ...(newPath ? { mediaContentPath: newPath } : {}),
         });
         setSuccessMsg('PDF updated successfully.');
       } else {
-        await createContent({
-          name: title.trim(),
-          description: description.trim(),
-          mimeType: 'application/pdf',
-          primaryCategory: 'Learning Resource',
-          duration: readingTime.trim() || undefined,
-          language: [language],
-          status: isDraft ? 'Draft' : 'Live',
+        const { courseId, moduleId } = router.query;
+        const { path } = await uploadLessonMedia(pdfFile as File, 'document');
+        await createDocumentLesson({
+          title: title.trim(),
+          description: description.trim() ? `<p>${description.trim()}</p>` : undefined,
+          status: isDraft ? 'unpublished' : 'published',
+          mediaContentPath: path,
+          idealTime: parseIdealMinutes(readingTime),
+          ...(typeof courseId === 'string' && courseId ? { courseId } : {}),
+          ...(typeof moduleId === 'string' && moduleId ? { moduleId } : {}),
         });
         setSuccessMsg(isDraft ? `PDF saved as draft.` : `PDF created successfully.`);
       }
@@ -240,7 +255,10 @@ export default function CreatePdfPage() {
                   hidden
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) setFileName(file.name);
+                    if (file) {
+                      setFileName(file.name);
+                      setPdfFile(file);
+                    }
                   }}
                 />
               </Box>
@@ -305,7 +323,10 @@ export default function CreatePdfPage() {
                       hidden
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) setFileName(file.name);
+                        if (file) {
+                      setFileName(file.name);
+                      setPdfFile(file);
+                    }
                       }}
                     />
                   </Button>

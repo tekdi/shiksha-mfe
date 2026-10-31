@@ -333,7 +333,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </Box>
 
         {/* ==================== 3. LATER ITEMS ==================== */}
-        <LaterMenuItem
+        {/* <LaterMenuItem
           label={t('SIDEBAR.NOTIFICATIONS')}
           badge={laterLabel}
           icon={<NotificationsIcon fontSize="small" />}
@@ -347,7 +347,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label={t('SIDEBAR.ACCESS')}
           badge={laterLabel}
           icon={<SecurityIcon fontSize="small" />}
-        />
+        /> */}
       </Box>
 
       {/* Tenant Footer Information */}

@@ -1,9 +1,24 @@
-const baseurl = "https://interface.tekdinext.com/interface";
-// || 'https://swadhaar-middleware-qa.tekdinext.com').replace(/\/+$/, '');
-const cohortBaseUrl = (process.env.NEXT_PUBLIC_COHORT_BASE_URL || 'https://middleware-qa.aspireleaders.org').replace(/\/+$/, '');
-const lmsBase = "https://middleware-qa.aspireleaders.org/lms-service/v1";
+// Swadhaar-specific middleware: the single base URL for every API
+export const swadhaarMiddlewareUrl = (
+  process.env.NEXT_PUBLIC_MIDDLEWARE_URL || 'https://swadhaar-middleware-qa.tekdinext.com'
+).replace(/\/+$/, '');
+const baseurl = swadhaarMiddlewareUrl;
+const cohortBaseUrl = baseurl;
+const lmsBase = `${baseurl}/lms-service/v1`;
 const assessmentBase = (process.env.NEXT_PUBLIC_ASSESSMENT_SERVICE_URL || `${baseurl}/assessment/v1`).replace(/\/+$/, '');
 const certificateBase = (process.env.NEXT_PUBLIC_CERTIFICATE_SERVICE_URL || `${baseurl}/importuserspecific/certificate`).replace(/\/+$/, '');
+
+/**
+ * Lesson media paths for locally stored files are relative (e.g. /uploads/lessons/media/x.pdf), so a
+ * browser would resolve them against this app. Files are served by the LMS service behind the middleware;
+ * NEXT_PUBLIC_MEDIA_BASE_URL overrides that location.
+ */
+const mediaBase = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL || `${baseurl}/lms-service`).replace(/\/+$/, '');
+export const resolveMediaUrl = (path?: string | null): string => {
+  if (!path) return '';
+  if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:') || path.startsWith('blob:')) return path;
+  return `${mediaBase}/${path.replace(/^\/+/, '')}`;
+};
 
 const toQueryString = (queryString = ''): string => {
   if (!queryString) return '';
@@ -32,7 +47,7 @@ export const API_ENDPOINTS = {
   actionObject: `${baseurl}/action/object/category/definition/v1/read?fields=objectMetadata,forms,name,label`,
 
   // Academic Years & Forms
-  academicYearsList: `${baseurl}/academicyears/list`,
+  academicYearsList: `${baseurl}/user/v1/academicyears/list`,
   formRead: `${baseurl}/form/read`,
   formReadWithContext: (context: string, contextType: string) => `${baseurl}/form/read?context=${context}&contextType=${contextType}`,
 
@@ -41,17 +56,18 @@ export const API_ENDPOINTS = {
   accountLogin: `${baseurl}/account/login`,
   authRefresh: `${baseurl}/account/auth/refresh`,
   authLogout: `${baseurl}/account/auth/logout`,
-  userAuth: `${baseurl}/v1/user/auth`,
-  sendOTP: `${baseurl}/v1/user/send-otp`,
-  verifyOTP: `${baseurl}/v1/user/verify-otp`,
+  userAuth: `${swadhaarMiddlewareUrl}/user/v1/auth`,
+  sendOTP: `${swadhaarMiddlewareUrl}/user/v1/send-otp`,
+  verifyOTP: `${swadhaarMiddlewareUrl}/user/v1/verify-otp`,
   resetPassword: `${baseurl}/v1/user/reset-password`,
   suggestUsername: `${baseurl}/v1/user/suggestUsername`,
 
   // User Management
-  adminUserList: `${baseurl}/v1/user/list`,
-  userList: `${baseurl}/v1/user/list`,
+  adminUserList: `${swadhaarMiddlewareUrl}/user/v1/list`,
+  userList: `${baseurl}/user/v1/list`,
+  userCreate: `${baseurl}/user/v1/create`,
   userRead: (userId: string | string[], fieldValue: boolean = true) =>
-    `${baseurl}/user/v1/read/${userId}?fieldvalue=${fieldValue}`,
+    `${swadhaarMiddlewareUrl}/user/v1/read/${userId}?fieldvalue=${fieldValue}`,
   userUpdate: (userId: string) => `${baseurl}/user/update/${userId}`,
 
   // Fields / Master Data
@@ -99,8 +115,21 @@ export const API_ENDPOINTS = {
   lmsCoursesSearch: (queryString = '') => `${lmsBase}/courses/search${toQueryString(queryString)}`,
   lmsModules: `${lmsBase}/modules`,
   lmsModulesSearch: (queryString = '') => `${lmsBase}/modules/search${toQueryString(queryString)}`,
+  lmsMediaUpload: `${lmsBase}/media/upload`,
   lmsLessons: (queryString = '') => `${lmsBase}/lessons${toQueryString(queryString)}`,
+  lmsLessonById: (lessonId: string) => `${lmsBase}/lessons/${lessonId}`,
+  lmsLessonsByModule: (moduleId: string) => `${lmsBase}/lessons/module/${moduleId}`,
+  lmsMediaAssociate: (mediaId: string, lessonId: string, userId?: string) =>
+    `${lmsBase}/media/${mediaId}/associate/${lessonId}${userId ? `?userId=${userId}` : ''}`,
   lmsCourseHierarchy: (courseId: string) => `${lmsBase}/courses/${courseId}/hierarchy`,
+  // Learning paths (pathways)
+  pathwayList: `${baseurl}/user/v1/pathway/list`,
+  pathwayCreate: `${baseurl}/user/v1/pathway/create`,
+  pathwayById: (id: string) => `${baseurl}/user/v1/pathway/${id}`,
+  pathwayUpdate: (id: string) => `${baseurl}/user/v1/pathway/update/${id}`,
+  pathwayOrderStructure: `${baseurl}/user/v1/pathway/order/structure`,
+  pathwayAssign: `${baseurl}/user/v1/pathway/assign`,
+  lmsEnrollmentCreate: `${baseurl}/enrollments`,
   lmsEnrollments: (userId: string) => `${baseurl}/enrollments?userId=${userId}`,
   lmsLessonAttempt: (lessonId: string, userId: string) => `${baseurl}/tracking/lesson/attempt/${lessonId}?userId=${userId}`,
   lmsConfig: `${baseurl}/config`,

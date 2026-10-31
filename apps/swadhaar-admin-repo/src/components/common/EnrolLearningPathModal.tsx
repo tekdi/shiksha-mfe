@@ -27,6 +27,12 @@ import ClearIcon from '@mui/icons-material/Clear';
 import { useTranslation } from 'next-i18next';
 import { getCohortSearch } from '@/services/CohortService';
 import { getUserList } from '@/services/UserService';
+import {
+  assignPathwayToUser,
+  enrolCohortInCourse,
+  getPathwayById,
+  pathwayCourseIds,
+} from '@/services/PathwayService';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
 import CommonTextField from './CommonTextField';
@@ -37,6 +43,10 @@ interface EnrolLearningPathModalProps {
   open: boolean;
   onClose: () => void;
   learningPathTitle?: string;
+  /** Learning path the selected users or groups are enrolled in */
+  pathwayId?: string;
+  /** Course ids of the path's steps, used to enrol groups; read from the pathway when not given */
+  courseIds?: string[];
   onEnrolSuccess?: (count: number, type: EnrolTab) => void;
 }
 
@@ -83,6 +93,8 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
   open,
   onClose,
   learningPathTitle,
+  pathwayId,
+  courseIds,
   onEnrolSuccess,
 }) => {
   const { t } = useTranslation();
@@ -103,6 +115,8 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
 
   // Feedback state
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
 
   // Fetch Groups from CohortService
   const fetchGroups = useCallback(async () => {
@@ -188,6 +202,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
       fetchGroups();
       fetchUsers();
       setFeedbackMessage(null);
+      setErrorMessage(null);
     }
   }, [open, fetchGroups, fetchUsers]);
 
@@ -249,8 +264,38 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
     else setUserSearch(value);
   };
 
-  const handleEnrol = () => {
+  const handleEnrol = async () => {
     const count = currentSelectionCount;
+    setErrorMessage(null);
+    if (!pathwayId) {
+      setErrorMessage('Save the learning path before enrolling users or groups.');
+      return;
+    }
+    setEnrolling(true);
+    try {
+      if (isGroupsTab) {
+        // Groups are enrolled in each course of the path: POST /enrollments { cohortId, courseId }
+        const courses = courseIds?.length ? courseIds : pathwayCourseIds(await getPathwayById(pathwayId));
+        if (courses.length === 0) {
+          throw new Error('This learning path has no courses yet. Add courses before enrolling groups.');
+        }
+        for (const cohortId of selectedGroupIds) {
+          for (const courseId of courses) {
+            await enrolCohortInCourse(cohortId, courseId);
+          }
+        }
+      } else {
+        // Users are assigned the path: POST /user/v1/pathway/assign
+        for (const userId of selectedUserIds) {
+          await assignPathwayToUser(userId, pathwayId);
+        }
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.params?.errmsg || err?.response?.data?.message || err?.message || 'Enrolment failed.');
+      setEnrolling(false);
+      return;
+    }
+    setEnrolling(false);
     setFeedbackMessage(
       t(`ENROL_LEARNING_PATH.SUCCESS_${getCountSuffix(activeTab, count)}`, { count, title: pathTitle })
     );
@@ -454,6 +499,11 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
             {feedbackMessage}
           </Alert>
         )}
+        {errorMessage && (
+          <Alert severity="error" sx={{ mb: 1 }} onClose={() => setErrorMessage(null)}>
+            {errorMessage}
+          </Alert>
+        )}
 
         {/* Search Input */}
         <CommonTextField
@@ -525,7 +575,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
           {t('COMMON.CANCEL')}
         </CommonButton>
 
-        <CommonButton variant="primary" onClick={handleEnrol} disabled={currentSelectionCount === 0}>
+        <CommonButton variant="primary" onClick={handleEnrol} disabled={currentSelectionCount === 0 || enrolling}>
           {t(`ENROL_LEARNING_PATH.ENROL_${getCountSuffix(activeTab, currentSelectionCount)}`, {
             count: currentSelectionCount,
           })}

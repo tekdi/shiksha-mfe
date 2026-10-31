@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
 import { get, post, patch, put, deleteApi } from './RestClient';
-import { getServiceHeaders } from '@/utils/API/aspireHeaders';
+import { getServiceHeaders } from '@/utils/API/serviceHeaders';
 
 /* =========================================================================
  * TypeScript Interfaces for Assessment Service

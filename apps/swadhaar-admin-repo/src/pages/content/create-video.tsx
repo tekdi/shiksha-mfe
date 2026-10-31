@@ -11,14 +11,14 @@ import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
+import { inferCourseUsage } from '@/services/ContentLibraryService';
 import {
-  getContentRead,
-  createContent,
-  updateContent,
-  inferCourseUsage,
-  resolveEditableDuration,
-} from '@/services/ContentLibraryService';
-import { detectLanguage } from '@/services/CourseService';
+  detectLanguage,
+  createVideoLesson,
+  getLmsLessonById,
+  updateLmsLesson,
+  lessonDescriptionToText,
+} from '@/services/CourseService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
 import { ContentFormHeader, FormAlerts, FormCardHeader, DescriptionField, LanguageSelect, UsedInCard, CARD_SX, LabeledTextField } from '@/components/content/ContentFormParts';
 
@@ -54,6 +54,15 @@ const SourceOption: React.FC<SourceOptionProps> = ({ selected, onSelect, title, 
 );
 
 const toLanguageOption = (language: string): 'Hindi' | 'English' => (language === 'Hindi' ? 'Hindi' : 'English');
+
+/** "45 min" -> 45, "1:43" -> 2 (rounded up); undefined when the text has no number */
+const parseIdealMinutes = (value: string): number | undefined => {
+  const text = value.trim();
+  const clock = text.match(/^(\d+):(\d{1,2})$/);
+  if (clock) return Number(clock[1]) + (Number(clock[2]) > 0 ? 1 : 0);
+  const minutes = text.match(/^(\d+)/);
+  return minutes ? Number(minutes[1]) : undefined;
+};
 
 const detectSourceType = (url: string): 'link' | 'upload' =>
   url.includes('youtube') || url.includes('youtu.be') || url.startsWith('http') ? 'link' : 'upload';
@@ -113,17 +122,17 @@ export default function CreateVideoPage() {
   useEffect(() => {
     if (id && typeof id === 'string') {
       setLoading(true);
-      getContentRead(id)
-        .then((res: any) => {
-          const content = res?.content || res;
-          if (content) {
-            const loadedTitle = content.name || content.title || '';
-            const loadedDesc = content.description || '';
-            const loadedUrl = content.artifactUrl || content.downloadUrl || content.previewUrl || '';
-            const loadedDur = resolveEditableDuration(content);
-            const loadedLang = detectLanguage(loadedTitle, content.language || content.languageCode);
+      getLmsLessonById(id)
+        .then((lesson: any) => {
+          if (lesson) {
+            const loadedTitle = lesson.title || '';
+            const loadedDesc = lessonDescriptionToText(lesson.description);
+            const loadedUrl = lesson.media?.source || lesson.media?.path || '';
+            const loadedDur = lesson.idealTime ? `${lesson.idealTime} min` : '';
+            const loadedLang = detectLanguage(loadedTitle, lesson.language ?? lesson.params?.language);
             const loadedSrc = detectSourceType(loadedUrl);
-            const courseUsage = (router.query.usedIn as string) || inferCourseUsage(content);
+            const courseUsage =
+              (router.query.usedIn as string) || inferCourseUsage({ usedIn: lesson.courseTitle });
 
             setTitle(loadedTitle);
             setDescription(loadedDesc);
@@ -168,25 +177,26 @@ export default function CreateVideoPage() {
         : 'video/mp4';
 
       if (isEditing && typeof id === 'string') {
-        await updateContent(id, {
-          name: title.trim(),
-          description: description.trim(),
-          artifactUrl: videoUrl.trim(),
-          duration: duration.trim() || undefined,
-          language: [language],
-          status: isDraft ? 'Draft' : 'Live',
+        await updateLmsLesson(id, {
+          title: title.trim(),
+          description: description.trim() ? `<p>${description.trim()}</p>` : '',
+          status: isDraft ? 'unpublished' : 'published',
+          mediaContentSource: videoUrl.trim(),
+          mediaContentSubFormat: mimeType === 'video/x-youtube' ? 'youtube.url' : 'video.url',
+          idealTime: parseIdealMinutes(duration),
         });
         setSuccessMsg('Video updated successfully.');
       } else {
-        await createContent({
-          name: title.trim(),
-          description: description.trim(),
-          mimeType,
-          primaryCategory: 'Learning Resource',
-          artifactUrl: videoUrl.trim(),
-          duration: duration.trim() || undefined,
-          language: [language],
-          status: isDraft ? 'Draft' : 'Live',
+        const { courseId, moduleId } = router.query;
+        await createVideoLesson({
+          title: title.trim(),
+          description: description.trim() ? `<p>${description.trim()}</p>` : undefined,
+          status: isDraft ? 'unpublished' : 'published',
+          mediaContentSource: videoUrl.trim(),
+          mediaContentSubFormat: mimeType === 'video/x-youtube' ? 'youtube.url' : 'video.url',
+          idealTime: parseIdealMinutes(duration),
+          ...(typeof courseId === 'string' && courseId ? { courseId } : {}),
+          ...(typeof moduleId === 'string' && moduleId ? { moduleId } : {}),
         });
         setSuccessMsg(isDraft ? `Video saved as draft.` : `Video created successfully.`);
       }

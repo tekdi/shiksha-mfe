@@ -163,7 +163,6 @@ export default function CohortsPage() {
         offset: page * rowsPerPage,
         sort: ['updatedAt', 'desc'],
         filters: {
-          start_year: '2026',
           status:
             filters.status && filters.status !== 'all'
               ? [filters.status.toLowerCase()]

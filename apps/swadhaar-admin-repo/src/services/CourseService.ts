@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
-import { get, post, put, patch } from './RestClient';
-import { getServiceHeaders, getCohortServiceHeaders } from '@/utils/API/aspireHeaders';
+import { get, getBlob, post, put, patch } from './RestClient';
+import { getServiceHeaders } from '@/utils/API/serviceHeaders';
 
 export interface CourseItem {
   courseId: string;
@@ -217,7 +217,7 @@ export const getCourseList = async (
     }
 
     const apiUrl = API_ENDPOINTS.lmsCoursesSearch(queryParams.toString());
-    const headers = apiUrl.includes('aspireleaders.org') ? getCohortServiceHeaders() : getServiceHeaders();
+    const headers = getServiceHeaders();
 
     const response = await get(apiUrl, headers);
     const result = response?.data?.result || {};
@@ -321,7 +321,7 @@ export const getModuleList = async (
     }
 
     const apiUrl = API_ENDPOINTS.lmsModulesSearch(queryParams.toString());
-    const headers = apiUrl.includes('aspireleaders.org') ? getCohortServiceHeaders() : getServiceHeaders();
+    const headers = getServiceHeaders();
     const response = await get(apiUrl, headers);
     const result = response?.data?.result || {};
     return {
@@ -350,7 +350,7 @@ export const getCourseHierarchy = async (courseId: string): Promise<CourseHierar
     }
 
     const apiUrl = API_ENDPOINTS.lmsCourseHierarchy(effectiveCourseId);
-    const headers = apiUrl.includes('aspireleaders.org') ? getCohortServiceHeaders() : getServiceHeaders();
+    const headers = getServiceHeaders();
     const response = await get(apiUrl, headers);
     const result = response?.data?.result;
 
@@ -534,9 +534,7 @@ export const createCourse = async (
 ): Promise<CreateCourseResponse> => {
   try {
     const url = API_ENDPOINTS.lmsCourses;
-    const headers = url.includes('aspireleaders.org')
-      ? getCohortServiceHeaders(customHeaders)
-      : getServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await post(url, payload, headers);
     return response?.data;
   } catch (error) {
@@ -556,9 +554,7 @@ export const updateCourseStatus = async (
 ): Promise<any> => {
   try {
     const url = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
-    const headers = url.includes('aspireleaders.org')
-      ? getCohortServiceHeaders(customHeaders)
-      : getServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const payload = { status };
     try {
       const response = await patch(url, payload, headers);
@@ -626,13 +622,30 @@ export const createModule = async (
 ): Promise<CreateModuleResponse> => {
   try {
     const url = API_ENDPOINTS.lmsModules;
-    const headers = url.includes('aspireleaders.org')
-      ? getCohortServiceHeaders(customHeaders)
-      : getServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await post(url, payload, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in CourseService.createModule:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update a module (section) of a course
+ * PATCH /lms-service/v1/modules/:moduleId
+ */
+export const updateModule = async (
+  moduleId: string,
+  payload: Partial<CreateModulePayload>,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const url = `${API_ENDPOINTS.lmsModules}/${moduleId}`;
+    const response = await patch(url, payload, getServiceHeaders(customHeaders));
+    return response?.data;
+  } catch (error) {
+    console.error(`Error in CourseService.updateModule for ${moduleId}:`, error);
     throw error;
   }
 };
@@ -644,6 +657,8 @@ export interface LessonSearchParams {
   format?: string;
   subFormat?: string;
   query?: string;
+  /** Lessons not attached to a module, e.g. standalone assessments */
+  isStandalone?: boolean;
 }
 
 export interface LessonItem {
@@ -695,7 +710,9 @@ export const getLmsLessons = async (
 ): Promise<LessonsResponse> => {
   try {
     const queryParams = new URLSearchParams();
-    queryParams.set('status', params?.status || 'published');
+    // status: '' lists every status
+    const status = params?.status ?? 'published';
+    if (status) queryParams.set('status', status);
     queryParams.set('offset', String(params?.offset ?? 0));
     queryParams.set('limit', String(params?.limit ?? 50));
     if (params?.format) {
@@ -704,14 +721,15 @@ export const getLmsLessons = async (
     if (params?.subFormat) {
       queryParams.set('subFormat', params.subFormat);
     }
+    if (params?.isStandalone !== undefined) {
+      queryParams.set('isStandalone', String(params.isStandalone));
+    }
     if (params?.query?.trim()) {
       queryParams.set('query', params.query.trim());
     }
 
     const apiUrl = API_ENDPOINTS.lmsLessons(queryParams.toString());
-    const headers = apiUrl.includes('aspireleaders.org')
-      ? getCohortServiceHeaders(customHeaders)
-      : getServiceHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
 
     const response = await get(apiUrl, headers);
     const result = response?.data?.result || {};
@@ -730,4 +748,195 @@ export const getLmsLessons = async (
 
 
 
+
+
+export interface CreateVideoLessonPayload {
+  title: string;
+  description?: string;
+  status?: 'published' | 'unpublished';
+  courseId?: string;
+  moduleId?: string;
+  /** Video link, e.g. a YouTube URL */
+  mediaContentSource: string;
+  mediaContentSubFormat?: string;
+  idealTime?: number;
+  [key: string]: any;
+}
+
+/**
+ * Create a video lesson
+ * POST /lms-service/v1/lessons
+ */
+export const createVideoLesson = async (
+  payload: CreateVideoLessonPayload,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const body = {
+      format: 'video',
+      status: 'published',
+      mediaContentSubFormat: 'youtube.url',
+      considerForPassing: true,
+      allowResubmission: false,
+      noOfAttempts: 0,
+      attemptsGrade: 'first_attempt',
+      resume: true,
+      startDatetime: null,
+      endDatetime: null,
+      ...payload,
+    };
+    const response = await post(API_ENDPOINTS.lmsLessons(), body, getServiceHeaders(customHeaders));
+    return response?.data;
+  } catch (error) {
+    console.error('Error in CourseService.createVideoLesson:', error);
+    throw error;
+  }
+};
+
+export interface CreateDocumentLessonPayload {
+  title: string;
+  description?: string;
+  status?: 'published' | 'unpublished';
+  courseId?: string;
+  moduleId?: string;
+  /** Path returned by uploadLessonMedia */
+  mediaContentPath: string;
+  idealTime?: number;
+  [key: string]: any;
+}
+
+/**
+ * Upload a lesson file (PDF) and return the stored media path
+ * POST /lms-service/v1/media/upload (multipart: file, format)
+ */
+export const uploadLessonMedia = async (
+  file: File,
+  format: 'document' | 'video' = 'document',
+  customHeaders?: Record<string, string>
+): Promise<{ mediaId: string; path: string }> => {
+  try {
+    const form = new FormData();
+    form.append('format', format);
+    form.append('file', file);
+    // The browser sets the multipart boundary itself
+    const headers = getServiceHeaders({ 'content-type': 'multipart/form-data', ...customHeaders });
+    const response = await post(API_ENDPOINTS.lmsMediaUpload, form, headers);
+    const result = response?.data?.result;
+    if (!result?.path) throw new Error('Upload did not return a file path.');
+    return { mediaId: result.mediaId, path: result.path };
+  } catch (error) {
+    console.error('Error in CourseService.uploadLessonMedia:', error);
+    throw error;
+  }
+};
+
+/**
+ * Create a document (PDF) lesson
+ * POST /lms-service/v1/lessons
+ */
+export const createDocumentLesson = async (
+  payload: CreateDocumentLessonPayload,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const body = {
+      format: 'document',
+      status: 'published',
+      mediaContentSubFormat: 'pdf',
+      considerForPassing: true,
+      allowResubmission: false,
+      noOfAttempts: 0,
+      attemptsGrade: 'first_attempt',
+      resume: true,
+      startDatetime: null,
+      endDatetime: null,
+      ...payload,
+    };
+    const response = await post(API_ENDPOINTS.lmsLessons(), body, getServiceHeaders(customHeaders));
+    return response?.data;
+  } catch (error) {
+    console.error('Error in CourseService.createDocumentLesson:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get detailed information of a lesson by ID (video or PDF/document)
+ * GET /lms-service/v1/lessons/:lessonId
+ */
+export const getLmsLessonById = async (
+  lessonId: string,
+  customHeaders?: Record<string, string>
+): Promise<LessonItem | null> => {
+  try {
+    const headers = getServiceHeaders(customHeaders);
+    const response = await get(API_ENDPOINTS.lmsLessonById(lessonId), headers);
+    const result = response?.data?.result;
+    return result || null;
+  } catch (error) {
+    console.error(`Error in CourseService.getLmsLessonById for ${lessonId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Download a locally stored lesson file with the session headers and return an object URL for it.
+ * An iframe cannot send the Authorization header, so files behind the middleware are fetched here.
+ * The caller revokes the URL with URL.revokeObjectURL.
+ */
+export const fetchMediaObjectUrl = async (url: string): Promise<string> => {
+  const response = await getBlob(url, getServiceHeaders({ accept: '*/*' }));
+  return URL.createObjectURL(response.data);
+};
+
+/** Lesson descriptions are stored as HTML; the edit forms use a plain textarea */
+export const lessonDescriptionToText = (html?: string | null): string =>
+  (html || '')
+    .replace(/<\/p>\s*<p>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .trim();
+
+/**
+ * Update an edited lesson (Video or PDF document)
+ * PATCH /lms-service/v1/lessons/:lessonId
+ */
+export const updateLmsLesson = async (
+  lessonId: string,
+  payload: Record<string, any>,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const headers = getServiceHeaders(customHeaders);
+    const response = await patch(API_ENDPOINTS.lmsLessonById(lessonId), payload, headers);
+    return response?.data;
+  } catch (error) {
+    console.error(`Error in CourseService.updateLmsLesson for ${lessonId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Associate an uploaded media file with a lesson
+ * POST /lms-service/v1/media/:mediaId/associate/:lessonId?userId=:userId
+ */
+export const associateMediaWithLesson = async (
+  mediaId: string,
+  lessonId: string,
+  userId?: string,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const headers = getServiceHeaders(customHeaders);
+    const response = await post(API_ENDPOINTS.lmsMediaAssociate(mediaId, lessonId, userId), {}, headers);
+    return response?.data;
+  } catch (error) {
+    console.error(`Error in CourseService.associateMediaWithLesson for media ${mediaId} and lesson ${lessonId}:`, error);
+    throw error;
+  }
+};
 

@@ -256,6 +256,16 @@ export default function UsersPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 
+  // The search term is sent to /user/v1/list as `search` (debounced), so it covers every user, not just this page
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search?.trim() || '');
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -269,8 +279,22 @@ export default function UsersPage() {
               ? [filters.status.toLowerCase()]
               : ['active', 'inactive'],
         },
-        sort: ['name', 'asc'],
+        sort: ['createdAt', 'desc'],
       };
+      if (debouncedSearch) {
+        const trimmed = debouncedSearch.trim();
+        // If user typed 10 digits, search by mobile
+        if (/^\d{10}$/.test(trimmed)) {
+          payload.filters.mobile = trimmed;
+        } else {
+          // If multiple words, split first and last name
+          const parts = trimmed.split(/\s+/);
+          payload.filters.firstName = parts[0];
+          if (parts.length > 1) {
+            payload.filters.lastName = parts.slice(1).join(' ');
+          }
+        }
+      }
 
       const response = await getUserList(payload);
       if (response?.result?.getUserDetails) {
@@ -299,29 +323,23 @@ export default function UsersPage() {
         setUsers([]);
         setTotalCount(0);
       }
-    } catch (err) {
-      console.error('API fetch failed:', err);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        console.error('API fetch failed:', err);
+      }
       setUsers([]);
       setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage, page, filters.role, filters.status]);
+  }, [rowsPerPage, page, filters.role, filters.status, debouncedSearch]);
 
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
 
-  // Client-side search by typing name or email across the loaded dataset
-  const displayedUsers = useMemo(() => {
-    return users.filter((user) => {
-      if (!filters.search?.trim()) return true;
-      const term = filters.search.toLowerCase().trim();
-      const matchesName = user.fullName.toLowerCase().includes(term);
-      const matchesEmail = user.email.toLowerCase().includes(term);
-      return matchesName || matchesEmail;
-    });
-  }, [users, filters.search]);
+  // Search is applied by the API (see fetchUsers), so the loaded rows are shown as they are
+  const displayedUsers = users;
 
   const handleOpenActionMenu = (event: React.MouseEvent<HTMLElement>, user: UserRowItem) => {
     setMenuAnchorEl(event.currentTarget);

@@ -37,7 +37,7 @@ class TenantService {
     CHANNEL_ID: SWADHAAR_CHANNEL_ID,
     CONTENT_FRAMEWORK: SWADHAAR_FRAMEWORK,
     COLLECTION_FRAMEWORK: SWADHAAR_FRAMEWORK,
-    academicYearId: 'edf1d200-21d8-417e-b844-1d04f92435f4',
+    academicYearId: '7708b7c0-08a1-41a7-8755-a06e767b0ed6',
     theme: {
       primaryColor: '#E6873C',
       secondaryColor: '#1C2B4A',

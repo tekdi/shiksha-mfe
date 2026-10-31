@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
 import { get, post, patch } from './RestClient';
-import { getServiceHeaders } from '@/utils/API/aspireHeaders';
+import { getServiceHeaders } from '@/utils/API/serviceHeaders';
 
 export const getUserDetailsInfo = async (
   userId: string,
@@ -44,7 +44,6 @@ export const getCohortMemberList = async (payload: any): Promise<any> => {
 };
 
 export interface CreateUserPayload {
-  name: string;
   username: string;
   password?: string;
   firstName: string;
@@ -52,6 +51,8 @@ export interface CreateUserPayload {
   gender?: string;
   email: string;
   mobile: string;
+  /** User type the user service lists the account under, e.g. 'Student' or 'Admin' */
+  type?: string;
   tenantCohortRoleMapping: Array<{
     tenantId: string;
     roleId: string;
@@ -64,8 +65,8 @@ export interface CreateUserPayload {
 
 export const createUserAccount = async (payload: CreateUserPayload): Promise<any> => {
   try {
-    const apiUrl = API_ENDPOINTS.accountCreate;
-    const response = await post(apiUrl, payload);
+    const apiUrl = API_ENDPOINTS.userCreate;
+    const response = await post(apiUrl, payload, getServiceHeaders());
     return response?.data;
   } catch (error) {
     console.error('Error in createUserAccount:', error);
@@ -98,7 +99,7 @@ export const updateUserAccount = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.userUpdate(userId);
-    const response = await patch(apiUrl, payload);
+    const response = await patch(apiUrl, payload, getServiceHeaders());
     return response?.data;
   } catch (error) {
     console.error('Error in updateUserAccount:', error);
