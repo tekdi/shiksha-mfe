@@ -4,9 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Typography, TextField, Button, CircularProgress, useMediaQuery, useTheme, Modal } from '@mui/material';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { checkUserExistenceWithTenant } from '@learner/utils/API/userService';
-import { sendOTP, verifyOTP } from '@learner/utils/API/OtPService';
-import { getUserId } from '@learner/utils/API/LoginService';
+import { checkSwadhaarUserExists, sendSwadhaarOtp, verifySwadhaarOtp, loginSwadhaarLearner, getSwadhaarAuthUser } from '@learner/utils/API/SwadhaarAuthService';
 import { showToastMessage } from '@learner/components/ToastComponent/Toastify';
 import { profileComplitionCheck, getUserDetails, setLocalStorageFromCustomFields } from '@learner/utils/API/userService';
 import { ensureAcademicYearForTenant } from '@learner/utils/API/ProgramService';
@@ -79,20 +77,13 @@ export default function SwadhaarLoginPage() {
     try {
       const tenantId = localStorage.getItem('domainTenantId') || tenant?.tenantId || SWADHAAR_TENANT_ID;
 
-      // Check user existence
-      const userCheck = await checkUserExistenceWithTenant(trimmed, tenantId);
-      if (
-        userCheck?.params?.status === 'failed' ||
-        userCheck?.responseCode === 404 ||
-        (userCheck?.responseCode && userCheck.responseCode !== 200)
-      ) {
-        const errorMsg = userCheck?.params?.errmsg || t('LEARNER_APP.LOGIN.NOT_REGISTERED');
-        showToastMessage(errorMsg, 'error');
-        return;
-      }
+      // Informational only: /user/v1/list does not find every registered learner by mobile (a just-created
+      // learner returns 404), so a miss must not block sign-in. Unknown numbers fail at the learner login below.
+      const exists = await checkSwadhaarUserExists(trimmed, tenantId);
+      if (exists === false) console.warn('Swadhaar user list found no user for this mobile; continuing to OTP');
 
       // Send OTP
-      const otpResp = await sendOTP({ mobile: trimmed, reason: 'login' });
+      const otpResp = await sendSwadhaarOtp(trimmed, 'signup', tenantId);
       const hash = otpResp?.result?.data?.hash || otpResp?.result?.hash || '';
       setOtpHash(hash);
       setOtpSent(true);
@@ -119,8 +110,22 @@ export default function SwadhaarLoginPage() {
     setIsSigningIn(true);
     try {
       const trimmed = mobile.trim();
-      const verifyResp = await verifyOTP({ mobile: trimmed, reason: 'login', otp: otpStr, hash: otpHash });
-      const token = verifyResp?.result?.token || verifyResp?.result?.access_token;
+      const verifyResp = await verifySwadhaarOtp({ mobile: trimmed, otp: otpStr, hash: otpHash });
+      let token = verifyResp?.result?.token || verifyResp?.result?.access_token;
+      let refreshToken = verifyResp?.result?.refresh_token;
+
+      // verify-otp only confirms the OTP ({ success: true }); the learner's token comes from auth/login
+      if (!token && verifyResp?.result?.success === true) {
+        try {
+          const session = await loginSwadhaarLearner(trimmed);
+          token = session?.access_token;
+          refreshToken = session?.refresh_token;
+        } catch (loginErr: any) {
+          console.error('Learner login error:', loginErr);
+          showToastMessage(loginErr?.response?.data?.params?.errmsg || t('LEARNER_APP.LOGIN.NOT_REGISTERED'), 'error');
+          return;
+        }
+      }
 
       if (!token) {
         const errorMsg = verifyResp?.params?.errmsg || t('LEARNER_APP.LOGIN.INVALID_OTP');
@@ -129,11 +134,10 @@ export default function SwadhaarLoginPage() {
       }
 
       localStorage.setItem('token', token);
-      const refreshToken = verifyResp?.result?.refresh_token;
       if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
 
       // Fetch user info
-      const userResp = await getUserId();
+      const userResp = await getSwadhaarAuthUser(token);
       if (!userResp) { showToastMessage('Failed to load user info.', 'error'); return; }
 
       // Handle nested userData if present
