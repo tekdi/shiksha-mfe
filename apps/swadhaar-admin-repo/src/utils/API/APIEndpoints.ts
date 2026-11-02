@@ -65,6 +65,7 @@ export const API_ENDPOINTS = {
   // User Management
   adminUserList: `${swadhaarMiddlewareUrl}/user/v1/list`,
   userList: `${baseurl}/user/v1/list`,
+  userRolesList: `${baseurl}/user/v1/rbac/roles/list/roles`,
   userCreate: `${baseurl}/user/v1/create`,
   userRead: (userId: string | string[], fieldValue: boolean = true) =>
     `${swadhaarMiddlewareUrl}/user/v1/read/${userId}?fieldvalue=${fieldValue}`,
@@ -129,8 +130,8 @@ export const API_ENDPOINTS = {
   pathwayUpdate: (id: string) => `${baseurl}/user/v1/pathway/update/${id}`,
   pathwayOrderStructure: `${baseurl}/user/v1/pathway/order/structure`,
   pathwayAssign: `${baseurl}/user/v1/pathway/assign`,
-  lmsEnrollmentCreate: `${baseurl}/enrollments`,
-  lmsEnrollments: (userId: string) => `${baseurl}/enrollments?userId=${userId}`,
+  lmsEnrollmentCreate: `${baseurl}/lms-service/v1/enrollments`,
+  lmsEnrollments: (userId: string) => `${baseurl}/lms-service/v1/enrollments?userId=${userId}`,
   lmsLessonAttempt: (lessonId: string, userId: string) => `${baseurl}/tracking/lesson/attempt/${lessonId}?userId=${userId}`,
   lmsConfig: `${baseurl}/config`,
 

@@ -246,3 +246,29 @@ export const updateCohortMember = async (
   }
 };
 
+
+const COHORT_MEMBER_PAGE_SIZE = 100;
+
+/** User ids of every learner in a group (reviewers are left out), across all member pages */
+export const getCohortLearnerIds = async (cohortId: string): Promise<string[]> => {
+  const ids: string[] = [];
+  for (let offset = 0; ; offset += COHORT_MEMBER_PAGE_SIZE) {
+    const res = await getCohortMemberListApplication({
+      limit: COHORT_MEMBER_PAGE_SIZE,
+      offset,
+      filters: { cohortId: [cohortId] },
+    });
+    const rows: any[] = Array.isArray(res?.result?.userDetails)
+      ? res.result.userDetails
+      : Array.isArray(res?.result)
+      ? res.result
+      : [];
+    rows.forEach((row) => {
+      const role = String(row.role || row.membershipRole || 'Student').toLowerCase();
+      const userId = row.userId || row.id;
+      if (userId && role !== 'reviewer') ids.push(userId);
+    });
+    if (rows.length < COHORT_MEMBER_PAGE_SIZE) break;
+  }
+  return Array.from(new Set(ids));
+};

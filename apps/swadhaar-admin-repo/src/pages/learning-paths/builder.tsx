@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -33,7 +33,8 @@ import {
   createPathway,
   getPathwayById,
   updatePathway,
-  updatePathwayOrderStructure,
+  setCoursePathway,
+  pathwayIdFromResponse,
 } from '@/services/PathwayService';
 import EnrolLearningPathModal from '@/components/common/EnrolLearningPathModal';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
@@ -113,6 +114,8 @@ export default function LearningPathBuilderPage() {
   const pathTitle = pathName.trim() || NEW_PATH_TITLE;
   const [coursesList, setCoursesList] = useState<CourseItem[]>([]);
   const [sequence, setSequence] = useState<SequenceItem[]>([]);
+  // Courses linked to this path when it was loaded; the ones removed in the builder are unlinked on save
+  const linkedCourseIds = useRef<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form states
@@ -146,7 +149,7 @@ export default function LearningPathBuilderPage() {
     setLoading(true);
     try {
       const response = await getCourseList({
-        limit: 20,
+        limit: 100,
         filters: {
           primaryCategory: ['Course'],
         },
@@ -158,21 +161,19 @@ export default function LearningPathBuilderPage() {
         const pathway = await getPathwayById(pathwayId);
         setPathName(pathway?.name || '');
         setPathDescription(pathway?.description || '');
-        const steps: any[] = pathway?.items || pathway?.courses || pathway?.steps || [];
+        // A course belongs to a path through its params.pathwayId
+        const linked = courses.filter((c) => c.params?.pathwayId === pathwayId);
+        linkedCourseIds.current = linked.map((c) => c.identifier);
         setSequence(
           renumber(
-            steps.map((step, idx) => {
-              const courseId = step?.courseId || step?.course_id || step?.id;
-              const course = courses.find((c) => c.identifier === courseId);
-              return {
-                id: courseId || `seq-${idx}`,
-                stepNumber: idx + 1,
-                label: `Course ${idx} + assessment`,
-                title: course?.cleanTitle || course?.name || step?.title || step?.name || 'Untitled course',
-                unlockCondition: '',
-                courseId,
-              };
-            })
+            linked.map((course, idx) => ({
+              id: course.identifier,
+              stepNumber: idx + 1,
+              label: `Course ${idx} + assessment`,
+              title: course.cleanTitle || course.name || 'Untitled course',
+              unlockCondition: '',
+              courseId: course.identifier,
+            }))
           )
         );
       } else {
@@ -264,6 +265,7 @@ export default function LearningPathBuilderPage() {
     setSaveError(null);
     setSaving(true);
     try {
+      let savedPathwayId = pathwayId;
       if (pathwayId) {
         await updatePathway(pathwayId, {
           name: pathName.trim(),
@@ -271,22 +273,28 @@ export default function LearningPathBuilderPage() {
           is_active: true,
         });
       } else {
-        await createPathway({
+        const created = await createPathway({
           key: toPathKey(pathName),
           name: pathName.trim(),
           description: pathDescription.trim(),
-          display_order: 1,
+          // display_order is left out: a taken order is ignored and the service appends (max + 1) anyway
           is_active: true,
         });
+        savedPathwayId = pathwayIdFromResponse(created);
       }
 
-      // Persist the step order: POST /user/v1/pathway/order/structure
-      const orders = sequence
-        .filter((item) => item.courseId)
-        .map((item, idx) => ({ id: item.courseId as string, order: idx + 1 }));
-      if (orders.length > 0) {
-        await updatePathwayOrderStructure(orders);
+      // Link the courses to the path: PATCH /lms-service/v1/courses/:courseId with params.pathwayId
+      // (/user/v1/pathway/order/structure orders pathways, not the courses inside one)
+      const courseIds = sequence.map((item) => item.courseId).filter(Boolean) as string[];
+      if (courseIds.length > 0 && !savedPathwayId) {
+        throw new Error('The learning path was created but its id was not returned, so the courses were not linked.');
       }
+      const removed = linkedCourseIds.current.filter((id) => !courseIds.includes(id));
+      await Promise.all([
+        ...courseIds.map((id) => setCoursePathway(id, savedPathwayId)),
+        ...removed.map((id) => setCoursePathway(id, null)),
+      ]);
+      linkedCourseIds.current = courseIds;
 
       setIsDirty(false);
       setSaveSuccess(true);

@@ -3,7 +3,7 @@ import { Box, Typography, Grid } from '@mui/material';
 import { useTranslation } from 'next-i18next';
 import MasterDataService, { LocationOption } from '@/services/MasterDataService';
 import { getSessionTenantId } from '@/utils/API/serviceHeaders';
-import { createUserAccount, updateUserAccount, getUserDetailsInfo } from '@/services/UserService';
+import { createUserAccount, updateUserAccount, getUserDetailsInfo, getTenantRoles, TenantRole } from '@/services/UserService';
 import { showToastMessage } from '@/components/Toastify';
 import { NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
@@ -177,11 +177,27 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const [districts, setDistricts] = useState<LocationOption[]>([]);
   const [branches, setBranches] = useState<LocationOption[]>([]);
   const [programs, setPrograms] = useState<LocationOption[]>([]);
+  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
 
   // Load programs from MasterDataService
   useEffect(() => {
     setPrograms(MasterDataService.getPrograms());
   }, []);
+
+  // Roles for the dropdown: names are shown, the role id is the value sent on create
+  useEffect(() => {
+    if (open) {
+      getTenantRoles().then(setTenantRoles);
+    }
+  }, [open]);
+
+  // Edit mode starts with the role name from the user record; swap it for the matching role id
+  useEffect(() => {
+    if (!formData.role || tenantRoles.length === 0) return;
+    if (tenantRoles.some((r) => r.id === formData.role)) return;
+    const match = tenantRoles.find((r) => r.name.toLowerCase() === formData.role.toLowerCase());
+    if (match) setFormData((prev) => ({ ...prev, role: match.id }));
+  }, [tenantRoles, formData.role]);
 
   // Fetch states on mount / modal open
   useEffect(() => {
@@ -294,18 +310,15 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
   }, [branches, formData.branch]);
 
-  // Role options matching user list page filter with fallbacks
   const roleOptions = React.useMemo(() => {
-    const defaultRoles = ['ARM', 'DI', 'Trainer', 'Admin'];
-    const filteredAvailable = availableRoles
-      .filter((r) => r && !['reviewer'].includes(r.toLowerCase()))
-      .map((r) => r.trim());
-    const combined = Array.from(new Set([...defaultRoles, ...filteredAvailable]));
-    if (formData.role && !combined.includes(formData.role) && formData.role !== '-') {
-      combined.push(formData.role);
+    const options = tenantRoles.map((r) => ({ value: r.id, label: r.name }));
+    const currentName = (formData.role && formData.role !== '-' ? formData.role : '').trim();
+    // Edit mode, before the role ids have loaded: keep the user's current role name visible
+    if (currentName && !options.some((o) => o.value === currentName)) {
+      options.push({ value: currentName, label: currentName });
     }
-    return combined;
-  }, [availableRoles, formData.role]);
+    return options;
+  }, [tenantRoles, formData.role]);
 
   const handleChange = (field: keyof FormState, value: string) => {
     setFormData((prev) => {
@@ -354,6 +367,10 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       newErrors.phone = 'USERS.FORM.ERROR_PHONE_INVALID';
     }
 
+    if (!isEdit && !formData.role) {
+      newErrors.role = 'USERS.FORM.ERROR_ROLE_REQUIRED';
+    }
+
     if (!isEdit && formData.gender === GENDER_NOT_SELECTED) {
       newErrors.gender = 'USERS.FORM.ERROR_GENDER_REQUIRED';
     }
@@ -381,7 +398,8 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         username: formData.username,
         password: formData.password,
         gender: formData.gender === GENDER_NOT_SELECTED ? undefined : formData.gender,
-        role: isEdit ? formData.role : undefined,
+        role: formData.role || undefined,
+        roleName: tenantRoles.find((r) => r.id === formData.role)?.name,
         state: formData.state,
         district: formData.district,
         branch: formData.branch,
@@ -644,8 +662,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </Grid>
         </Box>
 
-        {/* 3. ROLE (edit only; new users get the standard Swadhaar role) */}
-        {isEdit && (
+        {/* 3. ROLE (the option value is the role id that user/v1/create expects) */}
         <Box>
           <Typography sx={SECTION_TITLE_SX}>{t('USERS.FORM.SECTION_ROLE')}</Typography>
 
@@ -658,7 +675,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 error={Boolean(errors.role)}
                 helperText={errorText('role')}
                 onChange={(value) => handleChange('role', value)}
-                options={roleOptions.map((r) => ({ value: r, label: r }))}
+                options={roleOptions}
               />
               <Typography sx={{ fontSize: '12px', color: NEUTRAL.muted, mt: 0.5, lineHeight: 1.4 }}>
                 {t('USERS.FORM.ROLE_HINT')}
@@ -666,7 +683,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </Grid>
           </Grid>
         </Box>
-        )}
 
         {/* Information Banner */}
         <Box

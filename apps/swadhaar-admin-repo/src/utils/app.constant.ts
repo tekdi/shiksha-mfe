@@ -1,5 +1,5 @@
 export const SWADHAAR_TENANT_ID = '35529b5d-526f-4da5-bc6e-64f740023d26';
-/** Role assigned to users created from the admin portal (user/v1/create) */
+/** Admin role in the Swadhaar tenant (the server reports a0262d32… as roleName Admin). Not the learner role. */
 export const SWADHAAR_USER_ROLE_ID = 'a0262d32-6200-4ba1-adbb-bb2883ba27a2';
 export const SWADHAAR_CHANNEL_ID = 'swadhaar-channel';
 export const SWADHAAR_FRAMEWORK = 'swadhaar-framework';

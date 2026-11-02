@@ -13,7 +13,7 @@ import CreateUserModal from '@/components/common/CreateUserModal';
 import CommonButton from '@/components/common/CommonButton';
 import CommonDialog from '@/components/common/CommonDialog';
 import PageHeader from '@/components/common/PageHeader';
-import { getUserList } from '@/services/UserService';
+import { getUserList, getTenantRoles } from '@/services/UserService';
 
 export interface UserRowItem {
   id: string;
@@ -232,7 +232,16 @@ export default function UsersPage() {
 
   // Dynamic status and role options extracted from API response
   const [availableStatuses, setAvailableStatuses] = useState<string[]>(['active', 'inactive']);
-  const [availableRoles, setAvailableRoles] = useState<string[]>([DEFAULT_ROLE]);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
+
+  // Role filter options: titles from the tenant roles API
+  useEffect(() => {
+    getTenantRoles().then((roles) => {
+      setAvailableRoles(roles.map((r) => r.name));
+      setRolesLoaded(true);
+    });
+  }, []);
 
   // Action menu state for row actions
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -273,7 +282,6 @@ export default function UsersPage() {
         limit: rowsPerPage,
         offset: page * rowsPerPage,
         filters: {
-          // role: filters.role && filters.role !== 'all' ? [filters.role] : [DEFAULT_ROLE],
           status:
             filters.status && filters.status !== 'all'
               ? [filters.status.toLowerCase()]
@@ -296,29 +304,52 @@ export default function UsersPage() {
         }
       }
 
-      const response = await getUserList(payload);
-      if (response?.result?.getUserDetails) {
-        const rawList = response.result.getUserDetails;
+      // /user/v1/list filters by role title and only one role at a time (two roles return 404), and with no
+      // role it returns Students only. So a chosen role is one call, and "All roles" is one call per tenant role, merged.
+      const chosenRole = filters.role && filters.role !== 'all' ? filters.role : '';
+      const roleTitles = chosenRole ? [chosenRole] : availableRoles;
+      const listForRole = async (title: string, body: any) => {
+        try {
+          const res = await getUserList({ ...body, filters: { ...body.filters, role: [title] } });
+          return res?.result || {};
+        } catch (err: any) {
+          if (err?.response?.status === 404) return {}; // no users with this role
+          throw err;
+        }
+      };
 
-        // Collect unique statuses and roles directly from API response
+      let rawList: any[] = [];
+      let totalFromApi = 0;
+      if (roleTitles.length === 0) {
+        // Roles API unavailable: fall back to the service's default listing
+        const res = await getUserList(payload);
+        rawList = res?.result?.getUserDetails || [];
+        totalFromApi = Number(res?.result?.totalCount) || 0;
+      } else if (roleTitles.length === 1) {
+        const result = await listForRole(roleTitles[0], payload);
+        rawList = result.getUserDetails || [];
+        totalFromApi = Number(result.totalCount) || 0;
+      } else {
+        const merged = await Promise.all(
+          roleTitles.map((title) => listForRole(title, { ...payload, limit: 200, offset: 0 }))
+        );
+        const all = merged.flatMap((r) => r.getUserDetails || []);
+        all.sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)));
+        totalFromApi = all.length;
+        rawList = all.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
+      }
+
+      if (rawList.length > 0 || totalFromApi > 0) {
+        // Collect unique statuses directly from API response
         const apiStatuses = collectUnique(rawList, (u: any) => u.status?.toLowerCase());
         if (apiStatuses.length > 0) {
           setAvailableStatuses((prev) => Array.from(new Set([...prev, ...apiStatuses])));
         }
 
-        const apiRoles = collectUnique(rawList, (u: any) => u.role);
-        if (apiRoles.length > 0) {
-          setAvailableRoles((prev) => Array.from(new Set([...prev, ...apiRoles])));
-        }
-
         const mappedUsers: UserRowItem[] = rawList.map(mapUserRow);
 
         setUsers(mappedUsers);
-        const count =
-          Number(response.result.totalCount) ||
-          Number(rawList[0]?.total_count) ||
-          mappedUsers.length;
-        setTotalCount(count);
+        setTotalCount(totalFromApi || mappedUsers.length);
       } else {
         setUsers([]);
         setTotalCount(0);
@@ -332,11 +363,12 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage, page, filters.role, filters.status, debouncedSearch]);
+  }, [rowsPerPage, page, filters.role, filters.status, debouncedSearch, availableRoles]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    // Wait for the role titles: "All roles" is built from them
+    if (rolesLoaded) fetchUsers();
+  }, [fetchUsers, rolesLoaded]);
 
   // Search is applied by the API (see fetchUsers), so the loaded rows are shown as they are
   const displayedUsers = users;

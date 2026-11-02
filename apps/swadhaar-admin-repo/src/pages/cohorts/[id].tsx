@@ -36,6 +36,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import CommonDialog from '@/components/common/CommonDialog';
 import EditCohortModal from '@/components/common/EditCohortModal';
+import AssignPathwayToGroupModal from '@/components/common/AssignPathwayToGroupModal';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import {
   getCohortById,
@@ -196,6 +197,7 @@ export default function GroupDetailsPage() {
 
   // Modals & Action States
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [isAssignPathOpen, setIsAssignPathOpen] = useState<boolean>(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState<boolean>(false);
   const [isChangeRoleOpen, setIsChangeRoleOpen] = useState<boolean>(false);
@@ -1106,13 +1108,22 @@ export default function GroupDetailsPage() {
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
                 Learning Paths
               </Typography>
-              <Button
-                size="small"
-                onClick={() => router.push('/learning-paths')}
-                sx={{ textTransform: 'none', fontSize: '12px', color: 'primary.main', p: 0 }}
-              >
-                Browse paths
-              </Button>
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  size="small"
+                  onClick={() => setIsAssignPathOpen(true)}
+                  sx={{ textTransform: 'none', fontSize: '12px', color: 'primary.main', p: 0, minWidth: 0 }}
+                >
+                  Assign
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => router.push('/learning-paths')}
+                  sx={{ textTransform: 'none', fontSize: '12px', color: 'primary.main', p: 0, minWidth: 0 }}
+                >
+                  Browse paths
+                </Button>
+              </Box>
             </Box>
 
             {cohortContents.length === 0 ? (
@@ -1123,7 +1134,7 @@ export default function GroupDetailsPage() {
                 <Button
                   size="small"
                   variant="outlined"
-                  onClick={() => router.push('/learning-paths')}
+                  onClick={() => setIsAssignPathOpen(true)}
                   sx={{
                     textTransform: 'none',
                     fontSize: '12px',
@@ -1169,6 +1180,14 @@ export default function GroupDetailsPage() {
           </Card>
         </Grid>
       </Grid>
+
+      <AssignPathwayToGroupModal
+        open={isAssignPathOpen}
+        onClose={() => setIsAssignPathOpen(false)}
+        cohortId={cohortId as string}
+        cohortName={cohort?.name}
+        onDone={(message, severity) => setFeedback({ open: true, message, severity })}
+      />
 
       {/* Edit Cohort Modal */}
       {cohort && (

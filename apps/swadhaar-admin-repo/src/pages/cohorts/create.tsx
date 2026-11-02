@@ -34,7 +34,7 @@ import nextI18NextConfig from '../../../next-i18next.config.js';
 import SDBVHierarchyFilter, { SDBVFilterValues } from '@/components/common/SDBVHierarchyFilter';
 import CommonTextField from '@/components/common/CommonTextField';
 import CommonSelect from '@/components/common/CommonSelect';
-import { getUserList } from '@/services/UserService';
+import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
 import {
   createCohort,
   bulkCreateCohortMembers,
@@ -71,9 +71,12 @@ const DEFAULT_FILTERS: SDBVFilterValues = {
   role: 'all',
 };
 
+/** The add-members list opens on Trainer users; the Role filter can switch to another role or all roles */
+const ADD_MEMBERS_DEFAULT_FILTERS: SDBVFilterValues = { ...DEFAULT_FILTERS, role: 'Trainer' };
+
 const isActiveFilter = (value?: string): value is string => Boolean(value) && value !== 'all';
 
-const USER_FILTER_KEYS = ['role', 'state', 'district', 'branch', 'program'] as const;
+const USER_FILTER_KEYS = ['state', 'district', 'branch', 'program'] as const;
 
 const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPerPage: number) => {
   const filterObj: Record<string, string[]> = {
@@ -90,11 +93,18 @@ const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPer
     limit: rowsPerPage,
     offset: page * rowsPerPage,
     filters: filterObj,
-    sort: ['name', 'asc'],
+    sort: ['createdAt', 'desc'],
   };
   const search = filters.search?.trim();
   if (search) {
-    payload.search = search;
+    // /user/v1/list has no free-text search: 10 digits match the mobile, anything else the first/last name
+    if (/^\d{10}$/.test(search)) {
+      filterObj.mobile = search as any;
+    } else {
+      const [first, ...rest] = search.split(/\s+/);
+      filterObj.firstName = first as any;
+      if (rest.length) filterObj.lastName = rest.join(' ') as any;
+    }
   }
   return payload;
 };
@@ -227,7 +237,9 @@ export default function CreateCohortPage() {
   const [loadingUsers, setLoadingUsers] = useState<boolean>(true);
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
-  const [filters, setFilters] = useState<SDBVFilterValues>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<SDBVFilterValues>(ADD_MEMBERS_DEFAULT_FILTERS);
+  const [roleNames, setRoleNames] = useState<string[]>([]);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
 
   // Selected members state (userId -> SelectedMember)
   const [selectedMembers, setSelectedMembers] = useState<Map<string, SelectedMember>>(new Map());
@@ -275,20 +287,25 @@ export default function CreateCohortPage() {
     }
   }, [targetCohortId]);
 
+  // Role filter options: titles from the tenant roles API
+  useEffect(() => {
+    getTenantRoles().then((roles) => {
+      setRoleNames(roles.map((r) => r.name));
+      setRolesLoaded(true);
+    });
+  }, []);
+
   // Fetch users from API
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
       const payload = buildUserSearchPayload(filters, page, rowsPerPage);
 
-      const response = await getUserList(payload);
-      const rawList = response?.result?.getUserDetails || [];
-      const total =
-        Number(response?.result?.totalCount) ||
-        Number(rawList[0]?.total_count) ||
-        rawList.length;
+      // A chosen role is one list call; "All roles" lists every tenant role
+      const roleTitles = isActiveFilter(filters.role) ? [filters.role] : roleNames;
+      const { users: rawList, total } = await listUsersByRoles(payload, roleTitles);
 
-      setTotalCount(total);
+      setTotalCount(total || rawList.length);
 
       const mapped: UserRow[] = rawList.map(mapUserToRow);
 
@@ -300,11 +317,12 @@ export default function CreateCohortPage() {
     } finally {
       setLoadingUsers(false);
     }
-  }, [rowsPerPage, page, filters]);
+  }, [rowsPerPage, page, filters, roleNames]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    // Wait for the role titles: "All roles" is built from them
+    if (rolesLoaded) fetchUsers();
+  }, [fetchUsers, rolesLoaded]);
 
   // Selection toggle handler
   const handleToggleUser = (user: UserRow) => {
@@ -611,10 +629,11 @@ export default function CreateCohortPage() {
               showSearch={true}
               searchPlaceholder="Search people by name, email, or mobile..."
               showRole={true}
+              roleOptions={roleNames}
               showBranch={true}
               showProgram={true}
               onClear={() => {
-                setFilters(DEFAULT_FILTERS);
+                setFilters(ADD_MEMBERS_DEFAULT_FILTERS);
                 setPage(0);
               }}
             />

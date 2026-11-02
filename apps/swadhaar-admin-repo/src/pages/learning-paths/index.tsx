@@ -11,12 +11,14 @@ import SwadhaarDataTable, { ColumnDef } from '@/components/common/SwadhaarDataTa
 import CommonButton from '@/components/common/CommonButton';
 import PageHeader from '@/components/common/PageHeader';
 import { getPathwayList } from '@/services/PathwayService';
+import { getCourseList } from '@/services/CourseService';
 import EnrolLearningPathModal from '@/components/common/EnrolLearningPathModal';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 
 export interface LearningPathItem {
   id: string;
   name: string;
+  /** Subtitle under the name, e.g. "Courses 0 → 6" */
   codeRange?: string;
   steps: string;
   enrolled: string;
@@ -62,19 +64,31 @@ export default function LearningPathsListPage() {
     setLoading(true);
     setError(null);
     try {
-      const { pathways } = await getPathwayList({ isActive: true, limit: 50, offset: 0, filters: {} });
+      const [{ pathways }, { content: courses }] = await Promise.all([
+        getPathwayList({ isActive: true, limit: 50, offset: 0, filters: {} }),
+        getCourseList({ limit: 100 }),
+      ]);
+      // A course belongs to a path through its params.pathwayId (the pathway's own total_items counts videos/resources)
+      const courseCounts = new Map<string, number>();
+      courses.forEach((course) => {
+        const pathwayId = course.params?.pathwayId;
+        if (pathwayId) courseCounts.set(pathwayId, (courseCounts.get(pathwayId) || 0) + 1);
+      });
       setLearningPaths(
-        pathways.map((p) => ({
-          id: p.id,
-          name: p.name,
-          codeRange: p.key,
-          steps: t('LEARNING_PATHS.STEPS_COURSES', { n: p.total_items ?? 0 }),
-          coursesCount: p.total_items ?? 0,
-          enrolled: NO_VALUE,
-          startDate: NO_VALUE,
-          endDate: NO_VALUE,
-          certificate: NO_VALUE,
-        }))
+        pathways.map((p) => {
+          const count = courseCounts.get(p.id) || 0;
+          return {
+            id: p.id,
+            name: p.name,
+            codeRange: count > 0 ? t('LEARNING_PATHS.COURSES_RANGE', { from: 0, to: count - 1 }) : p.key,
+            steps: t('LEARNING_PATHS.STEPS_COURSES_ASSESSMENTS', { n: count }),
+            coursesCount: count,
+            enrolled: NO_VALUE,
+            startDate: NO_VALUE,
+            endDate: NO_VALUE,
+            certificate: NO_VALUE,
+          };
+        })
       );
     } catch (err) {
       console.error('Error fetching learning paths:', err);

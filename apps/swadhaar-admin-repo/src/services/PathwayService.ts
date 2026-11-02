@@ -1,6 +1,7 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
 import { get, post, patch } from './RestClient';
 import { getServiceHeaders } from '@/utils/API/serviceHeaders';
+import { getCourseList } from './CourseService';
 
 export interface PathwayItem {
   id: string;
@@ -79,6 +80,11 @@ export const updatePathway = async (id: string, payload: Partial<PathwayItem>): 
   }
 };
 
+/**
+ * POST /user/v1/pathway/order/structure. `id` is a pathway id (not a course id). The service rejects (409) any
+ * order number held by a pathway that is not in the payload, so send every pathway whose position changes,
+ * normally the full list in its new order.
+ */
 export const updatePathwayOrderStructure = async (
   orders: Array<{ id: string; order: number }>
 ): Promise<any> => {
@@ -110,19 +116,47 @@ export const assignPathwayToUser = async (
   }
 };
 
-/** Enrol a cohort (group) in a course: POST /enrollments */
-export const enrolCohortInCourse = async (cohortId: string, courseId: string): Promise<any> => {
+/** Enrol one learner in courses: POST /lms-service/v1/enrollments { learnerId, courseId: [ids] } */
+export const enrolLearnerInCourses = async (learnerId: string, courseIds: string[]): Promise<any> => {
   try {
-    const response = await post(API_ENDPOINTS.lmsEnrollmentCreate, { cohortId, courseId }, getServiceHeaders());
+    const response = await post(
+      API_ENDPOINTS.lmsEnrollmentCreate,
+      { learnerId, courseId: courseIds },
+      getServiceHeaders()
+    );
     return response?.data;
   } catch (error) {
-    console.error('Error in PathwayService.enrolCohortInCourse:', error);
+    console.error('Error in PathwayService.enrolLearnerInCourses:', error);
     throw error;
   }
 };
 
-/** Course ids of a pathway's steps, when the pathway response lists them */
-export const pathwayCourseIds = (pathway: PathwayItem | null): string[] => {
-  const steps: any[] = pathway?.items || pathway?.courses || pathway?.steps || [];
-  return steps.map((step) => step?.courseId || step?.course_id || step?.id).filter(Boolean);
+/** Ids of the courses linked to a path through params.pathwayId (see setCoursePathway) */
+export const getPathwayCourseIds = async (pathwayId: string): Promise<string[]> => {
+  const { content } = await getCourseList({ limit: 100 });
+  return content.filter((course) => course.params?.pathwayId === pathwayId).map((course) => course.identifier);
 };
+
+/**
+ * Puts a course in a learning path (or takes it out with `null`) through the course's `params.pathwayId`:
+ * PATCH /lms-service/v1/courses/:courseId (no userId query). The service replaces `params` as a whole, so the course is read first
+ * and its other params are sent back with pathwayId added or removed.
+ */
+export const setCoursePathway = async (courseId: string, pathwayId: string | null): Promise<void> => {
+  try {
+    const headers = getServiceHeaders();
+    const courseUrl = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
+    const current = await get(courseUrl, headers);
+    const { pathwayId: currentPathwayId, ...otherParams } = current?.data?.result?.params || {};
+    if ((currentPathwayId || null) === pathwayId) return;
+
+    await patch(courseUrl, { params: pathwayId ? { ...otherParams, pathwayId } : otherParams }, headers);
+  } catch (error) {
+    console.error(`Error in PathwayService.setCoursePathway for ${courseId}:`, error);
+    throw error;
+  }
+};
+
+/** Id of a pathway returned by create/update */
+export const pathwayIdFromResponse = (res: any): string =>
+  res?.result?.id || res?.result?.pathway?.id || res?.result?.pathwayId || res?.id || '';

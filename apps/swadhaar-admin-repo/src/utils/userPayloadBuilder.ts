@@ -1,6 +1,6 @@
-import { SWADHAAR_TENANT_ID, SWADHAAR_USER_ROLE_ID } from './app.constant';
+import { SWADHAAR_TENANT_ID } from './app.constant';
 import { getSessionTenantId } from '@/utils/API/serviceHeaders';
-import { CreateUserPayload, UpdateUserPayload } from '@/services/UserService';
+import type { CreateUserPayload, UpdateUserPayload } from '@/services/UserService';
 
 export const SWADHAAR_FIELD_IDS = {
   STATE: '800265b1-9058-482a-94f4-726197e1dfe4',
@@ -9,16 +9,17 @@ export const SWADHAAR_FIELD_IDS = {
   PROGRAM: '1b92932d-648b-4b26-9f12-f43cec5416ef',
 } as const;
 
+// Swadhaar tenant roles (POST /user/v1/rbac/roles/list/roles returns Admin, Trainer and ARM). Used for bulk upload
+// rows that name a role and as the default; the create dialog sends the roleId picked from that API instead.
 export const DEFAULT_ROLE_ID_MAP: Record<string, string> = {
-  // Swadhaar Company & System Roles
-  student: '57bc16f8-f446-4e5d-b595-c908a229e776',
-  learner: '57bc16f8-f446-4e5d-b595-c908a229e776',
-  trainer: 'a5f1dbc9-2ad4-442c-b762-0e3fc1f6c6da',
-  'field trainer': 'a5f1dbc9-2ad4-442c-b762-0e3fc1f6c6da',
-  arm: 'c4454929-954e-4c51-bb7d-cca834ab9375',
-  di: 'b82e16d4-399a-4c28-91ec-29bfe4436511',
-  admin: '4a3493aa-a4f7-4e2b-b141-f213084b5599',
-  'super admin': '4a3493aa-a4f7-4e2b-b141-f213084b5599',
+  admin: 'a0262d32-6200-4ba1-adbb-bb2883ba27a2',
+  'super admin': 'a0262d32-6200-4ba1-adbb-bb2883ba27a2',
+  trainer: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
+  'field trainer': '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
+  // The server titles 8225a8de… "Trainer"; it stays the default role for learners and "student" rows
+  student: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
+  learner: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
+  arm: 'caae81d6-5c3c-44ac-9953-ac3770d704aa',
 };
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -60,6 +61,8 @@ export interface UserInputFields {
   password?: string;
   gender?: string;
   role?: string;
+  /** Display name of `role` when `role` is a role id */
+  roleName?: string;
   state?: string;
   district?: string;
   branch?: string;
@@ -108,8 +111,8 @@ export const buildCreateUserPayload = (
   const mobile = (input.phone || '').trim();
   const email = (input.email || '').trim();
   const employeeId = (input.employeeId || '').trim();
-  // Bulk upload may name a role per row; the create form always uses the standard Swadhaar user role
-  const roleId = input.role ? resolveRoleId(input.role) : SWADHAAR_USER_ROLE_ID;
+  // The create dialog passes the chosen roleId; bulk upload may name a role per row; otherwise the default role applies.
+  const roleId = input.role ? resolveRoleId(input.role) : DEFAULT_ROLE_ID_MAP.student;
   const gender = sanitizeGender(input.gender);
   const password = providedPassword || (input.password || '').trim() || generateSecureTemporaryPassword();
   const username = (input.username || '').trim() || employeeId || mobile || email;
@@ -122,7 +125,7 @@ export const buildCreateUserPayload = (
     lastName,
     email,
     mobile,
-    type: /admin/i.test(input.role || '') ? 'Admin' : 'Student',
+    type: /admin/i.test(input.roleName || input.role || '') || input.role === DEFAULT_ROLE_ID_MAP.admin ? 'Admin' : 'Student',
     tenantCohortRoleMapping: [
       {
         tenantId: targetTenantId,
