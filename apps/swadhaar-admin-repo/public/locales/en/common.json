@@ -1391,7 +1391,7 @@
     "FILE_TYPES": "Supports .csv files up to 10MB",
     "COLUMNS": {
       "ROW": "Row",
-      "EMPLOYEE_ID": "Employee ID",
+      "PHONE": "Phone Number",
       "EMAIL": "Email",
       "FAILURE_REASON": "Reason for failure",
       "UPLOAD_CORRECTED_FILE": "Upload corrected file"

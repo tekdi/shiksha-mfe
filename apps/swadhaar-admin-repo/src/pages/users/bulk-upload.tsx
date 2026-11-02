@@ -33,19 +33,17 @@ interface ParsedUserRow {
   full_name?: string;
   email?: string;
   phone?: string;
-  employee_id?: string;
   gender?: string;
   state?: string;
   district?: string;
   branch?: string;
-  program?: string;
   role?: string;
   [key: string]: any;
 }
 
 interface FailedRowItem {
   rowNum: number;
-  employeeId: string;
+  phone: string;
   email: string;
   reason: string;
 }
@@ -54,12 +52,10 @@ const MANDATORY_COLUMNS = [
   'full_name',
   'email',
   'phone',
-  'employee_id',
   'gender',
   'state',
   'district',
   'branch',
-  'program',
   'role',
 ];
 
@@ -73,17 +69,14 @@ interface RowFields {
   fullName: string;
   email: string;
   phone: string;
-  employeeId: string;
   state: string;
   district: string;
   branch: string;
-  program: string;
   role: string;
   gender: string;
 }
 
 interface SeenKeys {
-  employeeIds: Set<string>;
   emails: Set<string>;
   phones: Set<string>;
 }
@@ -94,11 +87,9 @@ const toRowFields = (row: ParsedUserRow): RowFields => ({
   fullName: trimField(row.full_name),
   email: trimField(row.email),
   phone: trimField(row.phone),
-  employeeId: trimField(row.employee_id),
   state: trimField(row.state),
   district: trimField(row.district),
   branch: trimField(row.branch),
-  program: trimField(row.program),
   role: trimField(row.role),
   gender: trimField(row.gender),
 });
@@ -109,8 +100,6 @@ const getValidationError = (fields: RowFields, seen: SeenKeys, t: TFunction): st
     t('BULK_UPLOAD.ERRORS.MANDATORY_MISSING', { field: t(`BULK_UPLOAD.FIELDS.${fieldKey}`) });
 
   if (!fields.fullName) return missing('FULL_NAME');
-  if (!fields.employeeId) return missing('EMPLOYEE_ID');
-  if (seen.employeeIds.has(fields.employeeId.toLowerCase())) return t('BULK_UPLOAD.ERRORS.DUPLICATE_EMPLOYEE_ID');
   if (!fields.email) return missing('EMAIL');
   if (!EMAIL_REGEX.test(fields.email)) return t('BULK_UPLOAD.ERRORS.INVALID_EMAIL');
   if (seen.emails.has(fields.email.toLowerCase())) return t('BULK_UPLOAD.ERRORS.DUPLICATE_EMAIL');
@@ -120,7 +109,6 @@ const getValidationError = (fields: RowFields, seen: SeenKeys, t: TFunction): st
   if (!fields.state) return missing('STATE');
   if (!fields.district) return missing('DISTRICT');
   if (!fields.branch) return missing('BRANCH');
-  if (!fields.program) return missing('PROGRAM');
   if (!fields.role) return missing('ROLE');
   return '';
 };
@@ -150,7 +138,7 @@ const hasCellValue = (value: unknown): boolean => {
 
 const toFailedRow = (rowNum: number, fields: RowFields, reason: string): FailedRowItem => ({
   rowNum,
-  employeeId: fields.employeeId || EMPTY_VALUE,
+  phone: fields.phone || EMPTY_VALUE,
   email: fields.email || EMPTY_VALUE,
   reason,
 });
@@ -162,7 +150,7 @@ interface ValidRow {
 
 /** Validates every row (including duplicates within the file) before any account is created. */
 const validateRows = (rows: ParsedUserRow[], t: TFunction) => {
-  const seen: SeenKeys = { employeeIds: new Set<string>(), emails: new Set<string>(), phones: new Set<string>() };
+  const seen: SeenKeys = { emails: new Set<string>(), phones: new Set<string>() };
   const validRows: ValidRow[] = [];
   const failures: FailedRowItem[] = [];
   rows.forEach((row, i) => {
@@ -173,7 +161,6 @@ const validateRows = (rows: ParsedUserRow[], t: TFunction) => {
       failures.push(toFailedRow(rowNum, fields, failureReason));
       return;
     }
-    seen.employeeIds.add(fields.employeeId.toLowerCase());
     seen.emails.add(fields.email.toLowerCase());
     seen.phones.add(fields.phone);
     validRows.push({ rowNum, fields });
@@ -267,11 +254,14 @@ export default function BulkUploadUsersPage() {
 
   // 1. Template Download Handler
   const handleDownloadTemplate = () => {
-    const csvContent =
-      'full_name,email,phone,employee_id,gender,state,district,branch,program,role\n' +
-      'Aarav Sharma,aarav.sharma@example.com,9876543210,EMP1001,Male,Maharashtra,Pune,Haveli,Financial Literacy,Trainer\n' +
-      'Priya Patel,priya.patel@example.com,9876543211,EMP1002,Female,Gujarat,Ahmedabad,City,Women Empowerment,ARM\n' +
-      'Rohan Deshmukh,rohan.deshmukh@example.com,9876543212,EMP1003,Male,Maharashtra,Nagpur,Nagpur Rural,Digital Banking,DI\n';
+    const rows = [
+      ['full_name', 'email', 'phone', 'gender', 'state', 'district', 'branch', 'role'],
+      ['Aarav Sharma', 'aarav.sharma@example.com', '9876543210', 'Male', 'Maharashtra', 'Pune', 'Haveli', 'Trainer'],
+      ['Priya Patel', 'priya.patel@example.com', '9876543211', 'Female', 'Gujarat', 'Ahmedabad', 'City', 'ARM'],
+      ['Rohan Deshmukh', 'rohan.deshmukh@example.com', '9876543212', 'Male', 'Maharashtra', 'Nagpur', 'Nagpur Rural', 'Admin'],
+    ];
+    // Every field is quoted so spreadsheet apps keep "Aarav Sharma" in one cell even if Space is set as a separator
+    const csvContent = rows.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n') + '\n';
 
     downloadCsv(csvContent, 'swadhaar_users_bulk_template.csv');
   };
@@ -375,9 +365,9 @@ export default function BulkUploadUsersPage() {
   const handleDownloadFailedRows = () => {
     if (failedRows.length === 0) return;
 
-    let csvContent = 'Row,Employee ID,Email,Reason for failure\n';
+    let csvContent = 'Row,Phone,Email,Reason for failure\n';
     failedRows.forEach((item) => {
-      csvContent += `"${item.rowNum}","${item.employeeId}","${item.email}","${item.reason.replace(/"/g, '""')}"\n`;
+      csvContent += `"${item.rowNum}","${item.phone}","${item.email}","${item.reason.replace(/"/g, '""')}"\n`;
     });
 
     downloadCsv(csvContent, `failed_users_${Date.now()}.csv`);
@@ -645,7 +635,7 @@ export default function BulkUploadUsersPage() {
               </Box>
 
               <Typography sx={{ fontSize: '12px', color: '#6B6862', lineHeight: 1.5 }}>
-                Role = company role (ARM, DI, Trainer…). Learner / Reviewer are set per group, not in this file.
+                Role = Trainer, Admin or ARM. full_name is split into first and last name; the phone number is the username.
               </Typography>
 
               <Button
@@ -904,7 +894,7 @@ export default function BulkUploadUsersPage() {
                         {t('BULK_UPLOAD.COLUMNS.ROW')}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, fontSize: '12px', color: '#6B7280' }}>
-                        {t('BULK_UPLOAD.COLUMNS.EMPLOYEE_ID')}
+                        {t('BULK_UPLOAD.COLUMNS.PHONE')}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, fontSize: '12px', color: '#6B7280' }}>
                         {t('BULK_UPLOAD.COLUMNS.EMAIL')}
@@ -927,7 +917,7 @@ export default function BulkUploadUsersPage() {
                           #{fail.rowNum}
                         </TableCell>
                         <TableCell sx={{ fontSize: '13px', color: '#1F1E1C' }}>
-                          {fail.employeeId}
+                          {fail.phone}
                         </TableCell>
                         <TableCell sx={{ fontSize: '13px', color: '#1F1E1C' }}>
                           {fail.email}

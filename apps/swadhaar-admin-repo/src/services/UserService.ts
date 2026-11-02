@@ -45,6 +45,7 @@ export const getCohortMemberList = async (payload: any): Promise<any> => {
 };
 
 export interface CreateUserPayload {
+  name?: string;
   username: string;
   password?: string;
   firstName: string;

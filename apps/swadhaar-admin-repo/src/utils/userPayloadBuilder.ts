@@ -20,6 +20,7 @@ export const DEFAULT_ROLE_ID_MAP: Record<string, string> = {
   student: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
   learner: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
   arm: 'caae81d6-5c3c-44ac-9953-ac3770d704aa',
+  di: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
 };
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -107,7 +108,7 @@ export const buildCreateUserPayload = (
   providedPassword?: string
 ): CreateUserPayload => {
   const targetTenantId = tenantId || getSessionTenantId() || SWADHAAR_TENANT_ID;
-  const { firstName, lastName } = splitFullName(input.fullName);
+  const { nameTrimmed, firstName, lastName } = splitFullName(input.fullName);
   const mobile = (input.phone || '').trim();
   const email = (input.email || '').trim();
   const employeeId = (input.employeeId || '').trim();
@@ -119,6 +120,7 @@ export const buildCreateUserPayload = (
   const customFields = buildLocationCustomFields(input);
 
   const payload: CreateUserPayload = {
+    name: nameTrimmed,
     username,
     password,
     firstName,

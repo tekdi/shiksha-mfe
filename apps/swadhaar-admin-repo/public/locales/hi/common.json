@@ -1285,7 +1285,7 @@
     "FILE_TYPES": "10MB तक की .csv फ़ाइलें समर्थित हैं",
     "COLUMNS": {
       "ROW": "पंक्ति",
-      "EMPLOYEE_ID": "कर्मचारी आईडी",
+      "PHONE": "फ़ोन नंबर",
       "EMAIL": "ईमेल",
       "FAILURE_REASON": "विफलता का कारण",
       "UPLOAD_CORRECTED_FILE": "संशोधित फ़ाइल अपलोड करें"
