@@ -20,6 +20,7 @@ import {
   lessonDescriptionToText,
 } from '@/services/CourseService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
+import useUsedInQuery from '@/hooks/useUsedInQuery';
 import { ContentFormHeader, FormAlerts, FormCardHeader, DescriptionField, LanguageSelect, UsedInCard, CARD_SX, LabeledTextField } from '@/components/content/ContentFormParts';
 
 interface SourceOptionProps {
@@ -131,11 +132,7 @@ export default function CreateVideoPage() {
     'You have unsaved changes to this video. Are you sure you want to leave this page?'
   );
 
-  useEffect(() => {
-    if (router.query.usedIn && typeof router.query.usedIn === 'string') {
-      setUsedIn(router.query.usedIn);
-    }
-  }, [router.query.usedIn]);
+  useUsedInQuery(setUsedIn);
 
   // Load existing video details if editing
   useEffect(() => {

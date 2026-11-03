@@ -764,18 +764,21 @@ export interface CreateVideoLessonPayload {
 }
 
 /**
- * Create a video lesson
+ * Creates a lesson of the given format with the defaults every published, single-attempt lesson shares
  * POST /lms-service/v1/lessons
  */
-export const createVideoLesson = async (
-  payload: CreateVideoLessonPayload,
+const createLesson = async (
+  format: string,
+  mediaContentSubFormat: string,
+  caller: string,
+  payload: object,
   customHeaders?: Record<string, string>
 ): Promise<any> => {
   try {
     const body = {
-      format: 'video',
+      format,
       status: 'published',
-      mediaContentSubFormat: 'youtube.url',
+      mediaContentSubFormat,
       considerForPassing: true,
       allowResubmission: false,
       noOfAttempts: 0,
@@ -788,9 +791,20 @@ export const createVideoLesson = async (
     const response = await post(API_ENDPOINTS.lmsLessons(), body, getServiceHeaders(customHeaders));
     return response?.data;
   } catch (error) {
-    console.error('Error in CourseService.createVideoLesson:', error);
+    console.error(`Error in CourseService.${caller}:`, error);
     throw error;
   }
+};
+
+/**
+ * Create a video lesson
+ * POST /lms-service/v1/lessons
+ */
+export const createVideoLesson = async (
+  payload: CreateVideoLessonPayload,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  return createLesson('video', 'youtube.url', 'createVideoLesson', payload, customHeaders);
 };
 
 export interface CreateDocumentLessonPayload {
@@ -838,26 +852,7 @@ export const createDocumentLesson = async (
   payload: CreateDocumentLessonPayload,
   customHeaders?: Record<string, string>
 ): Promise<any> => {
-  try {
-    const body = {
-      format: 'document',
-      status: 'published',
-      mediaContentSubFormat: 'pdf',
-      considerForPassing: true,
-      allowResubmission: false,
-      noOfAttempts: 0,
-      attemptsGrade: 'first_attempt',
-      resume: true,
-      startDatetime: null,
-      endDatetime: null,
-      ...payload,
-    };
-    const response = await post(API_ENDPOINTS.lmsLessons(), body, getServiceHeaders(customHeaders));
-    return response?.data;
-  } catch (error) {
-    console.error('Error in CourseService.createDocumentLesson:', error);
-    throw error;
-  }
+  return createLesson('document', 'pdf', 'createDocumentLesson', payload, customHeaders);
 };
 
 /**
