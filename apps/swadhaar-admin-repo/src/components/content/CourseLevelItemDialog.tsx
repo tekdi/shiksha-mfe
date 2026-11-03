@@ -34,9 +34,9 @@ interface DraftValues extends Omit<CourseLevelValues, 'faqs'> {
 
 let faqKeyCounter = 0;
 // Stable key per row so React keeps each row's state when rows are removed
-const toDraftFaq = (faq: CourseFaq = { question: '', answer: '' }): DraftFaq => {
+const toDraftFaq = (faq?: CourseFaq): DraftFaq => {
   faqKeyCounter += 1;
-  return { ...faq, key: `faq-${faqKeyCounter}` };
+  return { question: faq?.question ?? '', answer: faq?.answer ?? '', key: `faq-${faqKeyCounter}` };
 };
 
 /** Edits one course-level item (FAQs, summary or transition); the page saves it on the course */

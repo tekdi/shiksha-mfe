@@ -130,7 +130,8 @@ export const API_ENDPOINTS = {
     const query = userId ? `?userId=${userId}` : '';
     return `${lmsBase}/media/${mediaId}/associate/${lessonId}${query}`;
   },
-  lmsCourseHierarchy: (courseId: string) => `${lmsBase}/courses/${courseId}/hierarchy`,
+  lmsCourseHierarchy: (courseId: string) =>
+    `${lmsBase}/courses/${courseId}/hierarchy?includeModules=true&includeLessons=true`,
   // Learning paths (pathways)
   pathwayList: `${baseurl}/user/v1/pathway/list`,
   pathwayCreate: `${baseurl}/user/v1/pathway/create`,

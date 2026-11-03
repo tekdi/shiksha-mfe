@@ -34,10 +34,15 @@ import {
   CourseHierarchyChild,
   parseCourseName,
   updateCourseStatus,
+  deleteModule,
 } from '@/services/CourseService';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
 import CommonButton from '@/components/common/CommonButton';
+import CourseLevelItemDialog, {
+  CourseLevelItem,
+  CourseLevelValues,
+} from '@/components/content/CourseLevelItemDialog';
 import CommonDialog from '@/components/common/CommonDialog';
 import CommonTextField from '@/components/common/CommonTextField';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
@@ -114,6 +119,7 @@ const getSectionSummary = (section: CourseHierarchyChild, t: Translate): string 
 
 const SECTION_SKELETON_KEYS = ['section-sk-1', 'section-sk-2', 'section-sk-3', 'section-sk-4'];
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const customModulesKey = (courseId: string) => `swadhaar_custom_modules_${courseId}`;
 
 const audienceToText = (audience: unknown): string => {
@@ -141,8 +147,12 @@ const pruneCustomSections = (
   const apiIds = new Set(
     apiSections.flatMap((s: any) => [s.moduleId, s.identifier, s.id].filter(Boolean))
   );
+  // Entries with a "mod-<time>" id come from a failed save and never exist on the server, so drop them
   const pendingCustom = customSections.filter(
-    (c: any) => !apiIds.has(c.moduleId) && !apiIds.has(c.identifier)
+    (c: any) =>
+      UUID_REGEX.test(String(c.moduleId || c.identifier || '')) &&
+      !apiIds.has(c.moduleId) &&
+      !apiIds.has(c.identifier)
   );
   if (typeof window !== 'undefined' && pendingCustom.length !== customSections.length) {
     try {
@@ -154,6 +164,18 @@ const pruneCustomSections = (
     }
   }
   return pendingCustom;
+};
+
+const EMPTY_COURSE_LEVEL_VALUES: CourseLevelValues = { faqs: [], summary: '', transition: '' };
+const courseLevelStorageKey = (courseId: string) => `swadhaar_course_level_${courseId}`;
+
+const readCourseLevelValues = (courseId: string): CourseLevelValues => {
+  try {
+    const raw = localStorage.getItem(courseLevelStorageKey(courseId));
+    return raw ? { ...EMPTY_COURSE_LEVEL_VALUES, ...JSON.parse(raw) } : EMPTY_COURSE_LEVEL_VALUES;
+  } catch {
+    return EMPTY_COURSE_LEVEL_VALUES;
+  }
 };
 
 export default function CourseDetailsPage() {
@@ -183,7 +205,29 @@ export default function CourseDetailsPage() {
 
   // Action Loading for Save & Publish buttons
   const [actionLoading, setActionLoading] = useState<boolean>(false);
-  const [actionType, setActionType] = useState<'draft' | 'published' | null>(null);
+  const [actionType, setActionType] = useState<'unpublished' | 'published' | null>(null);
+
+  // FAQs, summary and transition (course-level items)
+  const [editingItem, setEditingItem] = useState<CourseLevelItem | null>(null);
+  const [courseLevelValues, setCourseLevelValues] = useState<CourseLevelValues>(EMPTY_COURSE_LEVEL_VALUES);
+
+  useEffect(() => {
+    if (courseId) setCourseLevelValues(readCourseLevelValues(courseId));
+  }, [courseId]);
+
+  const handleSaveCourseLevel = (_item: CourseLevelItem, values: CourseLevelValues) => {
+    try {
+      localStorage.setItem(courseLevelStorageKey(courseId), JSON.stringify(values));
+    } catch {
+      setToastSeverity('error');
+      setToastMessage(t('COURSES.DETAIL.SAVE_ERROR', 'Could not save'));
+      return;
+    }
+    setCourseLevelValues(values);
+    setEditingItem(null);
+    setToastSeverity('success');
+    setToastMessage(t('COURSES.DETAIL.SAVED', 'Saved'));
+  };
 
   const fetchHierarchy = useCallback(async () => {
     if (!courseId) return;
@@ -266,7 +310,7 @@ export default function CourseDetailsPage() {
     setIsEditModalOpen(false);
   };
 
-  const handleUpdateCourseStatus = async (status: 'draft' | 'published') => {
+  const handleUpdateCourseStatus = async (status: 'unpublished' | 'published') => {
     if (!courseId) return;
     setActionLoading(true);
     setActionType(status);
@@ -281,7 +325,7 @@ export default function CourseDetailsPage() {
       }
       setToastSeverity('success');
       setToastMessage(
-        status === 'draft'
+        status === 'unpublished'
           ? 'Course saved as draft successfully!'
           : (t('COURSES.DETAIL.PUBLISH_SUCCESS') || 'Course published successfully!')
       );
@@ -305,8 +349,31 @@ export default function CourseDetailsPage() {
     }
   };
 
-  const handleDeleteSection = (secId: string) => {
-    setSections(sections.filter((s) => s.identifier !== secId));
+  const [sectionToDelete, setSectionToDelete] = useState<CourseHierarchyChild | null>(null);
+  const [deletingSection, setDeletingSection] = useState(false);
+
+  const handleConfirmDeleteSection = async () => {
+    const section = sectionToDelete;
+    if (!section) return;
+    const moduleId = section.moduleId || section.identifier;
+    const isServerModule = typeof moduleId === 'string' && UUID_REGEX.test(moduleId);
+    // Modules only cached in this browser (ids like "mod-123") have no server record
+    const isLocalOnly = typeof moduleId === 'string' && moduleId.startsWith('mod-');
+
+    setDeletingSection(true);
+    try {
+      if (!isServerModule && !isLocalOnly) throw new Error('This section has no module id, so it cannot be deleted.');
+      if (isServerModule) await deleteModule(moduleId);
+      setSections((prev) => prev.filter((s) => s.identifier !== section.identifier));
+      setToastSeverity('success');
+      setToastMessage(t('COURSES.DETAIL.DELETE_SECTION_SUCCESS', 'Section deleted'));
+    } catch (err: any) {
+      setToastSeverity('error');
+      setToastMessage(err?.response?.data?.params?.errmsg || err?.message || 'Failed to delete the section.');
+    } finally {
+      setDeletingSection(false);
+      setSectionToDelete(null);
+    }
   };
 
   const parsedName = parseCourseName(course?.name || '');
@@ -478,7 +545,7 @@ export default function CourseDetailsPage() {
                         aria-label={t('COMMON.DELETE')}
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDeleteSection(section.identifier);
+                          setSectionToDelete(section);
                         }}
                         sx={{
                           color: '#BA1A1A',
@@ -699,10 +766,10 @@ export default function CourseDetailsPage() {
 
           <CommonButton
             variant="outlined"
-            onClick={() => handleUpdateCourseStatus('draft')}
+            onClick={() => handleUpdateCourseStatus('unpublished')}
             disabled={actionLoading}
           >
-            {actionLoading && actionType === 'draft' ? (
+            {actionLoading && actionType === 'unpublished' ? (
               <CircularProgress size={16} sx={{ mr: 1, color: '#1F1E1C' }} />
             ) : null}
             {t('COMMON.SAVE') || 'Save'}
@@ -908,6 +975,31 @@ export default function CourseDetailsPage() {
         open={Boolean(previewItem)}
         onClose={() => setPreviewItem(null)}
         content={previewItem}
+      />
+
+      <CommonDialog
+        open={Boolean(sectionToDelete)}
+        onClose={() => setSectionToDelete(null)}
+        title={t('COURSES.DETAIL.DELETE_SECTION_TITLE', 'Delete section')}
+        onConfirm={handleConfirmDeleteSection}
+        confirmLabel={t('COMMON.DELETE')}
+        confirmDisabled={deletingSection}
+        maxWidth="xs"
+      >
+        <Typography sx={{ fontSize: '14px', color: NEUTRAL.ink }}>
+          {t(
+            'COURSES.DETAIL.DELETE_SECTION_CONFIRM',
+            'Delete this section and the lessons inside it? Learner progress may change.'
+          )}
+        </Typography>
+      </CommonDialog>
+
+      <CourseLevelItemDialog
+        item={editingItem}
+        values={courseLevelValues}
+        title={editingItem ? t(`COURSES.DETAIL.EDIT_${editingItem.toUpperCase()}`) : ''}
+        onClose={() => setEditingItem(null)}
+        onSave={handleSaveCourseLevel}
       />
 
       {/* Snackbar notification */}

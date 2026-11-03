@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
-import { get, getBlob, post, put, patch } from './RestClient';
+import { get, getBlob, post, put, patch, deleteApi } from './RestClient';
 import { getServiceHeaders } from '@/utils/API/serviceHeaders';
 
 export interface CourseItem {
@@ -382,8 +382,8 @@ export const getCourseHierarchy = async (courseId: string): Promise<CourseHierar
       }));
 
       return {
-        identifier: mod.moduleId || `module-${mIdx}`,
-        moduleId: mod.moduleId,
+        identifier: mod.moduleId || mod.id || `module-${mIdx}`,
+        moduleId: mod.moduleId || mod.id,
         name: mod.title || `Module ${mIdx + 1}`,
         description: mod.description,
         primaryCategory: 'Course Unit',
@@ -549,7 +549,7 @@ export const createCourse = async (
  */
 export const updateCourseStatus = async (
   courseId: string,
-  status: 'draft' | 'published',
+  status: 'unpublished' | 'published',
   customHeaders?: Record<string, string>
 ): Promise<any> => {
   try {
@@ -665,6 +665,24 @@ export const updateModule = async (
     return response?.data;
   } catch (error) {
     console.error(`Error in CourseService.updateModule for ${moduleId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a module (archives the module and the lessons directly inside it)
+ * DELETE /lms-service/v1/modules/:moduleId
+ */
+export const deleteModule = async (
+  moduleId: string,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const url = `${API_ENDPOINTS.lmsModules}/${moduleId}`;
+    const response = await deleteApi(url, getServiceHeaders(customHeaders));
+    return response?.data;
+  } catch (error) {
+    console.error(`Error in CourseService.deleteModule for ${moduleId}:`, error);
     throw error;
   }
 };
