@@ -27,7 +27,17 @@ interface CourseLevelItemDialogProps {
   onSave: (item: CourseLevelItem, values: CourseLevelValues) => void;
 }
 
-const EMPTY_FAQ: CourseFaq = { question: '', answer: '' };
+type DraftFaq = CourseFaq & { key: string };
+interface DraftValues extends Omit<CourseLevelValues, 'faqs'> {
+  faqs: DraftFaq[];
+}
+
+let faqKeyCounter = 0;
+// Stable key per row so React keeps each row's state when rows are removed
+const toDraftFaq = (faq: CourseFaq = { question: '', answer: '' }): DraftFaq => {
+  faqKeyCounter += 1;
+  return { ...faq, key: `faq-${faqKeyCounter}` };
+};
 
 /** Edits one course-level item (FAQs, summary or transition); the page saves it on the course */
 const CourseLevelItemDialog: React.FC<CourseLevelItemDialogProps> = ({
@@ -38,11 +48,14 @@ const CourseLevelItemDialog: React.FC<CourseLevelItemDialogProps> = ({
   onClose,
   onSave,
 }) => {
-  const [draft, setDraft] = useState<CourseLevelValues>(values);
+  const [draft, setDraft] = useState<DraftValues>({ ...values, faqs: values.faqs.map((faq) => toDraftFaq(faq)) });
 
   useEffect(() => {
     if (!item) return;
-    setDraft({ ...values, faqs: values.faqs.length > 0 ? values.faqs : [{ ...EMPTY_FAQ }] });
+    setDraft({
+      ...values,
+      faqs: values.faqs.length > 0 ? values.faqs.map((faq) => toDraftFaq(faq)) : [toDraftFaq()],
+    });
     // Reset the draft only when the dialog opens
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item]);
@@ -57,7 +70,9 @@ const CourseLevelItemDialog: React.FC<CourseLevelItemDialogProps> = ({
     if (!item) return;
     onSave(item, {
       ...draft,
-      faqs: draft.faqs.filter((faq) => faq.question.trim() && faq.answer.trim()),
+      faqs: draft.faqs
+        .filter((faq) => faq.question.trim() && faq.answer.trim())
+        .map(({ question, answer }) => ({ question, answer })),
     });
   };
 
@@ -76,16 +91,16 @@ const CourseLevelItemDialog: React.FC<CourseLevelItemDialogProps> = ({
         {item === 'faqs' && (
           <>
             {draft.faqs.map((faq, index) => (
-              <Box key={index} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <Box key={faq.key} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                 <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <CommonTextField
-                    id={`faq-question-${index}`}
+                    id={`${faq.key}-question`}
                     label={`Question ${index + 1}`}
                     value={faq.question}
                     onChange={(e) => updateFaq(index, { question: e.target.value })}
                   />
                   <CommonTextField
-                    id={`faq-answer-${index}`}
+                    id={`${faq.key}-answer`}
                     label="Answer"
                     multiline
                     minRows={2}
@@ -108,7 +123,7 @@ const CourseLevelItemDialog: React.FC<CourseLevelItemDialogProps> = ({
               <Button
                 size="small"
                 startIcon={<AddIcon />}
-                onClick={() => setDraft((prev) => ({ ...prev, faqs: [...prev.faqs, { ...EMPTY_FAQ }] }))}
+                onClick={() => setDraft((prev) => ({ ...prev, faqs: [...prev.faqs, toDraftFaq()] }))}
               >
                 Add question
               </Button>

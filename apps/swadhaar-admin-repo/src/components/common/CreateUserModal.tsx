@@ -410,6 +410,32 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
+  const submitEdit = async (inputFields: UserInputFields) => {
+    const targetUserId = toStr(initialData?.userId || initialData?.id);
+    if (!targetUserId) {
+      showToastMessage(t('USERS.FORM.USER_ID_MISSING'), 'error');
+      return;
+    }
+
+    const emailChanged = formData.email.trim() !== originalEmailRef.current.trim();
+    const updatePayload = buildUpdateUserPayload({
+      ...inputFields,
+      email: emailChanged ? inputFields.email : undefined,
+    });
+    const response = await updateUserAccount(targetUserId, updatePayload);
+
+    if (isSuccessfulUpdate(response)) {
+      showToastMessage(response?.params?.successmessage || t('USERS.FORM.UPDATE_SUCCESS'), 'success');
+      onSuccess?.();
+      onClose();
+    } else {
+      showToastMessage(
+        response?.params?.errmsg || response?.message || t('USERS.FORM.UPDATE_FAILED'),
+        'error'
+      );
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validate()) {
       return;
@@ -434,34 +460,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       };
 
       if (isEdit) {
-        const targetUserId = toStr(initialData?.userId || initialData?.id);
-        if (!targetUserId) {
-          showToastMessage(t('USERS.FORM.USER_ID_MISSING'), 'error');
-          setLoading(false);
-          return;
-        }
-
-        const emailChanged = formData.email.trim() !== originalEmailRef.current.trim();
-        const updatePayload = buildUpdateUserPayload({
-          ...inputFields,
-          email: emailChanged ? inputFields.email : undefined,
-        });
-        const response = await updateUserAccount(targetUserId, updatePayload);
-
-        if (isSuccessfulUpdate(response)) {
-          showToastMessage(
-            response?.params?.successmessage || t('USERS.FORM.UPDATE_SUCCESS'),
-            'success'
-          );
-          onSuccess?.();
-          onClose();
-        } else {
-          const errorMsg =
-            response?.params?.errmsg ||
-            response?.message ||
-            t('USERS.FORM.UPDATE_FAILED');
-          showToastMessage(errorMsg, 'error');
-        }
+        await submitEdit(inputFields);
         return;
       }
 
