@@ -247,7 +247,7 @@ export default function CohortsPage() {
       await deleteCohort(deletingCohort.cohortId);
       setFeedback({
         open: true,
-        message: `Group "${deletingCohort.name}" archived successfully.`,
+        message: `Group "${deletingCohort.name}" deleted successfully.`,
         severity: 'success',
       });
       setDeletingCohort(null);
@@ -255,7 +255,7 @@ export default function CohortsPage() {
     } catch (err: any) {
       setFeedback({
         open: true,
-        message: err?.response?.data?.message || err?.message || 'Failed to archive group.',
+        message: err?.response?.data?.message || err?.message || 'Failed to delete group.',
         severity: 'error',
       });
     } finally {
@@ -387,7 +387,7 @@ export default function CohortsPage() {
                 <EditOutlinedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Archive / Delete">
+            <Tooltip title="Delete">
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -530,20 +530,20 @@ export default function CohortsPage() {
         />
       )}
 
-      {/* Confirm Delete / Archive Dialog */}
+      {/* Confirm Delete Dialog */}
       <CommonDialog
         open={Boolean(deletingCohort)}
         onClose={() => setDeletingCohort(null)}
-        title="Archive Group"
-        subtitle={`Are you sure you want to archive group "${deletingCohort?.name}"?`}
-        confirmLabel={deleteLoading ? 'Archiving...' : 'Archive Group'}
+        title="Delete Group"
+        subtitle={`Are you sure you want to delete group "${deletingCohort?.name}"?`}
+        confirmLabel={deleteLoading ? 'Deleting...' : 'Delete Group'}
         confirmVariant="danger"
         confirmDisabled={deleteLoading}
         loading={deleteLoading}
         onConfirm={handleConfirmDelete}
       >
         <Typography sx={{ fontSize: '13.5px', color: '#4B5563' }}>
-          This will set the group status to archived. Associated learners and historical progress will be preserved.
+          The group will be removed from the list.
         </Typography>
       </CommonDialog>
 

@@ -1288,7 +1288,7 @@
       "DISTRICT": "District",
       "BRANCH": "Branch",
       "PROGRAM": "Program",
-      "ROLE": "Platform Role",
+      "ROLE": "Role",
       "ROLE_HINT": "Determines accessible modules and permissions",
       "SELECT_STATE": "Select State",
       "SELECT_STATE_FIRST": "Select state first",

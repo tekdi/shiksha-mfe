@@ -389,7 +389,7 @@ export default function GroupDetailsPage() {
     }
   };
 
-  // Action: Delete/Archive cohort
+  // Action: Delete cohort
   const handleConfirmDeleteCohort = async () => {
     if (!cohortId) return;
     setActionLoading(true);
@@ -397,7 +397,7 @@ export default function GroupDetailsPage() {
       await deleteCohort(cohortId);
       setFeedback({
         open: true,
-        message: `Group "${cohort?.name || 'Group'}" archived successfully.`,
+        message: `Group "${cohort?.name || 'Group'}" deleted successfully.`,
         severity: 'success',
       });
       setIsDeleteConfirmOpen(false);
@@ -405,10 +405,10 @@ export default function GroupDetailsPage() {
         router.push('/cohorts');
       }, 700);
     } catch (err: any) {
-      console.error('Failed to archive cohort:', err);
+      console.error('Failed to delete cohort:', err);
       setFeedback({
         open: true,
-        message: err?.response?.data?.message || err?.message || 'Failed to archive group.',
+        message: err?.response?.data?.message || err?.message || 'Failed to delete group.',
         severity: 'error',
       });
     } finally {
@@ -675,7 +675,7 @@ export default function GroupDetailsPage() {
               '&:hover': { backgroundColor: '#FFF1F2', borderColor: '#FDA4AF' },
             }}
           >
-            Archive
+            Delete
           </Button>
 
           <Button
@@ -1197,20 +1197,20 @@ export default function GroupDetailsPage() {
         />
       )}
 
-      {/* Delete / Archive Confirmation Dialog */}
+      {/* Delete Confirmation Dialog */}
       <CommonDialog
         open={isDeleteConfirmOpen}
         onClose={() => setIsDeleteConfirmOpen(false)}
-        title="Archive Group"
-        subtitle={`Are you sure you want to archive "${groupName}"?`}
-        confirmLabel={actionLoading ? 'Archiving...' : 'Archive Group'}
+        title="Delete Group"
+        subtitle={`Are you sure you want to delete "${groupName}"?`}
+        confirmLabel={actionLoading ? 'Deleting...' : 'Delete Group'}
         confirmVariant="danger"
         confirmDisabled={actionLoading}
         loading={actionLoading}
         onConfirm={handleConfirmDeleteCohort}
       >
         <Typography sx={{ fontSize: '13.5px', color: '#4B5563' }}>
-          This will set the group status to archived. Progress data for enrolled members will be preserved.
+          The group will be removed from the list.
         </Typography>
       </CommonDialog>
 

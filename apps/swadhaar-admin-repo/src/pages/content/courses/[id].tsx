@@ -781,7 +781,7 @@ export default function CourseDetailsPage() {
                 variant="outlined"
                 size="small"
                 sx={{ ...SMALL_OUTLINED_BUTTON_SX, py: 0.4 }}
-                onClick={() => router.push('/content?tab=assessments')}
+                onClick={() => router.push({ pathname: '/content/create-assessment', query: { courseId: id } })}
               >
                 {t('COURSES.DETAIL.OPEN_IN_ASSESSMENTS')}
               </CommonButton>

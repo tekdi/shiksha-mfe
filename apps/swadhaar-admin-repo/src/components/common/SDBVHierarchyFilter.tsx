@@ -268,7 +268,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
         {/* Row 2: Role, State, District, Branch, Program */}
         <Grid container spacing={2}>
           {showRole && (
-            <Grid item xs={12} sm={6} md={2.4}>
+            <Grid item xs={12} sm={6} md={3}>
               <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
                 Role
               </Typography>
@@ -299,7 +299,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
             </Grid>
           )}
 
-          <Grid item xs={12} sm={6} md={2.4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
               State
             </Typography>
@@ -319,7 +319,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
             </Select>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={2.4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
               District
             </Typography>
@@ -339,7 +339,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
             </Select>
           </Grid>
 
-          <Grid item xs={12} sm={6} md={2.4}>
+          <Grid item xs={12} sm={6} md={3}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
               Branch
             </Typography>
@@ -367,27 +367,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
             </Select>
           </Grid>
 
-          {showProgram && (
-            <Grid item xs={12} sm={6} md={2.4}>
-              <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
-                Program
-              </Typography>
-              <Select
-                fullWidth
-                size="small"
-                value={values.program || 'all'}
-                onChange={(e) => handleProgramChange(e.target.value)}
-                sx={{ borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' }}
-              >
-                <MenuItem value="all">All programs</MenuItem>
-                {programs.map((p) => (
-                  <MenuItem key={p.value} value={p.value}>
-                    {p.label}
-                  </MenuItem>
-                ))}
-              </Select>
-            </Grid>
-          )}
+
         </Grid>
       </Box>
     );

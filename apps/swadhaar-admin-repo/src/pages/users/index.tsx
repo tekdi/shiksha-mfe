@@ -13,7 +13,9 @@ import CreateUserModal from '@/components/common/CreateUserModal';
 import CommonButton from '@/components/common/CommonButton';
 import CommonDialog from '@/components/common/CommonDialog';
 import PageHeader from '@/components/common/PageHeader';
-import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
+import { blockUser, deleteUser, getTenantRoles, listUsersByRoles, unblockUser } from '@/services/UserService';
+import { apiErrorMessage } from '@/utils/concurrency';
+import { SWADHAAR_FIELD_IDS } from '@/utils/userPayloadBuilder';
 
 export interface UserRowItem {
   id: string;
@@ -42,6 +44,9 @@ type UserDialogType = 'block' | 'unblock' | 'delete';
 
 const DEFAULT_ROLE = 'Student';
 const STATUS_BLOCKED = 'blocked';
+// Blocking sets a user inactive, so both statuses count as blocked
+const BLOCKED_STATUSES = [STATUS_BLOCKED, 'inactive'];
+const isBlockedStatus = (status?: string) => BLOCKED_STATUSES.includes(status?.toLowerCase() ?? '');
 const STATUS_ACTIVE = 'active';
 const PHONE_REGEX = /^\d{10}$/;
 
@@ -82,12 +87,12 @@ const findCustomFieldValue = (customFields: any[], matcher: (cf: any) => boolean
 const isStateField = (cf: any) =>
   cf.fieldId === '1c5e2836-4831-4b34-b963-8aeffd1c14f7' ||
   cf.fieldId === 'c572783a-4a0b-4936-8172-c2009d2453e3' ||
-  cf.fieldId === '800265b1-9058-482a-94f4-726197e1dfe4' ||
+  cf.fieldId === SWADHAAR_FIELD_IDS.STATE ||
   lower(cf.label) === 'state' ||
   lower(cf.name) === 'state';
 
 const isDistrictField = (cf: any) =>
-  cf.fieldId === '56ce5f2b-1d81-4d60-9eba-798f764008d3' ||
+  cf.fieldId === SWADHAAR_FIELD_IDS.DISTRICT ||
   cf.fieldId === 'd0368400-8529-407e-b8c6-f41c29297fa6' ||
   lower(cf.label) === 'city' ||
   lower(cf.label) === 'district' ||
@@ -95,7 +100,7 @@ const isDistrictField = (cf: any) =>
   lower(cf.name) === 'district';
 
 const isBranchField = (cf: any) =>
-  cf.fieldId === '2b5da81a-b803-4550-9af3-f4c61e8f8ca1' ||
+  cf.fieldId === SWADHAAR_FIELD_IDS.BRANCH ||
   cf.fieldId === 'ac8dcb40-8c45-4acb-b4ea-4d6282c51c22' ||
   lower(cf.label)?.includes('university or college') ||
   lower(cf.label) === 'branch' ||
@@ -248,16 +253,12 @@ export default function UsersPage() {
   // Dynamic status and role options extracted from API response
   const [availableStatuses, setAvailableStatuses] = useState<string[]>(['active', 'inactive']);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
-  const [rolesLoaded, setRolesLoaded] = useState(false);
 
   // Role filter options: titles from the tenant roles API
   useEffect(() => {
     getTenantRoles()
-      .then((roles) => {
-        setAvailableRoles(roles.map((r) => r.name));
-        setRolesLoaded(true);
-      })
-      .catch(() => setRolesLoaded(true));
+      .then((roles) => setAvailableRoles(roles.map((r) => r.name)))
+      .catch(() => setAvailableRoles([]));
   }, []);
 
   // Action menu state for row actions
@@ -303,15 +304,16 @@ export default function UsersPage() {
             filters.status && filters.status !== 'all'
               ? [filters.status.toLowerCase()]
               : ['active', 'inactive'],
+          // "all" lists every role; a chosen role is sent below
+          role: 'all',
         },
         sort: ['createdAt', 'desc'],
       };
       if (debouncedSearch) applySearchFilters(payload.filters, debouncedSearch);
 
-      // /user/v1/list filters by role title and only one role at a time (two roles return 404), and with no
-      // role it returns Students only. So a chosen role is one call, and "All roles" is one call per tenant role, merged.
+      // A chosen role filters by its title (one role at a time); otherwise role "all" lists every role
       const chosenRole = filters.role && filters.role !== 'all' ? filters.role : '';
-      const roleTitles = chosenRole ? [chosenRole] : availableRoles;
+      const roleTitles = chosenRole ? [chosenRole] : [];
       const { users: rawList, total: totalFromApi } = await listUsersByRoles(payload, roleTitles);
 
       if (rawList.length > 0 || totalFromApi > 0) {
@@ -338,12 +340,11 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage, page, filters.role, filters.status, debouncedSearch, availableRoles]);
+  }, [rowsPerPage, page, filters.role, filters.status, debouncedSearch]);
 
   useEffect(() => {
-    // Wait for the role titles: "All roles" is built from them
-    if (rolesLoaded) fetchUsers();
-  }, [fetchUsers, rolesLoaded]);
+    fetchUsers();
+  }, [fetchUsers]);
 
   // Search is applied by the API (see fetchUsers), so the loaded rows are shown as they are
   const displayedUsers = users;
@@ -379,54 +380,76 @@ export default function UsersPage() {
     }
   };
 
-  const handleConfirmBlock = () => {
-    if (selectedUserForAction) {
-      const uid = selectedUserForAction.userId;
-      setBlockedUserIds((prev) => new Set([...prev, uid]));
-      updateUserStatus(uid, STATUS_BLOCKED);
+  const showActionError = (action: string, err: unknown) => {
+    console.error(`Failed to ${action} user:`, err);
+    const reason = apiErrorMessage(err);
+    setSnackbar({
+      open: true,
+      message: reason ? `Failed to ${action} user: ${reason}` : `Failed to ${action} user. Please try again.`,
+      severity: 'error',
+    });
+  };
+
+  const handleConfirmBlock = async () => {
+    const target = selectedUserForAction;
+    setDialogType(null);
+    if (!target) return;
+    try {
+      await blockUser(target.userId);
+      setBlockedUserIds((prev) => new Set([...prev, target.userId]));
+      updateUserStatus(target.userId, STATUS_BLOCKED);
       setSnackbar({
         open: true,
         message: t('USERS.LIST.BLOCKED_SUCCESS', { name: getActionUserName() }),
         severity: 'success',
       });
+    } catch (err) {
+      showActionError('block', err);
     }
-    setDialogType(null);
   };
 
-  const handleConfirmUnblock = () => {
-    if (selectedUserForAction) {
-      const uid = selectedUserForAction.userId;
+  const handleConfirmUnblock = async () => {
+    const target = selectedUserForAction;
+    setDialogType(null);
+    if (!target) return;
+    try {
+      await unblockUser(target.userId);
       setBlockedUserIds((prev) => {
         const next = new Set(prev);
-        next.delete(uid);
+        next.delete(target.userId);
         return next;
       });
-      updateUserStatus(uid, STATUS_ACTIVE);
+      updateUserStatus(target.userId, STATUS_ACTIVE);
       setSnackbar({
         open: true,
         message: t('USERS.LIST.UNBLOCKED_SUCCESS', { name: getActionUserName() }),
         severity: 'success',
       });
+    } catch (err) {
+      showActionError('unblock', err);
     }
-    setDialogType(null);
   };
 
-  const handleConfirmDelete = () => {
-    if (selectedUserForAction) {
-      const uid = selectedUserForAction.userId;
-      setUsers((prev) => prev.filter((u) => u.userId !== uid));
+  const handleConfirmDelete = async () => {
+    const target = selectedUserForAction;
+    setDialogType(null);
+    if (!target) return;
+    try {
+      await deleteUser(target.email);
+      setUsers((prev) => prev.filter((u) => u.userId !== target.userId));
       setTotalCount((prev) => Math.max(0, prev - 1));
       setSnackbar({
         open: true,
         message: t('USERS.LIST.DELETED_SUCCESS', { name: getActionUserName() }),
         severity: 'success',
       });
+    } catch (err) {
+      showActionError('delete', err);
     }
-    setDialogType(null);
   };
 
   const isUserBlocked = (user: UserRowItem) =>
-    blockedUserIds.has(user.userId) || user.status?.toLowerCase() === STATUS_BLOCKED;
+    blockedUserIds.has(user.userId) || isBlockedStatus(user.status);
 
   // Common Table Columns Definition
   const columns: ColumnDef<UserRowItem>[] = useMemo(
@@ -515,7 +538,7 @@ export default function UsersPage() {
         labelKey: 'USERS.LIST.COL_STATUS',
         render: (row) => {
           const isBlocked =
-            blockedUserIds.has(row.userId) || row.status?.toLowerCase() === STATUS_BLOCKED;
+            blockedUserIds.has(row.userId) || isBlockedStatus(row.status);
           const effectiveStatus = isBlocked ? STATUS_BLOCKED : row.status;
 
           return (
