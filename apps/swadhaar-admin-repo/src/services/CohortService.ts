@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
-import { post, put } from './RestClient';
+import { deleteApi, post, put } from './RestClient';
 import { getServiceHeaders, getSessionTenantId } from '@/utils/API/serviceHeaders';
 
 export interface CohortCustomField {
@@ -194,14 +194,14 @@ export const updateCohort = async (
   }
 };
 
+/** DELETE /user/v1/cohort/delete/:cohortId */
 export const deleteCohort = async (
   cohortId: string,
   customHeaders: Record<string, string> = {}
 ): Promise<any> => {
   try {
-    const apiUrl = API_ENDPOINTS.cohortUpdate(cohortId);
-    const headers = getServiceHeaders(customHeaders);
-    const response = await put(apiUrl, { status: 'archived' }, headers);
+    const apiUrl = API_ENDPOINTS.cohortDelete(cohortId);
+    const response = await deleteApi(apiUrl, undefined, getServiceHeaders(customHeaders));
     return response?.data;
   } catch (error) {
     console.error('Error in deleteCohort:', error);

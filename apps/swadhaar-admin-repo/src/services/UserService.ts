@@ -76,6 +76,32 @@ export const createUserAccount = async (payload: CreateUserPayload): Promise<any
   }
 };
 
+export interface BulkImportFailure {
+  [key: string]: any;
+}
+
+export interface BulkImportResult {
+  totalProcessed: number;
+  successCount: number;
+  failureCount: number;
+  failures: BulkImportFailure[];
+  batchId?: string;
+}
+
+/**
+ * Creates the users of a CSV/Excel file in one request and adds them to a group with a role
+ * POST /user/v1/bulk-import/users (multipart: file, cohortId, roleId)
+ */
+export const bulkImportUsers = async (file: File, cohortId: string, roleId: string): Promise<BulkImportResult> => {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('cohortId', cohortId);
+  form.append('roleId', roleId);
+  // multipart/form-data lets the browser add the boundary
+  const response = await post(API_ENDPOINTS.userBulkImport, form, getServiceHeaders({ 'content-type': 'multipart/form-data' }));
+  return response?.data?.result;
+};
+
 export interface UpdateUserPayload {
   userData: {
     firstName?: string;
@@ -109,19 +135,29 @@ export const updateUserAccount = async (
   }
 };
 
-export const updateUserStatus = async (
-  userId: string,
-  status: string // 'active' | 'blocked' | 'archived' | 'deleted'
-): Promise<any> => {
-  return updateUserAccount(userId, {
-    userData: {
-      status,
-    },
-  });
-};
+/** Blocking sets the user inactive with a reason (PATCH /user/v1/update/:userId) */
+export const blockUser = async (userId: string): Promise<any> =>
+  updateUserAccount(userId, { userData: { status: 'inactive', reason: 'Blocked by admin' } });
 
-export const deleteUserAccount = async (userId: string): Promise<any> => {
-  return updateUserStatus(userId, 'deleted');
+export const unblockUser = async (userId: string): Promise<any> =>
+  updateUserAccount(userId, { userData: { status: 'active' } });
+
+/**
+ * Deleting anonymizes the account (POST /user/v1/anonymize). The call succeeds even when a user could not
+ * be processed, so a FAILED result of the given email is thrown as an error.
+ */
+export const deleteUser = async (email: string, reason = 'GDPR erasure request'): Promise<any> => {
+  try {
+    const response = await post(API_ENDPOINTS.userAnonymize, { emails: [email], reason }, getServiceHeaders());
+    const outcome = (response?.data?.result?.results || []).find((r: any) => r?.email === email);
+    if (outcome?.status === 'FAILED') {
+      throw new Error(outcome.message || 'The user could not be deleted.');
+    }
+    return response?.data;
+  } catch (error) {
+    console.error('Error in deleteUser:', error);
+    throw error;
+  }
 };
 
 export interface TenantRole {

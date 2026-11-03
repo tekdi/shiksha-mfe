@@ -163,7 +163,9 @@ const PROTOTYPE_IMAGES: ContentMediaItem[] = [
 const DEFAULT_INTRO_TEXT =
   'Now that you understand how financial planning helps households prepare for different needs and goals, the next step is to understand how families can manage their available income and expenses.';
 
-const getLessonFormat = (l: any): string => (l.format || l.primaryCategory || '').toLowerCase();
+// An LMS PDF lesson has format "document" and subFormat "pdf", so both are matched
+const getLessonFormat = (l: any): string =>
+  `${l.format || l.primaryCategory || ''} ${l.subFormat || ''}`.trim().toLowerCase();
 
 const buildVideoBlock = (l: any, lIdx: number): SectionBlock => ({
   id: l.lessonId || `blk-vid-${lIdx}-${Date.now()}`,
@@ -651,12 +653,14 @@ const createOrUpdateModule = async (
   descHtml: string,
   ordering: number
 ): Promise<string> => {
+  // The LMS has no "draft" status for modules; unsaved-for-learners modules are "unpublished"
+  const apiStatus = status === 'draft' ? 'unpublished' : status;
   if (ctx.editingModuleId) {
     await updateModule(ctx.editingModuleId, {
       title: effectiveTitle,
       description: descHtml,
       ordering,
-      status,
+      status: apiStatus,
     });
     return ctx.editingModuleId;
   }
@@ -669,7 +673,7 @@ const createOrUpdateModule = async (
     description: descHtml,
     image: '/uploads/module/default.png',
     ordering,
-    status, // 'draft' when user clicks Save, 'published' when user clicks Publish changes
+    status: apiStatus, // 'unpublished' when user clicks Save, 'published' when user clicks Publish changes
     ...getModuleDates(),
   };
   const res = await createModule(payload);
@@ -723,8 +727,8 @@ const saveSection = async (ctx: SaveContext, status: 'draft' | 'published') => {
   } catch (err: any) {
     console.error('Error in handleSave:', err);
 
-    // Graceful offline/token-fallback: preserve section in local state so changes reflect immediately
-    saveModuleLocally(
+    // Graceful offline/token-fallback for a new section only; an edit must not spawn a blank module
+    if (!ctx.editingModuleId) saveModuleLocally(
       courseId,
       {
         moduleId: `mod-${Date.now()}`,

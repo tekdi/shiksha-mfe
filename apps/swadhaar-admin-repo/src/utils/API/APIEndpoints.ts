@@ -70,12 +70,14 @@ export const API_ENDPOINTS = {
   userList: `${baseurl}/user/v1/list`,
   userRolesList: `${baseurl}/user/v1/rbac/roles/list/roles`,
   userCreate: `${baseurl}/user/v1/create`,
+  userBulkImport: `${baseurl}/user/v1/bulk-import/users`,
   userRead: (userId: string | string[], fieldValue: boolean = true) =>
     `${swadhaarMiddlewareUrl}/user/v1/read/${userId}?fieldvalue=${fieldValue}`,
-  userUpdate: (userId: string) => `${baseurl}/user/update/${userId}`,
+  userAnonymize: `${baseurl}/user/v1/anonymize`,
+  userUpdate: (userId: string) => `${baseurl}/user/v1/update/${userId}`,
 
   // Fields / Master Data
-  fieldOptionsRead: `${baseurl}/fields/options/read`,
+  fieldOptionsRead: `${baseurl}/user/v1/fields/options/read`,
   fieldOptionDelete: (type: string, option: string) => `${baseurl}/fields/options/delete/${type}?option=${option}`,
   fieldUpdate: (fieldId: string) => `${baseurl}/fields/update/${fieldId}`,
 
@@ -87,6 +89,7 @@ export const API_ENDPOINTS = {
   cohortMemberList: `${cohortBaseUrl}/user/v1/cohortmember/list`,
   cohortCreate: `${cohortBaseUrl}/user/v1/cohort/create`,
   cohortUpdate: (cohortId: string) => `${cohortBaseUrl}/user/v1/cohort/update/${cohortId}`,
+  cohortDelete: (cohortId: string) => `${cohortBaseUrl}/user/v1/cohort/delete/${cohortId}`,
   cohortUpdateUser: (userId?: string) => `${cohortBaseUrl}/user/v1/cohort/update/${userId}`,
   cohortMemberBulkCreate: `${cohortBaseUrl}/user/v1/cohortmember/bulkCreate`,
   cohortMemberUpdate: (membershipId: string | number) => `${cohortBaseUrl}/user/v1/cohortmember/update/${membershipId}`,
@@ -127,7 +130,8 @@ export const API_ENDPOINTS = {
     const query = userId ? `?userId=${userId}` : '';
     return `${lmsBase}/media/${mediaId}/associate/${lessonId}${query}`;
   },
-  lmsCourseHierarchy: (courseId: string) => `${lmsBase}/courses/${courseId}/hierarchy`,
+  lmsCourseHierarchy: (courseId: string) =>
+    `${lmsBase}/courses/${courseId}/hierarchy?includeModules=true&includeLessons=true`,
   // Learning paths (pathways)
   pathwayList: `${baseurl}/user/v1/pathway/list`,
   pathwayCreate: `${baseurl}/user/v1/pathway/create`,

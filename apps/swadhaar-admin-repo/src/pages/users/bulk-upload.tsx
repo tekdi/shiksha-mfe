@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -15,6 +15,10 @@ import {
   LinearProgress,
   Alert,
   Button,
+  FormControl,
+  InputLabel,
+  MenuItem,
+  Select,
 } from '@mui/material';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import CheckIcon from '@mui/icons-material/Check';
@@ -23,150 +27,49 @@ import { TFunction } from 'i18next';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
-import { createUserAccount } from '@/services/UserService';
-import TenantService from '@/services/TenantService';
-import { SWADHAAR_TENANT_ID } from '@/utils/app.constant';
-import { buildCreateUserPayload } from '@/utils/userPayloadBuilder';
+import { bulkImportUsers, getTenantRoles, TenantRole } from '@/services/UserService';
+import { getCohortSearch } from '@/services/CohortService';
+import { apiErrorMessage } from '@/utils/concurrency';
 import { NEUTRAL } from '@/styles/customTheme';
 
-interface ParsedUserRow {
-  full_name?: string;
-  email?: string;
-  phone?: string;
-  gender?: string;
-  state?: string;
-  district?: string;
-  branch?: string;
-  role?: string;
-  [key: string]: any;
-}
-
 interface FailedRowItem {
-  rowNum: number;
+  rowNum: string;
   phone: string;
   email: string;
   reason: string;
 }
 
-const MANDATORY_COLUMNS = [
-  'full_name',
-  'email',
-  'phone',
-  'gender',
-  'state',
-  'district',
-  'branch',
-  'role',
-];
+interface GroupOption {
+  id: string;
+  name: string;
+}
+
+// Columns of the import file
+const MANDATORY_COLUMNS = ['firstName', 'lastName', 'email', 'mobile', 'gender'];
+const TEMPLATE_CSV = `${MANDATORY_COLUMNS.join(',')}\nRohan,Deshmukh,rohan.deshmukh@example.com,9876543212,male\n`;
+const TRAINER_ROLE_TITLE = 'trainer';
 
 const EMPTY_VALUE = '-';
 const WHITE = '#FFFFFF';
 const CARD_BORDER = `1px solid ${NEUTRAL.border}`;
-const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
-const PHONE_REGEX = /^\d{10}$/;
-
-interface RowFields {
-  fullName: string;
-  email: string;
-  phone: string;
-  state: string;
-  district: string;
-  branch: string;
-  role: string;
-  gender: string;
-}
-
-interface SeenKeys {
-  emails: Set<string>;
-  phones: Set<string>;
-}
-
-const trimField = (value?: string) => (value || '').trim();
-
-const toRowFields = (row: ParsedUserRow): RowFields => ({
-  fullName: trimField(row.full_name),
-  email: trimField(row.email),
-  phone: trimField(row.phone),
-  state: trimField(row.state),
-  district: trimField(row.district),
-  branch: trimField(row.branch),
-  role: trimField(row.role),
-  gender: trimField(row.gender),
-});
-
-/** Returns the (translated) failure reason for a row, or an empty string when the row is valid. */
-const getValidationError = (fields: RowFields, seen: SeenKeys, t: TFunction): string => {
-  const missing = (fieldKey: string) =>
-    t('BULK_UPLOAD.ERRORS.MANDATORY_MISSING', { field: t(`BULK_UPLOAD.FIELDS.${fieldKey}`) });
-
-  if (!fields.fullName) return missing('FULL_NAME');
-  if (!fields.email) return missing('EMAIL');
-  if (!EMAIL_REGEX.test(fields.email)) return t('BULK_UPLOAD.ERRORS.INVALID_EMAIL');
-  if (seen.emails.has(fields.email.toLowerCase())) return t('BULK_UPLOAD.ERRORS.DUPLICATE_EMAIL');
-  if (!fields.phone) return missing('PHONE');
-  if (!PHONE_REGEX.test(fields.phone)) return t('BULK_UPLOAD.ERRORS.INVALID_PHONE');
-  if (seen.phones.has(fields.phone)) return t('BULK_UPLOAD.ERRORS.DUPLICATE_PHONE');
-  if (!fields.state) return missing('STATE');
-  if (!fields.district) return missing('DISTRICT');
-  if (!fields.branch) return missing('BRANCH');
-  if (!fields.role) return missing('ROLE');
-  return '';
-};
-
-/** Creates the user account; returns a failure reason, or null on success. */
-const createUserFromRow = async (fields: RowFields, tenantId: string, t: TFunction): Promise<string | null> => {
-  try {
-    const resp = await createUserAccount(buildCreateUserPayload(fields, tenantId));
-    if (resp?.responseCode === 'OK' || resp?.result || resp?.params?.status === 'successful') {
-      return null;
-    }
-    return resp?.params?.errmsg || resp?.message || t('BULK_UPLOAD.ERRORS.CREATE_FAILED');
-  } catch (apiErr: any) {
-    return (
-      apiErr?.response?.data?.params?.errmsg ||
-      apiErr?.response?.data?.message ||
-      apiErr?.message ||
-      t('BULK_UPLOAD.ERRORS.SERVER_ERROR')
-    );
-  }
-};
 
 const hasCellValue = (value: unknown): boolean => {
   if (typeof value === 'string') return value.trim() !== '';
   return value !== null && value !== undefined;
 };
 
-const toFailedRow = (rowNum: number, fields: RowFields, reason: string): FailedRowItem => ({
-  rowNum,
-  phone: fields.phone || EMPTY_VALUE,
-  email: fields.email || EMPTY_VALUE,
-  reason,
-});
-
-interface ValidRow {
-  rowNum: number;
-  fields: RowFields;
-}
-
-/** Validates every row (including duplicates within the file) before any account is created. */
-const validateRows = (rows: ParsedUserRow[], t: TFunction) => {
-  const seen: SeenKeys = { emails: new Set<string>(), phones: new Set<string>() };
-  const validRows: ValidRow[] = [];
-  const failures: FailedRowItem[] = [];
-  rows.forEach((row, i) => {
-    const fields = toRowFields(row);
-    const rowNum = i + 2; // Row 1 is header, so data starts at row 2
-    const failureReason = getValidationError(fields, seen, t);
-    if (failureReason) {
-      failures.push(toFailedRow(rowNum, fields, failureReason));
-      return;
-    }
-    seen.emails.add(fields.email.toLowerCase());
-    seen.phones.add(fields.phone);
-    validRows.push({ rowNum, fields });
-  });
-  return { validRows, failures };
+const firstText = (...values: unknown[]): string => {
+  const found = values.find((v) => typeof v === 'string' || typeof v === 'number');
+  return found === undefined ? EMPTY_VALUE : String(found);
 };
+
+// A failure of the import response: the API names the row and the user in its own keys
+const toFailedRow = (failure: any, index: number): FailedRowItem => ({
+  rowNum: firstText(failure?.row, failure?.rowNumber, failure?.rowNum, index + 2),
+  phone: firstText(failure?.mobile, failure?.phone),
+  email: firstText(failure?.email),
+  reason: firstText(failure?.error, failure?.reason, failure?.message, failure?.errmsg),
+});
 
 const STEP_ACTIVE_COLOR = '#E6873C';
 
@@ -243,41 +146,46 @@ export default function BulkUploadUsersPage() {
   // Stepper state: 1: Upload file, 2: Validate & Process, 3: Summary
   const [step, setStep] = useState<number>(1);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [parsedRows, setParsedRows] = useState<ParsedUserRow[]>([]);
+  const [rowCount, setRowCount] = useState<number>(0);
+  const [groups, setGroups] = useState<GroupOption[]>([]);
+  const [roles, setRoles] = useState<TenantRole[]>([]);
+  const [cohortId, setCohortId] = useState<string>('');
+  const [roleId, setRoleId] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Processing & Results states
-  const [progressPercent, setProgressPercent] = useState<number>(0);
   const [createdCount, setCreatedCount] = useState<number>(0);
   const [failedRows, setFailedRows] = useState<FailedRowItem[]>([]);
 
+  // Groups and roles to import into
+  useEffect(() => {
+    getCohortSearch({ limit: 100, offset: 0, sort: ['name', 'asc'], filters: { status: ['active'] } })
+      .then((res) => {
+        const list = res?.result?.results?.cohortDetails || [];
+        setGroups(list.map((g: any) => ({ id: g.cohortId, name: g.name })));
+      })
+      .catch(() => setGroups([]));
+    getTenantRoles().then((tenantRoles) => {
+      setRoles(tenantRoles);
+      const trainer = tenantRoles.find((r) => r.name.toLowerCase() === TRAINER_ROLE_TITLE);
+      if (trainer) setRoleId((current) => current || trainer.id);
+    }).catch(() => setRoles([]));
+  }, []);
+
   // 1. Template Download Handler
-  const handleDownloadTemplate = () => {
-    const rows = [
-      ['full_name', 'email', 'phone', 'gender', 'state', 'district', 'branch', 'role'],
-      ['Aarav Sharma', 'aarav.sharma@example.com', '9876543210', 'Male', 'Maharashtra', 'Pune', 'Haveli', 'Trainer'],
-      ['Priya Patel', 'priya.patel@example.com', '9876543211', 'Female', 'Gujarat', 'Ahmedabad', 'City', 'ARM'],
-      ['Rohan Deshmukh', 'rohan.deshmukh@example.com', '9876543212', 'Male', 'Maharashtra', 'Nagpur', 'Nagpur Rural', 'Admin'],
-    ];
-    // Every field is quoted so spreadsheet apps keep "Aarav Sharma" in one cell even if Space is set as a separator
-    const csvContent = rows.map((row) => row.map((cell) => `"${cell}"`).join(',')).join('\n') + '\n';
+  const handleDownloadTemplate = () => downloadCsv(TEMPLATE_CSV, 'users_bulk_template.csv');
 
-    downloadCsv(csvContent, 'swadhaar_users_bulk_template.csv');
-  };
-
-  // 2. File Selection & Parsing Handler
+  // 2. File Selection Handler (the rows are only counted here; the API validates them)
   const processUploadedFile = (file: File) => {
     setErrorMsg(null);
     setSelectedFile(file);
 
-    Papa.parse<ParsedUserRow>(file, {
+    Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: 'greedy',
-      transformHeader: (header: string) => header.trim().toLowerCase().replace(/\s+/g, '_'),
       complete: (results) => {
-        const rows = results.data.filter((r) => Object.values(r).some(hasCellValue));
-        setParsedRows(rows);
+        setRowCount(results.data.filter((r) => Object.values(r).some(hasCellValue)).length);
       },
       error: (err) => {
         console.error('CSV parse error:', err);
@@ -314,51 +222,35 @@ export default function BulkUploadUsersPage() {
 
   const handleRemoveFile = () => {
     setSelectedFile(null);
-    setParsedRows([]);
+    setRowCount(0);
     setErrorMsg(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
-  // 3. Validation and User Creation Workflow
+  // 3. Import: one request creates the users of the file, adds them to the group and gives them the role
   const handleValidateAndCreate = async () => {
-    if (!selectedFile || parsedRows.length === 0) {
+    if (!selectedFile || rowCount === 0) {
       setErrorMsg(t('BULK_UPLOAD.ERRORS.NO_RECORDS'));
+      return;
+    }
+    if (!cohortId || !roleId) {
+      setErrorMsg('Select the group and the role the users are added with.');
       return;
     }
 
     setStep(2);
-    setProgressPercent(10);
     setErrorMsg(null);
-
-    const tenantId = TenantService.getTenantId() || SWADHAAR_TENANT_ID;
-    const { validRows, failures } = validateRows(parsedRows, t);
-    const total = parsedRows.length;
-    let processed = failures.length;
-    let successCount = 0;
-
-    // Create users one at a time (sequentially) to keep load on the API predictable
-    await validRows.reduce(
-      (chain, { rowNum, fields }) =>
-        chain.then(async () => {
-          const failureReason = await createUserFromRow(fields, tenantId, t);
-          if (failureReason) {
-            failures.push(toFailedRow(rowNum, fields, failureReason));
-          } else {
-            successCount++;
-          }
-          processed++;
-          setProgressPercent(Math.min(95, Math.round((processed / total) * 100)));
-        }),
-      Promise.resolve()
-    );
-    failures.sort((a, b) => a.rowNum - b.rowNum);
-
-    setProgressPercent(100);
-    setCreatedCount(successCount);
-    setFailedRows(failures);
-    setStep(3); // Go to summary
+    try {
+      const result = await bulkImportUsers(selectedFile, cohortId, roleId);
+      setCreatedCount(result?.successCount ?? 0);
+      setFailedRows((result?.failures || []).map((row: any, index: number) => toFailedRow(row, index)));
+      setStep(3); // Go to summary
+    } catch (err: any) {
+      setErrorMsg(apiErrorMessage(err) || t('BULK_UPLOAD.ERRORS.SERVER_ERROR'));
+      setStep(1);
+    }
   };
 
   // 4. Download Failed Rows CSV Handler
@@ -367,7 +259,7 @@ export default function BulkUploadUsersPage() {
 
     let csvContent = 'Row,Phone,Email,Reason for failure\n';
     failedRows.forEach((item) => {
-      csvContent += `"${item.rowNum}","${item.phone}","${item.email}","${item.reason.replace(/"/g, '""')}"\n`;
+      csvContent += `"${item.rowNum}","${item.phone}","${item.email}","${item.reason.replaceAll('"', '""')}"\n`;
     });
 
     downloadCsv(csvContent, `failed_users_${Date.now()}.csv`);
@@ -377,11 +269,10 @@ export default function BulkUploadUsersPage() {
   const handleResetForCorrection = () => {
     setStep(1);
     setSelectedFile(null);
-    setParsedRows([]);
+    setRowCount(0);
     setFailedRows([]);
     setCreatedCount(0);
     setErrorMsg(null);
-    setProgressPercent(0);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -486,6 +377,40 @@ export default function BulkUploadUsersPage() {
         <Grid container spacing={3} sx={{ flex: 1 }}>
           {/* Left Column: Dropzone and File Card */}
           <Grid item xs={12} lg={8}>
+            {/* Group and role the users are imported into */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
+              <FormControl size="small" sx={{ minWidth: 240, flex: 1 }}>
+                <InputLabel id="bulk-group-label">Group</InputLabel>
+                <Select
+                  labelId="bulk-group-label"
+                  label="Group"
+                  value={cohortId}
+                  onChange={(e) => setCohortId(e.target.value)}
+                >
+                  {groups.map((g) => (
+                    <MenuItem key={g.id} value={g.id}>
+                      {g.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 240, flex: 1 }}>
+                <InputLabel id="bulk-role-label">Role</InputLabel>
+                <Select
+                  labelId="bulk-role-label"
+                  label="Role"
+                  value={roleId}
+                  onChange={(e) => setRoleId(e.target.value)}
+                >
+                  {roles.map((r) => (
+                    <MenuItem key={r.id} value={r.id}>
+                      {r.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+
             {/* Dropzone Box */}
             <Box
               onDragOver={handleDragOver}
@@ -564,7 +489,7 @@ export default function BulkUploadUsersPage() {
                       {selectedFile.name}
                     </Typography>
                     <Typography sx={{ fontSize: '12px', color: '#6B6862' }}>
-                      {parsedRows.length} rows detected
+                      {rowCount} rows detected
                     </Typography>
                   </Box>
                 </Box>
@@ -635,7 +560,7 @@ export default function BulkUploadUsersPage() {
               </Box>
 
               <Typography sx={{ fontSize: '12px', color: '#6B6862', lineHeight: 1.5 }}>
-                Role = Trainer, Admin or ARM. full_name is split into first and last name; the phone number is the username.
+                The users are created with the role and added to the group chosen next to the file.
               </Typography>
 
               <Button
@@ -688,12 +613,11 @@ export default function BulkUploadUsersPage() {
             Validating and creating users…
           </Typography>
           <Typography variant="body2" sx={{ color: '#6B6862', mb: 3 }}>
-            Verifying mandatory columns, formatting, and creating active accounts on Swadhaar.
+            Importing the file, creating the accounts and adding them to the group.
           </Typography>
           <Box sx={{ width: '100%', mb: 1 }}>
             <LinearProgress
-              variant="determinate"
-              value={progressPercent}
+              variant="indeterminate"
               sx={{
                 height: 8,
                 borderRadius: 4,
@@ -704,9 +628,6 @@ export default function BulkUploadUsersPage() {
               }}
             />
           </Box>
-          <Typography variant="caption" sx={{ color: '#6B6862' }}>
-            {progressPercent}% completed
-          </Typography>
         </Paper>
       )}
 
@@ -735,7 +656,7 @@ export default function BulkUploadUsersPage() {
                   Rows in file
                 </Typography>
                 <Typography sx={{ fontSize: '30px', fontWeight: 700, color: '#1F1E1C' }}>
-                  {parsedRows.length}
+                  {rowCount}
                 </Typography>
                 <Typography sx={{ fontSize: '12px', color: '#6B6862' }}>
                   Total records detected in file
@@ -973,7 +894,7 @@ export default function BulkUploadUsersPage() {
             </Button>
             <Button
               variant="contained"
-              disabled={!selectedFile || parsedRows.length === 0}
+              disabled={!selectedFile || rowCount === 0 || !cohortId || !roleId}
               onClick={handleValidateAndCreate}
               sx={{
                 backgroundColor: '#E6873C',

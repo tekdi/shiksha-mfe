@@ -23,7 +23,8 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import RemoveCircleOutlineOutlinedIcon from '@mui/icons-material/RemoveCircleOutlineOutlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
-import { getUserDetailsInfo, updateUserStatus, deleteUserAccount } from '@/services/UserService';
+import { apiErrorMessage } from '@/utils/concurrency';
+import { getUserDetailsInfo, blockUser, unblockUser, deleteUser } from '@/services/UserService';
 import CreateUserModal from '@/components/common/CreateUserModal';
 
 const EMPTY_PARSED_USER = {
@@ -311,8 +312,8 @@ export default function UserDetailsPage() {
 
   const handleStatusChange = async (status: 'blocked' | 'active', verb: 'block' | 'unblock') => {
     try {
-      await updateUserStatus(userId, status);
-      setUserData((prev: any) => ({ ...prev, status }));
+      await (status === 'blocked' ? blockUser(userId) : unblockUser(userId));
+      setUserData((prev: any) => ({ ...prev, status: status === 'blocked' ? 'inactive' : status }));
       setFeedback({ open: true, message: `${parsedUser.fullName} has been ${verb}ed.`, severity: 'success' });
       fetchUserDetails();
     } catch (e) {
@@ -324,12 +325,13 @@ export default function UserDetailsPage() {
 
   const handleDeleteUser = async () => {
     try {
-      await deleteUserAccount(userId);
+      await deleteUser(parsedUser.email);
       setFeedback({ open: true, message: `${parsedUser.fullName} has been deleted.`, severity: 'success' });
       router.push('/users');
     } catch (e) {
       console.error('Failed to delete user:', e);
-      setFeedback({ open: true, message: 'Failed to delete user. Please try again.', severity: 'error' });
+      const reason = apiErrorMessage(e);
+      setFeedback({ open: true, message: reason ? `Failed to delete user: ${reason}` : 'Failed to delete user. Please try again.', severity: 'error' });
     }
     setDialogType(null);
   };
@@ -542,7 +544,7 @@ export default function UserDetailsPage() {
               Edit
             </Button>
 
-            {parsedUser.status === 'blocked' ? (
+            {parsedUser.status === 'blocked' || parsedUser.status === 'inactive' ? (
               <Button
                 variant="outlined"
                 size="small"

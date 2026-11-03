@@ -27,7 +27,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import { getCourseList } from '@/services/CourseService';
+import { getCourseHierarchy, getCourseList } from '@/services/CourseService';
 import AssessmentService from '@/services/AssessmentService';
 import { BankQuestion, fetchQuestionBank, mapBankQuestion } from '@/services/ContentLibraryService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
@@ -525,20 +525,31 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
       });
   }, [assessmentId, isNew]);
 
+  // Course the page was opened from (course page → "Open in Assessments"); it is the linked content
+  const targetCourseId = typeof router.query.courseId === 'string' ? router.query.courseId : '';
+
   // Load actual courses for linkedContent dropdown
   useEffect(() => {
-    getCourseList({ limit: 50 })
-      .then((res) => {
-        if (res?.content?.length > 0) {
-          const names = res.content.map((c) => c.name).filter(Boolean);
-          const combined = Array.from(new Set(['Course 1 · Introduction to Saving', ...names, 'None']));
+    if (!router.isReady) return;
+    Promise.all([
+      getCourseList({ limit: 50 }),
+      targetCourseId ? getCourseHierarchy(targetCourseId).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([res, targetCourse]) => {
+        const targetName = targetCourse?.name || targetCourse?.title;
+        if (res?.content?.length > 0 || targetName) {
+          const names = (res?.content || []).map((c) => c.name).filter(Boolean);
+          const combined = Array.from(
+            new Set(['Course 1 · Introduction to Saving', ...(targetName ? [targetName] : []), ...names, 'None'])
+          );
           setLinkedOptions(combined);
         }
+        if (targetName) setLinkedContent(targetName);
       })
       .catch((err) => {
         console.error('Failed to load courses for assessment:', err);
       });
-  }, []);
+  }, [router.isReady, targetCourseId]);
 
   // Question actions
   const handleMoveQuestion = (index: number, direction: 'up' | 'down') => {
@@ -829,7 +840,9 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
 
       setSuccessMsg(`Assessment "${name}" saved successfully.`);
       setTimeout(() => {
-        router.push('/content?tab=assessments');
+        router.push(
+          isCreatePage && targetCourseId ? `/content/courses/${targetCourseId}` : '/content?tab=assessments'
+        );
       }, 900);
     } catch (err: any) {
       console.error('Failed to save assessment:', err);

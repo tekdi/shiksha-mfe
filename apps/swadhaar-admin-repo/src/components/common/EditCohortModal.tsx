@@ -3,7 +3,7 @@ import { Box, Alert } from '@mui/material';
 import CommonDialog from './CommonDialog';
 import CommonTextField from './CommonTextField';
 import CommonSelect from './CommonSelect';
-import { updateCohort } from '@/services/CohortService';
+import { getCohortById, updateCohort } from '@/services/CohortService';
 
 export interface EditCohortModalProps {
   open: boolean;
@@ -25,12 +25,12 @@ const normalizeCohortStatus = (status: string): string => {
 
 const toDateInput = (value?: string | null): string => (value ? String(value).slice(0, 10) : '');
 
-const readDescription = (cohort: EditCohortModalProps['cohort']): string => {
+const readDescription = (cohort: any): string => {
   if (!cohort) return '';
   const direct = cohort.description || cohort.rawCohort?.description;
   if (direct) return direct;
   try {
-    const metadata = cohort.rawCohort?.metadata;
+    const metadata = cohort.rawCohort?.metadata ?? cohort.metadata;
     const parsed = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
     return parsed?.description || '';
   } catch {
@@ -51,17 +51,33 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The group as the server has it (POST /user/v1/cohort/search by cohortId), loaded when the dialog opens
+  const [saved, setSaved] = useState<any>(null);
+
+  const fillForm = (source: any) => {
+    setName(source.name || '');
+    setDescription(readDescription(source));
+    setStartDate(toDateInput(source.cohort_startDate ?? source.rawCohort?.cohort_startDate));
+    setEndDate(toDateInput(source.cohort_endDate ?? source.rawCohort?.cohort_endDate));
+    setStatus(normalizeCohortStatus((source.status || 'active').toLowerCase()));
+  };
 
   useEffect(() => {
-    if (cohort) {
-      setName(cohort.name || '');
-      setDescription(readDescription(cohort));
-      setStartDate(toDateInput(cohort.rawCohort?.cohort_startDate));
-      setEndDate(toDateInput(cohort.rawCohort?.cohort_endDate));
-      const s = (cohort.status || 'active').toLowerCase();
-      setStatus(normalizeCohortStatus(s));
-      setError(null);
-    }
+    if (!open || !cohort) return;
+    setError(null);
+    setSaved(cohort.rawCohort || cohort);
+    fillForm(cohort);
+    let cancelled = false;
+    getCohortById(cohort.cohortId)
+      .then((details) => {
+        if (cancelled || !details) return;
+        setSaved(details);
+        fillForm(details);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
   }, [cohort, open]);
 
   const handleSubmit = async () => {
@@ -82,14 +98,10 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
     try {
       // The API answers 409 when the name is re-sent unchanged, so send only edited fields
       const payload: any = {};
-      const original = cohort.rawCohort || cohort;
-      if (name.trim() !== (cohort.name || '').trim()) payload.name = name.trim();
-      if (status.toLowerCase() !== normalizeCohortStatus((cohort.status || 'active').toLowerCase())) {
+      const original = saved || cohort;
+      if (name.trim() !== (original.name || '').trim()) payload.name = name.trim();
+      if (status.toLowerCase() !== normalizeCohortStatus((original.status || 'active').toLowerCase())) {
         payload.status = status.toLowerCase();
-      }
-      if (description.trim() !== readDescription(cohort).trim()) {
-        // The update API has no description column; it lives in metadata
-        payload.metadata = JSON.stringify({ description: description.trim() });
       }
       if (startDate && startDate !== toDateInput(original.cohort_startDate)) {
         payload.cohort_startDate = startDate;
@@ -149,6 +161,7 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
           placeholder="Brief summary of this group's objective or target beneficiaries..."
           multiline
           rows={3}
+          disabled
         />
 
         <Box sx={{ display: 'flex', gap: 2 }}>

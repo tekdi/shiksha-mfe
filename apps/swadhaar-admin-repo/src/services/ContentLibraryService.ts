@@ -174,7 +174,7 @@ export const inferCourseUsage = (item: any): string => {
 };
 
 /** GET /assessment/v1/tests: the list sits under `result`; its key and the total's key vary, so fall back to the first array */
-const readTestList = (res: any): { tests: any[]; count: number } => {
+export const readTestList = (res: any): { tests: any[]; count: number } => {
   const result = res?.result ?? res?.data ?? res;
   const tests: any[] = Array.isArray(result)
     ? result

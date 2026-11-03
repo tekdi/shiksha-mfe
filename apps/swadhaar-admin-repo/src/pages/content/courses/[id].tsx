@@ -38,6 +38,10 @@ import {
 import LifecycleChip from '@/components/common/LifecycleChip';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
 import CommonButton from '@/components/common/CommonButton';
+import CourseLevelItemDialog, {
+  CourseLevelItem,
+  CourseLevelValues,
+} from '@/components/content/CourseLevelItemDialog';
 import CommonDialog from '@/components/common/CommonDialog';
 import CommonTextField from '@/components/common/CommonTextField';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
@@ -156,6 +160,18 @@ const pruneCustomSections = (
   return pendingCustom;
 };
 
+const EMPTY_COURSE_LEVEL_VALUES: CourseLevelValues = { faqs: [], summary: '', transition: '' };
+const courseLevelStorageKey = (courseId: string) => `swadhaar_course_level_${courseId}`;
+
+const readCourseLevelValues = (courseId: string): CourseLevelValues => {
+  try {
+    const raw = localStorage.getItem(courseLevelStorageKey(courseId));
+    return raw ? { ...EMPTY_COURSE_LEVEL_VALUES, ...JSON.parse(raw) } : EMPTY_COURSE_LEVEL_VALUES;
+  } catch {
+    return EMPTY_COURSE_LEVEL_VALUES;
+  }
+};
+
 export default function CourseDetailsPage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -184,6 +200,28 @@ export default function CourseDetailsPage() {
   // Action Loading for Save & Publish buttons
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [actionType, setActionType] = useState<'draft' | 'published' | null>(null);
+
+  // FAQs, summary and transition (course-level items)
+  const [editingItem, setEditingItem] = useState<CourseLevelItem | null>(null);
+  const [courseLevelValues, setCourseLevelValues] = useState<CourseLevelValues>(EMPTY_COURSE_LEVEL_VALUES);
+
+  useEffect(() => {
+    if (courseId) setCourseLevelValues(readCourseLevelValues(courseId));
+  }, [courseId]);
+
+  const handleSaveCourseLevel = (_item: CourseLevelItem, values: CourseLevelValues) => {
+    try {
+      localStorage.setItem(courseLevelStorageKey(courseId), JSON.stringify(values));
+    } catch {
+      setToastSeverity('error');
+      setToastMessage(t('COURSES.DETAIL.SAVE_ERROR', 'Could not save'));
+      return;
+    }
+    setCourseLevelValues(values);
+    setEditingItem(null);
+    setToastSeverity('success');
+    setToastMessage(t('COURSES.DETAIL.SAVED', 'Saved'));
+  };
 
   const fetchHierarchy = useCallback(async () => {
     if (!courseId) return;
@@ -750,10 +788,10 @@ export default function CourseDetailsPage() {
             <Box sx={{ ...COURSE_ITEM_ROW_SX, borderBottom: `1px solid ${NEUTRAL.divider}` }}>
               <Typography sx={{ fontSize: '14px', color: NEUTRAL.ink }}>
                 <strong style={{ fontWeight: 600 }}>{t('COURSES.DETAIL.FAQS')}</strong>{' '}
-                <span style={{ color: NEUTRAL.muted }}>· {t('COURSES.DETAIL.FAQS_COUNT', { count: 10 })}</span>
+                <span style={{ color: NEUTRAL.muted }}>· {t('COURSES.DETAIL.FAQS_COUNT', { count: courseLevelValues.faqs.length })}</span>
               </Typography>
               <Tooltip title={t('COURSES.DETAIL.EDIT_FAQS')}>
-                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_FAQS')} sx={{ color: NEUTRAL.muted }}>
+                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_FAQS')} onClick={() => setEditingItem('faqs')} sx={{ color: NEUTRAL.muted }}>
                   <EditOutlinedIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -765,7 +803,7 @@ export default function CourseDetailsPage() {
                 <strong style={{ fontWeight: 600 }}>{t('COURSES.DETAIL.SUMMARY')}</strong>
               </Typography>
               <Tooltip title={t('COURSES.DETAIL.EDIT_SUMMARY')}>
-                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_SUMMARY')} sx={{ color: NEUTRAL.muted }}>
+                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_SUMMARY')} onClick={() => setEditingItem('summary')} sx={{ color: NEUTRAL.muted }}>
                   <EditOutlinedIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -781,7 +819,7 @@ export default function CourseDetailsPage() {
                 variant="outlined"
                 size="small"
                 sx={{ ...SMALL_OUTLINED_BUTTON_SX, py: 0.4 }}
-                onClick={() => router.push('/content?tab=assessments')}
+                onClick={() => router.push({ pathname: '/content/create-assessment', query: { courseId: id } })}
               >
                 {t('COURSES.DETAIL.OPEN_IN_ASSESSMENTS')}
               </CommonButton>
@@ -794,7 +832,7 @@ export default function CourseDetailsPage() {
                 <span style={{ color: NEUTRAL.muted }}>· {t('COURSES.DETAIL.TRANSITION_INFO')}</span>
               </Typography>
               <Tooltip title={t('COURSES.DETAIL.EDIT_TRANSITION')}>
-                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_TRANSITION')} sx={{ color: NEUTRAL.muted }}>
+                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_TRANSITION')} onClick={() => setEditingItem('transition')} sx={{ color: NEUTRAL.muted }}>
                   <EditOutlinedIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -908,6 +946,14 @@ export default function CourseDetailsPage() {
         open={Boolean(previewItem)}
         onClose={() => setPreviewItem(null)}
         content={previewItem}
+      />
+
+      <CourseLevelItemDialog
+        item={editingItem}
+        values={courseLevelValues}
+        title={editingItem ? t(`COURSES.DETAIL.EDIT_${editingItem.toUpperCase()}`) : ''}
+        onClose={() => setEditingItem(null)}
+        onSave={handleSaveCourseLevel}
       />
 
       {/* Snackbar notification */}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Typography, Grid } from '@mui/material';
 import { useTranslation } from 'next-i18next';
 import MasterDataService, { LocationOption } from '@/services/MasterDataService';
@@ -13,6 +13,7 @@ import CommonTextField from './CommonTextField';
 import {
   buildCreateUserPayload,
   buildUpdateUserPayload,
+  SWADHAAR_FIELD_IDS,
   UserInputFields,
 } from '@/utils/userPayloadBuilder';
 
@@ -42,7 +43,7 @@ interface FormState {
 
 /** Sentinel gender value meaning "not selected" (kept as-is for the submit logic). */
 const GENDER_NOT_SELECTED = 'Select';
-const STATE_FIELD_ID = '800265b1-9058-482a-94f4-726197e1dfe4';
+const STATE_FIELD_ID = SWADHAAR_FIELD_IDS.STATE;
 const PHONE_REGEX = /^\d{10}$/;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
@@ -101,7 +102,7 @@ const formStateFromInitialData = (initialData: any): FormState => {
   const rawUsername = toStr(initialData.username);
   return {
     fullName: toStr(initialData.fullName || initialData.name),
-    username: '',
+    username: rawUsername,
     password: '',
     employeeId: toStr(initialData.employeeId) || employeeIdFromUsername(rawUsername, ''),
     email: cleanPlaceholder(toStr(initialData.email), '-'),
@@ -131,12 +132,18 @@ const mergeServerUserIntoForm = (prev: FormState, user: any): FormState => {
     customFields,
     (cf) => cf.fieldId === STATE_FIELD_ID || hasLabelOrName(cf, ['state'])
   );
-  const districtVal = findCustomFieldValue(customFields, (cf) => hasLabelOrName(cf, ['district']));
-  const branchVal = findCustomFieldValue(customFields, (cf) => hasLabelOrName(cf, ['branch', 'block']));
+  const districtVal = findCustomFieldValue(
+    customFields,
+    (cf) => cf.fieldId === SWADHAAR_FIELD_IDS.DISTRICT || hasLabelOrName(cf, ['district'])
+  );
+  const branchVal = findCustomFieldValue(
+    customFields,
+    (cf) => cf.fieldId === SWADHAAR_FIELD_IDS.BRANCH || hasLabelOrName(cf, ['branch', 'block'])
+  );
 
   return {
     fullName: computedName || prev.fullName,
-    username: prev.username,
+    username: uUsername || prev.username,
     password: prev.password,
     employeeId: computedEmpId || prev.employeeId,
     email: uEmail && uEmail !== '-' ? uEmail : prev.email,
@@ -159,7 +166,30 @@ const SECTION_TITLE_SX = {
   mb: 1.4,
 } as const;
 
-export const CreateUserModal: React.FC<CreateUserModalProps> = ({
+export const validateFullName = (fullName: string, isEdit: boolean) => {
+  if (!fullName) return isEdit ? undefined : 'USERS.FORM.ERROR_FULL_NAME_REQUIRED';
+  return fullName.length < 2 ? 'USERS.FORM.ERROR_FULL_NAME_MIN' : undefined;
+};
+
+const validateEmail = (email: string, isEdit: boolean) => {
+  if (!email) return isEdit ? undefined : 'USERS.FORM.ERROR_EMAIL_REQUIRED';
+  return email !== '-' && !EMAIL_REGEX.test(email)
+    ? 'USERS.FORM.ERROR_EMAIL_INVALID'
+    : undefined;
+};
+
+const validatePhone = (phone: string, isEdit: boolean) => {
+  if (!phone) return isEdit ? undefined : 'USERS.FORM.ERROR_PHONE_REQUIRED';
+  return PHONE_REGEX.test(phone) ? undefined : 'USERS.FORM.ERROR_PHONE_INVALID';
+};
+
+const isSuccessfulUpdate = (response: any) =>
+  response?.responseCode === 'OK' ||
+  response?.responseCode === 200 ||
+  Boolean(response?.result) ||
+  response?.params?.status === 'successful';
+
+const CreateUserModal: React.FC<CreateUserModalProps> = ({
   open,
   onClose,
   onSuccess,
@@ -169,6 +199,8 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [formData, setFormData] = useState<FormState>(initialFormState);
+  // Email the user had when the dialog opened; an unchanged email is not sent on edit
+  const originalEmailRef = useRef('');
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -253,7 +285,9 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       setFormData(initialFormState);
       return;
     }
-    setFormData(formStateFromInitialData(initialData));
+    const initialForm = formStateFromInitialData(initialData);
+    originalEmailRef.current = initialForm.email;
+    setFormData(initialForm);
 
     // Call getUserDetailsInfo to fetch complete profile data from server
     const targetUserId = toStr(initialData.userId || initialData.id);
@@ -262,7 +296,12 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       .then((res: any) => {
         const user = res?.result?.userData || res?.userData || res?.result || res;
         if (user) {
-          setFormData((prev) => mergeServerUserIntoForm(prev, user));
+          setFormData((prev) => {
+            const merged = mergeServerUserIntoForm(prev, user);
+            // Only count the server's email as the original while the admin has not edited it
+            if (prev.email === originalEmailRef.current) originalEmailRef.current = merged.email;
+            return merged;
+          });
         }
       })
       .catch((err) => {
@@ -347,42 +386,54 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     const phone = toStr(formData.phone).trim();
     const password = toStr(formData.password);
 
-    if (!fullName) {
-      newErrors.fullName = 'USERS.FORM.ERROR_FULL_NAME_REQUIRED';
-    } else if (fullName.length < 2) {
-      newErrors.fullName = 'USERS.FORM.ERROR_FULL_NAME_MIN';
-    }
-
-    if (!isEdit && !email) {
-      newErrors.email = 'USERS.FORM.ERROR_EMAIL_REQUIRED';
-    } else if (
-      email &&
-      email !== '-' &&
-      !EMAIL_REGEX.test(email)
-    ) {
-      newErrors.email = 'USERS.FORM.ERROR_EMAIL_INVALID';
-    }
-
-    if (!phone) {
-      newErrors.phone = 'USERS.FORM.ERROR_PHONE_REQUIRED';
-    } else if (!PHONE_REGEX.test(phone)) {
-      newErrors.phone = 'USERS.FORM.ERROR_PHONE_INVALID';
-    }
-
-    if (!isEdit && !formData.role) {
-      newErrors.role = 'USERS.FORM.ERROR_ROLE_REQUIRED';
-    }
-
-    if (!isEdit && formData.gender === GENDER_NOT_SELECTED) {
-      newErrors.gender = 'USERS.FORM.ERROR_GENDER_REQUIRED';
-    }
-
-    if (!isEdit && password && password.length < 8) {
-      newErrors.password = 'USERS.FORM.ERROR_PASSWORD_MIN';
-    }
+    // Nothing is mandatory when editing; filled fields are still checked for format
+    const fieldErrors: Partial<Record<keyof FormState, string | undefined>> = {
+      fullName: validateFullName(fullName, isEdit),
+      email: validateEmail(email, isEdit),
+      phone: validatePhone(phone, isEdit),
+      role: !isEdit && !formData.role ? 'USERS.FORM.ERROR_ROLE_REQUIRED' : undefined,
+      gender:
+        !isEdit && formData.gender === GENDER_NOT_SELECTED
+          ? 'USERS.FORM.ERROR_GENDER_REQUIRED'
+          : undefined,
+      password:
+        !isEdit && password && password.length < 8
+          ? 'USERS.FORM.ERROR_PASSWORD_MIN'
+          : undefined,
+    };
+    (Object.keys(fieldErrors) as (keyof FormState)[]).forEach((key) => {
+      const message = fieldErrors[key];
+      if (message) newErrors[key] = message;
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const submitEdit = async (inputFields: UserInputFields) => {
+    const targetUserId = toStr(initialData?.userId || initialData?.id);
+    if (!targetUserId) {
+      showToastMessage(t('USERS.FORM.USER_ID_MISSING'), 'error');
+      return;
+    }
+
+    const emailChanged = formData.email.trim() !== originalEmailRef.current.trim();
+    const updatePayload = buildUpdateUserPayload({
+      ...inputFields,
+      email: emailChanged ? inputFields.email : undefined,
+    });
+    const response = await updateUserAccount(targetUserId, updatePayload);
+
+    if (isSuccessfulUpdate(response)) {
+      showToastMessage(response?.params?.successmessage || t('USERS.FORM.UPDATE_SUCCESS'), 'success');
+      onSuccess?.();
+      onClose();
+    } else {
+      showToastMessage(
+        response?.params?.errmsg || response?.message || t('USERS.FORM.UPDATE_FAILED'),
+        'error'
+      );
+    }
   };
 
   const handleSubmit = async () => {
@@ -409,35 +460,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       };
 
       if (isEdit) {
-        const targetUserId = toStr(initialData?.userId || initialData?.id);
-        if (!targetUserId) {
-          showToastMessage(t('USERS.FORM.USER_ID_MISSING'), 'error');
-          setLoading(false);
-          return;
-        }
-
-        const updatePayload = buildUpdateUserPayload(inputFields);
-        const response = await updateUserAccount(targetUserId, updatePayload);
-
-        if (
-          response?.responseCode === 'OK' ||
-          response?.responseCode === 200 ||
-          response?.result ||
-          response?.params?.status === 'successful'
-        ) {
-          showToastMessage(
-            response?.params?.successmessage || t('USERS.FORM.UPDATE_SUCCESS'),
-            'success'
-          );
-          onSuccess?.();
-          onClose();
-        } else {
-          const errorMsg =
-            response?.params?.errmsg ||
-            response?.message ||
-            t('USERS.FORM.UPDATE_FAILED');
-          showToastMessage(errorMsg, 'error');
-        }
+        await submitEdit(inputFields);
         return;
       }
 
@@ -517,7 +540,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonTextField
                 label={t('USERS.FORM.FULL_NAME')}
-                required
+                required={!isEdit}
                 value={formData.fullName}
                 onChange={(e) => handleChange('fullName', e.target.value)}
                 error={Boolean(errors.fullName)}
@@ -525,19 +548,18 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
               />
             </Grid>
 
-            {/* Username (optional, create only; falls back to the phone number) */}
-            {!isEdit && (
-              <Grid item xs={12} sm={6}>
-                <CommonTextField
-                  label={t('USERS.FORM.USERNAME')}
-                  value={formData.username}
-                  onChange={(e) => handleChange('username', e.target.value)}
-                  error={Boolean(errors.username)}
-                  helperText={errorText('username')}
-                  hint={t('USERS.FORM.USERNAME_HINT')}
-                />
-              </Grid>
-            )}
+            {/* Username (optional on create, falls back to the phone number; read-only when editing) */}
+            <Grid item xs={12} sm={6}>
+              <CommonTextField
+                label={t('USERS.FORM.USERNAME')}
+                value={formData.username}
+                onChange={(e) => handleChange('username', e.target.value)}
+                error={Boolean(errors.username)}
+                helperText={errorText('username')}
+                hint={isEdit ? undefined : t('USERS.FORM.USERNAME_HINT')}
+                disabled={isEdit}
+              />
+            </Grid>
 
             {/* Employee ID (optional) */}
             {isEdit && (
@@ -555,7 +577,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonTextField
                 label={t('USERS.FORM.EMAIL')}
-                required
+                required={!isEdit}
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
@@ -569,7 +591,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonTextField
                 label={t('USERS.FORM.PHONE')}
-                required
+                required={!isEdit}
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleChange('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -593,19 +615,19 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </Grid>
 
             {/* Password (optional, create only; a temporary one is generated when blank) */}
-            {!isEdit && (
-              <Grid item xs={12} sm={6}>
-                <CommonTextField
-                  label={t('USERS.FORM.PASSWORD')}
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => handleChange('password', e.target.value)}
-                  error={Boolean(errors.password)}
-                  helperText={errorText('password')}
-                  hint={t('USERS.FORM.PASSWORD_HINT')}
-                />
-              </Grid>
-            )}
+            {/* {!isEdit && ( */}
+            <Grid item xs={12} sm={6}>
+              <CommonTextField
+                label={t('USERS.FORM.PASSWORD')}
+                type="password"
+                value={formData.password}
+                onChange={(e) => handleChange('password', e.target.value)}
+                error={Boolean(errors.password)}
+                helperText={errorText('password')}
+                hint={t('USERS.FORM.PASSWORD_HINT')}
+              />
+            </Grid>
+            {/* )} */}
           </Grid>
         </Box>
 
@@ -648,17 +670,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 disabled={!formData.district}
                 onChange={(value) => handleChange('branch', value)}
                 options={branches.map((b) => ({ value: b.value, label: b.label }))}
-              />
-            </Grid>
-
-            {/* Program */}
-            <Grid item xs={12} sm={6}>
-              <CommonSelect
-                label={t('USERS.FORM.PROGRAM')}
-                value={formData.program}
-                placeholder={t('USERS.FORM.SELECT_PROGRAM')}
-                onChange={(value) => handleChange('program', value)}
-                options={programs.map((p) => ({ value: p.value, label: p.label }))}
               />
             </Grid>
           </Grid>

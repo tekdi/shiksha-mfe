@@ -3,10 +3,10 @@ import { getSessionTenantId } from '@/utils/API/serviceHeaders';
 import type { CreateUserPayload, UpdateUserPayload } from '@/services/UserService';
 
 export const SWADHAAR_FIELD_IDS = {
-  STATE: '800265b1-9058-482a-94f4-726197e1dfe4',
-  DISTRICT: '56ce5f2b-1d81-4d60-9eba-798f764008d3',
-  BRANCH: '2b5da81a-b803-4550-9af3-f4c61e8f8ca1',
-  PROGRAM: '1b92932d-648b-4b26-9f12-f43cec5416ef',
+  // The field ids returned by POST /user/v1/fields/options/read for `states`, `city` and `block`
+  STATE: 'b61edfc6-3787-4079-86d3-37262bf23a9e',
+  DISTRICT: '4aab68ae-8382-43aa-a45a-e9b239319857',
+  BRANCH: '87d95cea-942b-4f8a-87d1-ee346b06b53c',
 } as const;
 
 // Swadhaar tenant roles (POST /user/v1/rbac/roles/list/roles returns Admin, Trainer and ARM). Used for bulk upload
@@ -95,7 +95,6 @@ const buildLocationCustomFields = (input: UserInputFields): CustomFieldValue[] =
     [SWADHAAR_FIELD_IDS.STATE, input.state],
     [SWADHAAR_FIELD_IDS.DISTRICT, input.district],
     [SWADHAAR_FIELD_IDS.BRANCH, input.branch],
-    [SWADHAAR_FIELD_IDS.PROGRAM, input.program],
   ];
   return locationFields
     .filter(([, value]) => value && value !== 'all')
