@@ -18,8 +18,8 @@ import { checkAuth } from '@shared-lib-v2/utils/AuthService';
 import SwadhaarBottomNav from '@learner/components/Swadhaar/SwadhaarBottomNav';
 import CFLHeader from '../../../../../../../libs/cfl/components/CFLHeader';
 import {
-  getCourseHierarchy,
-  getContentCourseStatus,
+  fetchSwadhaarCourseModules,
+  fetchSwadhaarModuleLessons,
   trackCourseClick,
   fetchSwadhaarLevelCourses,
 } from '@learner/utils/API/SwadhaarService';
@@ -81,7 +81,7 @@ export default function SubtopicDetailsPage() {
       const userId = trainerId || localStorage.getItem('userId') || '';
       const tenantId = localStorage.getItem('tenantId') || tenant?.tenantId || '';
 
-      const courseHierarchy = await getCourseHierarchy(courseId);
+      const courseHierarchy = await fetchSwadhaarCourseModules(courseId);
       setCourseName(courseHierarchy?.name || '');
       const allModules: any[] = courseHierarchy?.children || [];
       setCourseModules(allModules);
@@ -97,25 +97,14 @@ export default function SubtopicDetailsPage() {
         return null;
       };
 
-      const currentModule = findNode(allModules, moduleId);
+      // The module list has no lessons; the clicked module's lessons come from their own call
+      const moduleLessons = await fetchSwadhaarModuleLessons(courseId, moduleId, userId);
+      const currentModule = { ...findNode(allModules, moduleId), children: moduleLessons.children };
       setModuleName(currentModule?.name || t('LEARNER_APP.LEARN.PAGE_TITLE'));
       setModuleDescription(currentModule?.description || '');
       const rawSubtopics = currentModule?.children || [];
 
-      const collectAllIds = (nodes: any[]): string[] => {
-        const ids: string[] = [];
-        nodes.forEach((n: any) => {
-          ids.push(n.identifier);
-          if (n.children && n.children.length > 0) ids.push(...collectAllIds(n.children));
-        });
-        return ids;
-      };
-
-      const allIds = [...new Set([courseId, moduleId, ...collectAllIds(rawSubtopics)])];
-      let status: any[] = [];
-      if (userId && allIds.length && tenantId) {
-        status = await getContentCourseStatus([userId], allIds, tenantId).catch(() => []);
-      }
+      let status: any[] = [...courseHierarchy.trackingStatus, ...moduleLessons.trackingStatus];
 
       // Apply sessionStorage progress guard — same guard as the lesson page.
       // If the user was watching a lesson in this browser session and the backend
@@ -189,18 +178,9 @@ export default function SubtopicDetailsPage() {
         const currentLevelIdx = allLevelCourses.findIndex((l: any) => l.identifier === courseId);
         const nextLev = currentLevelIdx >= 0 && currentLevelIdx < allLevelCourses.length - 1 ? allLevelCourses[currentLevelIdx + 1] : null;
         if (nextLev) {
-          const nextLevHierarchy = await getCourseHierarchy(nextLev.identifier);
-          setNextLevel(nextLevHierarchy);
+          setNextLevel(nextLev);
 
-          // Fetch status for next level to show real progress in preview
-          if (userId && tenantId) {
-            const nextLevIds = (nextLevHierarchy?.children || []).map((m: any) => m.identifier);
-            if (nextLevIds.length > 0) {
-              const nextStatus = await getContentCourseStatus([userId], [nextLev.identifier, ...nextLevIds], tenantId).catch(() => []);
-              // Merge with current status
-              setStatusData(prev => [...prev, ...nextStatus]);
-            }
-          }
+          setStatusData(prev => [...prev, ...(nextLev.trackingStatus || [])]);
         }
       }
     } catch (err) {
@@ -235,6 +215,7 @@ export default function SubtopicDetailsPage() {
   }
 
   const isModuleComplete = subtopics.length > 0 && subtopics.every(s => s.completionPercentage >= 70);
+  const isCourseComplete = isLevelComplete;
   const isCourseOnlyLessons = courseModules.length > 0 && courseModules.every(m => m.mimeType !== 'application/vnd.ekstep.content-collection' && m.contentType !== 'CourseUnit' && m.contentType !== 'TextBookUnit');
   const isModuleOnlyLessons = subtopics.length > 0 && subtopics.every(s => s.isLesson);
 

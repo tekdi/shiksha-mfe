@@ -13,6 +13,15 @@ export const SWADHAAR_ORGANISATION_ID = 'd36d9079-0f42-4ba3-be03-26c9e79509ee';
 export const SWADHAAR_TENANT_ID = '35529b5d-526f-4da5-bc6e-64f740023d26';
 export const SWADHAAR_CHANNEL_ID = 'swadhaar-channel';
 
+/** True when the signed-in session belongs to the Swadhaar tenant. */
+export const isSwadhaarSession = (): boolean =>
+  typeof window !== 'undefined' &&
+  [localStorage.getItem('tenantId'), localStorage.getItem('domainTenantId')].includes(SWADHAAR_TENANT_ID);
+
+/** Swadhaar's own user read endpoint; the shared one points at another tenant's backend. */
+export const swadhaarUserReadUrl = (userId: string | string[], fieldValue: boolean): string =>
+  `${SWADHAAR_BASE_URL}/user/v1/read/${userId}?fieldvalue=${fieldValue}`;
+
 const tenantHeaders = (tenantId: string = SWADHAAR_TENANT_ID): Record<string, string> => ({
   tenantid: tenantId,
   'X-Tenant-Id': tenantId,

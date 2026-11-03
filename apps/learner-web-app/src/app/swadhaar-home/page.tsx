@@ -22,7 +22,6 @@ import ProfileAvatar from '@learner/components/Profile/ProfileAvatar';
 import LanguagePreferenceModal, { SupportedLanguage } from '@learner/components/LanguagePreferenceModal/LanguagePreferenceModal';
 import {
   fetchSwadhaarLevelCourses,
-  getContentCourseStatus,
   trackCourseClick,
 } from '@learner/utils/API/SwadhaarService';
 import {
@@ -251,31 +250,8 @@ export default function SwadhaarHomePage() {
         return;
       }
 
-      // Collect all IDs from the hierarchy for status fetching
-      const allHierarchyIds: string[] = [];
-      levelCourses.forEach((level: any) => {
-        allHierarchyIds.push(level.identifier);
-        (level.children || []).forEach((mod: any) => {
-          allHierarchyIds.push(mod.identifier);
-          (mod.children || []).forEach((sub: any) => {
-            allHierarchyIds.push(sub.identifier);
-            (sub.children || []).forEach((lesson: any) => {
-              allHierarchyIds.push(lesson.identifier);
-            });
-          });
-        });
-      });
-
-      let status: any[] = [];
-      if (userId && allHierarchyIds.length && tenantId) {
-        // Fetch status in chunks if there are too many IDs (batch size 100)
-        const batchSize = 100;
-        for (let i = 0; i < allHierarchyIds.length; i += batchSize) {
-          const batch = allHierarchyIds.slice(i, i + batchSize);
-          const batchStatus = await getContentCourseStatus([userId], batch, tenantId).catch(() => []);
-          status = [...status, ...batchStatus];
-        }
-      }
+      // Lesson progress comes with the course hierarchy from the LMS
+      let status: any[] = levelCourses.flatMap((level: any) => level.trackingStatus || []);
 
       // Apply sessionStorage progress guard so that lessons the backend auto-completed
       // prematurely still show their locally-tracked in-progress percentage here.

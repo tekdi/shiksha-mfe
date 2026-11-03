@@ -8,7 +8,6 @@ import SwadhaarBottomNav from '@learner/components/Swadhaar/SwadhaarBottomNav';
 import SwadhaarLevelAccordion from '@learner/components/Swadhaar/SwadhaarLevelAccordion';
 import {
   fetchSwadhaarLevelCourses,
-  getContentCourseStatus,
   trackCourseClick,
 } from '@learner/utils/API/SwadhaarService';
 import { useTenant } from '@learner/context/TenantContext';
@@ -127,24 +126,8 @@ export default function LearnPage() {
         : undefined;
       const levelCourses = await fetchSwadhaarLevelCourses(savedLang);
 
-      const allHierarchyIds: string[] = [];
-      levelCourses.forEach((level: any) => {
-        allHierarchyIds.push(level.identifier);
-        (level.children || []).forEach((mod: any) => {
-          allHierarchyIds.push(mod.identifier);
-          (mod.children || []).forEach((sub: any) => {
-            allHierarchyIds.push(sub.identifier);
-            (sub.children || []).forEach((lesson: any) => {
-              allHierarchyIds.push(lesson.identifier);
-            });
-          });
-        });
-      });
-
-      let status: any[] = [];
-      if (userId && allHierarchyIds.length && tenantId) {
-        status = await getContentCourseStatus([userId], allHierarchyIds, tenantId).catch(() => []);
-      }
+      // Module and lesson progress comes with the course hierarchy from the LMS
+      let status: any[] = levelCourses.flatMap((level: any) => level.trackingStatus || []);
 
       // Apply sessionStorage progress guard so that lessons the backend auto-completed
       // prematurely still show their locally-tracked in-progress percentage here.

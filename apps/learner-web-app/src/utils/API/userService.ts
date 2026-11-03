@@ -3,6 +3,7 @@ import { API_ENDPOINTS } from "./EndUrls";
 import { post, patch } from "./RestClient";
 import { FormContext } from "@shared-lib-v2/DynamicForm/components/DynamicFormConstant";
 import { getMissingFields, isUnderEighteen } from "../helper";
+import { isSwadhaarSession, swadhaarUserReadUrl, SWADHAAR_ORGANISATION_ID } from '@learner/utils/API/SwadhaarAuthService';
 import { get } from "@shared-lib";
 export interface UserDetailParam {
   userData?: object;
@@ -385,11 +386,13 @@ export const getUserDetails = async (
   userId: string | string[],
   fieldValue: boolean
 ): Promise<any> => {
-  let apiUrl: string = API_ENDPOINTS.userRead(userId, fieldValue);
+  let apiUrl: string = isSwadhaarSession()
+    ? swadhaarUserReadUrl(userId, fieldValue)
+    : API_ENDPOINTS.userRead(userId, fieldValue);
   // apiUrl = fieldValue ? `${apiUrl}?fieldvalue=true` : apiUrl;
 
   try {
-    const response = await get(apiUrl);
+    const response = await get(apiUrl, isSwadhaarSession() ? { organisationid: SWADHAAR_ORGANISATION_ID } : {});
     return response?.data;
   } catch (error) {
     console.error("error in fetching user details", error);

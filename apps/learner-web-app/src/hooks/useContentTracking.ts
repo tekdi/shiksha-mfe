@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { updateContentStatus, syncContentProgressTelemetry } from '@learner/utils/API/SwadhaarService';
+import { startSwadhaarLessonAttempt, updateSwadhaarAttemptProgress } from '@learner/utils/API/SwadhaarService';
 import { telemetryFactory } from '@learner/utils/telemtery';
 
 interface TrackingParams {
@@ -10,6 +10,10 @@ interface TrackingParams {
   moduleId: string;
   subtopicId?: string;
   lessonId?: string;
+  /** LMS attempt the progress is saved to; lessons that have not been started have none */
+  attemptId?: string;
+  /** Lessons that cannot be played in the app (quizzes) should not start an attempt */
+  trackable?: boolean;
   onComplete?: () => void;
   setStatusData?: React.Dispatch<React.SetStateAction<any[]>>;
 }
@@ -20,6 +24,8 @@ export const useContentTracking = ({
   moduleId,
   subtopicId,
   lessonId,
+  attemptId,
+  trackable = true,
   onComplete,
   setStatusData,
 }: TrackingParams) => {
@@ -27,6 +33,21 @@ export const useContentTracking = ({
   const lastApiProgressRef = useRef(0);
   const completedRef = useRef(false);
   const userIdRef = useRef<string | null>(null);
+  const openedAtRef = useRef(Date.now());
+  // Resolves to the attempt progress is saved to: the lesson's existing attempt, or one started on open
+  const attemptRef = useRef<Promise<string | undefined>>(Promise.resolve(undefined));
+
+  useEffect(() => {
+    if (!contentId || !trackable) return;
+    attemptRef.current = attemptId
+      ? Promise.resolve(attemptId)
+      : startSwadhaarLessonAttempt(contentId, courseId, moduleId)
+          .then((attempt) => attempt?.lessonTrackId as string)
+          .catch((err) => {
+            console.warn(`[TRACKING] Could not start an attempt for lesson ${contentId}`, err);
+            return undefined;
+          });
+  }, [contentId, attemptId, trackable, courseId, moduleId]);
 
   /* ───────────────── INIT USER ───────────────── */
   useEffect(() => {
@@ -35,42 +56,26 @@ export const useContentTracking = ({
 
   /* ───────────────── API CALLER ───────────────── */
   const sendProgressToBackend = useCallback(async (percentage: number, isFinal: boolean = false, score?: number) => {
-    const userId = userIdRef.current;
-    if (!userId || !contentId) return;
+    if (!userIdRef.current || !contentId) return;
+    const currentAttemptId = await attemptRef.current;
+    if (!currentAttemptId) {
+      console.warn(`[TRACKING] No LMS attempt for lesson ${contentId}; progress not saved`);
+      return;
+    }
 
     try {
-      const status = isFinal ? 2 : 1;
-      const statusString = isFinal ? 'completed' : 'in-progress';
-
-      console.log(`[TRACKING] Syncing to backend: ID=${contentId}, Status=${statusString}, Progress=${percentage}%`);
-
-      // 1. Sync granular telemetry progress (Required for Sunbird progress aggregation)
-      await syncContentProgressTelemetry({
-        userId,
-        courseId,
-        contentId,
-        unitId: subtopicId || moduleId || contentId,
-        percentage,
-        status: statusString,
+      await updateSwadhaarAttemptProgress(currentAttemptId, {
+        status: isFinal ? 'completed' : 'incomplete',
+        lessonId: contentId,
+        totalContent: 100,
+        currentPosition: Math.round(percentage),
+        timeSpent: Math.round((Date.now() - openedAtRef.current) / 1000),
       });
-
-      // 2. Explicitly update content status (Ensures 'completed' state is captured)
-      await updateContentStatus({
-        userId,
-        courseId: courseId,
-        contentId: contentId,
-        status: status,
-        completionPercentage: percentage,
-        moduleId: moduleId,
-        score,
-      });
-
       lastApiProgressRef.current = percentage;
-      console.log(`[TRACKING] Sync Success: ID=${contentId}`);
     } catch (err) {
       console.warn('[TRACKING] Sync Failed:', err);
     }
-  }, [contentId, courseId, moduleId, subtopicId]);
+  }, [contentId]);
 
   /* ───────────────── COMPLETE HANDLER ───────────────── */
   const handleComplete = useCallback(async (score?: number) => {

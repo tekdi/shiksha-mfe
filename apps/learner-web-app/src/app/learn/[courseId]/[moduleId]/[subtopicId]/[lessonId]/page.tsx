@@ -15,8 +15,7 @@ import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
 import {
-  getCourseHierarchy,
-  getContentCourseStatus,
+  fetchSwadhaarCourseTree,
   updateContentStatus,
   trackCourseClick,
 } from '@learner/utils/API/SwadhaarService';
@@ -70,6 +69,7 @@ export default function LessonViewerPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [allowFullscreen, setAllowFullscreen] = useState(false);
   const playerRef = useRef<HTMLDivElement>(null);
+  const lmsStatusRef = useRef<any[]>([]);
 
   // Session-wide progress guard backed by sessionStorage so it persists across navigation.
   // Prevents the backend's completed_list from overriding a locally-tracked in-progress value.
@@ -136,7 +136,8 @@ export default function LessonViewerPage() {
         let currentFlatLessons = allLessons;
 
         if (!isSilent || allLessons.length === 0) {
-          const courseHierarchy = await getCourseHierarchy(courseId);
+          const courseHierarchy = await fetchSwadhaarCourseTree(courseId);
+          lmsStatusRef.current = courseHierarchy.trackingStatus;
           const flatLessons: any[] = [];
 
           const flattenLessons = (node: any, parentModuleId: string, parentSubId: string) => {
@@ -158,9 +159,9 @@ export default function LessonViewerPage() {
           flattenLessons(courseHierarchy, courseId, courseId);
           currentFlatLessons = flatLessons;
 
-          const moduleHierarchy = await getCourseHierarchy(moduleId);
-          const subtopics = moduleHierarchy?.children || [];
-          const currentSubtopic = subtopics.find((s: any) => s.identifier === subtopicId || s._aliasIdentifiers?.includes(subtopicId)) || await getCourseHierarchy(subtopicId);
+          // LMS lessons sit directly under modules, so the module doubles as the lesson's subtopic
+          const moduleHierarchy = courseHierarchy.children.find((m: any) => m.identifier === moduleId);
+          const currentSubtopic = moduleHierarchy;
           setSubtopicName(prev => prev === currentSubtopic?.name ? prev : (currentSubtopic?.name || 'Lesson Detail'));
           setSubtopicDescription(prev => prev === currentSubtopic?.description ? prev : (currentSubtopic?.description || ''));
           setModuleDescription(prev => prev === moduleHierarchy?.description ? prev : (moduleHierarchy?.description || ''));
@@ -173,8 +174,7 @@ export default function LessonViewerPage() {
         }
 
         // Fetch status for the entire course to enable cross-module completion checks
-        const allIds = [...new Set([courseId, ...currentFlatLessons.map(l => l.identifier)])];
-        status = await getContentCourseStatus([userId], allIds, tenantId).catch(() => []);
+        status = lmsStatusRef.current;
       }
 
       const currentGuard = getSessionGuard();
@@ -217,12 +217,6 @@ export default function LessonViewerPage() {
         });
         return merged;
       });
-      setAllLessons(flatLessons);
-
-      const activeLesson = flatLessons.find((l: any) => l.identifier === lessonId)
-        || (flatLessons.length > 0 ? flatLessons[0] : (currentSubtopic && !currentSubtopic.children ? currentSubtopic : null));
-
-      setCurrentLesson((prev: any) => prev?.identifier === activeLesson?.identifier ? prev : activeLesson);
     } catch (err) {
       console.error('Error loading lesson viewer:', err);
     } finally {
@@ -246,6 +240,8 @@ export default function LessonViewerPage() {
     moduleId,
     subtopicId: subtopicId,
     lessonId: lessonId,
+    attemptId: currentLesson?.attemptId,
+    trackable: currentLesson?.format !== 'test',
     setStatusData,
     onComplete: handleTrackingComplete,
   });
@@ -309,25 +305,6 @@ export default function LessonViewerPage() {
     const ct = (currentLesson.contentType || '').toLowerCase();
     return mt === 'application/vnd.sunbird.questionset' || ct === 'questionset';
   }, [currentLesson]);
-
-  useEffect(() => {
-    if (currentLesson && !isLoading) {
-      // Ensure all levels of hierarchy are initialized/tracked
-      const trackAll = async () => {
-        try {
-          // Only track if not already completed to avoid resetting status
-          if (Math.round(currentCompletion) < 100) {
-            await trackCourseClick(courseId);
-            await trackCourseClick(moduleId);
-            await trackCourseClick(subtopicId);
-            await trackCourseClick(lessonId);
-          }
-        } catch (e) { }
-      };
-      trackAll();
-    }
-  }, [currentLesson, isLoading, courseId, moduleId, subtopicId, lessonId, currentCompletion]);
-
 
   const { currentLessonIndex, prevLesson, nextLesson } = useMemo(() => {
     const index = allLessons.findIndex(l => l.identifier === (currentLesson?.identifier || lessonId));
@@ -478,6 +455,7 @@ export default function LessonViewerPage() {
                       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                         <SwadhaarContentPlayer
                           key={currentLesson.identifier} identifier={currentLesson.identifier} courseId={courseId} unitId={subtopicId} mimeType={currentLesson.mimeType} contentType={currentLesson.contentType}
+                          format={currentLesson.format} lmsLessonId={currentLesson.lessonId} attemptId={currentLesson.attemptId}
                           contentUrl={currentLesson.artifactUrl || currentLesson.downloadUrl} posterImage={currentLesson.posterImage || currentLesson.appIcon} name={currentLesson.name} description={currentLesson.description}
                           attempts={statusData.find(s => s.contentId === currentLesson.identifier)?.attempts || 0}
                           topicTitle={currentTopicTitle}

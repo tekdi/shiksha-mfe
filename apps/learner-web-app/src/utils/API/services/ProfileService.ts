@@ -2,6 +2,7 @@
 
 import axios from "axios";
 import { get, patch, post } from "../RestClient";
+import { isSwadhaarSession, swadhaarUserReadUrl, SWADHAAR_ORGANISATION_ID } from '@learner/utils/API/SwadhaarAuthService';
 import { API_ENDPOINTS } from "../EndUrls";
 
 export const getUserId = async (): Promise<any> => {
@@ -44,10 +45,12 @@ export const getUserDetails = async (
   userId: string | string[],
   fieldValue?: boolean
 ): Promise<any> => {
-  let apiUrl: string = API_ENDPOINTS.userRead(userId, fieldValue ?? false);
+  let apiUrl: string = isSwadhaarSession()
+    ? swadhaarUserReadUrl(userId, fieldValue ?? false)
+    : API_ENDPOINTS.userRead(userId, fieldValue ?? false);
 
   try {
-    const response = await get(apiUrl);
+    const response = await get(apiUrl, isSwadhaarSession() ? { organisationid: SWADHAAR_ORGANISATION_ID } : {});
     return response?.data;
   } catch (error) {
     console.error("error in fetching user details", error);

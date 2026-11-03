@@ -10,6 +10,7 @@ import { ImageBlob } from "./blobs/ImageBlob";
 import { TextCardBlob } from "./blobs/TextCardBlob";
 import { QuestionSetPlayer, Question } from "./blobs/QuestionSetPlayer";
 import { getQuestions } from "@learner/utils/API/SwadhaarService";
+import { LmsLessonBlob } from "./blobs/LmsLessonBlob";
 
 /* Sunbird iframe player — loaded dynamically to avoid SSR issues */
 const SunbirdPlayer = dynamic(
@@ -43,6 +44,10 @@ export interface SwadhaarContentPlayerProps {
   unitId?: string;
   mimeType?: string;
   contentType?: string;
+  /** LMS lesson format; when set the lesson is played from the LMS instead of Sunbird content */
+  format?: string;
+  lmsLessonId?: string;
+  attemptId?: string;
   contentUrl?: string;
   posterImage?: string;
   name: string;
@@ -85,7 +90,7 @@ async function fetchContentDetails(identifier: string): Promise<Record<string, a
 }
 
 export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
-  identifier, courseId, unitId, mimeType, contentType, contentUrl: propContentUrl, posterImage: propPosterImage,
+  identifier, courseId, unitId, mimeType, contentType, format, lmsLessonId, attemptId, contentUrl: propContentUrl, posterImage: propPosterImage,
   name, description, body: propBody, subheading, topicTitle, children, attempts, initialProgress, isCompleted, onProgress, onComplete, onQuizFail, onAllowFullscreen
 }) => {
   const blobType = resolveBlobType(mimeType, contentType);
@@ -342,6 +347,10 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
       onQuizFail?.();
     }
   }, [courseId, identifier, localAttempts, onComplete, onQuizFail, questionItems.length]);
+
+  if (format) {
+    return <LmsLessonBlob lessonId={lmsLessonId || identifier} attemptId={attemptId} name={name} onProgress={onProgress} onComplete={onComplete} />;
+  }
 
   if (loading) {
     return (

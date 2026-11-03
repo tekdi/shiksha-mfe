@@ -2,6 +2,13 @@ import { API_ENDPOINTS } from "./EndUrls";
 import { post, get, put } from "./RestClient";
 import { filterCoursesByLanguage, extractCourseLanguages } from "@learner/utils/courseLanguageUtils";
 import { normalizeCourseHierarchy } from "@learner/utils/courseHierarchyNormalizer";
+import axios from "axios";
+import {
+  SWADHAAR_ACADEMIC_YEAR_ID,
+  SWADHAAR_BASE_URL,
+  SWADHAAR_ORGANISATION_ID,
+  SWADHAAR_TENANT_ID,
+} from "./SwadhaarAuthService";
 
 /**
  * Service for Swadhaar specific API calls and data processing.
@@ -47,7 +54,224 @@ export const fetchAvailableCourseLanguagesFromSearch = async (): Promise<string[
   }
 };
 
+const ENROLLED_COURSES_PAGE_SIZE = 100;
+
+const stripHtml = (html?: string): string =>
+  (html || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+
+const COMPLETED_LESSON_STATUSES = ['completed', 'submitted'];
+
+/** Lesson tracking from the LMS, in the {contentId, status, completionPercentage} shape the home screens read. */
+const toLessonStatus = (lesson: any) => {
+  const tracking = lesson?.tracking;
+  const percentage = tracking?.completionPercentage ?? 0;
+  const completed = COMPLETED_LESSON_STATUSES.includes(tracking?.status);
+  return {
+    contentId: lesson.lessonId,
+    status: completed ? 2 : percentage > 0 ? 1 : 0,
+    completionPercentage: completed ? 100 : percentage,
+  };
+};
+
+const lmsHeaders = (): Record<string, string> => ({
+  Authorization: `Bearer ${localStorage.getItem('token')}`,
+  tenantid: SWADHAAR_TENANT_ID,
+  organisationid: SWADHAAR_ORGANISATION_ID,
+  academicyearid: SWADHAAR_ACADEMIC_YEAR_ID,
+});
+
+const byOrdering = (a: any, b: any) => (a.ordering ?? 0) - (b.ordering ?? 0);
+
+const toLessonNode = (lesson: any) => ({
+  identifier: lesson.lessonId,
+  name: lesson.title,
+  lessonId: lesson.lessonId,
+  format: lesson.format,
+  subFormat: lesson.subFormat,
+  mediaPath: lesson.media?.path,
+  attemptId: lesson.tracking?.attempt?.attemptId,
+});
+
+/** Module tracking, in the status shape the home screens read; used while the module's lessons are not loaded. */
+const toModuleStatus = (module: any) => {
+  const progress = module.tracking?.progress ?? 0;
+  return {
+    contentId: module.moduleId,
+    status: progress >= 100 ? 2 : progress > 0 ? 1 : 0,
+    completionPercentage: progress,
+  };
+};
+
+/**
+ * Course modules with the learner's tracking
+ * (GET lms-service/v1/courses/:courseId/hierarchy/tracking/:userId?includeModules=true).
+ * The response lists modules without their lessons, so each module's own progress is returned as its
+ * status; lessons are loaded per module by fetchSwadhaarModuleLessons.
+ */
+const fetchCourseWithTracking = async (courseId: string, userId: string) => {
+  const response = await axios.get(
+    `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}/hierarchy/tracking/${userId}`,
+    { params: { includeModules: true }, headers: lmsHeaders() }
+  );
+  const modules = [...(response?.data?.result?.modules || [])].sort(byOrdering);
+  return {
+    name: response?.data?.result?.title as string,
+    children: modules.map((module: any) => ({
+      identifier: module.moduleId,
+      name: module.title,
+      description: stripHtml(module.description),
+      totalLessons: module.tracking?.totalLessons,
+      children: [],
+    })),
+    trackingStatus: modules.map(toModuleStatus),
+  };
+};
+
+/** A course's modules (without lessons) and the learner's module-level progress. */
+export const fetchSwadhaarCourseModules = async (courseId: string) =>
+  fetchCourseWithTracking(courseId, localStorage.getItem('userId') || '');
+
+/**
+ * One module's lessons with the learner's tracking
+ * (GET lms-service/v1/courses/:courseId/hierarchy/tracking/:userId?includeLessons=true&moduleId=…).
+ */
+export const fetchSwadhaarModuleLessons = async (courseId: string, moduleId: string, userId?: string) => {
+  const response = await axios.get(
+    `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}/hierarchy/tracking/${
+      userId || localStorage.getItem('userId')
+    }`,
+    { params: { includeLessons: true, moduleId }, headers: lmsHeaders() }
+  );
+  const module = response?.data?.result || {};
+  const lessons = [...(module.lessons || [])].sort(byOrdering);
+  return {
+    name: module.title as string,
+    description: stripHtml(module.description),
+    children: lessons.map(toLessonNode),
+    trackingStatus: lessons.map(toLessonStatus),
+  };
+};
+
+/**
+ * Courses the signed-in learner is enrolled in, from the Swadhaar LMS (enrollments/users-courses),
+ * shaped like the course nodes the Swadhaar home screens already render. Each course carries its
+ * modules/lessons (`children`) and the learner's lesson tracking (`trackingStatus`).
+ */
+export const fetchSwadhaarEnrolledCourses = async (): Promise<any[]> => {
+  const userId = localStorage.getItem('userId');
+  if (!userId) return [];
+
+  const headers = lmsHeaders();
+  const courses: any[] = [];
+  let offset = 0;
+  let total = 0;
+  do {
+    const response = await axios.get(`${SWADHAAR_BASE_URL}/lms-service/v1/enrollments/users-courses`, {
+      params: { userId, limit: ENROLLED_COURSES_PAGE_SIZE, offset },
+      headers,
+    });
+    const result = response?.data?.result;
+    const page = result?.courses || [];
+    courses.push(...page);
+    total = result?.totalElements ?? courses.length;
+    offset += ENROLLED_COURSES_PAGE_SIZE;
+    if (page.length === 0) break;
+  } while (courses.length < total);
+
+  courses.sort((a, b) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER));
+
+  return Promise.all(
+    courses.map(async (course) => {
+      const hierarchy = await fetchCourseWithTracking(course.courseId, userId).catch((err) => {
+        console.warn(`Failed to fetch modules for course ${course.courseId}`, err);
+        return { name: course.title, children: [], trackingStatus: [] };
+      });
+      return {
+        identifier: course.courseId,
+        name: course.title,
+        description: course.shortDescription || stripHtml(course.description),
+        posterImage: course.image,
+        language: course.params?.language,
+        pathwayId: course.params?.pathwayId,
+        children: hierarchy.children,
+        trackingStatus: hierarchy.trackingStatus,
+      };
+    })
+  );
+};
+
+/**
+ * A course as modules and lessons with the learner's tracking: one hierarchy-tracking call for the
+ * modules, then one per module for its lessons. Shaped like the Sunbird hierarchy the lesson screens
+ * walk (course → modules → lessons), with `trackingStatus` for the progress of every lesson.
+ */
+export const fetchSwadhaarCourseTree = async (courseId: string) => {
+  const course = await fetchCourseWithTracking(courseId, localStorage.getItem('userId') || '');
+  const modules = await Promise.all(
+    course.children.map(async (module: any) => {
+      const detail = await fetchSwadhaarModuleLessons(courseId, module.identifier);
+      return { ...module, contentType: 'CourseUnit', children: detail.children, trackingStatus: detail.trackingStatus };
+    })
+  );
+  return {
+    identifier: courseId,
+    name: course.name,
+    children: modules,
+    trackingStatus: modules.flatMap((module: any) => module.trackingStatus),
+  };
+};
+
+/** One lesson with its media (GET lms-service/v1/lessons/:lessonId). */
+export const fetchSwadhaarLesson = async (lessonId: string): Promise<any> => {
+  const response = await axios.get(`${SWADHAAR_BASE_URL}/lms-service/v1/lessons/${lessonId}`, {
+    headers: lmsHeaders(),
+  });
+  return response?.data?.result;
+};
+
+/**
+ * Starts the learner's attempt on a lesson (POST lms-service/v1/tracking/lesson/attempt/:lessonId);
+ * returns the attempt, whose `lessonTrackId` is the id progress is saved to.
+ */
+export const startSwadhaarLessonAttempt = async (lessonId: string, courseId: string, moduleId: string): Promise<any> => {
+  const response = await axios.post(
+    `${SWADHAAR_BASE_URL}/lms-service/v1/tracking/lesson/attempt/${lessonId}`,
+    { courseId, moduleId },
+    { headers: { ...lmsHeaders(), 'Content-Type': 'application/json' } }
+  );
+  return response?.data?.result;
+};
+
+/**
+ * Saves the learner's progress on a lesson attempt (PATCH lms-service/v1/tracking/attempts/progress/:attemptId).
+ * `totalContent` and `currentPosition` are in the lesson's own units (seconds, pages, or a 0–100 scale).
+ */
+export const updateSwadhaarAttemptProgress = async (
+  attemptId: string,
+  body: { status: 'completed' | 'incomplete'; lessonId: string; totalContent: number; currentPosition: number; timeSpent: number }
+): Promise<any> => {
+  const response = await axios.patch(
+    `${SWADHAAR_BASE_URL}/lms-service/v1/tracking/attempts/progress/${attemptId}`,
+    body,
+    { headers: { ...lmsHeaders(), 'Content-Type': 'application/json' } }
+  );
+  return response?.data?.result;
+};
+
+/** The learner's attempt on a lesson (GET lms-service/v1/tracking/attempts/:attemptId/:userId). */
+export const fetchSwadhaarAttempt = async (attemptId: string): Promise<any> => {
+  const response = await axios.get(
+    `${SWADHAAR_BASE_URL}/lms-service/v1/tracking/attempts/${attemptId}/${localStorage.getItem('userId')}`,
+    { headers: lmsHeaders() }
+  );
+  return response?.data?.result;
+};
+
 export const fetchSwadhaarLevelCourses = async (languageOverride?: string): Promise<any[]> => {
+  return fetchSwadhaarEnrolledCourses();
+};
+
+export const fetchSwadhaarLevelCoursesFromSearch = async (languageOverride?: string): Promise<any[]> => {
   const apiUrl = API_ENDPOINTS.compositeSearch;
 
   let language = languageOverride;

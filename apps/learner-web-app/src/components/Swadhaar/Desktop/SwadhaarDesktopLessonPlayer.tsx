@@ -12,7 +12,7 @@ import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
 import UnfoldLessRoundedIcon from '@mui/icons-material/UnfoldLessRounded';
 import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
-import { getCourseHierarchy, getContentCourseStatus } from '@learner/utils/API/SwadhaarService';
+import { fetchSwadhaarCourseTree } from '@learner/utils/API/SwadhaarService';
 import { useContentTracking } from '@learner/hooks/useContentTracking';
 import { SwadhaarContentPlayer } from '@learner/components/Swadhaar/Player/SwadhaarContentPlayer';
 import SwadhaarDesktopHeader from './SwadhaarDesktopHeader';
@@ -112,6 +112,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
   const { t } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(true);
+  const lmsStatusRef = useRef<any[]>([]);
   const [courseHierarchy, setCourseHierarchy] = useState<any>(null);
   const [currentLesson, setCurrentLesson] = useState<any>(null);
   const [allLessons, setAllLessons] = useState<any[]>([]);
@@ -197,7 +198,8 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
   const loadHierarchy = useCallback(async () => {
     try {
       setIsLoading(true);
-      const hierarchy = await getCourseHierarchy(courseId);
+      const hierarchy = await fetchSwadhaarCourseTree(courseId);
+      lmsStatusRef.current = hierarchy.trackingStatus;
       setCourseHierarchy(hierarchy);
 
       const flat: any[] = [];
@@ -224,10 +226,8 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
 
   const syncStatus = useCallback(async () => {
     try {
-      const tenantId = localStorage.getItem('tenantId') || tenant?.tenantId || '';
-      if (userId && tenantId && allLessons.length > 0) {
-        const ids = [courseId, ...allLessons.map((l) => l.identifier)];
-        const apiStatus = await getContentCourseStatus([userId], [...new Set(ids)], tenantId).catch(() => []);
+      if (userId && allLessons.length > 0) {
+        const apiStatus = lmsStatusRef.current;
 
         const currentGuard = getSessionGuard();
         setStatusData((prev: any[]) => {
@@ -600,6 +600,8 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
   const { handleProgress: handleProgressInner, handleComplete } = useContentTracking({
     contentId: currentLesson?.identifier || '',
     courseId, moduleId, subtopicId, lessonId,
+    attemptId: currentLesson?.attemptId,
+    trackable: currentLesson?.format !== 'test',
     setStatusData,
     onComplete: handleTrackingComplete,
   });
@@ -937,6 +939,9 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
                             unitId={subtopicId}
                             mimeType={currentLesson.mimeType}
                             contentType={currentLesson.contentType}
+                            format={currentLesson.format}
+                            lmsLessonId={currentLesson.lessonId}
+                            attemptId={currentLesson.attemptId}
                             contentUrl={currentLesson.artifactUrl || currentLesson.downloadUrl}
                             posterImage={currentLesson.posterImage || currentLesson.appIcon}
                             name={currentLesson.name}
