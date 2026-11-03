@@ -45,8 +45,8 @@ type UserDialogType = 'block' | 'unblock' | 'delete';
 const DEFAULT_ROLE = 'Student';
 const STATUS_BLOCKED = 'blocked';
 // Blocking sets a user inactive, so both statuses count as blocked
-const BLOCKED_STATUSES = [STATUS_BLOCKED, 'inactive'];
-const isBlockedStatus = (status?: string) => BLOCKED_STATUSES.includes(status?.toLowerCase() ?? '');
+const BLOCKED_STATUSES = new Set([STATUS_BLOCKED, 'inactive']);
+const isBlockedStatus = (status?: string) => BLOCKED_STATUSES.has(status?.toLowerCase() ?? '');
 const STATUS_ACTIVE = 'active';
 const PHONE_REGEX = /^\d{10}$/;
 

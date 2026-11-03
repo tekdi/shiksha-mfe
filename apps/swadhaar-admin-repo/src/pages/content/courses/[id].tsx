@@ -750,10 +750,10 @@ export default function CourseDetailsPage() {
             <Box sx={{ ...COURSE_ITEM_ROW_SX, borderBottom: `1px solid ${NEUTRAL.divider}` }}>
               <Typography sx={{ fontSize: '14px', color: NEUTRAL.ink }}>
                 <strong style={{ fontWeight: 600 }}>{t('COURSES.DETAIL.FAQS')}</strong>{' '}
-                <span style={{ color: NEUTRAL.muted }}>· {t('COURSES.DETAIL.FAQS_COUNT', { count: 10 })}</span>
+                <span style={{ color: NEUTRAL.muted }}>· {t('COURSES.DETAIL.FAQS_COUNT', { count: courseLevelValues.faqs.length })}</span>
               </Typography>
               <Tooltip title={t('COURSES.DETAIL.EDIT_FAQS')}>
-                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_FAQS')} sx={{ color: NEUTRAL.muted }}>
+                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_FAQS')} onClick={() => setEditingItem('faqs')} sx={{ color: NEUTRAL.muted }}>
                   <EditOutlinedIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -765,7 +765,7 @@ export default function CourseDetailsPage() {
                 <strong style={{ fontWeight: 600 }}>{t('COURSES.DETAIL.SUMMARY')}</strong>
               </Typography>
               <Tooltip title={t('COURSES.DETAIL.EDIT_SUMMARY')}>
-                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_SUMMARY')} sx={{ color: NEUTRAL.muted }}>
+                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_SUMMARY')} onClick={() => setEditingItem('summary')} sx={{ color: NEUTRAL.muted }}>
                   <EditOutlinedIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>
@@ -794,7 +794,7 @@ export default function CourseDetailsPage() {
                 <span style={{ color: NEUTRAL.muted }}>· {t('COURSES.DETAIL.TRANSITION_INFO')}</span>
               </Typography>
               <Tooltip title={t('COURSES.DETAIL.EDIT_TRANSITION')}>
-                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_TRANSITION')} sx={{ color: NEUTRAL.muted }}>
+                <IconButton size="small" aria-label={t('COURSES.DETAIL.EDIT_TRANSITION')} onClick={() => setEditingItem('transition')} sx={{ color: NEUTRAL.muted }}>
                   <EditOutlinedIcon sx={{ fontSize: 18 }} />
                 </IconButton>
               </Tooltip>

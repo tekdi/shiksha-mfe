@@ -840,7 +840,9 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
 
       setSuccessMsg(`Assessment "${name}" saved successfully.`);
       setTimeout(() => {
-        router.push('/content?tab=assessments');
+        router.push(
+          isCreatePage && targetCourseId ? `/content/courses/${targetCourseId}` : '/content?tab=assessments'
+        );
       }, 900);
     } catch (err: any) {
       console.error('Failed to save assessment:', err);

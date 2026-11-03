@@ -170,7 +170,7 @@ export default function BulkUploadUsersPage() {
       setRoles(tenantRoles);
       const trainer = tenantRoles.find((r) => r.name.toLowerCase() === TRAINER_ROLE_TITLE);
       if (trainer) setRoleId((current) => current || trainer.id);
-    });
+    }).catch(() => setRoles([]));
   }, []);
 
   // 1. Template Download Handler
@@ -245,7 +245,7 @@ export default function BulkUploadUsersPage() {
     try {
       const result = await bulkImportUsers(selectedFile, cohortId, roleId);
       setCreatedCount(result?.successCount ?? 0);
-      setFailedRows((result?.failures || []).map(toFailedRow));
+      setFailedRows((result?.failures || []).map((row: any, index: number) => toFailedRow(row, index)));
       setStep(3); // Go to summary
     } catch (err: any) {
       setErrorMsg(apiErrorMessage(err) || t('BULK_UPLOAD.ERRORS.SERVER_ERROR'));

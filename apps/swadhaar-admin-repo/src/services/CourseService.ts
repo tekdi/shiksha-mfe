@@ -569,6 +569,25 @@ export const updateCourseStatus = async (
   }
 };
 
+/**
+ * Update course fields (JSON, no image)
+ * PATCH /lms-service/v1/courses/:courseId
+ */
+export const updateCourse = async (
+  courseId: string,
+  payload: Record<string, any>,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const url = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
+    const response = await patch(url, payload, getServiceHeaders(customHeaders));
+    return response?.data;
+  } catch (error) {
+    console.error('Error in CourseService.updateCourse:', error);
+    throw error;
+  }
+};
+
 export interface CreateModulePayload {
   title: string;
   alias?: string;
@@ -805,6 +824,39 @@ export const createVideoLesson = async (
   customHeaders?: Record<string, string>
 ): Promise<any> => {
   return createLesson('video', 'youtube.url', 'createVideoLesson', payload, customHeaders);
+};
+
+export interface CreateTestLessonPayload {
+  title: string;
+  description?: string;
+  /** testId from the assessment service; saved on the lesson's media.source */
+  mediaContentSource: string;
+  courseId: string;
+  /** Required: lessons are listed per module, so a lesson without one never shows in the course */
+  moduleId: string;
+  /** 0 = unlimited */
+  noOfAttempts?: number;
+  totalMarks?: number;
+  passingMarks?: number;
+  idealTime?: number;
+  [key: string]: any;
+}
+
+/**
+ * Attach an assessment (test) to a course module as a lesson
+ * POST /lms-service/v1/lessons (format "test", mediaContentSubFormat "assessment")
+ */
+export const createTestLesson = async (
+  payload: CreateTestLessonPayload,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  return createLesson(
+    'test',
+    'assessment',
+    'createTestLesson',
+    { attemptsGrade: 'highest', ...payload },
+    customHeaders
+  );
 };
 
 export interface CreateDocumentLessonPayload {

@@ -68,11 +68,13 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
     setSaved(cohort.rawCohort || cohort);
     fillForm(cohort);
     let cancelled = false;
-    getCohortById(cohort.cohortId).then((details) => {
-      if (cancelled || !details) return;
-      setSaved(details);
-      fillForm(details);
-    });
+    getCohortById(cohort.cohortId)
+      .then((details) => {
+        if (cancelled || !details) return;
+        setSaved(details);
+        fillForm(details);
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };

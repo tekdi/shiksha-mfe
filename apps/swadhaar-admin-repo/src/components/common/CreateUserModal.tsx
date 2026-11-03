@@ -166,7 +166,30 @@ const SECTION_TITLE_SX = {
   mb: 1.4,
 } as const;
 
-export const CreateUserModal: React.FC<CreateUserModalProps> = ({
+export const validateFullName = (fullName: string, isEdit: boolean) => {
+  if (!fullName) return isEdit ? undefined : 'USERS.FORM.ERROR_FULL_NAME_REQUIRED';
+  return fullName.length < 2 ? 'USERS.FORM.ERROR_FULL_NAME_MIN' : undefined;
+};
+
+const validateEmail = (email: string, isEdit: boolean) => {
+  if (!email) return isEdit ? undefined : 'USERS.FORM.ERROR_EMAIL_REQUIRED';
+  return email !== '-' && !EMAIL_REGEX.test(email)
+    ? 'USERS.FORM.ERROR_EMAIL_INVALID'
+    : undefined;
+};
+
+const validatePhone = (phone: string, isEdit: boolean) => {
+  if (!phone) return isEdit ? undefined : 'USERS.FORM.ERROR_PHONE_REQUIRED';
+  return PHONE_REGEX.test(phone) ? undefined : 'USERS.FORM.ERROR_PHONE_INVALID';
+};
+
+const isSuccessfulUpdate = (response: any) =>
+  response?.responseCode === 'OK' ||
+  response?.responseCode === 200 ||
+  Boolean(response?.result) ||
+  response?.params?.status === 'successful';
+
+const CreateUserModal: React.FC<CreateUserModalProps> = ({
   open,
   onClose,
   onSuccess,
@@ -364,39 +387,24 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     const password = toStr(formData.password);
 
     // Nothing is mandatory when editing; filled fields are still checked for format
-    if (!fullName) {
-      if (!isEdit) newErrors.fullName = 'USERS.FORM.ERROR_FULL_NAME_REQUIRED';
-    } else if (fullName.length < 2) {
-      newErrors.fullName = 'USERS.FORM.ERROR_FULL_NAME_MIN';
-    }
-
-    if (!isEdit && !email) {
-      newErrors.email = 'USERS.FORM.ERROR_EMAIL_REQUIRED';
-    } else if (
-      email &&
-      email !== '-' &&
-      !EMAIL_REGEX.test(email)
-    ) {
-      newErrors.email = 'USERS.FORM.ERROR_EMAIL_INVALID';
-    }
-
-    if (!phone) {
-      if (!isEdit) newErrors.phone = 'USERS.FORM.ERROR_PHONE_REQUIRED';
-    } else if (!PHONE_REGEX.test(phone)) {
-      newErrors.phone = 'USERS.FORM.ERROR_PHONE_INVALID';
-    }
-
-    if (!isEdit && !formData.role) {
-      newErrors.role = 'USERS.FORM.ERROR_ROLE_REQUIRED';
-    }
-
-    if (!isEdit && formData.gender === GENDER_NOT_SELECTED) {
-      newErrors.gender = 'USERS.FORM.ERROR_GENDER_REQUIRED';
-    }
-
-    if (!isEdit && password && password.length < 8) {
-      newErrors.password = 'USERS.FORM.ERROR_PASSWORD_MIN';
-    }
+    const fieldErrors: Partial<Record<keyof FormState, string | undefined>> = {
+      fullName: validateFullName(fullName, isEdit),
+      email: validateEmail(email, isEdit),
+      phone: validatePhone(phone, isEdit),
+      role: !isEdit && !formData.role ? 'USERS.FORM.ERROR_ROLE_REQUIRED' : undefined,
+      gender:
+        !isEdit && formData.gender === GENDER_NOT_SELECTED
+          ? 'USERS.FORM.ERROR_GENDER_REQUIRED'
+          : undefined,
+      password:
+        !isEdit && password && password.length < 8
+          ? 'USERS.FORM.ERROR_PASSWORD_MIN'
+          : undefined,
+    };
+    (Object.keys(fieldErrors) as (keyof FormState)[]).forEach((key) => {
+      const message = fieldErrors[key];
+      if (message) newErrors[key] = message;
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -440,12 +448,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         });
         const response = await updateUserAccount(targetUserId, updatePayload);
 
-        if (
-          response?.responseCode === 'OK' ||
-          response?.responseCode === 200 ||
-          response?.result ||
-          response?.params?.status === 'successful'
-        ) {
+        if (isSuccessfulUpdate(response)) {
           showToastMessage(
             response?.params?.successmessage || t('USERS.FORM.UPDATE_SUCCESS'),
             'success'
