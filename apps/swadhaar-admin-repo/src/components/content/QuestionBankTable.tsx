@@ -13,7 +13,7 @@ const TYPE_LABELS: Record<string, string> = {
   fill_blank: 'Short answer',
 };
 
-const stripHtml = (text: string): string => text.replace(/<[^>]+>/g, '').trim();
+const stripHtml = (text: string): string => text.replace(/<[^<>]+>/g, '').trim();
 
 /** Every published question across all assessments, with search and paging. */
 export default function QuestionBankTable() {

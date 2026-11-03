@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import { getPathwayList, assignPathwayToUser, PathwayItem } from '@/services/PathwayService';
 import { getCohortLearnerIds } from '@/services/CohortService';
+import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 
 interface AssignPathwayToGroupModalProps {
@@ -61,20 +62,17 @@ export const AssignPathwayToGroupModal: React.FC<AssignPathwayToGroupModalProps>
     let assigned = 0;
     let failed = 0;
     let firstError = '';
-    const queue = [...learnerIds];
-    const worker = async () => {
-      while (queue.length > 0) {
-        const userId = queue.shift() as string;
-        try {
-          await assignPathwayToUser(userId, selectedId);
+    await runWithConcurrency(learnerIds, ASSIGN_CONCURRENCY, (userId) =>
+      assignPathwayToUser(userId, selectedId).then(
+        () => {
           assigned += 1;
-        } catch (err: any) {
+        },
+        (err: any) => {
           failed += 1;
-          firstError = firstError || err?.response?.data?.params?.errmsg || err?.message || '';
+          firstError = firstError || apiErrorMessage(err);
         }
-      }
-    };
-    await Promise.all(Array.from({ length: ASSIGN_CONCURRENCY }, worker));
+      )
+    );
     setAssigning(false);
 
     const pathwayName = pathways.find((p) => p.id === selectedId)?.name || 'learning path';
@@ -82,10 +80,8 @@ export const AssignPathwayToGroupModal: React.FC<AssignPathwayToGroupModalProps>
       onDone?.(`Assigned "${pathwayName}" to ${assigned} learner(s).`, 'success');
       onClose();
     } else {
-      onDone?.(
-        `Assigned to ${assigned} learner(s); ${failed} failed${firstError ? `: ${firstError}` : ''}.`,
-        'error'
-      );
+      const reason = firstError ? `: ${firstError}` : '';
+      onDone?.(`Assigned to ${assigned} learner(s); ${failed} failed${reason}.`, 'error');
       if (assigned > 0) onClose();
       else setError(firstError || 'Could not assign the learning path.');
     }

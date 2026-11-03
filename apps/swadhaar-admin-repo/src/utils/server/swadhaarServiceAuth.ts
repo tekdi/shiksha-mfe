@@ -2,9 +2,10 @@
  * Server-only helpers for the Swadhaar middleware service account
  * (SWADHAAR_SERVICE_USERNAME / SWADHAAR_SERVICE_PASSWORD). Never import from client code.
  */
+import { trimTrailingSlashes } from '@/utils/url';
 
 export const middlewareUrl = (): string =>
-  (process.env.NEXT_PUBLIC_MIDDLEWARE_URL || 'https://swadhaar-middleware-qa.tekdinext.com').replace(/\/+$/, '');
+  trimTrailingSlashes(process.env.NEXT_PUBLIC_MIDDLEWARE_URL || 'https://swadhaar-middleware-qa.tekdinext.com');
 
 export interface ServiceLoginResult {
   access_token: string;

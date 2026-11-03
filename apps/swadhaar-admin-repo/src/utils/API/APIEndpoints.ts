@@ -1,19 +1,22 @@
+import { trimTrailingSlashes } from '@/utils/url';
 // Swadhaar-specific middleware: the single base URL for every API
-export const swadhaarMiddlewareUrl = (
+export const swadhaarMiddlewareUrl = trimTrailingSlashes(
   process.env.NEXT_PUBLIC_MIDDLEWARE_URL || 'https://swadhaar-middleware-qa.tekdinext.com'
-).replace(/\/+$/, '');
+);
 const baseurl = swadhaarMiddlewareUrl;
 const cohortBaseUrl = baseurl;
 const lmsBase = `${baseurl}/lms-service/v1`;
-const assessmentBase = (process.env.NEXT_PUBLIC_ASSESSMENT_SERVICE_URL || `${baseurl}/assessment/v1`).replace(/\/+$/, '');
-const certificateBase = (process.env.NEXT_PUBLIC_CERTIFICATE_SERVICE_URL || `${baseurl}/importuserspecific/certificate`).replace(/\/+$/, '');
+const assessmentBase = trimTrailingSlashes(process.env.NEXT_PUBLIC_ASSESSMENT_SERVICE_URL || `${baseurl}/assessment/v1`);
+const certificateBase = trimTrailingSlashes(
+  process.env.NEXT_PUBLIC_CERTIFICATE_SERVICE_URL || `${baseurl}/importuserspecific/certificate`
+);
 
 /**
  * Lesson media paths for locally stored files are relative (e.g. /uploads/lessons/media/x.pdf), so a
  * browser would resolve them against this app. Files are served by the LMS service behind the middleware;
  * NEXT_PUBLIC_MEDIA_BASE_URL overrides that location.
  */
-const mediaBase = (process.env.NEXT_PUBLIC_MEDIA_BASE_URL || `${baseurl}/lms-service`).replace(/\/+$/, '');
+const mediaBase = trimTrailingSlashes(process.env.NEXT_PUBLIC_MEDIA_BASE_URL || `${baseurl}/lms-service`);
 export const resolveMediaUrl = (path?: string | null): string => {
   if (!path) return '';
   if (/^(https?:)?\/\//i.test(path) || path.startsWith('data:') || path.startsWith('blob:')) return path;
@@ -120,8 +123,10 @@ export const API_ENDPOINTS = {
   lmsLessons: (queryString = '') => `${lmsBase}/lessons${toQueryString(queryString)}`,
   lmsLessonById: (lessonId: string) => `${lmsBase}/lessons/${lessonId}`,
   lmsLessonsByModule: (moduleId: string) => `${lmsBase}/lessons/module/${moduleId}`,
-  lmsMediaAssociate: (mediaId: string, lessonId: string, userId?: string) =>
-    `${lmsBase}/media/${mediaId}/associate/${lessonId}${userId ? `?userId=${userId}` : ''}`,
+  lmsMediaAssociate: (mediaId: string, lessonId: string, userId?: string) => {
+    const query = userId ? `?userId=${userId}` : '';
+    return `${lmsBase}/media/${mediaId}/associate/${lessonId}${query}`;
+  },
   lmsCourseHierarchy: (courseId: string) => `${lmsBase}/courses/${courseId}/hierarchy`,
   // Learning paths (pathways)
   pathwayList: `${baseurl}/user/v1/pathway/list`,

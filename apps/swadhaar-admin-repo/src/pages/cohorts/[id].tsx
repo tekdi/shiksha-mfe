@@ -41,6 +41,8 @@ import LifecycleChip from '@/components/common/LifecycleChip';
 import {
   getCohortById,
   getCohortMemberListApplication,
+  getMemberRows,
+  getMemberTotal,
   bulkCreateCohortMembers,
   deleteCohort,
   getCohortContentSearch,
@@ -143,10 +145,9 @@ const mapMemberToRow = (user: any, index: number): MemberRowItem => {
 
   const country = trimmedOrEmpty(user.applicationCountry || user.currentCountry || user.country || user.permanentCountry);
   const locParts = [location.state, location.district].filter(Boolean);
-  const displayLocation =
-    locParts.length > 0
-      ? locParts.join(' · ') + (country && !locParts.some((p) => p.toLowerCase() === country.toLowerCase()) ? `, ${country}` : '')
-      : country || '-';
+  const countryAlreadyListed = locParts.some((p) => p.toLowerCase() === country.toLowerCase());
+  const countrySuffix = country && !countryAlreadyListed ? `, ${country}` : '';
+  const displayLocation = locParts.length > 0 ? locParts.join(' · ') + countrySuffix : country || '-';
 
   const formCompletion = user.form?.completionPercentage
     ? `${Math.round(Number(user.form.completionPercentage))}%`
@@ -251,18 +252,8 @@ export default function GroupDetailsPage() {
       };
 
       const res = await getCohortMemberListApplication(payload);
-      const userDetails = Array.isArray(res?.result?.userDetails)
-        ? res.result.userDetails
-        : Array.isArray(res?.result)
-        ? res.result
-        : [];
-      const total =
-        typeof res?.result?.totalCount === 'number'
-          ? res.result.totalCount
-          : userDetails.length > 0 && userDetails[0]?.total_count
-          ? Number(userDetails[0].total_count)
-          : userDetails.length;
-      setTotalCount(total);
+      const userDetails = getMemberRows(res);
+      setTotalCount(getMemberTotal(res, userDetails));
 
       const mapped = userDetails.map((u: any, idx: number) => mapMemberToRow(u, idx));
       setMembers(mapped);

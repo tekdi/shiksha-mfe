@@ -35,9 +35,7 @@ import {
   updateLmsLesson,
   CreateModulePayload,
   CourseHierarchy,
-  parseCourseName,
   getLmsLessons,
-  LessonItem,
 } from '@/services/CourseService';
 
 export interface VideoItem {
@@ -199,7 +197,7 @@ const isPdfLesson = (l: any): boolean => {
     mediaSubFormat === 'pdf' ||
     source.endsWith('.pdf') ||
     source.includes('.pdf?') ||
-    (l.title && l.title.toLowerCase().includes('.pdf'))
+    l.title?.toLowerCase().includes('.pdf')
   );
 };
 
@@ -227,6 +225,360 @@ const PROTOTYPE_IMAGES: ContentMediaItem[] = [
     source: 'Graphic Asset',
   },
 ];
+
+const DEFAULT_INTRO_TEXT =
+  'Now that you understand how financial planning helps households prepare for different needs and goals, the next step is to understand how families can manage their available income and expenses.';
+
+const getLessonFormat = (l: any): string => (l.format || l.primaryCategory || '').toLowerCase();
+
+const buildVideoBlock = (l: any, lIdx: number): SectionBlock => ({
+  id: l.lessonId || `blk-vid-${lIdx}-${Date.now()}`,
+  type: 'VIDEO WATCH',
+  videos: [
+    {
+      id: `vid-${lIdx}`,
+      lessonId: l.lessonId,
+      title: l.title || 'Video Lesson',
+      duration: l.idealTime ? `${l.idealTime} min` : l.duration || 'Video link',
+      sourceUrl: resolveMediaUrl(l.media?.source || l.media?.path || l.media?.url || l.mediaUrl || ''),
+    },
+  ],
+});
+
+const buildPdfBlock = (l: any, lIdx: number): SectionBlock => ({
+  id: l.lessonId || `blk-pdf-${lIdx}-${Date.now()}`,
+  lessonId: l.lessonId,
+  type: 'PDF',
+  mediaName: l.title || 'PDF Document',
+  mediaUrl: resolveMediaUrl(l.media?.path || l.media?.source || l.media?.url || l.mediaUrl || l.downloadUrl || ''),
+  text: l.description || '',
+});
+
+const buildImageBlock = (l: any, lIdx: number): SectionBlock => ({
+  id: l.lessonId || `blk-img-${lIdx}-${Date.now()}`,
+  type: 'IMAGE',
+  mediaName: l.title || 'Image Illustration',
+  mediaUrl: l.media?.url || l.mediaUrl || l.downloadUrl || '',
+  text: l.description || '',
+});
+
+// [format keyword, block type, block id prefix] for text-only lesson formats, in match order
+const TEXT_LESSON_BLOCKS: Array<[string, SectionBlock['type'], string]> = [
+  ['hook', 'HOOK', 'hook'],
+  ['concept', 'CONCEPT', 'concept'],
+  ['analysis', 'ANALYSIS', 'analysis'],
+  ['intro', 'INTRO', 'intro'],
+];
+
+const buildTextBlock = (l: any, lIdx: number, fmt: string): SectionBlock => {
+  const match = TEXT_LESSON_BLOCKS.find(([keyword]) => fmt.includes(keyword));
+  const type = match ? match[1] : 'TEXT';
+  const prefix = match ? match[2] : 'txt';
+  return {
+    id: l.lessonId || `blk-${prefix}-${lIdx}-${Date.now()}`,
+    type,
+    text: l.description || l.title || '',
+  };
+};
+
+// Map an LMS lesson of a module to an editor block based on its format
+const mapLessonToBlock = (l: any, lIdx: number): SectionBlock => {
+  const fmt = getLessonFormat(l);
+  if (fmt.includes('video')) return buildVideoBlock(l, lIdx);
+  if (fmt.includes('pdf')) return buildPdfBlock(l, lIdx);
+  if (fmt.includes('image')) return buildImageBlock(l, lIdx);
+  return buildTextBlock(l, lIdx, fmt);
+};
+
+const getVideoDuration = (l: any): string => {
+  if (l.idealTime) return `${l.idealTime} min`;
+  return l.duration ? String(l.duration) : '[—]';
+};
+
+const toVideoMediaItem = (l: any): ContentMediaItem => ({
+  id: l.lessonId,
+  title: l.title || 'Video Lesson',
+  duration: getVideoDuration(l),
+  url: l.media?.source || l.media?.path || 'https://www.youtube.com/watch?v=EUPk_ThuWXI',
+  source: l.subFormat || 'LMS Video',
+});
+
+const toPdfMediaItem = (l: any): ContentMediaItem => ({
+  id: l.lessonId,
+  title: l.title || 'PDF Document',
+  duration: l.idealTime ? `${l.idealTime} min read` : 'PDF Guide',
+  url: l.media?.source || l.media?.path || '',
+  source: l.subFormat || 'PDF',
+});
+
+// API items first, followed by the fallback items that the API did not already return
+const mergeWithFallback = (apiItems: ContentMediaItem[], fallback: ContentMediaItem[]): ContentMediaItem[] => [
+  ...apiItems,
+  ...fallback.filter((fb) => !apiItems.some((a) => a.id === fb.id || a.title === fb.title)),
+];
+
+// State derived from an existing module that is opened for editing
+const getEditModuleState = (targetModule: any) => {
+  const lessons: any[] = targetModule.lessons || [];
+  return {
+    title: targetModule.title || '',
+    duration: targetModule.duration ? String(targetModule.duration) : '',
+    sectionPrefix: `1.${targetModule.ordering || 1}`,
+    lessonIds: new Set<string>(lessons.map((l: any) => l.lessonId).filter(Boolean)),
+    blocks: lessons.map(mapLessonToBlock),
+  };
+};
+
+const findTargetModule = (rawModules: any[], moduleId: unknown): any =>
+  moduleId ? rawModules.find((m: any) => m.moduleId === moduleId || m.id === moduleId) : null;
+
+const createVideoItems = (selected: ContentMediaItem[], stamp: number): VideoItem[] =>
+  selected.map((v) => ({
+    id: `vid-${stamp}-${v.id}`,
+    lessonId: v.id,
+    title: v.title,
+    duration: v.duration.includes('link') ? v.duration : `${v.duration} · Video link`,
+    sourceUrl: v.url,
+  }));
+
+// Point an existing PDF / image block at the first selected library item
+const replaceBlockMedia = (
+  prev: SectionBlock[],
+  targetBlockId: string,
+  first: ContentMediaItem | undefined
+): SectionBlock[] =>
+  prev.map((b) =>
+    b.id === targetBlockId
+      ? { ...b, mediaName: first?.title || b.mediaName, mediaUrl: first?.url || b.mediaUrl }
+      : b
+  );
+
+const addVideosToBlocks = (
+  prev: SectionBlock[],
+  selected: ContentMediaItem[],
+  targetBlockId: string | null,
+  stamp: number
+): SectionBlock[] => {
+  const newVideoItems = createVideoItems(selected, stamp);
+  if (targetBlockId) {
+    // Append to the specific VIDEO WATCH block
+    return prev.map((b) =>
+      b.id === targetBlockId ? { ...b, videos: [...(b.videos || []), ...newVideoItems] } : b
+    );
+  }
+  // Insert a new VIDEO WATCH block
+  return [...prev, { id: `blk-${stamp}`, type: 'VIDEO WATCH', videos: newVideoItems }];
+};
+
+const addPdfsToBlocks = (
+  prev: SectionBlock[],
+  selected: ContentMediaItem[],
+  targetBlockId: string | null,
+  stamp: number
+): SectionBlock[] => {
+  if (targetBlockId) return replaceBlockMedia(prev, targetBlockId, selected[0]);
+  const newPdfBlocks: SectionBlock[] = selected.map((p, idx) => ({
+    id: `blk-pdf-${stamp}-${idx}`,
+    lessonId: p.id,
+    type: 'PDF',
+    mediaName: p.title,
+    mediaUrl: p.url,
+    text: '',
+  }));
+  return [...prev, ...newPdfBlocks];
+};
+
+const addImagesToBlocks = (
+  prev: SectionBlock[],
+  selected: ContentMediaItem[],
+  targetBlockId: string | null,
+  stamp: number
+): SectionBlock[] => {
+  if (targetBlockId) return replaceBlockMedia(prev, targetBlockId, selected[0]);
+  const newImgBlocks: SectionBlock[] = selected.map((img, idx) => ({
+    id: `blk-img-${stamp}-${idx}`,
+    type: 'IMAGE',
+    mediaName: img.title,
+    mediaUrl: img.url,
+    text: '',
+  }));
+  return [...prev, ...newImgBlocks];
+};
+
+const slugify = (text: string): string => {
+  let out = '';
+  for (const ch of text.toLowerCase()) {
+    const isAlnum = (ch >= 'a' && ch <= 'z') || (ch >= '0' && ch <= '9');
+    if (isAlnum) {
+      out += ch;
+    } else if (!out.endsWith('-')) {
+      out += '-';
+    }
+  }
+  if (out.startsWith('-')) out = out.slice(1);
+  if (out.endsWith('-')) out = out.slice(0, -1);
+  return out;
+};
+
+// Alias matching the title (kept as is when it ends with a number, otherwise suffixed with a random number)
+const buildAlias = (effectiveTitle: string): string => {
+  const cleanSlug = slugify(effectiveTitle) || 'module';
+  return /\d+$/.test(cleanSlug) ? cleanSlug : `${cleanSlug}-${Math.floor(100 + Math.random() * 900)}`;
+};
+
+// Numeric ordering from the section prefix (e.g. "1.2" -> 2), falling back to the next free position
+const computeOrdering = (sectionPrefix: string, moduleCount: number): number => {
+  const prefixParts = sectionPrefix.split('.');
+  const parsedOrder = prefixParts.length > 1 ? Number.parseInt(prefixParts[1], 10) : Number.parseInt(sectionPrefix, 10);
+  return !Number.isNaN(parsedOrder) && parsedOrder > 0 ? parsedOrder : moduleCount + 1;
+};
+
+const buildLocalChildren = (blocks: SectionBlock[], status: string) =>
+  blocks.flatMap((b) => {
+    if (b.type === 'VIDEO WATCH' && b.videos?.length) {
+      return b.videos.map((v, i) => ({
+        identifier: v.id || `vid-${i}`,
+        lessonId: v.id || `vid-${i}`,
+        name: v.title || 'Video Lesson',
+        primaryCategory: 'Course Unit',
+        format: 'video',
+        status,
+        idealTime: Number.parseInt(v.duration ?? '', 10) || 5,
+      }));
+    }
+    if (b.type === 'PDF') {
+      return [{
+        identifier: b.id,
+        lessonId: b.id,
+        name: b.mediaName || 'PDF Document',
+        primaryCategory: 'Course Unit',
+        format: 'pdf',
+        status,
+        idealTime: 10,
+      }];
+    }
+    return [];
+  });
+
+// Persist a module to localStorage so it is immediately visible in the Course Details page
+const saveModuleLocally = (courseId: string, newModule: Record<string, unknown>, onError: () => void) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const storageKey = `swadhaar_custom_modules_${courseId}`;
+    const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    localStorage.setItem(storageKey, JSON.stringify([...existing, newModule]));
+  } catch {
+    onError();
+  }
+};
+
+const getSaveSuccessMessage = (title: string, status: string, failedAttach: number): string => {
+  if (failedAttach > 0) {
+    return `Section "${title}" saved, but ${failedAttach} lesson(s) could not be added to it.`;
+  }
+  return status === 'draft'
+    ? `Section "${title}" saved as draft successfully!`
+    : `Section "${title}" published successfully!`;
+};
+
+const getSaveErrorMessage = (err: any, status: string): string => {
+  if (err?.response?.status === 401) {
+    return `Section saved locally as ${status} (API token expired on QA server).`;
+  }
+  return (
+    err?.response?.data?.params?.errmsg ||
+    err?.response?.data?.params?.err ||
+    err?.message ||
+    'Failed to save section.'
+  );
+};
+
+// Lessons picked in the blocks that are not attached to the module yet
+const collectNewLessonIds = (blocks: SectionBlock[], attached: Set<string>): string[] =>
+  blocks
+    .flatMap((b) => (b.type === 'VIDEO WATCH' ? (b.videos || []).map((v) => v.lessonId) : [b.lessonId]))
+    .filter((lessonId): lessonId is string => Boolean(lessonId) && !attached.has(lessonId as string));
+
+// Dates formatted as YYYY-MM-DDT00:00:00Z matching Aspire LMS standard
+const getModuleDates = () => {
+  const now = new Date();
+  const startDatetime = `${now.toISOString().split('T')[0]}T00:00:00Z`;
+  const endDate = new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000);
+  const endDatetime = `${endDate.toISOString().split('T')[0]}T00:00:00Z`;
+  return { startDatetime, endDatetime };
+};
+
+const stripHtmlTags = (html: string): string => {
+  let out = '';
+  let i = 0;
+  while (i < html.length) {
+    const start = html.indexOf('<', i);
+    if (start === -1) break;
+    const end = html.indexOf('>', start + 1);
+    if (end === -1) break;
+    out += html.slice(i, start);
+    i = end + 1;
+  }
+  return out + html.slice(i);
+};
+
+const MEDIA_BLOCK_TYPES = new Set<SectionBlock['type']>(['VIDEO WATCH', 'PDF', 'IMAGE']);
+
+type MediaTab = 'videos' | 'pdfs' | 'images';
+
+const MEDIA_TAB_TITLES: Record<MediaTab, string> = { videos: 'Videos', pdfs: 'PDFs', images: 'Media' };
+
+const MEDIA_SEARCH_PLACEHOLDERS: Record<MediaTab, string> = {
+  videos: 'Search published video lessons...',
+  pdfs: 'Search published PDF documents...',
+  images: 'Search the content library...',
+};
+
+const MEDIA_TAB_BLOCK_NAMES: Record<MediaTab, string> = { videos: 'Video Watch', pdfs: 'PDF', images: 'Image' };
+
+// [empty label, singular, plural] of the "Add" button per media tab
+const MEDIA_ADD_LABELS: Record<MediaTab, [string, string, string]> = {
+  videos: ['Add videos', 'video', 'videos'],
+  pdfs: ['Add PDFs', 'PDF', 'PDFs'],
+  images: ['Add images', 'image', 'images'],
+};
+
+const getAddMediaLabel = (tab: MediaTab, selectedCount: number): string => {
+  const [emptyLabel, singular, plural] = MEDIA_ADD_LABELS[tab];
+  if (selectedCount === 0) return emptyLabel;
+  return `Add ${selectedCount} ${selectedCount === 1 ? singular : plural}`;
+};
+
+const getCourseLabel = (course: CourseHierarchy | null): string => {
+  if (!course?.title) return 'Loading course...';
+  const aliasSuffix = course.alias ? ` (${course.alias})` : '';
+  return `${course.title}${aliasSuffix}`;
+};
+
+const DEFAULT_BADGE_STYLE = { backgroundColor: '#F4F4F5', color: '#27272A' };
+
+const BADGE_STYLES: Record<string, { backgroundColor: string; color: string }> = {
+  INTRO: { backgroundColor: '#EEEDE9', color: '#3D3B37' },
+  HOOK: { backgroundColor: '#FEF3C7', color: '#92400E' },
+  CONCEPT: { backgroundColor: '#E0E7FF', color: '#3730A3' },
+  ANALYSIS: { backgroundColor: '#F3E8FF', color: '#6B21A8' },
+  'VIDEO WATCH': { backgroundColor: '#FCE7F3', color: '#9D174D' },
+  PDF: { backgroundColor: '#FEE2E2', color: '#991B1B' },
+  IMAGE: { backgroundColor: '#E0F2FE', color: '#075985' },
+};
+
+const getBadgeStyle = (type: SectionBlock['type']) => BADGE_STYLES[type] ?? DEFAULT_BADGE_STYLE;
+
+const DEFAULT_PLACEHOLDER = 'Enter text content here...';
+
+const BLOCK_PLACEHOLDERS: Record<string, string> = {
+  INTRO: 'Enter section introduction and overview for learners...',
+  HOOK: 'Hook: Pose an intriguing question, real-life problem, or engaging scenario...',
+  CONCEPT: 'Concept: Clearly explain the core financial principle or concept...',
+  ANALYSIS: 'Analysis: Provide breakdown of numbers, comparisons, or practical case study...',
+};
+
+const getPlaceholder = (type: SectionBlock['type']) => BLOCK_PLACEHOLDERS[type] ?? DEFAULT_PLACEHOLDER;
 
 const renameVideoInBlocks = (
   blocks: SectionBlock[],
@@ -260,7 +612,7 @@ export default function CreateSectionPage() {
     {
       id: 'blk-intro',
       type: 'INTRO',
-      text: 'Now that you understand how financial planning helps households prepare for different needs and goals, the next step is to understand how families can manage their available income and expenses.',
+      text: DEFAULT_INTRO_TEXT,
     },
   ]);
 
@@ -292,107 +644,28 @@ export default function CreateSectionPage() {
         const rawModules = data.modules || [];
 
         // If hierarchy modules is empty (e.g. modules: []), show ONLY ONE block default
-        if (!rawModules || rawModules.length === 0) {
-          setBlocks([
-            {
-              id: 'blk-intro',
-              type: 'INTRO',
-              text: 'Now that you understand how financial planning helps households prepare for different needs and goals, the next step is to understand how families can manage their available income and expenses.',
-            },
-          ]);
+        if (rawModules.length === 0) {
+          setBlocks([{ id: 'blk-intro', type: 'INTRO', text: DEFAULT_INTRO_TEXT }]);
           setSectionPrefix('1.1');
           setTitle('');
           setDuration('');
-        } else {
-          // If hierarchy has data, show blocks as per their type
-          const targetModule = router.query.moduleId
-            ? rawModules.find((m: any) => m.moduleId === router.query.moduleId || m.id === router.query.moduleId)
-            : null;
+          return;
+        }
 
-          if (router.query.moduleId && targetModule) {
-            setTitle(targetModule.title || '');
-            setDuration(targetModule.duration ? String(targetModule.duration) : '');
-            setSectionPrefix(`1.${targetModule.ordering || 1}`);
-
-            const lessons = targetModule.lessons || [];
-            attachedLessonIds.current = new Set(lessons.map((l: any) => l.lessonId).filter(Boolean));
-            if (lessons.length > 0) {
-              const mappedBlocks: SectionBlock[] = lessons.map((l: any, lIdx: number) => {
-                const fmt = (l.format || l.primaryCategory || '').toLowerCase();
-                if (fmt.includes('video')) {
-                  return {
-                    id: l.lessonId || `blk-vid-${lIdx}-${Date.now()}`,
-                    type: 'VIDEO WATCH',
-                    videos: [
-                      {
-                        id: `vid-${lIdx}`,
-                        lessonId: l.lessonId,
-                        title: l.title || 'Video Lesson',
-                        duration: l.idealTime ? `${l.idealTime} min` : l.duration || 'Video link',
-                        sourceUrl: resolveMediaUrl(l.media?.source || l.media?.path || l.media?.url || l.mediaUrl || ''),
-                      },
-                    ],
-                  };
-                }
-                if (fmt.includes('pdf')) {
-                  return {
-                    id: l.lessonId || `blk-pdf-${lIdx}-${Date.now()}`,
-                    lessonId: l.lessonId,
-                    type: 'PDF',
-                    mediaName: l.title || 'PDF Document',
-                    mediaUrl: resolveMediaUrl(l.media?.path || l.media?.source || l.media?.url || l.mediaUrl || l.downloadUrl || ''),
-                    text: l.description || '',
-                  };
-                }
-                if (fmt.includes('image')) {
-                  return {
-                    id: l.lessonId || `blk-img-${lIdx}-${Date.now()}`,
-                    type: 'IMAGE',
-                    mediaName: l.title || 'Image Illustration',
-                    mediaUrl: l.media?.url || l.mediaUrl || l.downloadUrl || '',
-                    text: l.description || '',
-                  };
-                }
-                if (fmt.includes('hook')) {
-                  return {
-                    id: l.lessonId || `blk-hook-${lIdx}-${Date.now()}`,
-                    type: 'HOOK',
-                    text: l.description || l.title || '',
-                  };
-                }
-                if (fmt.includes('concept')) {
-                  return {
-                    id: l.lessonId || `blk-concept-${lIdx}-${Date.now()}`,
-                    type: 'CONCEPT',
-                    text: l.description || l.title || '',
-                  };
-                }
-                if (fmt.includes('analysis')) {
-                  return {
-                    id: l.lessonId || `blk-analysis-${lIdx}-${Date.now()}`,
-                    type: 'ANALYSIS',
-                    text: l.description || l.title || '',
-                  };
-                }
-                if (fmt.includes('intro')) {
-                  return {
-                    id: l.lessonId || `blk-intro-${lIdx}-${Date.now()}`,
-                    type: 'INTRO',
-                    text: l.description || l.title || '',
-                  };
-                }
-                return {
-                  id: l.lessonId || `blk-txt-${lIdx}-${Date.now()}`,
-                  type: 'TEXT',
-                  text: l.description || l.title || '',
-                };
-              });
-              setBlocks(mappedBlocks);
-            }
-          } else {
-            // New Section under existing course: compute next section index
-            setSectionPrefix(`1.${rawModules.length + 1}`);
+        // If hierarchy has data, show blocks as per their type
+        const targetModule = findTargetModule(rawModules, router.query.moduleId);
+        if (targetModule) {
+          const editState = getEditModuleState(targetModule);
+          setTitle(editState.title);
+          setDuration(editState.duration);
+          setSectionPrefix(editState.sectionPrefix);
+          attachedLessonIds.current = editState.lessonIds;
+          if (editState.blocks.length > 0) {
+            setBlocks(editState.blocks);
           }
+        } else {
+          // New Section under existing course: compute next section index
+          setSectionPrefix(`1.${rawModules.length + 1}`);
         }
       })
       .catch((err) => {
@@ -410,49 +683,17 @@ export default function CreateSectionPage() {
 
       if (lessons.length > 0) {
         // Filter videos from API
-        const apiVideos: ContentMediaItem[] = lessons
-          .filter((l) => isVideoLesson(l))
-          .map((l) => {
-            const rawDuration = l.idealTime ? `${l.idealTime} min` : (l.duration ? String(l.duration) : '[—]');
-            const videoUrl = l.media?.source || l.media?.path || 'https://www.youtube.com/watch?v=EUPk_ThuWXI';
-            return {
-              id: l.lessonId,
-              title: l.title || 'Video Lesson',
-              duration: rawDuration,
-              url: videoUrl,
-              source: l.subFormat || 'LMS Video',
-            };
-          });
+        const apiVideos: ContentMediaItem[] = lessons.filter((l) => isVideoLesson(l)).map(toVideoMediaItem);
 
         // Filter PDFs from API
-        const apiPdfs: ContentMediaItem[] = lessons
-          .filter((l) => isPdfLesson(l))
-          .map((l) => {
-            const pdfUrl = l.media?.source || l.media?.path || '';
-            const rawDuration = l.idealTime ? `${l.idealTime} min read` : 'PDF Guide';
-            return {
-              id: l.lessonId,
-              title: l.title || 'PDF Document',
-              duration: rawDuration,
-              url: pdfUrl,
-              source: l.subFormat || 'PDF',
-            };
-          });
+        const apiPdfs: ContentMediaItem[] = lessons.filter((l) => isPdfLesson(l)).map(toPdfMediaItem);
 
         if (apiVideos.length > 0) {
-          const combinedVideos = [
-            ...apiVideos,
-            ...FALLBACK_VIDEOS.filter((fb) => !apiVideos.some((v) => v.id === fb.id || v.title === fb.title)),
-          ];
-          setLibraryVideos(combinedVideos);
+          setLibraryVideos(mergeWithFallback(apiVideos, FALLBACK_VIDEOS));
         }
 
         if (apiPdfs.length > 0) {
-          const combinedPdfs = [
-            ...apiPdfs,
-            ...FALLBACK_PDFS.filter((fb) => !apiPdfs.some((p) => p.id === fb.id || p.title === fb.title)),
-          ];
-          setLibraryPdfs(combinedPdfs);
+          setLibraryPdfs(mergeWithFallback(apiPdfs, FALLBACK_PDFS));
         }
       }
     } catch (err) {
@@ -499,85 +740,16 @@ export default function CreateSectionPage() {
   const handleAddSelectedMedia = () => {
     if (selectedMediaIds.length === 0) return;
 
+    const stamp = Date.now();
     if (mediaActiveTab === 'videos') {
-      const selectedVideos = libraryVideos.filter((v) => selectedMediaIds.includes(v.id));
-      const newVideoItems: VideoItem[] = selectedVideos.map((v) => ({
-        id: `vid-${Date.now()}-${v.id}`,
-        lessonId: v.id,
-        title: v.title,
-        duration: v.duration.includes('link') ? v.duration : `${v.duration} · Video link`,
-        sourceUrl: v.url,
-      }));
-
-      if (targetBlockIdForMedia) {
-        // Append to the specific VIDEO WATCH block
-        setBlocks((prev) =>
-          prev.map((b) =>
-            b.id === targetBlockIdForMedia
-              ? { ...b, videos: [...(b.videos || []), ...newVideoItems] }
-              : b
-          )
-        );
-      } else {
-        // Insert a new VIDEO WATCH block
-        const newBlock: SectionBlock = {
-          id: `blk-${Date.now()}`,
-          type: 'VIDEO WATCH',
-          videos: newVideoItems,
-        };
-        setBlocks((prev) => [...prev, newBlock]);
-      }
+      const selected = libraryVideos.filter((v) => selectedMediaIds.includes(v.id));
+      setBlocks((prev) => addVideosToBlocks(prev, selected, targetBlockIdForMedia, stamp));
     } else if (mediaActiveTab === 'pdfs') {
-      const selectedPdfs = libraryPdfs.filter((p) => selectedMediaIds.includes(p.id));
-
-      if (targetBlockIdForMedia) {
-        setBlocks((prev) =>
-          prev.map((b) =>
-            b.id === targetBlockIdForMedia
-              ? {
-                  ...b,
-                  mediaName: selectedPdfs[0]?.title || b.mediaName,
-                  mediaUrl: selectedPdfs[0]?.url || b.mediaUrl,
-                }
-              : b
-          )
-        );
-      } else {
-        const newPdfBlocks: SectionBlock[] = selectedPdfs.map((p, idx) => ({
-          id: `blk-pdf-${Date.now()}-${idx}`,
-          lessonId: p.id,
-          type: 'PDF',
-          mediaName: p.title,
-          mediaUrl: p.url,
-          text: '',
-        }));
-        setBlocks((prev) => [...prev, ...newPdfBlocks]);
-      }
+      const selected = libraryPdfs.filter((p) => selectedMediaIds.includes(p.id));
+      setBlocks((prev) => addPdfsToBlocks(prev, selected, targetBlockIdForMedia, stamp));
     } else {
-      // Images
-      const selectedImages = libraryImages.filter((img) => selectedMediaIds.includes(img.id));
-      if (targetBlockIdForMedia) {
-        setBlocks((prev) =>
-          prev.map((b) =>
-            b.id === targetBlockIdForMedia
-              ? {
-                  ...b,
-                  mediaName: selectedImages[0]?.title || b.mediaName,
-                  mediaUrl: selectedImages[0]?.url || b.mediaUrl,
-                }
-              : b
-          )
-        );
-      } else {
-        const newImgBlocks: SectionBlock[] = selectedImages.map((img, idx) => ({
-          id: `blk-img-${Date.now()}-${idx}`,
-          type: 'IMAGE',
-          mediaName: img.title,
-          mediaUrl: img.url,
-          text: '',
-        }));
-        setBlocks((prev) => [...prev, ...newImgBlocks]);
-      }
+      const selected = libraryImages.filter((img) => selectedMediaIds.includes(img.id));
+      setBlocks((prev) => addImagesToBlocks(prev, selected, targetBlockIdForMedia, stamp));
     }
 
     setMediaDialogOpen(false);
@@ -665,28 +837,17 @@ export default function CreateSectionPage() {
     setSavingType(status);
     try {
       // Generate clean alias matching title (preserving user-specified slugs or suffixing if generic)
-      const cleanSlug = effectiveTitle
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || 'module';
-      const alias = /\d+$/.test(cleanSlug) ? cleanSlug : `${cleanSlug}-${Math.floor(100 + Math.random() * 900)}`;
+      const alias = buildAlias(effectiveTitle);
 
       // Description from first block text or title
       const firstBlockText = blocks[0]?.text?.trim();
       const descHtml = firstBlockText ? `<p>${firstBlockText}</p>` : `<p>${effectiveTitle}</p>`;
 
       // Compute numeric ordering from section prefix (e.g. "1.2" -> 2)
-      const prefixParts = sectionPrefix.split('.');
-      const parsedOrder = prefixParts.length > 1 ? parseInt(prefixParts[1], 10) : parseInt(sectionPrefix, 10);
-      const ordering = !isNaN(parsedOrder) && parsedOrder > 0
-        ? parsedOrder
-        : ((course?.modules?.length || 0) + 1);
+      const ordering = computeOrdering(sectionPrefix, course?.modules?.length || 0);
 
       // Dates formatted as YYYY-MM-DDT00:00:00Z matching Aspire LMS standard
-      const now = new Date();
-      const startDatetime = `${now.toISOString().split('T')[0]}T00:00:00Z`;
-      const endDate = new Date(now.getTime() + 28 * 24 * 60 * 60 * 1000);
-      const endDatetime = `${endDate.toISOString().split('T')[0]}T00:00:00Z`;
+      const { startDatetime, endDatetime } = getModuleDates();
 
       const payload: CreateModulePayload = {
         title: effectiveTitle,
@@ -716,67 +877,32 @@ export default function CreateSectionPage() {
       }
 
       // Put the picked videos and PDFs into the module: PATCH /lms-service/v1/lessons/:id { courseId, moduleId }
-      const lessonIds = blocks
-        .flatMap((b) => (b.type === 'VIDEO WATCH' ? (b.videos || []).map((v) => v.lessonId) : [b.lessonId]))
-        .filter((lessonId): lessonId is string => Boolean(lessonId) && !attachedLessonIds.current.has(lessonId as string));
+      const lessonIds = collectNewLessonIds(blocks, attachedLessonIds.current);
       const attachResults = await Promise.allSettled(
         lessonIds.map((lessonId, idx) => updateLmsLesson(lessonId, { courseId, moduleId, ordering: idx + 1 }))
       );
       const failedAttach = attachResults.filter((r) => r.status === 'rejected').length;
 
       // Persist module to localStorage so it is immediately visible in Course Details page
-      if (typeof window !== 'undefined') {
-        try {
-          const storageKey = `swadhaar_custom_modules_${courseId}`;
-          const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
-          const newModule = {
-            moduleId,
-            identifier: moduleId,
-            name: effectiveTitle,
-            title: effectiveTitle,
-            description: descHtml,
-            ordering,
-            status,
-            children: blocks.flatMap((b) => {
-              if (b.type === 'VIDEO WATCH' && b.videos?.length) {
-                return b.videos.map((v, i) => ({
-                  identifier: v.id || `vid-${i}`,
-                  lessonId: v.id || `vid-${i}`,
-                  name: v.title || 'Video Lesson',
-                  primaryCategory: 'Course Unit',
-                  format: 'video',
-                  status,
-                  idealTime: parseInt(v.duration) || 5,
-                }));
-              }
-              if (b.type === 'PDF') {
-                return [{
-                  identifier: b.id,
-                  lessonId: b.id,
-                  name: b.mediaName || 'PDF Document',
-                  primaryCategory: 'Course Unit',
-                  format: 'pdf',
-                  status,
-                  idealTime: 10,
-                }];
-              }
-              return [];
-            }),
-          };
-          localStorage.setItem(storageKey, JSON.stringify([...existing, newModule]));
-        } catch {
+      saveModuleLocally(
+        courseId,
+        {
+          moduleId,
+          identifier: moduleId,
+          name: effectiveTitle,
+          title: effectiveTitle,
+          description: descHtml,
+          ordering,
+          status,
+          children: buildLocalChildren(blocks, status),
+        },
+        () => {
           // ignore localStorage error
         }
-      }
+      );
 
       setSnackbarSeverity(failedAttach > 0 ? 'error' : 'success');
-      setSnackbarMessage(
-        failedAttach > 0
-          ? `Section "${effectiveTitle}" saved, but ${failedAttach} lesson(s) could not be added to it.`
-          : status === 'draft'
-            ? `Section "${effectiveTitle}" saved as draft successfully!`
-            : `Section "${effectiveTitle}" published successfully!`
-      );
+      setSnackbarMessage(getSaveSuccessMessage(effectiveTitle, status, failedAttach));
       setTimeout(() => {
         router.push(`${basePath}/${courseId}`);
       }, 1200);
@@ -784,37 +910,25 @@ export default function CreateSectionPage() {
       console.error('Error in handleSave:', err);
 
       // Graceful offline/token-fallback: preserve section in local state so changes reflect immediately
-      if (typeof window !== 'undefined') {
-        try {
-          const storageKey = `swadhaar_custom_modules_${courseId}`;
-          const existing = JSON.parse(localStorage.getItem(storageKey) || '[]');
-          const newModule = {
-            moduleId: `mod-${Date.now()}`,
-            identifier: `mod-${Date.now()}`,
-            name: effectiveTitle,
-            title: effectiveTitle,
-            description: `<p>${effectiveTitle}</p>`,
-            ordering: ((course?.modules?.length || 0) + 1),
-            status,
-            children: [],
-          };
-          localStorage.setItem(storageKey, JSON.stringify([...existing, newModule]));
-        } catch {
+      saveModuleLocally(
+        courseId,
+        {
+          moduleId: `mod-${Date.now()}`,
+          identifier: `mod-${Date.now()}`,
+          name: effectiveTitle,
+          title: effectiveTitle,
+          description: `<p>${effectiveTitle}</p>`,
+          ordering: (course?.modules?.length || 0) + 1,
+          status,
+          children: [],
+        },
+        () => {
           // ignore
         }
-      }
-
-      const errorMsg =
-        err?.response?.data?.params?.errmsg ||
-        err?.response?.data?.params?.err ||
-        err?.message ||
-        'Failed to save section.';
-      setSnackbarSeverity(err?.response?.status === 401 ? 'info' : 'error');
-      setSnackbarMessage(
-        err?.response?.status === 401
-          ? `Section saved locally as ${status} (API token expired on QA server).`
-          : errorMsg
       );
+
+      setSnackbarSeverity(err?.response?.status === 401 ? 'info' : 'error');
+      setSnackbarMessage(getSaveErrorMessage(err, status));
       setTimeout(() => {
         router.push(`${basePath}/${courseId}`);
       }, 1500);
@@ -830,44 +944,6 @@ export default function CreateSectionPage() {
 
   const courseDisplayName = course?.title || course?.name || 'Selected Course';
   const language = course?.detectedLanguage || 'English';
-
-  const getBadgeStyle = (type: SectionBlock['type']) => {
-    switch (type) {
-      case 'INTRO':
-        return { backgroundColor: '#EEEDE9', color: '#3D3B37' };
-      case 'HOOK':
-        return { backgroundColor: '#FEF3C7', color: '#92400E' };
-      case 'CONCEPT':
-        return { backgroundColor: '#E0E7FF', color: '#3730A3' };
-      case 'ANALYSIS':
-        return { backgroundColor: '#F3E8FF', color: '#6B21A8' };
-      case 'VIDEO WATCH':
-        return { backgroundColor: '#FCE7F3', color: '#9D174D' };
-      case 'PDF':
-        return { backgroundColor: '#FEE2E2', color: '#991B1B' };
-      case 'IMAGE':
-        return { backgroundColor: '#E0F2FE', color: '#075985' };
-      case 'TEXT':
-      default:
-        return { backgroundColor: '#F4F4F5', color: '#27272A' };
-    }
-  };
-
-  const getPlaceholder = (type: SectionBlock['type']) => {
-    switch (type) {
-      case 'INTRO':
-        return 'Enter section introduction and overview for learners...';
-      case 'HOOK':
-        return 'Hook: Pose an intriguing question, real-life problem, or engaging scenario...';
-      case 'CONCEPT':
-        return 'Concept: Clearly explain the core financial principle or concept...';
-      case 'ANALYSIS':
-        return 'Analysis: Provide breakdown of numbers, comparisons, or practical case study...';
-      case 'TEXT':
-      default:
-        return 'Enter text content here...';
-    }
-  };
 
   const selectedCount = selectedMediaIds.length;
 
@@ -1160,7 +1236,7 @@ export default function CreateSectionPage() {
                     </Box>
 
                     {/* Block Content Renderers by Type */}
-                    {block.type === 'VIDEO WATCH' ? (
+                    {block.type === 'VIDEO WATCH' && (
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
                         {(block.videos || []).map((video) => (
                           <Box
@@ -1251,7 +1327,8 @@ export default function CreateSectionPage() {
                           + Add video
                         </Button>
                       </Box>
-                    ) : block.type === 'PDF' ? (
+                    )}
+                    {block.type === 'PDF' && (
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Box
                           sx={{
@@ -1340,7 +1417,8 @@ export default function CreateSectionPage() {
                           }}
                         />
                       </Box>
-                    ) : block.type === 'IMAGE' ? (
+                    )}
+                    {block.type === 'IMAGE' && (
                       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                         <Box
                           sx={{
@@ -1433,7 +1511,8 @@ export default function CreateSectionPage() {
                           }}
                         />
                       </Box>
-                    ) : (
+                    )}
+                    {!MEDIA_BLOCK_TYPES.has(block.type) && (
                       <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                         {/* Formatting Toolbar */}
                         <Box
@@ -1790,7 +1869,7 @@ export default function CreateSectionPage() {
                     size="small"
                     fullWidth
                     disabled
-                    value={course?.title ? `${course.title}${course.alias ? ` (${course.alias})` : ''}` : 'Loading course...'}
+                    value={getCourseLabel(course)}
                     sx={{
                       '& .MuiOutlinedInput-root': {
                         height: 40,
@@ -1879,7 +1958,7 @@ export default function CreateSectionPage() {
                   <Box sx={{ pt: 1, borderTop: '1px solid #ECEAE5' }}>
                     <Typography sx={{ color: '#6B6862', fontSize: '12px', mb: 0.3 }}>Description:</Typography>
                     <Typography sx={{ color: '#1F1E1C', fontSize: '13px', lineHeight: 1.4 }}>
-                      {course.description.replace(/<[^>]*>/g, '').trim()}
+                      {stripHtmlTags(course.description).trim()}
                     </Typography>
                   </Box>
                 )}
@@ -1965,7 +2044,7 @@ export default function CreateSectionPage() {
               component="h2"
               sx={{ margin: 0, fontSize: '19px', fontWeight: 600, color: '#1F1E1C' }}
             >
-              Add {mediaActiveTab === 'videos' ? 'Videos' : mediaActiveTab === 'pdfs' ? 'PDFs' : 'Media'} to {sectionPrefix} {title || 'Section'}
+              Add {MEDIA_TAB_TITLES[mediaActiveTab]} to {sectionPrefix} {title || 'Section'}
             </Typography>
             {mediaLoading && (
               <CircularProgress size={16} sx={{ color: '#1F1E1C', ml: 0.5 }} />
@@ -2151,13 +2230,7 @@ export default function CreateSectionPage() {
             id="scr-pickmedia-pm-q"
             fullWidth
             size="small"
-            placeholder={
-              mediaActiveTab === 'videos'
-                ? 'Search published video lessons...'
-                : mediaActiveTab === 'pdfs'
-                ? 'Search published PDF documents...'
-                : 'Search the content library...'
-            }
+            placeholder={MEDIA_SEARCH_PLACEHOLDERS[mediaActiveTab]}
             value={mediaSearchQuery}
             onChange={(e) => setMediaSearchQuery(e.target.value)}
             sx={{
@@ -2256,7 +2329,7 @@ export default function CreateSectionPage() {
 
           {/* Hint Line */}
           <Typography sx={{ fontSize: '12px', color: '#6B6862' }}>
-            Selected: {selectedCount} · added to the {mediaActiveTab === 'videos' ? 'Video Watch' : mediaActiveTab === 'pdfs' ? 'PDF' : 'Image'} block in this order
+            Selected: {selectedCount} · added to the {MEDIA_TAB_BLOCK_NAMES[mediaActiveTab]} block in this order
           </Typography>
         </Box>
 
@@ -2310,17 +2383,7 @@ export default function CreateSectionPage() {
               },
             }}
           >
-            {mediaActiveTab === 'videos'
-              ? selectedCount === 0
-                ? 'Add videos'
-                : `Add ${selectedCount} ${selectedCount === 1 ? 'video' : 'videos'}`
-              : mediaActiveTab === 'pdfs'
-              ? selectedCount === 0
-                ? 'Add PDFs'
-                : `Add ${selectedCount} ${selectedCount === 1 ? 'PDF' : 'PDFs'}`
-              : selectedCount === 0
-              ? 'Add images'
-              : `Add ${selectedCount} ${selectedCount === 1 ? 'image' : 'images'}`}
+            {getAddMediaLabel(mediaActiveTab, selectedCount)}
           </Button>
         </Box>
       </Dialog>

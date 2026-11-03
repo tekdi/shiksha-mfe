@@ -187,7 +187,9 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   // Roles for the dropdown: names are shown, the role id is the value sent on create
   useEffect(() => {
     if (open) {
-      getTenantRoles().then(setTenantRoles);
+      getTenantRoles()
+        .then(setTenantRoles)
+        .catch(() => setTenantRoles([]));
     }
   }, [open]);
 

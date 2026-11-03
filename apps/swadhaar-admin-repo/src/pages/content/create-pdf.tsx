@@ -27,11 +27,28 @@ import { ContentFormHeader, FormAlerts, FormCardHeader, DescriptionField, Langua
 
 /** "20" or "20 min" -> 20 */
 const parseIdealMinutes = (value: string): number | undefined => {
-  const minutes = value.trim().match(/^(\d+)/);
+  const minutes = /^(\d+)/.exec(value.trim());
   return minutes ? Number(minutes[1]) : undefined;
 };
 
 const toLanguageOption = (language: string): 'Hindi' | 'English' => (language === 'Hindi' ? 'Hindi' : 'English');
+
+const toDescriptionHtml = (text: string): string => (text.trim() ? `<p>${text.trim()}</p>` : '');
+
+/** Optional courseId / moduleId from the route query, only when they are non-empty strings */
+const getCourseTarget = (query: Record<string, unknown>) => {
+  const { courseId, moduleId } = query;
+  return {
+    ...(typeof courseId === 'string' && courseId ? { courseId } : {}),
+    ...(typeof moduleId === 'string' && moduleId ? { moduleId } : {}),
+  };
+};
+
+const getValidationError = (title: string, isEditing: boolean, pdfFile: File | null): string | null => {
+  if (!title.trim()) return 'PDF title is required.';
+  if (!isEditing && !pdfFile) return 'Please choose a PDF file.';
+  return null;
+};
 
 export default function CreatePdfPage() {
   const router = useRouter();
@@ -123,42 +140,45 @@ export default function CreatePdfPage() {
     }
   }, [id, router.query.usedIn]);
 
+  const updateExistingPdf = async (lessonId: string, isDraft: boolean) => {
+    // A newly chosen file replaces the stored one; otherwise the existing media is kept
+    const newPath = pdfFile ? (await uploadLessonMedia(pdfFile, 'document')).path : undefined;
+    await updateLmsLesson(lessonId, {
+      title: title.trim(),
+      description: toDescriptionHtml(description),
+      status: isDraft ? 'unpublished' : 'published',
+      idealTime: parseIdealMinutes(readingTime),
+      ...(newPath ? { mediaContentPath: newPath } : {}),
+    });
+    setSuccessMsg('PDF updated successfully.');
+  };
+
+  const createNewPdf = async (isDraft: boolean) => {
+    const { path } = await uploadLessonMedia(pdfFile as File, 'document');
+    await createDocumentLesson({
+      title: title.trim(),
+      description: toDescriptionHtml(description) || undefined,
+      status: isDraft ? 'unpublished' : 'published',
+      mediaContentPath: path,
+      idealTime: parseIdealMinutes(readingTime),
+      ...getCourseTarget(router.query),
+    });
+    setSuccessMsg(isDraft ? `PDF saved as draft.` : `PDF created successfully.`);
+  };
+
   const handleSave = async (isDraft = false) => {
-    if (!title.trim()) {
-      setError('PDF title is required.');
-      return;
-    }
-    if (!isEditing && !pdfFile) {
-      setError('Please choose a PDF file.');
+    const validationError = getValidationError(title, isEditing, pdfFile);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setError(null);
     setLoading(true);
     try {
       if (isEditing && typeof id === 'string') {
-        // A newly chosen file replaces the stored one; otherwise the existing media is kept
-        const newPath = pdfFile ? (await uploadLessonMedia(pdfFile, 'document')).path : undefined;
-        await updateLmsLesson(id, {
-          title: title.trim(),
-          description: description.trim() ? `<p>${description.trim()}</p>` : '',
-          status: isDraft ? 'unpublished' : 'published',
-          idealTime: parseIdealMinutes(readingTime),
-          ...(newPath ? { mediaContentPath: newPath } : {}),
-        });
-        setSuccessMsg('PDF updated successfully.');
+        await updateExistingPdf(id, isDraft);
       } else {
-        const { courseId, moduleId } = router.query;
-        const { path } = await uploadLessonMedia(pdfFile as File, 'document');
-        await createDocumentLesson({
-          title: title.trim(),
-          description: description.trim() ? `<p>${description.trim()}</p>` : undefined,
-          status: isDraft ? 'unpublished' : 'published',
-          mediaContentPath: path,
-          idealTime: parseIdealMinutes(readingTime),
-          ...(typeof courseId === 'string' && courseId ? { courseId } : {}),
-          ...(typeof moduleId === 'string' && moduleId ? { moduleId } : {}),
-        });
-        setSuccessMsg(isDraft ? `PDF saved as draft.` : `PDF created successfully.`);
+        await createNewPdf(isDraft);
       }
       setTimeout(() => {
         router.push('/content?tab=pdfs');

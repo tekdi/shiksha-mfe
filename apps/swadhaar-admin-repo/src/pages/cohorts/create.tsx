@@ -289,10 +289,12 @@ export default function CreateCohortPage() {
 
   // Role filter options: titles from the tenant roles API
   useEffect(() => {
-    getTenantRoles().then((roles) => {
-      setRoleNames(roles.map((r) => r.name));
-      setRolesLoaded(true);
-    });
+    getTenantRoles()
+      .then((roles) => {
+        setRoleNames(roles.map((r) => r.name));
+        setRolesLoaded(true);
+      })
+      .catch(() => setRolesLoaded(true));
   }, []);
 
   // Fetch users from API

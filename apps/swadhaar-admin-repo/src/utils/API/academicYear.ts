@@ -16,7 +16,7 @@ let inFlight: Promise<string | null> | null = null;
  * localStorage.academicYearId. Uses fetch directly so it never passes through the axios interceptor.
  */
 export const syncActiveAcademicYear = (token: string, tenantId: string = SWADHAAR_TENANT_ID): Promise<string | null> => {
-  if (inFlight) return inFlight;
+  if (inFlight !== null) return inFlight;
   inFlight = (async () => {
     try {
       const resp = await fetch(API_ENDPOINTS.academicYearsList, {

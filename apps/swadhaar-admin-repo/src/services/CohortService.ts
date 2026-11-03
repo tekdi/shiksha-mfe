@@ -246,10 +246,22 @@ export const updateCohortMember = async (
   }
 };
 
-
 const COHORT_MEMBER_PAGE_SIZE = 100;
 
 /** User ids of every learner in a group (reviewers are left out), across all member pages */
+/** Member rows of a cohort member list response, which comes as `result.userDetails` or a bare `result` array. */
+export const getMemberRows = (res: any): any[] => {
+  if (Array.isArray(res?.result?.userDetails)) return res.result.userDetails;
+  return Array.isArray(res?.result) ? res.result : [];
+};
+
+/** Total member count of a cohort member list response. */
+export const getMemberTotal = (res: any, rows: any[]): number => {
+  if (typeof res?.result?.totalCount === 'number') return res.result.totalCount;
+  const rowTotal = rows[0]?.total_count;
+  return rowTotal ? Number(rowTotal) : rows.length;
+};
+
 export const getCohortLearnerIds = async (cohortId: string): Promise<string[]> => {
   const ids: string[] = [];
   for (let offset = 0; ; offset += COHORT_MEMBER_PAGE_SIZE) {
@@ -258,11 +270,7 @@ export const getCohortLearnerIds = async (cohortId: string): Promise<string[]> =
       offset,
       filters: { cohortId: [cohortId] },
     });
-    const rows: any[] = Array.isArray(res?.result?.userDetails)
-      ? res.result.userDetails
-      : Array.isArray(res?.result)
-      ? res.result
-      : [];
+    const rows = getMemberRows(res);
     rows.forEach((row) => {
       const role = String(row.role || row.membershipRole || 'Student').toLowerCase();
       const userId = row.userId || row.id;

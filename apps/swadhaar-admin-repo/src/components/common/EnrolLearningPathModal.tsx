@@ -34,6 +34,7 @@ import {
 } from '@/services/PathwayService';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
+import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import CommonTextField from './CommonTextField';
 
 type EnrolTab = 'groups' | 'users';
@@ -86,6 +87,39 @@ const getCountSuffix = (tab: EnrolTab, count: number): string => {
   const singular = count === 1;
   if (tab === 'groups') return singular ? 'GROUP' : 'GROUPS';
   return singular ? 'USER' : 'USERS';
+};
+
+const ENROL_CONCURRENCY = 5;
+
+/**
+ * The enrolment API is per learner: each learner of the selected groups is enrolled in the path's courses
+ * with POST /lms-service/v1/enrollments { learnerId, courseId: [ids] }.
+ */
+const enrolGroups = async (pathwayId: string, groupIds: string[], courseIds?: string[]): Promise<void> => {
+  const courses = courseIds?.length ? courseIds : await getPathwayCourseIds(pathwayId);
+  if (courses.length === 0) {
+    throw new Error('This learning path has no courses yet. Add courses before enrolling groups.');
+  }
+  const groupLearners = await Promise.all(groupIds.map((cohortId) => getCohortLearnerIds(cohortId)));
+  const learnerIds = Array.from(new Set(groupLearners.flat()));
+  if (learnerIds.length === 0) {
+    throw new Error('The selected groups have no learners to enrol.');
+  }
+  let failed = 0;
+  let firstError = '';
+  await runWithConcurrency(learnerIds, ENROL_CONCURRENCY, (learnerId) =>
+    enrolLearnerInCourses(learnerId, courses).then(
+      () => undefined,
+      (err: any) => {
+        failed += 1;
+        firstError = firstError || apiErrorMessage(err);
+      }
+    )
+  );
+  if (failed > 0) {
+    const reason = firstError ? `: ${firstError}` : '';
+    throw new Error(`${failed} of ${learnerIds.length} learner(s) could not be enrolled${reason}`);
+  }
 };
 
 export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
@@ -273,41 +307,12 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
     setEnrolling(true);
     try {
       if (isGroupsTab) {
-        // The enrolment API is per learner: each learner of the selected groups is enrolled in the path's courses
-        // with POST /lms-service/v1/enrollments { learnerId, courseId: [ids] }
-        const courses = courseIds?.length ? courseIds : await getPathwayCourseIds(pathwayId);
-        if (courses.length === 0) {
-          throw new Error('This learning path has no courses yet. Add courses before enrolling groups.');
-        }
-        const learnerIds = Array.from(
-          new Set((await Promise.all(selectedGroupIds.map((cohortId) => getCohortLearnerIds(cohortId)))).flat())
-        );
-        if (learnerIds.length === 0) {
-          throw new Error('The selected groups have no learners to enrol.');
-        }
-        let failed = 0;
-        let firstError = '';
-        const queue = [...learnerIds];
-        const worker = async () => {
-          while (queue.length > 0) {
-            const learnerId = queue.shift() as string;
-            try {
-              await enrolLearnerInCourses(learnerId, courses);
-            } catch (err: any) {
-              failed += 1;
-              firstError = firstError || err?.response?.data?.params?.errmsg || err?.message || '';
-            }
-          }
-        };
-        await Promise.all(Array.from({ length: 5 }, worker));
-        if (failed > 0) {
-          throw new Error(`${failed} of ${learnerIds.length} learner(s) could not be enrolled${firstError ? `: ${firstError}` : ''}`);
-        }
+        await enrolGroups(pathwayId, selectedGroupIds, courseIds);
       } else {
         // Users are assigned the path: POST /user/v1/pathway/assign
-        for (const userId of selectedUserIds) {
-          await assignPathwayToUser(userId, pathwayId);
-        }
+        await runWithConcurrency(selectedUserIds, ENROL_CONCURRENCY, (userId) =>
+          assignPathwayToUser(userId, pathwayId).then(() => undefined)
+        );
       }
     } catch (err: any) {
       setErrorMessage(err?.response?.data?.params?.errmsg || err?.response?.data?.message || err?.message || 'Enrolment failed.');

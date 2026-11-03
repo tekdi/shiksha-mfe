@@ -58,10 +58,29 @@ const toLanguageOption = (language: string): 'Hindi' | 'English' => (language ==
 /** "45 min" -> 45, "1:43" -> 2 (rounded up); undefined when the text has no number */
 const parseIdealMinutes = (value: string): number | undefined => {
   const text = value.trim();
-  const clock = text.match(/^(\d+):(\d{1,2})$/);
+  const clock = /^(\d+):(\d{1,2})$/.exec(text);
   if (clock) return Number(clock[1]) + (Number(clock[2]) > 0 ? 1 : 0);
-  const minutes = text.match(/^(\d+)/);
+  const minutes = /^(\d+)/.exec(text);
   return minutes ? Number(minutes[1]) : undefined;
+};
+
+const toDescriptionHtml = (text: string): string => (text.trim() ? `<p>${text.trim()}</p>` : '');
+
+const isYoutubeUrl = (url: string): boolean => url.includes('youtube.com') || url.includes('youtu.be');
+
+/** Optional courseId / moduleId from the route query, only when they are non-empty strings */
+const getCourseTarget = (query: Record<string, unknown>) => {
+  const { courseId, moduleId } = query;
+  return {
+    ...(typeof courseId === 'string' && courseId ? { courseId } : {}),
+    ...(typeof moduleId === 'string' && moduleId ? { moduleId } : {}),
+  };
+};
+
+const getValidationError = (title: string, sourceType: 'link' | 'upload', videoUrl: string): string | null => {
+  if (!title.trim()) return 'Video title is required.';
+  if (sourceType === 'link' && !videoUrl.trim()) return 'Video URL is required.';
+  return null;
 };
 
 const detectSourceType = (url: string): 'link' | 'upload' =>
@@ -160,45 +179,46 @@ export default function CreateVideoPage() {
     }
   }, [id, router.query.usedIn]);
 
+  const updateExistingVideo = async (lessonId: string, isDraft: boolean, mediaContentSubFormat: string) => {
+    await updateLmsLesson(lessonId, {
+      title: title.trim(),
+      description: toDescriptionHtml(description),
+      status: isDraft ? 'unpublished' : 'published',
+      mediaContentSource: videoUrl.trim(),
+      mediaContentSubFormat,
+      idealTime: parseIdealMinutes(duration),
+    });
+    setSuccessMsg('Video updated successfully.');
+  };
+
+  const createNewVideo = async (isDraft: boolean, mediaContentSubFormat: string) => {
+    await createVideoLesson({
+      title: title.trim(),
+      description: toDescriptionHtml(description) || undefined,
+      status: isDraft ? 'unpublished' : 'published',
+      mediaContentSource: videoUrl.trim(),
+      mediaContentSubFormat,
+      idealTime: parseIdealMinutes(duration),
+      ...getCourseTarget(router.query),
+    });
+    setSuccessMsg(isDraft ? `Video saved as draft.` : `Video created successfully.`);
+  };
+
   const handleSave = async (isDraft = false) => {
-    if (!title.trim()) {
-      setError('Video title is required.');
-      return;
-    }
-    if (sourceType === 'link' && !videoUrl.trim()) {
-      setError('Video URL is required.');
+    const validationError = getValidationError(title, sourceType, videoUrl);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setError(null);
     setLoading(true);
     try {
-      const mimeType = videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be')
-        ? 'video/x-youtube'
-        : 'video/mp4';
+      const mediaContentSubFormat = isYoutubeUrl(videoUrl) ? 'youtube.url' : 'video.url';
 
       if (isEditing && typeof id === 'string') {
-        await updateLmsLesson(id, {
-          title: title.trim(),
-          description: description.trim() ? `<p>${description.trim()}</p>` : '',
-          status: isDraft ? 'unpublished' : 'published',
-          mediaContentSource: videoUrl.trim(),
-          mediaContentSubFormat: mimeType === 'video/x-youtube' ? 'youtube.url' : 'video.url',
-          idealTime: parseIdealMinutes(duration),
-        });
-        setSuccessMsg('Video updated successfully.');
+        await updateExistingVideo(id, isDraft, mediaContentSubFormat);
       } else {
-        const { courseId, moduleId } = router.query;
-        await createVideoLesson({
-          title: title.trim(),
-          description: description.trim() ? `<p>${description.trim()}</p>` : undefined,
-          status: isDraft ? 'unpublished' : 'published',
-          mediaContentSource: videoUrl.trim(),
-          mediaContentSubFormat: mimeType === 'video/x-youtube' ? 'youtube.url' : 'video.url',
-          idealTime: parseIdealMinutes(duration),
-          ...(typeof courseId === 'string' && courseId ? { courseId } : {}),
-          ...(typeof moduleId === 'string' && moduleId ? { moduleId } : {}),
-        });
-        setSuccessMsg(isDraft ? `Video saved as draft.` : `Video created successfully.`);
+        await createNewVideo(isDraft, mediaContentSubFormat);
       }
       setTimeout(() => {
         router.push('/content?tab=videos');

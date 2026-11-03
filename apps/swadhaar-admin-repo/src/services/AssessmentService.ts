@@ -9,7 +9,7 @@ import { getServiceHeaders } from '@/utils/API/serviceHeaders';
 export interface TestItem {
   id?: string;
   testId?: string;
-  type?: 'plain' | string;
+  type?: 'plain' | (string & {});
   title: string;
   description?: string;
   showTime?: boolean;
@@ -27,13 +27,13 @@ export interface TestItem {
   printAnswersheet?: boolean;
   questionsShuffle?: boolean;
   answersShuffle?: boolean;
-  gradingType?: 'quiz' | 'exercise' | string;
+  gradingType?: 'quiz' | 'exercise' | (string & {});
   isObjective?: boolean;
   showThankyouPage?: boolean;
   showAllQuestions?: boolean;
   paginationLimit?: number;
   showQuestionsOverview?: boolean;
-  status?: 'draft' | 'published' | 'unpublished' | string;
+  status?: 'draft' | 'published' | 'unpublished' | (string & {});
   sections?: SectionItem[];
   createdAt?: string;
   updatedAt?: string;
@@ -41,7 +41,7 @@ export interface TestItem {
 }
 
 export interface CreateTestPayload {
-  type?: 'plain' | string;
+  type?: 'plain' | (string & {});
   title: string;
   description?: string;
   showTime?: boolean;
@@ -65,7 +65,7 @@ export interface CreateTestPayload {
   showAllQuestions?: boolean;
   paginationLimit?: number;
   showQuestionsOverview?: boolean;
-  status?: 'draft' | 'published' | 'unpublished' | string;
+  status?: 'draft' | 'published' | 'unpublished' | (string & {});
   [key: string]: any;
 }
 
@@ -122,8 +122,8 @@ export interface QuestionItem {
   text: string;
   alias?: string;
   description?: string;
-  type: 'mcq' | 'multiple_answer' | 'true_false' | 'fill_blank' | 'match' | 'subjective' | 'objective' | 'essay' | string;
-  level?: 'easy' | 'medium' | 'hard' | string;
+  type: 'mcq' | 'multiple_answer' | 'true_false' | 'fill_blank' | 'match' | 'subjective' | 'objective' | 'essay' | (string & {});
+  level?: 'easy' | 'medium' | 'hard' | (string & {});
   marks?: number;
   status?: string;
   idealTime?: number;
@@ -193,11 +193,11 @@ export interface CreateRulePayload {
   poolSize?: number;
   minMarks?: number;
   maxMarks?: number;
-  selectionStrategy?: 'random' | string;
+  selectionStrategy?: 'random' | (string & {});
   criteria?: RuleCriteria;
   status?: string;
   priority?: number;
-  selectionMode?: 'DYNAMIC' | string;
+  selectionMode?: 'DYNAMIC' | (string & {});
   [key: string]: any;
 }
 
@@ -225,13 +225,12 @@ export const AssessmentService = {
   getAllTests: async (params?: TestSearchParams, customHeaders?: Record<string, string>): Promise<any> => {
     const query = new URLSearchParams();
     if (params) {
-      if (params.search) query.set('search', params.search);
-      if (params.type) query.set('type', params.type);
-      if (params.status) query.set('status', params.status);
-      if (params.minMarks !== undefined) query.set('minMarks', String(params.minMarks));
-      if (params.maxMarks !== undefined) query.set('maxMarks', String(params.maxMarks));
-      if (params.offset !== undefined) query.set('offset', String(params.offset));
-      if (params.limit !== undefined) query.set('limit', String(params.limit));
+      (['search', 'type', 'status'] as const).forEach((key) => {
+        if (params[key]) query.set(key, params[key] as string);
+      });
+      (['minMarks', 'maxMarks', 'offset', 'limit'] as const).forEach((key) => {
+        if (params[key] !== undefined) query.set(key, String(params[key]));
+      });
     }
     const queryString = query.toString();
     const url = queryString ? `${API_ENDPOINTS.assessmentTests}?${queryString}` : API_ENDPOINTS.assessmentTests;

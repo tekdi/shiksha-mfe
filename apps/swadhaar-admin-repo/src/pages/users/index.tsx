@@ -13,7 +13,7 @@ import CreateUserModal from '@/components/common/CreateUserModal';
 import CommonButton from '@/components/common/CommonButton';
 import CommonDialog from '@/components/common/CommonDialog';
 import PageHeader from '@/components/common/PageHeader';
-import { getUserList, getTenantRoles } from '@/services/UserService';
+import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
 
 export interface UserRowItem {
   id: string;
@@ -218,6 +218,21 @@ const getStatusLabel = (status: string, t: (key: string) => string): string => {
   return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 };
 
+/** Adds the search term to the list filters: 10 digits search by mobile, otherwise by first and last name */
+const applySearchFilters = (filters: Record<string, any>, search: string) => {
+  const trimmed = search.trim();
+  if (/^\d{10}$/.test(trimmed)) {
+    filters.mobile = trimmed;
+    return;
+  }
+  // If multiple words, split first and last name
+  const parts = trimmed.split(/\s+/);
+  filters.firstName = parts[0];
+  if (parts.length > 1) {
+    filters.lastName = parts.slice(1).join(' ');
+  }
+};
+
 export default function UsersPage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -237,10 +252,12 @@ export default function UsersPage() {
 
   // Role filter options: titles from the tenant roles API
   useEffect(() => {
-    getTenantRoles().then((roles) => {
-      setAvailableRoles(roles.map((r) => r.name));
-      setRolesLoaded(true);
-    });
+    getTenantRoles()
+      .then((roles) => {
+        setAvailableRoles(roles.map((r) => r.name));
+        setRolesLoaded(true);
+      })
+      .catch(() => setRolesLoaded(true));
   }, []);
 
   // Action menu state for row actions
@@ -289,55 +306,13 @@ export default function UsersPage() {
         },
         sort: ['createdAt', 'desc'],
       };
-      if (debouncedSearch) {
-        const trimmed = debouncedSearch.trim();
-        // If user typed 10 digits, search by mobile
-        if (/^\d{10}$/.test(trimmed)) {
-          payload.filters.mobile = trimmed;
-        } else {
-          // If multiple words, split first and last name
-          const parts = trimmed.split(/\s+/);
-          payload.filters.firstName = parts[0];
-          if (parts.length > 1) {
-            payload.filters.lastName = parts.slice(1).join(' ');
-          }
-        }
-      }
+      if (debouncedSearch) applySearchFilters(payload.filters, debouncedSearch);
 
       // /user/v1/list filters by role title and only one role at a time (two roles return 404), and with no
       // role it returns Students only. So a chosen role is one call, and "All roles" is one call per tenant role, merged.
       const chosenRole = filters.role && filters.role !== 'all' ? filters.role : '';
       const roleTitles = chosenRole ? [chosenRole] : availableRoles;
-      const listForRole = async (title: string, body: any) => {
-        try {
-          const res = await getUserList({ ...body, filters: { ...body.filters, role: [title] } });
-          return res?.result || {};
-        } catch (err: any) {
-          if (err?.response?.status === 404) return {}; // no users with this role
-          throw err;
-        }
-      };
-
-      let rawList: any[] = [];
-      let totalFromApi = 0;
-      if (roleTitles.length === 0) {
-        // Roles API unavailable: fall back to the service's default listing
-        const res = await getUserList(payload);
-        rawList = res?.result?.getUserDetails || [];
-        totalFromApi = Number(res?.result?.totalCount) || 0;
-      } else if (roleTitles.length === 1) {
-        const result = await listForRole(roleTitles[0], payload);
-        rawList = result.getUserDetails || [];
-        totalFromApi = Number(result.totalCount) || 0;
-      } else {
-        const merged = await Promise.all(
-          roleTitles.map((title) => listForRole(title, { ...payload, limit: 200, offset: 0 }))
-        );
-        const all = merged.flatMap((r) => r.getUserDetails || []);
-        all.sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)));
-        totalFromApi = all.length;
-        rawList = all.slice(page * rowsPerPage, (page + 1) * rowsPerPage);
-      }
+      const { users: rawList, total: totalFromApi } = await listUsersByRoles(payload, roleTitles);
 
       if (rawList.length > 0 || totalFromApi > 0) {
         // Collect unique statuses directly from API response

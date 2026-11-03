@@ -188,6 +188,12 @@ const readTestList = (res: any): { tests: any[]; count: number } => {
   return { tests, count: Number(count) || tests.length };
 };
 
+const getCourseLabel = (title: string, fallback: string): string => {
+  if (title.includes('Course 0')) return 'Course 0';
+  if (title.includes('Course 1')) return 'Course 1';
+  return fallback;
+};
+
 const mapTestToAssessmentItem = (t: any): ContentItem => {
   const title = t.title || t.name || 'Untitled Assessment';
   const minutes = t.timeDuration;
@@ -202,13 +208,13 @@ const mapTestToAssessmentItem = (t: any): ContentItem => {
     detectedLanguage: detectLanguage(title),
     formattedDuration: minutes ? `${minutes} min` : '—',
     source: 'In-house Assessment',
-    usedIn: title.includes('Course 0') ? 'Course 0' : title.includes('Course 1') ? 'Course 1' : 'Not used in any course yet',
+    usedIn: getCourseLabel(title, 'Not used in any course yet'),
     questionsCount: t.totalQuestions ?? t.questionsCount ?? t.questionCount ?? 0,
     passMark: t.passingMarks ? `${t.passingMarks}%` : '—',
     attempts: t.attempts ? String(t.attempts) : 'Unlimited',
     timeLimit: minutes ? `${minutes} min` : '—',
     assignedTo: 'All Learners',
-    linkedTo: title.includes('Course 0') ? 'Course 0' : title.includes('Course 1') ? 'Course 1' : 'None',
+    linkedTo: getCourseLabel(title, 'None'),
     createdOn: t.createdAt,
     lastUpdatedOn: t.updatedAt,
   } as ContentItem;

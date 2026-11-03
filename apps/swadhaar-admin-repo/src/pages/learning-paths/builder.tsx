@@ -91,8 +91,11 @@ const DateField: React.FC<{ label: string; value: string; onChange: (value: stri
 
 const NEW_PATH_TITLE = 'New learning path';
 
-const toPathKey = (name: string): string =>
-  `${name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'learning_path'}_${Date.now()}`;
+const toPathKey = (name: string): string => {
+  // Runs of other characters collapse to one `_`; splitting on `_` then drops the leading and trailing ones
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').split('_').filter(Boolean).join('_');
+  return `${slug || 'learning_path'}_${Date.now()}`;
+};
 
 const renumber = (items: SequenceItem[]): SequenceItem[] =>
   items.map((item, idx) => ({

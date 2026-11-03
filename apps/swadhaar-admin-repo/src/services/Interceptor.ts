@@ -4,63 +4,46 @@ import { ensureAcademicYear, getAcademicYearId } from '@/utils/API/academicYear'
 
 const instance = axios.create();
 
+const DEFAULT_ORG_ID = 'd36d9079-0f42-4ba3-be03-26c9e79509ee';
+
+type RequestHeaders = Record<string, any>;
+
+/** Sets each named header to `value` unless the caller already provided it. */
+const setIfMissing = (headers: RequestHeaders, names: string[], value?: string | null) => {
+  if (!value) return;
+  names.forEach((name) => {
+    if (!headers[name]) headers[name] = value;
+  });
+};
+
+const readStored = (key: string): string | null =>
+  typeof window !== 'undefined' && window.localStorage ? localStorage.getItem(key) : null;
+
 instance.interceptors.request.use(
   async (config) => {
     if (!config.url?.includes('/academicyears/')) {
       await ensureAcademicYear();
     }
-    if (typeof window !== 'undefined' && window.localStorage) {
-      const token = localStorage.getItem('token');
-      if (token && config.url && !config.url.endsWith('user/v1/auth/login') && !config.headers.Authorization) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
 
-      // The active academic year always wins over a value a caller built earlier
-      config.headers.academicyearid = getAcademicYearId();
-
-      const storedOrgId = localStorage.getItem('organisationId') || process.env.NEXT_PUBLIC_ORG_ID || 'd36d9079-0f42-4ba3-be03-26c9e79509ee';
-      if (storedOrgId) {
-        if (!config.headers.organisationid) {
-          config.headers.organisationid = storedOrgId;
-        }
-        if (!config.headers.organisationId) {
-          config.headers.organisationId = storedOrgId;
-        }
-      }
-
-      const storedUserId = localStorage.getItem('userId');
-      if (storedUserId) {
-        if (!config.headers.userId) {
-          config.headers.userId = storedUserId;
-        }
-        if (!config.headers.userid) {
-          config.headers.userid = storedUserId;
-        }
-      }
-    } else {
-      config.headers.academicyearid = getAcademicYearId();
-      const defaultOrgId = process.env.NEXT_PUBLIC_ORG_ID || 'd36d9079-0f42-4ba3-be03-26c9e79509ee';
-      if (!config.headers.organisationid) {
-        config.headers.organisationid = defaultOrgId;
-      }
-      if (!config.headers.organisationId) {
-        config.headers.organisationId = defaultOrgId;
-      }
+    const token = readStored('token');
+    if (token && config.url && !config.url.endsWith('user/v1/auth/login') && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
 
-    const tenantId = TenantService.getTenantId();
-    const channelId = TenantService.getChannelId();
+    // The active academic year always wins over a value a caller built earlier
+    config.headers.academicyearid = getAcademicYearId();
 
+    const orgId = readStored('organisationId') || process.env.NEXT_PUBLIC_ORG_ID || DEFAULT_ORG_ID;
+    setIfMissing(config.headers, ['organisationid', 'organisationId'], orgId);
+    setIfMissing(config.headers, ['userId', 'userid'], readStored('userId'));
+
+    const tenantId = TenantService.getTenantId();
     // Standard headers across Sunbird / Shiksha / Swadhaar APIs (preserve if already provided)
     if (!config.headers.tenantid && !config.headers.tenantId) {
       config.headers.tenantid = tenantId;
     }
-    if (!config.headers['X-Tenant-Id']) {
-      config.headers['X-Tenant-Id'] = tenantId;
-    }
-    if (!config.headers['X-Channel-Id']) {
-      config.headers['X-Channel-Id'] = channelId;
-    }
+    setIfMissing(config.headers, ['X-Tenant-Id'], tenantId);
+    setIfMissing(config.headers, ['X-Channel-Id'], TenantService.getChannelId());
 
     return config;
   },

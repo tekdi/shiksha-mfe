@@ -311,6 +311,71 @@ const toServiceOptions = (q: AssessmentQuestion) =>
 const questionSnapshot = (q: AssessmentQuestion): string =>
   JSON.stringify([q.type, q.tags, q.prompt.trim(), toServiceOptions(q)]);
 
+// Runs async tasks one after another (order matters for question numbering) without awaiting inside a loop
+const runSequentially = (tasks: Array<() => Promise<unknown>>): Promise<unknown> =>
+  tasks.reduce<Promise<unknown>>((chain, task) => chain.then(task), Promise.resolve());
+
+// The service rejects duplicate option texts; returns an error message for the first offending question
+const findDuplicateOptionError = (items: AssessmentQuestion[]): string | null => {
+  for (const q of items.filter((item) => !item.fromBank && item.prompt.trim())) {
+    const texts = q.options.map((opt) => opt.text.trim()).filter(Boolean);
+    const duplicate = texts.find((text, idx) => texts.indexOf(text) !== idx);
+    if (duplicate) {
+      return `Question ${q.questionNumber} has the option "${duplicate}" more than once. Options must be unique.`;
+    }
+  }
+  return null;
+};
+
+const buildTestSettings = (f: {
+  name: string;
+  description: string;
+  timeLimit: string;
+  passMark: string;
+  attempts: string;
+  shuffle: boolean;
+  showExplanations: boolean;
+}) => ({
+  title: f.name.trim(),
+  description: f.description.trim(),
+  timeDuration: f.timeLimit ? Number(f.timeLimit) : 15,
+  passingMarks: Number.parseInt(f.passMark, 10) || 70,
+  attempts: f.attempts === 'Unlimited' ? 0 : Number.parseInt(f.attempts, 10) || 1,
+  questionsShuffle: f.shuffle,
+  showCorrectAnswer: f.showExplanations,
+});
+
+const buildQuestionPayload = (q: AssessmentQuestion, testId: string, sectionId: string) => ({
+  text: q.prompt.trim(),
+  level: 'easy',
+  marks: 1,
+  status: 'published',
+  idealTime: 60,
+  gradingType: 'quiz',
+  testId,
+  sectionId,
+  isCompulsory: true,
+  description: q.tags || '',
+  type: toServiceType(q.type),
+  allowPartialScoring: q.type === 'Multiple choice – multi answer',
+  options: toServiceOptions(q),
+});
+
+// The service requires a sectionId whenever a testId is sent, and the builder has no sections,
+// so every assessment gets one default section.
+const createDefaultSection = async (testId: string): Promise<string> => {
+  const sectionRes = await AssessmentService.createSection({
+    title: 'Section 1',
+    description: 'Core Assessment Section',
+    testId,
+    ordering: 1,
+    status: 'published',
+  });
+  const sectionId = sectionRes?.result?.sectionId || sectionRes?.result?.id;
+  if (!sectionId) throw new Error('Section was created without an id.');
+  return sectionId;
+};
+
 /** Questions of GET /tests/:id/test-hierarchy, flattened across sections */
 const readHierarchyQuestions = (res: any): { questions: AssessmentQuestion[]; sectionId?: string } => {
   const root = res?.result?.test ?? res?.result ?? res;
@@ -682,143 +747,84 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
     });
   };
 
+  const getOrCreateSectionId = async (testId: string): Promise<string> => {
+    sectionIdRef.current ??= await createDefaultSection(testId);
+    return sectionIdRef.current;
+  };
+
+  const saveNewAssessment = async () => {
+    const testRes = await AssessmentService.createTest({
+      ...buildTestSettings({ name, description, timeLimit, passMark, attempts, shuffle, showExplanations }),
+      status: 'draft',
+      gradingType: 'quiz',
+      type: 'plain',
+    });
+    const testId = testRes?.result?.testId || testRes?.result?.id;
+    if (!testId) throw new Error('Assessment was created without an id.');
+
+    const sectionId = await createDefaultSection(testId);
+
+    await runSequentially(
+      newQuestions.map((q) => () => AssessmentService.createQuestion(buildQuestionPayload(q, testId, sectionId)))
+    );
+
+    await attachBankQuestions(testId, sectionId);
+
+    await AssessmentService.updateTest(testId, { status: 'published' });
+  };
+
+  // Loaded questions are patched only when edited; questions written here are created
+  const syncEditedQuestion = async (q: AssessmentQuestion, testId: string) => {
+    if (q.fromBank) return;
+    if (q.questionId) {
+      if (loadedSnapshots.current[q.questionId] === questionSnapshot(q)) return;
+      await AssessmentService.updateQuestion(q.questionId, {
+        text: q.prompt.trim(),
+        description: q.tags || '',
+        type: toServiceType(q.type),
+        allowPartialScoring: q.type === 'Multiple choice – multi answer',
+        options: toServiceOptions(q),
+      });
+      return;
+    }
+    const sectionId = await getOrCreateSectionId(testId);
+    await AssessmentService.createQuestion(buildQuestionPayload(q, testId, sectionId));
+  };
+
+  const saveExistingAssessment = async (testId: string) => {
+    await AssessmentService.updateTest(testId, {
+      ...buildTestSettings({ name, description, timeLimit, passMark, attempts, shuffle, showExplanations }),
+      status: 'published',
+    });
+
+    await runSequentially(
+      questions.filter((item) => item.prompt.trim()).map((q) => () => syncEditedQuestion(q, testId))
+    );
+
+    if (questions.some((q) => q.fromBank && q.questionId)) {
+      await attachBankQuestions(testId, await getOrCreateSectionId(testId));
+    }
+  };
+
   const handleSave = async () => {
     if (!name.trim()) {
       setError('Assessment name is required.');
       return;
     }
-    {
-      // The service rejects duplicate option texts; catch it before anything is saved
-      for (const q of questions.filter((item) => !item.fromBank && item.prompt.trim())) {
-        const texts = q.options.map((opt) => opt.text.trim()).filter(Boolean);
-        const duplicate = texts.find((text, idx) => texts.indexOf(text) !== idx);
-        if (duplicate) {
-          setError(`Question ${q.questionNumber} has the option "${duplicate}" more than once. Options must be unique.`);
-          return;
-        }
-      }
+    // The service rejects duplicate option texts; catch it before anything is saved
+    const duplicateError = findDuplicateOptionError(questions);
+    if (duplicateError) {
+      setError(duplicateError);
+      return;
     }
     setError(null);
 
     setLoading(true);
     try {
       if (isCreatePage) {
-        const testRes = await AssessmentService.createTest({
-          title: name.trim(),
-          description: description.trim(),
-          timeDuration: timeLimit ? Number(timeLimit) : 15,
-          passingMarks: Number.parseInt(passMark, 10) || 70,
-          attempts: attempts === 'Unlimited' ? 0 : Number.parseInt(attempts, 10) || 1,
-          questionsShuffle: shuffle,
-          showCorrectAnswer: showExplanations,
-          status: 'draft',
-          gradingType: 'quiz',
-          type: 'plain',
-        });
-        const testId = testRes?.result?.testId || testRes?.result?.id;
-        if (!testId) throw new Error('Assessment was created without an id.');
-
-        // The service requires a sectionId whenever a testId is sent, and the builder has no sections,
-        // so every assessment gets one default section.
-        const sectionRes = await AssessmentService.createSection({
-          title: 'Section 1',
-          description: 'Core Assessment Section',
-          testId,
-          ordering: 1,
-          status: 'published',
-        });
-        const sectionId = sectionRes?.result?.sectionId || sectionRes?.result?.id;
-        if (!sectionId) throw new Error('Section was created without an id.');
-
-        for (const q of newQuestions) {
-          const payload = {
-            text: q.prompt.trim(),
-            level: 'easy',
-            marks: 1,
-            status: 'published',
-            idealTime: 60,
-            gradingType: 'quiz',
-            testId,
-            sectionId,
-            isCompulsory: true,
-            description: q.tags || '',
-            type: toServiceType(q.type),
-            allowPartialScoring: q.type === 'Multiple choice – multi answer',
-            options: toServiceOptions(q),
-          };
-          await AssessmentService.createQuestion(payload);
-        }
-
-        await attachBankQuestions(testId, sectionId);
-
-        await AssessmentService.updateTest(testId, { status: 'published' });
+        await saveNewAssessment();
       } else if (assessmentId && !isNew) {
-        await AssessmentService.updateTest(assessmentId, {
-          title: name.trim(),
-          description: description.trim(),
-          timeDuration: timeLimit ? Number(timeLimit) : 15,
-          passingMarks: Number.parseInt(passMark, 10) || 70,
-          attempts: attempts === 'Unlimited' ? 0 : Number.parseInt(attempts, 10) || 1,
-          questionsShuffle: shuffle,
-          showCorrectAnswer: showExplanations,
-          status: 'published',
-        });
-
-        // Loaded questions are patched only when edited; questions written here are created
-        for (const q of questions.filter((item) => item.prompt.trim())) {
-          if (q.questionId && !q.fromBank) {
-            if (loadedSnapshots.current[q.questionId] === questionSnapshot(q)) continue;
-            await AssessmentService.updateQuestion(q.questionId, {
-              text: q.prompt.trim(),
-              description: q.tags || '',
-              type: toServiceType(q.type),
-              allowPartialScoring: q.type === 'Multiple choice – multi answer',
-              options: toServiceOptions(q),
-            });
-          } else if (!q.fromBank) {
-            if (!sectionIdRef.current) {
-              const sectionRes = await AssessmentService.createSection({
-                title: 'Section 1',
-                description: 'Core Assessment Section',
-                testId: assessmentId,
-                ordering: 1,
-                status: 'published',
-              });
-              sectionIdRef.current = sectionRes?.result?.sectionId || sectionRes?.result?.id;
-              if (!sectionIdRef.current) throw new Error('Section was created without an id.');
-            }
-            await AssessmentService.createQuestion({
-              text: q.prompt.trim(),
-              level: 'easy',
-              marks: 1,
-              status: 'published',
-              idealTime: 60,
-              gradingType: 'quiz',
-              testId: assessmentId,
-              sectionId: sectionIdRef.current,
-              isCompulsory: true,
-              description: q.tags || '',
-              type: toServiceType(q.type),
-              allowPartialScoring: q.type === 'Multiple choice – multi answer',
-              options: toServiceOptions(q),
-            });
-          }
-        }
-
-        if (questions.some((q) => q.fromBank && q.questionId)) {
-          if (!sectionIdRef.current) {
-            const sectionRes = await AssessmentService.createSection({
-              title: 'Section 1',
-              description: 'Core Assessment Section',
-              testId: assessmentId,
-              ordering: 1,
-              status: 'published',
-            });
-            sectionIdRef.current = sectionRes?.result?.sectionId || sectionRes?.result?.id;
-            if (!sectionIdRef.current) throw new Error('Section was created without an id.');
-          }
-          await attachBankQuestions(assessmentId, sectionIdRef.current);
-        }
+        await saveExistingAssessment(assessmentId);
       }
 
       setSuccessMsg(`Assessment "${name}" saved successfully.`);
@@ -834,6 +840,12 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
   };
 
   const currentExpandedQuestion = questions[expandedIndex] || questions[0];
+  let optionsHeading = 'Options · select the correct answer';
+  if (currentExpandedQuestion.type === 'Multiple choice – multi answer') {
+    optionsHeading = 'Options · select all correct answers';
+  } else if (currentExpandedQuestion.type === 'Short answer') {
+    optionsHeading = 'Expected answer';
+  }
 
   return (
     <Box sx={{ py: 1, maxWidth: 1400, mx: 'auto' }}>
@@ -1156,11 +1168,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                   {/* Row 3: Options (select the correct answer) */}
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
                     <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1F1E1C' }}>
-                      {currentExpandedQuestion.type === 'Multiple choice – multi answer'
-                        ? 'Options · select all correct answers'
-                        : currentExpandedQuestion.type === 'Short answer'
-                        ? 'Expected answer'
-                        : 'Options · select the correct answer'}
+                      {optionsHeading}
                     </Typography>
 
                     {currentExpandedQuestion.type === 'Short answer' ? (
@@ -1210,7 +1218,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                               value={opt.text}
                               disabled={currentExpandedQuestion.type === 'True / False'}
                               onChange={(e) => handleUpdateOption(expandedIndex, optIndex, e.target.value)}
-                              placeholder={`Option ${String.fromCharCode(97 + optIndex)}`}
+                              placeholder={`Option ${String.fromCodePoint(97 + optIndex)}`}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   borderRadius: '6px',

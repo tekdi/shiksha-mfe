@@ -493,7 +493,7 @@ export interface CreateCoursePayload {
   title: string;
   shortDescription?: string;
   description?: string;
-  status: 'published' | 'unpublished' | string;
+  status: 'published' | 'unpublished' | (string & {});
   image?: string | null;
   certificateId?: string[];
   prerequisites?: any[];
@@ -894,7 +894,7 @@ export const lessonDescriptionToText = (html?: string | null): string =>
   (html || '')
     .replace(/<\/p>\s*<p>/gi, '\n')
     .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
+    .replace(/<[^<>]+>/g, '')
     .replace(/&nbsp;/g, ' ')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')

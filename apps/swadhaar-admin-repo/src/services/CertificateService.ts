@@ -99,7 +99,7 @@ export interface DidGeneratePayload {
   content: Array<{
     alsoKnownAs: string[];
     services: any[];
-    method: 'rcw' | string;
+    method: 'rcw' | (string & {});
   }>;
 }
 

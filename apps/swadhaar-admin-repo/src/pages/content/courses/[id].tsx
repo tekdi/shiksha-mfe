@@ -114,6 +114,48 @@ const getSectionSummary = (section: CourseHierarchyChild, t: Translate): string 
 
 const SECTION_SKELETON_KEYS = ['section-sk-1', 'section-sk-2', 'section-sk-3', 'section-sk-4'];
 
+const customModulesKey = (courseId: string) => `swadhaar_custom_modules_${courseId}`;
+
+const audienceToText = (audience: unknown): string => {
+  if (Array.isArray(audience)) return audience.join(', ');
+  return (audience as string) || 'Field trainers and learners';
+};
+
+/** Modules created locally for a course (cached in localStorage) */
+const readCustomSections = (courseId: string): CourseHierarchyChild[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(customModulesKey(courseId));
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+/** Locally cached modules are only a fallback; drops any the API already returns and persists the rest */
+const pruneCustomSections = (
+  courseId: string,
+  customSections: CourseHierarchyChild[],
+  apiSections: any[]
+): CourseHierarchyChild[] => {
+  const apiIds = new Set(
+    apiSections.flatMap((s: any) => [s.moduleId, s.identifier, s.id].filter(Boolean))
+  );
+  const pendingCustom = customSections.filter(
+    (c: any) => !apiIds.has(c.moduleId) && !apiIds.has(c.identifier)
+  );
+  if (typeof window !== 'undefined' && pendingCustom.length !== customSections.length) {
+    try {
+      const key = customModulesKey(courseId);
+      if (pendingCustom.length) localStorage.setItem(key, JSON.stringify(pendingCustom));
+      else localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  }
+  return pendingCustom;
+};
+
 export default function CourseDetailsPage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -173,51 +215,16 @@ export default function CourseDetailsPage() {
       const data = await getCourseHierarchy(courseId);
       setCourse(data);
       setEditTitle(data.title || data.name || '');
-      setEditAudience(
-        Array.isArray(data.audience)
-          ? data.audience.join(', ')
-          : data.audience || 'Field trainers and learners'
-      );
+      setEditAudience(audienceToText(data.audience));
 
       // In LMS, course children are the modules, and module children are lessons
       const apiSections = data.children || [];
-      let customSections: CourseHierarchyChild[] = [];
-      if (typeof window !== 'undefined') {
-        try {
-          const stored = localStorage.getItem(`swadhaar_custom_modules_${courseId}`);
-          if (stored) customSections = JSON.parse(stored);
-        } catch {
-          // ignore
-        }
-      }
-      // Locally cached modules are only a fallback; skip any the API already returns
-      const apiIds = new Set(
-        apiSections.flatMap((s: any) => [s.moduleId, s.identifier, s.id].filter(Boolean))
-      );
-      const pendingCustom = customSections.filter(
-        (c: any) => !apiIds.has(c.moduleId) && !apiIds.has(c.identifier)
-      );
-      if (typeof window !== 'undefined' && pendingCustom.length !== customSections.length) {
-        try {
-          const key = `swadhaar_custom_modules_${courseId}`;
-          if (pendingCustom.length) localStorage.setItem(key, JSON.stringify(pendingCustom));
-          else localStorage.removeItem(key);
-        } catch {
-          // ignore
-        }
-      }
+      const customSections = readCustomSections(courseId);
+      const pendingCustom = pruneCustomSections(courseId, customSections, apiSections);
       setSections([...apiSections, ...pendingCustom]);
     } catch (err) {
       console.error('Failed to load course hierarchy:', err);
-      let customSections: CourseHierarchyChild[] = [];
-      if (typeof window !== 'undefined') {
-        try {
-          const stored = localStorage.getItem(`swadhaar_custom_modules_${courseId}`);
-          if (stored) customSections = JSON.parse(stored);
-        } catch {
-          // ignore
-        }
-      }
+      const customSections = readCustomSections(courseId);
       if (customSections.length > 0) {
         setSections(customSections);
       } else {
