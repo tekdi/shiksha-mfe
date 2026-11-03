@@ -34,7 +34,6 @@ import {
   CourseHierarchyChild,
   parseCourseName,
   updateCourseStatus,
-  deleteModule,
 } from '@/services/CourseService';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
@@ -119,7 +118,6 @@ const getSectionSummary = (section: CourseHierarchyChild, t: Translate): string 
 
 const SECTION_SKELETON_KEYS = ['section-sk-1', 'section-sk-2', 'section-sk-3', 'section-sk-4'];
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const customModulesKey = (courseId: string) => `swadhaar_custom_modules_${courseId}`;
 
 const audienceToText = (audience: unknown): string => {
@@ -147,12 +145,8 @@ const pruneCustomSections = (
   const apiIds = new Set(
     apiSections.flatMap((s: any) => [s.moduleId, s.identifier, s.id].filter(Boolean))
   );
-  // Entries with a "mod-<time>" id come from a failed save and never exist on the server, so drop them
   const pendingCustom = customSections.filter(
-    (c: any) =>
-      UUID_REGEX.test(String(c.moduleId || c.identifier || '')) &&
-      !apiIds.has(c.moduleId) &&
-      !apiIds.has(c.identifier)
+    (c: any) => !apiIds.has(c.moduleId) && !apiIds.has(c.identifier)
   );
   if (typeof window !== 'undefined' && pendingCustom.length !== customSections.length) {
     try {
@@ -205,7 +199,7 @@ export default function CourseDetailsPage() {
 
   // Action Loading for Save & Publish buttons
   const [actionLoading, setActionLoading] = useState<boolean>(false);
-  const [actionType, setActionType] = useState<'unpublished' | 'published' | null>(null);
+  const [actionType, setActionType] = useState<'draft' | 'published' | null>(null);
 
   // FAQs, summary and transition (course-level items)
   const [editingItem, setEditingItem] = useState<CourseLevelItem | null>(null);
@@ -310,7 +304,7 @@ export default function CourseDetailsPage() {
     setIsEditModalOpen(false);
   };
 
-  const handleUpdateCourseStatus = async (status: 'unpublished' | 'published') => {
+  const handleUpdateCourseStatus = async (status: 'draft' | 'published') => {
     if (!courseId) return;
     setActionLoading(true);
     setActionType(status);
@@ -325,7 +319,7 @@ export default function CourseDetailsPage() {
       }
       setToastSeverity('success');
       setToastMessage(
-        status === 'unpublished'
+        status === 'draft'
           ? 'Course saved as draft successfully!'
           : (t('COURSES.DETAIL.PUBLISH_SUCCESS') || 'Course published successfully!')
       );
@@ -349,31 +343,8 @@ export default function CourseDetailsPage() {
     }
   };
 
-  const [sectionToDelete, setSectionToDelete] = useState<CourseHierarchyChild | null>(null);
-  const [deletingSection, setDeletingSection] = useState(false);
-
-  const handleConfirmDeleteSection = async () => {
-    const section = sectionToDelete;
-    if (!section) return;
-    const moduleId = section.moduleId || section.identifier;
-    const isServerModule = typeof moduleId === 'string' && UUID_REGEX.test(moduleId);
-    // Modules only cached in this browser (ids like "mod-123") have no server record
-    const isLocalOnly = typeof moduleId === 'string' && moduleId.startsWith('mod-');
-
-    setDeletingSection(true);
-    try {
-      if (!isServerModule && !isLocalOnly) throw new Error('This section has no module id, so it cannot be deleted.');
-      if (isServerModule) await deleteModule(moduleId);
-      setSections((prev) => prev.filter((s) => s.identifier !== section.identifier));
-      setToastSeverity('success');
-      setToastMessage(t('COURSES.DETAIL.DELETE_SECTION_SUCCESS', 'Section deleted'));
-    } catch (err: any) {
-      setToastSeverity('error');
-      setToastMessage(err?.response?.data?.params?.errmsg || err?.message || 'Failed to delete the section.');
-    } finally {
-      setDeletingSection(false);
-      setSectionToDelete(null);
-    }
+  const handleDeleteSection = (secId: string) => {
+    setSections(sections.filter((s) => s.identifier !== secId));
   };
 
   const parsedName = parseCourseName(course?.name || '');
@@ -545,7 +516,7 @@ export default function CourseDetailsPage() {
                         aria-label={t('COMMON.DELETE')}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setSectionToDelete(section);
+                          handleDeleteSection(section.identifier);
                         }}
                         sx={{
                           color: '#BA1A1A',
@@ -766,10 +737,10 @@ export default function CourseDetailsPage() {
 
           <CommonButton
             variant="outlined"
-            onClick={() => handleUpdateCourseStatus('unpublished')}
+            onClick={() => handleUpdateCourseStatus('draft')}
             disabled={actionLoading}
           >
-            {actionLoading && actionType === 'unpublished' ? (
+            {actionLoading && actionType === 'draft' ? (
               <CircularProgress size={16} sx={{ mr: 1, color: '#1F1E1C' }} />
             ) : null}
             {t('COMMON.SAVE') || 'Save'}
@@ -976,23 +947,6 @@ export default function CourseDetailsPage() {
         onClose={() => setPreviewItem(null)}
         content={previewItem}
       />
-
-      <CommonDialog
-        open={Boolean(sectionToDelete)}
-        onClose={() => setSectionToDelete(null)}
-        title={t('COURSES.DETAIL.DELETE_SECTION_TITLE', 'Delete section')}
-        onConfirm={handleConfirmDeleteSection}
-        confirmLabel={t('COMMON.DELETE')}
-        confirmDisabled={deletingSection}
-        maxWidth="xs"
-      >
-        <Typography sx={{ fontSize: '14px', color: NEUTRAL.ink }}>
-          {t(
-            'COURSES.DETAIL.DELETE_SECTION_CONFIRM',
-            'Delete this section and the lessons inside it? Learner progress may change.'
-          )}
-        </Typography>
-      </CommonDialog>
 
       <CourseLevelItemDialog
         item={editingItem}
