@@ -1,7 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
-import { Box, Typography, Paper, Grid, IconButton, Tooltip, Alert } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  IconButton,
+  Tooltip,
+  Alert,
+  CircularProgress,
+} from '@mui/material';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -12,8 +21,11 @@ import nextI18NextConfig from '../../../../next-i18next.config.js';
 import CommonButton from '@/components/common/CommonButton';
 import CommonTextField from '@/components/common/CommonTextField';
 import CommonRadioGroup from '@/components/common/CommonRadioGroup';
+import CommonSelect from '@/components/common/CommonSelect';
 import FieldLabel from '@/components/common/FieldLabel';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
+import { createCourse, CreateCoursePayload } from '@/services/CourseService';
+import { getCohortSearch, CohortItemApi } from '@/services/CohortService';
 
 interface ObjectiveItem {
   id: string;
@@ -21,6 +33,10 @@ interface ObjectiveItem {
 }
 
 const COURSES_LIST_PATH = '/content/courses';
+const DEFAULT_COHORT_ID = '8f6156bc-e298-41e7-a3f1-f4d4d23e51a7';
+const DEFAULT_IMAGE_URL =
+  'https://aspire-leaders-assets-qa.s3.us-east-1.amazonaws.com/lms/modules/file_1793263413927_c5ac1a.png';
+const DEFAULT_CERTIFICATE_ID = ['cmtr5gy7v003sr00ja8dx3822'];
 
 const LANGUAGE_OPTIONS = [
   { value: 'hindi', labelKey: 'COURSES.LANGUAGE_HINDI' },
@@ -84,6 +100,7 @@ export default function CreateCoursePage() {
 
   // Form States matching Prototype
   const [courseName, setCourseName] = useState<string>('');
+  const [shortDescription, setShortDescription] = useState<string>('Description');
   const [targetAudience, setTargetAudience] = useState<string>(
     'New field trainers and Community Resource Persons joining Swadhaar FinAccess'
   );
@@ -116,9 +133,54 @@ export default function CreateCoursePage() {
   // Language state (single select)
   const [language, setLanguage] = useState<string>('english');
 
+  // Course Image & Cohort Association
+  const [imageUrl, setImageUrl] = useState<string>(DEFAULT_IMAGE_URL);
+  const [cohortId, setCohortId] = useState<string>(DEFAULT_COHORT_ID);
+  const [cohortOptions, setCohortOptions] = useState<Array<{ value: string; label: string }>>([
+    { value: DEFAULT_COHORT_ID, label: 'Aspire Dev Cohort (Default)' },
+  ]);
+
   // UI feedback states
+  const [loadingCohorts, setLoadingCohorts] = useState<boolean>(false);
+  const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Load cohorts on mount
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingCohorts(true);
+    getCohortSearch({
+      limit: 100,
+      offset: 0,
+      filters: { type: 'COHORT', status: ['active'] },
+    })
+      .then((res) => {
+        if (!isMounted) return;
+        const details = res?.result?.results?.cohortDetails || [];
+        if (details.length > 0) {
+          const opts = details.map((c: CohortItemApi) => ({
+            value: c.cohortId,
+            label: c.name || c.cohortId,
+          }));
+          // Make sure default is preserved if not in list
+          if (!opts.some((o) => o.value === DEFAULT_COHORT_ID)) {
+            opts.unshift({ value: DEFAULT_COHORT_ID, label: 'Aspire Dev Cohort (Default)' });
+          }
+          setCohortOptions(opts);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load cohorts:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingCohorts(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Objectives reordering
   const handleMoveObjective = (index: number, direction: 'up' | 'down') => {
@@ -154,41 +216,84 @@ export default function CreateCoursePage() {
   // Save actions
   const validateForm = () => {
     if (!courseName.trim()) {
-      setError(t('COURSES.CREATE.NAME_REQUIRED'));
+      setError(t('COURSES.CREATE.NAME_REQUIRED') || 'Course name is required');
       return false;
     }
     setError(null);
     return true;
   };
 
-  const handleSaveAsDraft = () => {
+  const handleSaveCourse = async (
+    statusToSave: 'published' | 'unpublished',
+    redirectAction: 'list' | 'sections'
+  ) => {
     if (!validateForm()) return;
-    setSuccessMsg(t('COURSES.CREATE.SAVED_AS_DRAFT', { name: courseName }));
-    setTimeout(() => {
-      router.push(COURSES_LIST_PATH);
-    }, 1200);
-  };
+    setSubmitting(true);
+    setError(null);
+    setSuccessMsg(null);
 
-  const handleSaveAndAddSections = () => {
-    if (!validateForm()) return;
-    setSuccessMsg(t('COURSES.CREATE.CREATED_OPENING_STRUCTURE'));
-    setTimeout(() => {
-      router.push({
-        pathname: '/content/courses/new',
-        query: {
-          title: courseName,
-          audience: targetAudience,
+    try {
+      const rawIntro = introduction.trim();
+      const formattedDescription = rawIntro.startsWith('<') ? rawIntro : `<p>${rawIntro}</p>`;
+
+      const payload: CreateCoursePayload = {
+        title: courseName.trim(),
+        shortDescription: shortDescription.trim() || targetAudience.trim() || 'Description',
+        description: formattedDescription,
+        status: statusToSave,
+        image: imageUrl.trim() || DEFAULT_IMAGE_URL,
+        certificateId: DEFAULT_CERTIFICATE_ID,
+        prerequisites: [],
+        params: {
+          cohortId: cohortId || DEFAULT_COHORT_ID,
+          targetAudience: targetAudience.trim(),
+          learningDuration: learningDuration.trim(),
+          assessmentDuration: assessmentDuration.trim(),
+          deliveryMode: deliveryMode.trim(),
+          howItWorks: howItWorks.trim(),
+          objectives: objectives.map((o) => o.text.trim()).filter(Boolean),
           language: language,
         },
-      });
-    }, 1000);
+        featured: false,
+      };
+
+      const res = await createCourse(payload);
+      const createdCourseId = res?.result?.courseId || (res?.result as any)?.id;
+
+      const successText =
+        statusToSave === 'unpublished'
+          ? (t('COURSES.CREATE.SAVED_AS_DRAFT', { name: courseName }) || `Course "${courseName}" saved as draft`)
+          : (t('COURSES.CREATE.CREATED_OPENING_STRUCTURE') || `Course "${courseName}" created successfully`);
+
+      setSuccessMsg(successText);
+
+      setTimeout(() => {
+        if (redirectAction === 'sections' && createdCourseId) {
+          router.push(`/content/courses/${createdCourseId}/sections/create`);
+        } else if (createdCourseId) {
+          router.push(`/content/courses/${createdCourseId}`);
+        } else {
+          router.push(COURSES_LIST_PATH);
+        }
+      }, 1200);
+    } catch (err: any) {
+      console.error('Failed to create course:', err);
+      const apiError =
+        err?.response?.data?.params?.errmsg ||
+        err?.response?.data?.message ||
+        err?.message ||
+        'Failed to create course. Please try again.';
+      setError(apiError);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <Box sx={{ py: 1, maxWidth: 1400, mx: 'auto' }}>
-      {/* Breadcrumb Navigation matching prototype */}
+      {/* Breadcrumb Navigation */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mb: 2, fontSize: '13px', color: NEUTRAL.muted }}>
-        <span>{t('COURSES.BREADCRUMB_LEARNING')}</span>
+        <span>{t('COURSES.BREADCRUMB_LEARNING') || 'Learning'}</span>
         <span>/</span>
         <Link
           href={COURSES_LIST_PATH}
@@ -196,11 +301,11 @@ export default function CreateCoursePage() {
           onMouseEnter={(e) => (e.currentTarget.style.color = BRAND.primary)}
           onMouseLeave={(e) => (e.currentTarget.style.color = NEUTRAL.muted)}
         >
-          {t('COURSES.BREADCRUMB_COURSES')}
+          {t('COURSES.BREADCRUMB_COURSES') || 'Courses'}
         </Link>
         <span>/</span>
         <Typography component="span" sx={{ color: NEUTRAL.ink, fontWeight: 600, fontSize: '13px' }}>
-          {t('COURSES.CREATE.TITLE')}
+          {t('COURSES.CREATE.TITLE') || 'Create Course'}
         </Typography>
       </Box>
 
@@ -217,7 +322,7 @@ export default function CreateCoursePage() {
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
           <Typography variant="h4" sx={{ fontWeight: 700, color: 'text.primary', fontSize: '26px' }}>
-            {t('COURSES.CREATE.TITLE')}
+            {t('COURSES.CREATE.TITLE') || 'Create Course'}
           </Typography>
           <Box
             sx={{
@@ -233,21 +338,35 @@ export default function CreateCoursePage() {
               borderRadius: '4px',
             }}
           >
-            {t('COURSES.CREATE.DOC_TAG')}
+            {t('COURSES.CREATE.DOC_TAG') || 'Aspire LMS'}
           </Box>
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <CommonButton variant="outlined" onClick={() => router.push(COURSES_LIST_PATH)}>
-            {t('COMMON.CANCEL')}
+          <CommonButton
+            variant="outlined"
+            onClick={() => router.push(COURSES_LIST_PATH)}
+            disabled={submitting}
+          >
+            {t('COMMON.CANCEL') || 'Cancel'}
           </CommonButton>
 
-          <CommonButton variant="outlined" onClick={handleSaveAsDraft}>
-            {t('COURSES.SAVE_AS_DRAFT')}
+          <CommonButton
+            variant="outlined"
+            onClick={() => handleSaveCourse('unpublished', 'list')}
+            disabled={submitting}
+          >
+            {submitting ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
+            {t('COURSES.SAVE_AS_DRAFT') || 'Save as Draft'}
           </CommonButton>
 
-          <CommonButton variant="primary" onClick={handleSaveAndAddSections}>
-            {t('COURSES.CREATE.SAVE_AND_ADD_SECTIONS')}
+          <CommonButton
+            variant="primary"
+            onClick={() => handleSaveCourse('published', 'sections')}
+            disabled={submitting}
+          >
+            {submitting ? <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} /> : null}
+            {t('COURSES.CREATE.SAVE_AND_ADD_SECTIONS') || 'Save & Add Sections'}
           </CommonButton>
         </Box>
       </Box>
@@ -264,37 +383,46 @@ export default function CreateCoursePage() {
         </Alert>
       )}
 
-      {/* 2-Column Layout matching Prototype */}
+      {/* 2-Column Layout */}
       <Grid container spacing={2.5}>
         {/* Left Column (8 cols): Course Overview + Objectives */}
         <Grid item xs={12} lg={8}>
           {/* Card 1: Course Overview */}
           <Paper elevation={0} sx={{ ...CARD_SX, mb: 2.5 }}>
             <Box sx={{ ...CARD_HEADER_SX, display: 'flex', alignItems: 'center' }}>
-              <Typography sx={CARD_TITLE_SX}>{t('COURSES.CREATE.COURSE_OVERVIEW')}</Typography>
+              <Typography sx={CARD_TITLE_SX}>{t('COURSES.CREATE.COURSE_OVERVIEW') || 'Course Overview'}</Typography>
             </Box>
 
             <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2.2 }}>
               {/* Course Name */}
               <CommonTextField
                 id="course-name"
-                label={t('COURSES.CREATE.COURSE_NAME')}
+                label={t('COURSES.CREATE.COURSE_NAME') || 'Course Name'}
                 required
                 value={courseName}
                 onChange={(e) => {
                   setCourseName(e.target.value);
                   if (error) setError(null);
                 }}
-                placeholder={t('COURSES.CREATE.COURSE_NAME_PLACEHOLDER')}
+                placeholder={t('COURSES.CREATE.COURSE_NAME_PLACEHOLDER') || 'e.g. Introduction to Saving'}
+              />
+
+              {/* Short Description */}
+              <CommonTextField
+                id="course-short-description"
+                label={t('COURSES.CREATE.SHORT_DESCRIPTION') || 'Short Description'}
+                value={shortDescription}
+                onChange={(e) => setShortDescription(e.target.value)}
+                placeholder="Brief summary shown on course cards"
               />
 
               {/* Target Audience */}
               <CommonTextField
                 id="course-target-audience"
-                label={t('COURSES.CREATE.TARGET_AUDIENCE')}
+                label={t('COURSES.CREATE.TARGET_AUDIENCE') || 'Target Audience'}
                 value={targetAudience}
                 onChange={(e) => setTargetAudience(e.target.value)}
-                placeholder={t('COURSES.CREATE.TARGET_AUDIENCE_PLACEHOLDER')}
+                placeholder={t('COURSES.CREATE.TARGET_AUDIENCE_PLACEHOLDER') || 'e.g. Field trainers'}
               />
 
               {/* 3-column Durations & Mode */}
@@ -302,7 +430,7 @@ export default function CreateCoursePage() {
                 <Grid item xs={12} sm={4}>
                   <CommonTextField
                     id="course-learning-duration"
-                    label={t('COURSES.CREATE.LEARNING_CONTENT_MIN')}
+                    label={t('COURSES.CREATE.LEARNING_CONTENT_MIN') || 'Learning Content (min)'}
                     value={learningDuration}
                     onChange={(e) => setLearningDuration(e.target.value)}
                     placeholder="45"
@@ -312,7 +440,7 @@ export default function CreateCoursePage() {
                 <Grid item xs={12} sm={4}>
                   <CommonTextField
                     id="course-assessment-duration"
-                    label={t('COURSES.CREATE.ASSESSMENT_MIN')}
+                    label={t('COURSES.CREATE.ASSESSMENT_MIN') || 'Assessment (min)'}
                     value={assessmentDuration}
                     onChange={(e) => setAssessmentDuration(e.target.value)}
                     placeholder="15"
@@ -322,17 +450,17 @@ export default function CreateCoursePage() {
                 <Grid item xs={12} sm={4}>
                   <CommonTextField
                     id="course-delivery-mode"
-                    label={t('COURSES.CREATE.DELIVERY_MODE')}
+                    label={t('COURSES.CREATE.DELIVERY_MODE') || 'Delivery Mode'}
                     value={deliveryMode}
                     onChange={(e) => setDeliveryMode(e.target.value)}
-                    placeholder={t('COURSES.CREATE.DELIVERY_MODE_PLACEHOLDER')}
+                    placeholder={t('COURSES.CREATE.DELIVERY_MODE_PLACEHOLDER') || 'Online learning via LMS'}
                   />
                 </Grid>
               </Grid>
 
               {/* Introduction with Rich Text Toolbar */}
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-                <FieldLabel label={t('COURSES.CREATE.INTRODUCTION')} htmlFor="course-introduction" />
+                <FieldLabel label={t('COURSES.CREATE.INTRODUCTION') || 'Introduction'} htmlFor="course-introduction" />
                 <Box
                   sx={{
                     display: 'flex',
@@ -364,7 +492,7 @@ export default function CreateCoursePage() {
                   rows={3}
                   value={introduction}
                   onChange={(e) => setIntroduction(e.target.value)}
-                  placeholder={t('COURSES.CREATE.INTRODUCTION_PLACEHOLDER')}
+                  placeholder={t('COURSES.CREATE.INTRODUCTION_PLACEHOLDER') || 'Enter course introduction...'}
                   InputProps={{ sx: { borderRadius: '0 0 6px 6px' } }}
                 />
               </Box>
@@ -372,12 +500,12 @@ export default function CreateCoursePage() {
               {/* How it works */}
               <CommonTextField
                 id="course-how-it-works"
-                label={t('COURSES.CREATE.HOW_IT_WORKS')}
+                label={t('COURSES.CREATE.HOW_IT_WORKS') || 'How It Works'}
                 multiline
                 rows={2}
                 value={howItWorks}
                 onChange={(e) => setHowItWorks(e.target.value)}
-                placeholder={t('COURSES.CREATE.HOW_IT_WORKS_PLACEHOLDER')}
+                placeholder={t('COURSES.CREATE.HOW_IT_WORKS_PLACEHOLDER') || 'Explain progression and requirements...'}
               />
             </Box>
           </Paper>
@@ -393,7 +521,7 @@ export default function CreateCoursePage() {
                 alignItems: 'center',
               }}
             >
-              <Typography sx={CARD_TITLE_SX}>{t('COURSES.CREATE.COURSE_OBJECTIVES')}</Typography>
+              <Typography sx={CARD_TITLE_SX}>{t('COURSES.CREATE.COURSE_OBJECTIVES') || 'Course Objectives'}</Typography>
               <CommonButton
                 variant="outlined"
                 size="small"
@@ -401,7 +529,7 @@ export default function CreateCoursePage() {
                 onClick={handleAddObjective}
                 sx={{ fontSize: '12px', height: 30, px: 1.5, py: 0 }}
               >
-                {t('COURSES.CREATE.ADD_OBJECTIVE')}
+                {t('COURSES.CREATE.ADD_OBJECTIVE') || 'Add Objective'}
               </CommonButton>
             </Box>
 
@@ -417,11 +545,11 @@ export default function CreateCoursePage() {
                 >
                   {/* Reorder Buttons Up/Down */}
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                    <Tooltip title={t('COURSES.MOVE_UP')}>
+                    <Tooltip title={t('COURSES.MOVE_UP') || 'Move Up'}>
                       <span>
                         <IconButton
                           size="small"
-                          aria-label={t('COURSES.MOVE_UP')}
+                          aria-label={t('COURSES.MOVE_UP') || 'Move Up'}
                           disabled={index === 0}
                           onClick={() => handleMoveObjective(index, 'up')}
                           sx={OBJECTIVE_MOVE_BUTTON_SX}
@@ -430,11 +558,11 @@ export default function CreateCoursePage() {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <Tooltip title={t('COURSES.MOVE_DOWN')}>
+                    <Tooltip title={t('COURSES.MOVE_DOWN') || 'Move Down'}>
                       <span>
                         <IconButton
                           size="small"
-                          aria-label={t('COURSES.MOVE_DOWN')}
+                          aria-label={t('COURSES.MOVE_DOWN') || 'Move Down'}
                           disabled={index === objectives.length - 1}
                           onClick={() => handleMoveObjective(index, 'down')}
                           sx={OBJECTIVE_MOVE_BUTTON_SX}
@@ -449,15 +577,18 @@ export default function CreateCoursePage() {
                   <CommonTextField
                     value={obj.text}
                     onChange={(e) => handleUpdateObjective(index, e.target.value)}
-                    placeholder={t('COURSES.CREATE.OBJECTIVE_PLACEHOLDER', { number: index + 1 })}
+                    placeholder={
+                      t('COURSES.CREATE.OBJECTIVE_PLACEHOLDER', { number: index + 1 }) ||
+                      `Objective ${index + 1}`
+                    }
                   />
 
                   {/* Delete Objective button */}
                   {objectives.length > 1 && (
-                    <Tooltip title={t('COURSES.CREATE.REMOVE_OBJECTIVE')}>
+                    <Tooltip title={t('COURSES.CREATE.REMOVE_OBJECTIVE') || 'Remove Objective'}>
                       <IconButton
                         size="small"
-                        aria-label={t('COURSES.CREATE.REMOVE_OBJECTIVE')}
+                        aria-label={t('COURSES.CREATE.REMOVE_OBJECTIVE') || 'Remove Objective'}
                         onClick={() => handleDeleteObjective(index)}
                         sx={{
                           color: NEUTRAL.subtle,
@@ -473,16 +604,85 @@ export default function CreateCoursePage() {
 
               {/* Bottom hint matching prototype */}
               <Typography variant="caption" sx={{ color: NEUTRAL.subtle, fontSize: '12px', mt: 0.5 }}>
-                {t('COURSES.CREATE.MORE_IN_DOCUMENT', { count: 3 })}
+                {t('COURSES.CREATE.MORE_IN_DOCUMENT', { count: objectives.length }) ||
+                  `${objectives.length} objectives configured`}
               </Typography>
             </Box>
           </Paper>
         </Grid>
 
-        {/* Right Column (4 cols): Language + Added after saving */}
+        {/* Right Column (4 cols): Cohort Settings + Image + Language + Added after saving */}
         <Grid item xs={12} lg={4}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            {/* Card 3: Language */}
+            {/* Card 3: Associated Cohort / Group */}
+            <Paper elevation={0} sx={CARD_SX}>
+              <Box sx={CARD_HEADER_SX}>
+                <Typography sx={CARD_TITLE_SX}>
+                  {t('COURSES.CREATE.ASSOCIATED_COHORT') || 'Associated Cohort / Group'}
+                </Typography>
+              </Box>
+
+              <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <CommonSelect
+                  id="course-cohort-select"
+                  label={t('COURSES.CREATE.SELECT_COHORT') || 'Cohort Group'}
+                  value={cohortId}
+                  onChange={(val) => setCohortId(val)}
+                  options={cohortOptions}
+                  disabled={loadingCohorts}
+                />
+                <Typography variant="caption" sx={{ color: NEUTRAL.muted, fontSize: '12px' }}>
+                  {t('COURSES.CREATE.COHORT_HINT') ||
+                    'Learners enrolled in this cohort will have access to this course.'}
+                </Typography>
+              </Box>
+            </Paper>
+
+            {/* Card 4: Course Thumbnail Image */}
+            <Paper elevation={0} sx={CARD_SX}>
+              <Box sx={CARD_HEADER_SX}>
+                <Typography sx={CARD_TITLE_SX}>
+                  {t('COURSES.CREATE.COURSE_IMAGE') || 'Course Thumbnail Image'}
+                </Typography>
+              </Box>
+
+              <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.8 }}>
+                <CommonTextField
+                  id="course-image-url"
+                  label={t('COURSES.CREATE.IMAGE_URL') || 'Image URL'}
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+
+                {imageUrl && (
+                  <Box
+                    sx={{
+                      width: '100%',
+                      height: 140,
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      border: `1px solid ${NEUTRAL.border}`,
+                      backgroundColor: '#F9FAFB',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt="Course Preview"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = DEFAULT_IMAGE_URL;
+                      }}
+                    />
+                  </Box>
+                )}
+              </Box>
+            </Paper>
+
+            {/* Card 5: Language */}
             <Paper elevation={0} sx={CARD_SX}>
               <Box
                 sx={{
@@ -492,7 +692,7 @@ export default function CreateCoursePage() {
                   alignItems: 'center',
                 }}
               >
-                <Typography sx={CARD_TITLE_SX}>{t('COMMON.LANGUAGE')} *</Typography>
+                <Typography sx={CARD_TITLE_SX}>{t('COMMON.LANGUAGE') || 'Language'} *</Typography>
               </Box>
 
               <Box sx={{ p: 2.5 }}>
@@ -508,23 +708,23 @@ export default function CreateCoursePage() {
                 />
 
                 <Typography variant="caption" sx={{ color: NEUTRAL.muted, fontSize: '12px', display: 'block', mt: 1.5 }}>
-                  {t('COURSES.CREATE.ONE_LANGUAGE_HINT')}
+                  {t('COURSES.CREATE.ONE_LANGUAGE_HINT') || 'Choose the primary language for this course content.'}
                 </Typography>
               </Box>
             </Paper>
 
-            {/* Card 4: Added after saving */}
+            {/* Card 6: Added after saving */}
             <Paper elevation={0} sx={CARD_SX}>
               <Box sx={CARD_HEADER_SX}>
-                <Typography sx={CARD_TITLE_SX}>{t('COURSES.CREATE.ADDED_AFTER_SAVING')}</Typography>
+                <Typography sx={CARD_TITLE_SX}>{t('COURSES.CREATE.ADDED_AFTER_SAVING') || 'Added after saving'}</Typography>
               </Box>
 
               <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.2 }}>
                 <Typography sx={{ fontSize: '14px', color: NEUTRAL.ink }}>
-                  {t('COURSES.CREATE.SECTIONS_WITH_CONTENT')}
+                  {t('COURSES.CREATE.SECTIONS_WITH_CONTENT') || 'Sections with interactive modules and video watch'}
                 </Typography>
                 <Typography sx={{ fontSize: '14px', color: NEUTRAL.ink }}>
-                  {t('COURSES.CREATE.FAQS_SUMMARY_TRANSITION')}
+                  {t('COURSES.CREATE.FAQS_SUMMARY_TRANSITION') || 'Summary notes and transition material'}
                 </Typography>
                 <Box>
                   <Box
@@ -540,11 +740,11 @@ export default function CreateCoursePage() {
                       display: 'inline-block',
                     }}
                   >
-                    {t('COURSES.CREATE.LINKED_COURSE_ASSESSMENT')}
+                    {t('COURSES.CREATE.LINKED_COURSE_ASSESSMENT') || 'Linked Course Assessment'}
                   </Box>
                 </Box>
                 <Typography variant="caption" sx={{ color: NEUTRAL.muted, fontSize: '12px', display: 'block', mt: 1 }}>
-                  {t('COURSES.CREATE.ALL_APPEAR_IN_EVERY_COURSE')}
+                  {t('COURSES.CREATE.ALL_APPEAR_IN_EVERY_COURSE') || 'All components will be configurable once saved.'}
                 </Typography>
               </Box>
             </Paper>

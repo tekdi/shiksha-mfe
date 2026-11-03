@@ -8,6 +8,13 @@ export function get(
   return axiosInstance.get(url, { headers });
 }
 
+export function getBlob(
+  url: string,
+  headers: AxiosRequestConfig['headers'] = {}
+): Promise<AxiosResponse<Blob>> {
+  return axiosInstance.get(url, { headers, responseType: 'blob' });
+}
+
 export function post<T>(
   url: string,
   body: T,

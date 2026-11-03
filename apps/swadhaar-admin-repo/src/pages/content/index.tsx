@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -22,6 +22,9 @@ import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
+import { fetchMediaObjectUrl, getLmsLessonById } from '@/services/CourseService';
+import { resolveMediaUrl } from '@/utils/API/APIEndpoints';
+import QuestionBankTable from '@/components/content/QuestionBankTable';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
@@ -40,7 +43,6 @@ import {
   ContentTabType,
   ContentTabCounts,
 } from '@/services/ContentLibraryService';
-import { getCourseList } from '@/services/CourseService';
 
 type AssessmentSubTab = 'assessments' | 'questions' | 'results';
 
@@ -176,11 +178,36 @@ export default function ContentLibraryPage() {
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [courseFilter, setCourseFilter] = useState('all');
   const [languageFilter, setLanguageFilter] = useState('all');
 
   // Preview Modal state (Native in-app viewer, no external player/workspace MFE)
   const [previewContent, setPreviewContent] = useState<PreviewContentData | null>(null);
+
+  // Video/PDF rows are LMS lessons. The preview opens straight away from the row, then the lesson is
+  // read by id (GET /lms-service/v1/lessons/:id) so the media URL is the current one. A PDF stored on
+  // the LMS server (relative path) is downloaded with the session token and shown from an object URL.
+  const previewObjectUrl = useRef<string | null>(null);
+  const closePreview = () => {
+    if (previewObjectUrl.current) URL.revokeObjectURL(previewObjectUrl.current);
+    previewObjectUrl.current = null;
+    setPreviewContent(null);
+  };
+  const openLessonPreview = (row: ContentItem, type: 'video' | 'pdf') => {
+    closePreview();
+    setPreviewContent({ ...row, type, artifactUrl: undefined });
+    getLmsLessonById(row.identifier)
+      .then(async (lesson) => {
+        const path = lesson?.media?.path || lesson?.media?.source || '';
+        if (!path) return;
+        const isLocalFile = type === 'pdf' && !/^(https?:)?\/\//i.test(path);
+        const url = isLocalFile ? await fetchMediaObjectUrl(resolveMediaUrl(path)) : resolveMediaUrl(path);
+        if (isLocalFile) previewObjectUrl.current = url;
+        setPreviewContent((current) =>
+          current?.identifier === row.identifier ? { ...current, artifactUrl: url } : current
+        );
+      })
+      .catch((err) => console.error('Failed to read lesson for preview:', err));
+  };
 
   // Delete confirmation & action states
   const [itemToDelete, setItemToDelete] = useState<ContentItem | null>(null);
@@ -194,11 +221,6 @@ export default function ContentLibraryPage() {
     message: '',
     severity: 'info',
   });
-
-  // Dynamic Course Filter Options
-  const [courseOptions, setCourseOptions] = useState<Array<{ value: string; label: string }>>([
-    { value: 'all', label: 'All Courses' },
-  ]);
 
   // Pagination
   const [page, setPage] = useState(0);
@@ -237,7 +259,6 @@ export default function ContentLibraryPage() {
       const response = await searchContentLibrary({
         tab: activeTab,
         query: debouncedSearch.trim(),
-        courseFilter,
         languageFilter,
         limit: rowsPerPage,
         offset: page * rowsPerPage,
@@ -257,7 +278,7 @@ export default function ContentLibraryPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab, debouncedSearch, courseFilter, languageFilter, page, rowsPerPage]);
+  }, [activeTab, debouncedSearch, languageFilter, page, rowsPerPage]);
 
   useEffect(() => {
     fetchContent();
@@ -270,26 +291,6 @@ export default function ContentLibraryPage() {
   };
 
   const isVideoTab = activeTab === 'videos';
-
-  // Load actual courses for the filter
-  useEffect(() => {
-    getCourseList({ limit: 50 })
-      .then((res) => {
-        if (res?.content?.length > 0) {
-          const opts = res.content.map((c) => ({
-            value: c.name || c.identifier,
-            label: c.name || 'Untitled Course',
-          }));
-          setCourseOptions([
-            { value: 'all', label: t('CONTENT.LIBRARY.ALL_COURSES') || 'All Courses' },
-            ...opts,
-          ]);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load courses for filter:', err);
-      });
-  }, [t]);
 
   const handleConfirmDelete = async () => {
     if (!itemToDelete) return;
@@ -441,12 +442,7 @@ export default function ContentLibraryPage() {
             <Tooltip title={isVideoTab ? t('CONTENT.LIBRARY.VIEW_VIDEO') : t('CONTENT.LIBRARY.VIEW_PDF')}>
               <IconButton
                 size="small"
-                onClick={() => {
-                  setPreviewContent({
-                    ...row,
-                    type: isVideoTab ? 'video' : 'pdf',
-                  });
-                }}
+                onClick={() => openLessonPreview(row, isVideoTab ? 'video' : 'pdf')}
                 sx={actionIconSx}
               >
                 <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
@@ -722,6 +718,22 @@ export default function ContentLibraryPage() {
         </Box>
       )}
 
+      {/* Assessments sub-tabs: Question Bank and Assessment Results replace the assessments list */}
+      {activeTab === 'assessments' && assessmentSubTab === 'questions' && <QuestionBankTable />}
+
+      {activeTab === 'assessments' && assessmentSubTab === 'results' && (
+        <Box sx={{ py: 8, textAlign: 'center' }}>
+          <Typography sx={{ fontWeight: 600, fontSize: '15px', color: 'text.primary', mb: 0.5 }}>
+            Assessment results
+          </Typography>
+          <Typography sx={{ fontSize: '13px', color: NEUTRAL.muted }}>
+            Learner scores and attempts will appear here once the results API is connected.
+          </Typography>
+        </Box>
+      )}
+
+      {(activeTab !== 'assessments' || assessmentSubTab === 'assessments') && (
+        <>
       {/* Toolbar: Search & Filter dropdowns with Swadhaar Theme */}
       <Box
         sx={{
@@ -768,19 +780,7 @@ export default function ContentLibraryPage() {
             }}
           />
 
-          {/* Filter 1: All Courses */}
-          <CommonSelect
-            value={courseFilter}
-            onChange={(value) => {
-              setCourseFilter(value);
-              setPage(0);
-            }}
-            options={courseOptions}
-            fullWidth={false}
-            sx={filterSelectSx}
-          />
-
-          {/* Filter 2: All Languages */}
+          {/* Language filter */}
           <CommonSelect
             value={languageFilter}
             onChange={(value) => {
@@ -828,10 +828,13 @@ export default function ContentLibraryPage() {
         </Typography>
       </Box>
 
+        </>
+      )}
+
       {/* In-App Native Preview Modal (PDF / Video / Assessment) */}
       <ContentPreviewModal
         open={Boolean(previewContent)}
-        onClose={() => setPreviewContent(null)}
+        onClose={closePreview}
         content={previewContent}
       />
 

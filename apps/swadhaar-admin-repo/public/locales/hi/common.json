@@ -1191,6 +1191,7 @@
       "SELECT_BRANCH": "शाखा चुनें",
       "SELECT_PROGRAM": "कार्यक्रम चुनें",
       "SELECT_ROLE": "भूमिका चुनें",
+      "ERROR_ROLE_REQUIRED": "एक भूमिका चुनें",
       "CREDENTIALS_INFO": "सफलतापूर्वक निर्माण के बाद उपयोगकर्ता के फ़ोन पर स्वागत एसएमएस भेजा जाएगा।",
       "CREATE_SUCCESS": "उपयोगकर्ता खाता सफलतापूर्वक बनाया गया!",
       "CREATE_FAILED": "उपयोगकर्ता खाता बनाने में विफल।",
@@ -1284,7 +1285,7 @@
     "FILE_TYPES": "10MB तक की .csv फ़ाइलें समर्थित हैं",
     "COLUMNS": {
       "ROW": "पंक्ति",
-      "EMPLOYEE_ID": "कर्मचारी आईडी",
+      "PHONE": "फ़ोन नंबर",
       "EMAIL": "ईमेल",
       "FAILURE_REASON": "विफलता का कारण",
       "UPLOAD_CORRECTED_FILE": "संशोधित फ़ाइल अपलोड करें"
@@ -1388,6 +1389,8 @@
     "TRACK_NAME": "{{name}} ट्रैक",
     "MODULE_N": "मॉड्यूल {{n}}",
     "STEPS_COURSES": "{{n}} पाठ्यक्रम",
+    "STEPS_COURSES_ASSESSMENTS": "{{n}} पाठ्यक्रम + मूल्यांकन",
+    "COURSES_RANGE": "पाठ्यक्रम {{from}} → {{to}}",
     "STEPS_SECTIONS": "{{n}} अनुभाग",
     "ENROLLED_GROUPS": "{{groups}} समूह",
     "ENROLLED_USERS": "{{users}} उपयोगकर्ता",

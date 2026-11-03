@@ -13,7 +13,7 @@ import CreateUserModal from '@/components/common/CreateUserModal';
 import CommonButton from '@/components/common/CommonButton';
 import CommonDialog from '@/components/common/CommonDialog';
 import PageHeader from '@/components/common/PageHeader';
-import { getUserList } from '@/services/UserService';
+import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
 
 export interface UserRowItem {
   id: string;
@@ -218,6 +218,21 @@ const getStatusLabel = (status: string, t: (key: string) => string): string => {
   return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 };
 
+/** Adds the search term to the list filters: 10 digits search by mobile, otherwise by first and last name */
+const applySearchFilters = (filters: Record<string, any>, search: string) => {
+  const trimmed = search.trim();
+  if (/^\d{10}$/.test(trimmed)) {
+    filters.mobile = trimmed;
+    return;
+  }
+  // If multiple words, split first and last name
+  const parts = trimmed.split(/\s+/);
+  filters.firstName = parts[0];
+  if (parts.length > 1) {
+    filters.lastName = parts.slice(1).join(' ');
+  }
+};
+
 export default function UsersPage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -232,7 +247,18 @@ export default function UsersPage() {
 
   // Dynamic status and role options extracted from API response
   const [availableStatuses, setAvailableStatuses] = useState<string[]>(['active', 'inactive']);
-  const [availableRoles, setAvailableRoles] = useState<string[]>([DEFAULT_ROLE]);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
+
+  // Role filter options: titles from the tenant roles API
+  useEffect(() => {
+    getTenantRoles()
+      .then((roles) => {
+        setAvailableRoles(roles.map((r) => r.name));
+        setRolesLoaded(true);
+      })
+      .catch(() => setRolesLoaded(true));
+  }, []);
 
   // Action menu state for row actions
   const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
@@ -256,6 +282,16 @@ export default function UsersPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
 
+  // The search term is sent to /user/v1/list as `search` (debounced), so it covers every user, not just this page
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search?.trim() || '');
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -263,65 +299,54 @@ export default function UsersPage() {
         limit: rowsPerPage,
         offset: page * rowsPerPage,
         filters: {
-          role: filters.role && filters.role !== 'all' ? [filters.role] : [DEFAULT_ROLE],
           status:
             filters.status && filters.status !== 'all'
               ? [filters.status.toLowerCase()]
               : ['active', 'inactive'],
         },
-        sort: ['name', 'asc'],
+        sort: ['createdAt', 'desc'],
       };
+      if (debouncedSearch) applySearchFilters(payload.filters, debouncedSearch);
 
-      const response = await getUserList(payload);
-      if (response?.result?.getUserDetails) {
-        const rawList = response.result.getUserDetails;
+      // /user/v1/list filters by role title and only one role at a time (two roles return 404), and with no
+      // role it returns Students only. So a chosen role is one call, and "All roles" is one call per tenant role, merged.
+      const chosenRole = filters.role && filters.role !== 'all' ? filters.role : '';
+      const roleTitles = chosenRole ? [chosenRole] : availableRoles;
+      const { users: rawList, total: totalFromApi } = await listUsersByRoles(payload, roleTitles);
 
-        // Collect unique statuses and roles directly from API response
+      if (rawList.length > 0 || totalFromApi > 0) {
+        // Collect unique statuses directly from API response
         const apiStatuses = collectUnique(rawList, (u: any) => u.status?.toLowerCase());
         if (apiStatuses.length > 0) {
           setAvailableStatuses((prev) => Array.from(new Set([...prev, ...apiStatuses])));
         }
 
-        const apiRoles = collectUnique(rawList, (u: any) => u.role);
-        if (apiRoles.length > 0) {
-          setAvailableRoles((prev) => Array.from(new Set([...prev, ...apiRoles])));
-        }
-
         const mappedUsers: UserRowItem[] = rawList.map(mapUserRow);
 
         setUsers(mappedUsers);
-        const count =
-          Number(response.result.totalCount) ||
-          Number(rawList[0]?.total_count) ||
-          mappedUsers.length;
-        setTotalCount(count);
+        setTotalCount(totalFromApi || mappedUsers.length);
       } else {
         setUsers([]);
         setTotalCount(0);
       }
-    } catch (err) {
-      console.error('API fetch failed:', err);
+    } catch (err: any) {
+      if (err?.response?.status !== 404) {
+        console.error('API fetch failed:', err);
+      }
       setUsers([]);
       setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage, page, filters.role, filters.status]);
+  }, [rowsPerPage, page, filters.role, filters.status, debouncedSearch, availableRoles]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    // Wait for the role titles: "All roles" is built from them
+    if (rolesLoaded) fetchUsers();
+  }, [fetchUsers, rolesLoaded]);
 
-  // Client-side search by typing name or email across the loaded dataset
-  const displayedUsers = useMemo(() => {
-    return users.filter((user) => {
-      if (!filters.search?.trim()) return true;
-      const term = filters.search.toLowerCase().trim();
-      const matchesName = user.fullName.toLowerCase().includes(term);
-      const matchesEmail = user.email.toLowerCase().includes(term);
-      return matchesName || matchesEmail;
-    });
-  }, [users, filters.search]);
+  // Search is applied by the API (see fetchUsers), so the loaded rows are shown as they are
+  const displayedUsers = users;
 
   const handleOpenActionMenu = (event: React.MouseEvent<HTMLElement>, user: UserRowItem) => {
     setMenuAnchorEl(event.currentTarget);

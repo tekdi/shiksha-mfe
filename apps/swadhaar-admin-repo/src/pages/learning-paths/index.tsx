@@ -10,14 +10,15 @@ import nextI18NextConfig from '../../../next-i18next.config.js';
 import SwadhaarDataTable, { ColumnDef } from '@/components/common/SwadhaarDataTable';
 import CommonButton from '@/components/common/CommonButton';
 import PageHeader from '@/components/common/PageHeader';
-import { getCourseList, CourseItem } from '@/services/CourseService';
-import { getCohortSearch } from '@/services/CohortService';
+import { getPathwayList } from '@/services/PathwayService';
+import { getCourseList } from '@/services/CourseService';
 import EnrolLearningPathModal from '@/components/common/EnrolLearningPathModal';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 
 export interface LearningPathItem {
   id: string;
   name: string;
+  /** Subtitle under the name, e.g. "Courses 0 → 6" */
   codeRange?: string;
   steps: string;
   enrolled: string;
@@ -27,8 +28,7 @@ export interface LearningPathItem {
   coursesCount?: number;
 }
 
-const PRIMARY_PATH_ID = 'financial-inclusion-training-programme';
-const PRIMARY_PATH_NAME = 'Financial Inclusion Training Programme';
+const NO_VALUE = '—';
 
 const builderHref = (id: string) => `/learning-paths/builder?id=${id}`;
 
@@ -57,64 +57,41 @@ export default function LearningPathsListPage() {
 
   // Enrol modal state
   const [isEnrolModalOpen, setIsEnrolModalOpen] = useState<boolean>(false);
-  const [activePathTitle, setActivePathTitle] = useState<string>(PRIMARY_PATH_NAME);
+  const [activePath, setActivePath] = useState<{ id: string; name: string } | null>(null);
 
-  // Fetch courses from composite search API to build pathways
+  // POST /user/v1/pathway/list
   const fetchLearningPaths = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const [coursesRes, cohortRes] = await Promise.allSettled([
-        getCourseList({
-          limit: 20,
-          filters: {
-            primaryCategory: ['Course'],
-          },
-        }),
-        getCohortSearch({
-          limit: 1,
-          filters: { status: ['active'] },
-        }),
+      const [{ pathways }, { content: courses }] = await Promise.all([
+        getPathwayList({ isActive: true, limit: 50, offset: 0, filters: {} }),
+        getCourseList({ limit: 100 }),
       ]);
-
-      const courses: CourseItem[] =
-        coursesRes.status === 'fulfilled' ? coursesRes.value?.content || [] : [];
-      const totalCourses = courses.length || 7;
-      const groupCount =
-        cohortRes.status === 'fulfilled' ? cohortRes.value?.result?.count ?? 4 : 4;
-
-      // 1. Primary flagship learning path (Financial Inclusion Training Programme)
-      const primaryPath: LearningPathItem = {
-        id: PRIMARY_PATH_ID,
-        name: PRIMARY_PATH_NAME,
-        codeRange: t('LEARNING_PATHS.COURSE_RANGE', { from: 0, to: Math.max(courses.length - 1, 6) }),
-        steps: t('LEARNING_PATHS.STEPS_COURSES', { n: totalCourses }),
-        enrolled: `${groupCount} cohorts`,
-        startDate: '01 Nov 2026',
-        endDate: '31 Dec 2026',
-        certificate: t('LEARNING_PATHS.ON_COMPLETION'),
-        coursesCount: totalCourses,
-      };
-
-      // 2. Additional tracks derived from live Sunbird courses
-      const otherPaths: LearningPathItem[] = courses.slice(0, 2).map((c, idx) => {
-        const isFirst = idx === 0;
-        return {
-          id: c.identifier || `path-${idx}`,
-          name: t('LEARNING_PATHS.TRACK_NAME', { name: c.cleanTitle || c.name }),
-          codeRange: c.courseCode || t('LEARNING_PATHS.MODULE_N', { n: idx + 1 }),
-          steps: t('LEARNING_PATHS.STEPS_SECTIONS', { n: c.leafNodesCount || 4 }),
-          enrolled: isFirst ? '2 cohorts' : '1 cohort',
-          startDate: '01 Nov 2026',
-          endDate: '31 Dec 2026',
-          certificate: isFirst ? t('LEARNING_PATHS.ON_COMPLETION') : '—',
-          coursesCount: 1,
-        };
+      // A course belongs to a path through its params.pathwayId (the pathway's own total_items counts videos/resources)
+      const courseCounts = new Map<string, number>();
+      courses.forEach((course) => {
+        const pathwayId = course.params?.pathwayId;
+        if (pathwayId) courseCounts.set(pathwayId, (courseCounts.get(pathwayId) || 0) + 1);
       });
-
-      setLearningPaths([primaryPath, ...otherPaths]);
+      setLearningPaths(
+        pathways.map((p) => {
+          const count = courseCounts.get(p.id) || 0;
+          return {
+            id: p.id,
+            name: p.name,
+            codeRange: count > 0 ? t('LEARNING_PATHS.COURSES_RANGE', { from: 0, to: count - 1 }) : p.key,
+            steps: t('LEARNING_PATHS.STEPS_COURSES_ASSESSMENTS', { n: count }),
+            coursesCount: count,
+            enrolled: NO_VALUE,
+            startDate: NO_VALUE,
+            endDate: NO_VALUE,
+            certificate: NO_VALUE,
+          };
+        })
+      );
     } catch (err) {
-      console.error('Error fetching courses for learning paths:', err);
+      console.error('Error fetching learning paths:', err);
       setError(t('LEARNING_PATHS.LOAD_ERROR') || 'Failed to load learning paths.');
       setLearningPaths([]);
     } finally {
@@ -127,7 +104,7 @@ export default function LearningPathsListPage() {
   }, [fetchLearningPaths]);
 
   const handleOpenEnrol = (path: LearningPathItem) => {
-    setActivePathTitle(path.name);
+    setActivePath({ id: path.id, name: path.name });
     setIsEnrolModalOpen(true);
   };
 
@@ -137,7 +114,7 @@ export default function LearningPathsListPage() {
         ? `${count} cohorts`
         : `${count} individual users`;
     setLearningPaths((prev) =>
-      prev.map((item) => (item.name === activePathTitle ? { ...item, enrolled } : item))
+      prev.map((item) => (item.id === activePath?.id ? { ...item, enrolled } : item))
     );
   };
 
@@ -309,7 +286,8 @@ export default function LearningPathsListPage() {
       <EnrolLearningPathModal
         open={isEnrolModalOpen}
         onClose={() => setIsEnrolModalOpen(false)}
-        learningPathTitle={activePathTitle}
+        learningPathTitle={activePath?.name}
+        pathwayId={activePath?.id}
         onEnrolSuccess={handleEnrolSuccess}
       />
     </Box>

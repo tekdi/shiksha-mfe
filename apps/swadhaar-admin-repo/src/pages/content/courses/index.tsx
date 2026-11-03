@@ -125,7 +125,7 @@ export default function CoursesPage() {
       .catch((err) => console.error('Failed to load course counts:', err));
   }, [debouncedSearch]);
 
-  // Fetch courses from Aspire LMS search API
+  // Fetch courses from LMS search API
   const fetchCourses = useCallback(async () => {
     setLoading(true);
     setErrorKey(null);

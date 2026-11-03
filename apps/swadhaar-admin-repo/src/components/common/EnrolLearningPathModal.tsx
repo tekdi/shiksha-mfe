@@ -25,10 +25,16 @@ import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { useTranslation } from 'next-i18next';
-import { getCohortSearch } from '@/services/CohortService';
+import { getCohortSearch, getCohortLearnerIds } from '@/services/CohortService';
 import { getUserList } from '@/services/UserService';
+import {
+  assignPathwayToUser,
+  enrolLearnerInCourses,
+  getPathwayCourseIds,
+} from '@/services/PathwayService';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
+import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import CommonTextField from './CommonTextField';
 
 type EnrolTab = 'groups' | 'users';
@@ -37,6 +43,10 @@ interface EnrolLearningPathModalProps {
   open: boolean;
   onClose: () => void;
   learningPathTitle?: string;
+  /** Learning path the selected users or groups are enrolled in */
+  pathwayId?: string;
+  /** Course ids of the path's steps, used to enrol groups; read from the pathway when not given */
+  courseIds?: string[];
   onEnrolSuccess?: (count: number, type: EnrolTab) => void;
 }
 
@@ -79,10 +89,45 @@ const getCountSuffix = (tab: EnrolTab, count: number): string => {
   return singular ? 'USER' : 'USERS';
 };
 
+const ENROL_CONCURRENCY = 5;
+
+/**
+ * The enrolment API is per learner: each learner of the selected groups is enrolled in the path's courses
+ * with POST /lms-service/v1/enrollments { learnerId, courseId: [ids] }.
+ */
+const enrolGroups = async (pathwayId: string, groupIds: string[], courseIds?: string[]): Promise<void> => {
+  const courses = courseIds?.length ? courseIds : await getPathwayCourseIds(pathwayId);
+  if (courses.length === 0) {
+    throw new Error('This learning path has no courses yet. Add courses before enrolling groups.');
+  }
+  const groupLearners = await Promise.all(groupIds.map((cohortId) => getCohortLearnerIds(cohortId)));
+  const learnerIds = Array.from(new Set(groupLearners.flat()));
+  if (learnerIds.length === 0) {
+    throw new Error('The selected groups have no learners to enrol.');
+  }
+  let failed = 0;
+  let firstError = '';
+  await runWithConcurrency(learnerIds, ENROL_CONCURRENCY, (learnerId) =>
+    enrolLearnerInCourses(learnerId, courses).then(
+      () => undefined,
+      (err: any) => {
+        failed += 1;
+        firstError = firstError || apiErrorMessage(err);
+      }
+    )
+  );
+  if (failed > 0) {
+    const reason = firstError ? `: ${firstError}` : '';
+    throw new Error(`${failed} of ${learnerIds.length} learner(s) could not be enrolled${reason}`);
+  }
+};
+
 export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
   open,
   onClose,
   learningPathTitle,
+  pathwayId,
+  courseIds,
   onEnrolSuccess,
 }) => {
   const { t } = useTranslation();
@@ -103,6 +148,8 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
 
   // Feedback state
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
 
   // Fetch Groups from CohortService
   const fetchGroups = useCallback(async () => {
@@ -188,6 +235,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
       fetchGroups();
       fetchUsers();
       setFeedbackMessage(null);
+      setErrorMessage(null);
     }
   }, [open, fetchGroups, fetchUsers]);
 
@@ -249,8 +297,29 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
     else setUserSearch(value);
   };
 
-  const handleEnrol = () => {
+  const handleEnrol = async () => {
     const count = currentSelectionCount;
+    setErrorMessage(null);
+    if (!pathwayId) {
+      setErrorMessage('Save the learning path before enrolling users or groups.');
+      return;
+    }
+    setEnrolling(true);
+    try {
+      if (isGroupsTab) {
+        await enrolGroups(pathwayId, selectedGroupIds, courseIds);
+      } else {
+        // Users are assigned the path: POST /user/v1/pathway/assign
+        await runWithConcurrency(selectedUserIds, ENROL_CONCURRENCY, (userId) =>
+          assignPathwayToUser(userId, pathwayId).then(() => undefined)
+        );
+      }
+    } catch (err: any) {
+      setErrorMessage(err?.response?.data?.params?.errmsg || err?.response?.data?.message || err?.message || 'Enrolment failed.');
+      setEnrolling(false);
+      return;
+    }
+    setEnrolling(false);
     setFeedbackMessage(
       t(`ENROL_LEARNING_PATH.SUCCESS_${getCountSuffix(activeTab, count)}`, { count, title: pathTitle })
     );
@@ -454,6 +523,11 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
             {feedbackMessage}
           </Alert>
         )}
+        {errorMessage && (
+          <Alert severity="error" sx={{ mb: 1 }} onClose={() => setErrorMessage(null)}>
+            {errorMessage}
+          </Alert>
+        )}
 
         {/* Search Input */}
         <CommonTextField
@@ -525,7 +599,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
           {t('COMMON.CANCEL')}
         </CommonButton>
 
-        <CommonButton variant="primary" onClick={handleEnrol} disabled={currentSelectionCount === 0}>
+        <CommonButton variant="primary" onClick={handleEnrol} disabled={currentSelectionCount === 0 || enrolling}>
           {t(`ENROL_LEARNING_PATH.ENROL_${getCountSuffix(activeTab, currentSelectionCount)}`, {
             count: currentSelectionCount,
           })}

@@ -104,29 +104,29 @@ export const LayoutService = {
         iconName: 'AltRouteIcon',
         roles: ['Super Admin', 'Admin', 'Trainer', 'State Lead'],
         section: 'LEARNING',
-      },
+      }
       // OPERATIONS & ANALYTICS
-      {
-        label: 'Reports & Analytics',
-        path: '/reports',
-        iconName: 'AssessmentIcon',
-        roles: ['Super Admin', 'Admin', 'Report Viewer', 'State Lead'],
-        section: 'OPERATIONS',
-      },
-      {
-        label: 'Notifications',
-        path: '/notifications',
-        iconName: 'NotificationsIcon',
-        roles: ['Super Admin', 'Admin'],
-        section: 'OPERATIONS',
-      },
-      {
-        label: 'Access Control (RBAC)',
-        path: '/access/permissions',
-        iconName: 'SecurityIcon',
-        roles: ['Super Admin', 'Admin'],
-        section: 'OPERATIONS',
-      },
+      // {
+      //   label: 'Reports & Analytics',
+      //   path: '/reports',
+      //   iconName: 'AssessmentIcon',
+      //   roles: ['Super Admin', 'Admin', 'Report Viewer', 'State Lead'],
+      //   section: 'OPERATIONS',
+      // },
+      // {
+      //   label: 'Notifications',
+      //   path: '/notifications',
+      //   iconName: 'NotificationsIcon',
+      //   roles: ['Super Admin', 'Admin'],
+      //   section: 'OPERATIONS',
+      // },
+      // {
+      //   label: 'Access Control (RBAC)',
+      //   path: '/access/permissions',
+      //   iconName: 'SecurityIcon',
+      //   roles: ['Super Admin', 'Admin'],
+      //   section: 'OPERATIONS',
+      // },
     ];
 
     // If user has Super Admin or Admin, they see everything

@@ -48,7 +48,7 @@ The implementation strictly uses the Swadhaar Brand Theme:
 ## 3. Data Integration: Sunbird Composite Search API
 
 ### Request Contract
-- **Endpoint**: `POST https://interface.tekdinext.com/interface/v1/action/composite/v3/search`
+- **Endpoint**: `POST https://swadhaar-middleware-qa.tekdinext.com/action/composite/v3/search`
 - **Headers**:
   ```http
   academicyearid: edf1d200-21d8-417e-b844-1d04f92435f4

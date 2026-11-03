@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -29,6 +29,13 @@ import Link from 'next/link';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import { getCourseList, CourseItem } from '@/services/CourseService';
+import {
+  createPathway,
+  getPathwayById,
+  updatePathway,
+  setCoursePathway,
+  pathwayIdFromResponse,
+} from '@/services/PathwayService';
 import EnrolLearningPathModal from '@/components/common/EnrolLearningPathModal';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
 
@@ -40,37 +47,6 @@ interface SequenceItem {
   unlockCondition: string;
   courseId?: string;
 }
-
-const FALLBACK_SEQUENCE: SequenceItem[] = [
-  {
-    id: 'seq-0',
-    stepNumber: 1,
-    label: 'Course 0 + assessment',
-    title: 'Introduction to Swadhaar FinAccess & Its Digital Platform',
-    unlockCondition: 'Open from start',
-  },
-  {
-    id: 'seq-1',
-    stepNumber: 2,
-    label: 'Course 1 + assessment',
-    title: 'Introduction to Saving',
-    unlockCondition: 'Unlocks after previous',
-  },
-  {
-    id: 'seq-2',
-    stepNumber: 3,
-    label: 'Course 2 + assessment',
-    title: 'Financial Products and Schemes',
-    unlockCondition: 'Unlocks after previous',
-  },
-  {
-    id: 'seq-3',
-    stepNumber: 4,
-    label: 'Course 3 + assessment',
-    title: 'Digital banking',
-    unlockCondition: 'Unlocks after previous',
-  },
-];
 
 const BUILDER_CARD_SX = {
   backgroundColor: '#FFFFFF',
@@ -113,14 +89,36 @@ const DateField: React.FC<{ label: string; value: string; onChange: (value: stri
   </Box>
 );
 
-const DEFAULT_PATH_TITLE = 'Financial Inclusion Training Programme';
+const NEW_PATH_TITLE = 'New learning path';
+
+const toPathKey = (name: string): string => {
+  // Runs of other characters collapse to one `_`; splitting on `_` then drops the leading and trailing ones
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '_').split('_').filter(Boolean).join('_');
+  return `${slug || 'learning_path'}_${Date.now()}`;
+};
+
+const renumber = (items: SequenceItem[]): SequenceItem[] =>
+  items.map((item, idx) => ({
+    ...item,
+    stepNumber: idx + 1,
+    unlockCondition: idx === 0 ? 'Open from start' : 'Unlocks after previous',
+  }));
 
 export default function LearningPathBuilderPage() {
   const router = useRouter();
 
-  const pathTitle = DEFAULT_PATH_TITLE;
+  // The route id is a pathway id when editing; the create page has none
+  const queryId = typeof router.query.id === 'string' ? router.query.id : '';
+  const pathwayId = queryId && queryId !== 'new' ? queryId : '';
+  const [pathName, setPathName] = useState('');
+  const [pathDescription, setPathDescription] = useState('');
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const pathTitle = pathName.trim() || NEW_PATH_TITLE;
   const [coursesList, setCoursesList] = useState<CourseItem[]>([]);
   const [sequence, setSequence] = useState<SequenceItem[]>([]);
+  // Courses linked to this path when it was loaded; the ones removed in the builder are unlinked on save
+  const linkedCourseIds = useRef<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form states
@@ -149,46 +147,53 @@ export default function LearningPathBuilderPage() {
     'You have unsaved changes in the Learning Path Builder. Are you sure you want to leave this page?'
   );
 
-  // Fetch Sunbird courses using search API
+  // Courses that can be added to the path, then (when editing) the pathway and its steps
   const fetchCourses = useCallback(async () => {
     setLoading(true);
     try {
       const response = await getCourseList({
-        limit: 20,
+        limit: 100,
         filters: {
           primaryCategory: ['Course'],
         },
       });
-
       const courses = response.content || [];
       setCoursesList(courses);
 
-      if (courses.length > 0) {
-        // Build sequence from courses
-        const items: SequenceItem[] = courses.slice(0, 4).map((c, idx) => ({
-          id: c.identifier || `seq-${idx}`,
-          stepNumber: idx + 1,
-          label: `Course ${idx} + assessment`,
-          title: c.cleanTitle || c.name,
-          unlockCondition: idx === 0 ? 'Open from start' : 'Unlocks after previous',
-          courseId: c.identifier,
-        }));
-        setSequence(items);
+      if (pathwayId) {
+        const pathway = await getPathwayById(pathwayId);
+        setPathName(pathway?.name || '');
+        setPathDescription(pathway?.description || '');
+        // A course belongs to a path through its params.pathwayId
+        const linked = courses.filter((c) => c.params?.pathwayId === pathwayId);
+        linkedCourseIds.current = linked.map((c) => c.identifier);
+        setSequence(
+          renumber(
+            linked.map((course, idx) => ({
+              id: course.identifier,
+              stepNumber: idx + 1,
+              label: `Course ${idx} + assessment`,
+              title: course.cleanTitle || course.name || 'Untitled course',
+              unlockCondition: '',
+              courseId: course.identifier,
+            }))
+          )
+        );
       } else {
-        // Fallback sequence matching Prototype Image 2
-        setSequence(FALLBACK_SEQUENCE);
+        setSequence([]);
       }
     } catch (err) {
-      console.warn('Could not load courses from Sunbird, using fallback:', err);
-      setSequence(FALLBACK_SEQUENCE);
+      console.error('Could not load learning path data:', err);
+      setSaveError('Failed to load the learning path.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [pathwayId]);
 
   useEffect(() => {
+    if (!router.isReady) return;
     fetchCourses();
-  }, [fetchCourses]);
+  }, [fetchCourses, router.isReady]);
 
   // Sequence Reordering Functions (Up / Down)
   const handleMoveUp = (index: number) => {
@@ -255,12 +260,57 @@ export default function LearningPathBuilderPage() {
     setIsDirty(true);
   };
 
-  const handleSave = () => {
-    setIsDirty(false);
-    setSaveSuccess(true);
-    setTimeout(() => {
-      router.push('/learning-paths');
-    }, 1000);
+  const handleSave = async () => {
+    if (!pathName.trim()) {
+      setSaveError('Learning path name is required.');
+      return;
+    }
+    setSaveError(null);
+    setSaving(true);
+    try {
+      let savedPathwayId = pathwayId;
+      if (pathwayId) {
+        await updatePathway(pathwayId, {
+          name: pathName.trim(),
+          description: pathDescription.trim(),
+          is_active: true,
+        });
+      } else {
+        const created = await createPathway({
+          key: toPathKey(pathName),
+          name: pathName.trim(),
+          description: pathDescription.trim(),
+          // display_order is left out: a taken order is ignored and the service appends (max + 1) anyway
+          is_active: true,
+        });
+        savedPathwayId = pathwayIdFromResponse(created);
+      }
+
+      // Link the courses to the path: PATCH /lms-service/v1/courses/:courseId with params.pathwayId
+      // (/user/v1/pathway/order/structure orders pathways, not the courses inside one)
+      const courseIds = sequence.map((item) => item.courseId).filter(Boolean) as string[];
+      if (courseIds.length > 0 && !savedPathwayId) {
+        throw new Error('The learning path was created but its id was not returned, so the courses were not linked.');
+      }
+      const removed = linkedCourseIds.current.filter((id) => !courseIds.includes(id));
+      await Promise.all([
+        ...courseIds.map((id) => setCoursePathway(id, savedPathwayId)),
+        ...removed.map((id) => setCoursePathway(id, null)),
+      ]);
+      linkedCourseIds.current = courseIds;
+
+      setIsDirty(false);
+      setSaveSuccess(true);
+      setTimeout(() => {
+        router.push('/learning-paths');
+      }, 1000);
+    } catch (err: any) {
+      setSaveError(
+        err?.response?.data?.params?.errmsg || err?.response?.data?.message || err?.message || 'Failed to save the learning path.'
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -357,6 +407,7 @@ export default function LearningPathBuilderPage() {
           <Button
             variant="contained"
             onClick={handleSave}
+            disabled={saving}
             sx={{
               backgroundColor: '#E6873C',
               color: '#FFFFFF',
@@ -374,6 +425,12 @@ export default function LearningPathBuilderPage() {
         </Box>
       </Box>
 
+      {saveError && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setSaveError(null)}>
+          {saveError}
+        </Alert>
+      )}
+
       {saveSuccess && (
         <Alert severity="success" sx={{ mb: 3 }}>
           Learning path sequence and settings saved successfully! Redirecting...
@@ -385,6 +442,40 @@ export default function LearningPathBuilderPage() {
         {/* Left Column (Sequence and prerequisites) */}
         <Grid item xs={12} md={8}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Paper elevation={0} sx={{ ...BUILDER_CARD_SX, p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box>
+                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1F1E1C', mb: 0.6 }}>
+                  Learning path name *
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  value={pathName}
+                  onChange={(e) => {
+                    setPathName(e.target.value);
+                    setIsDirty(true);
+                  }}
+                  placeholder="e.g. Financial Inclusion Training Programme"
+                />
+              </Box>
+              <Box>
+                <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1F1E1C', mb: 0.6 }}>
+                  Description (optional)
+                </Typography>
+                <TextField
+                  fullWidth
+                  size="small"
+                  multiline
+                  minRows={2}
+                  value={pathDescription}
+                  onChange={(e) => {
+                    setPathDescription(e.target.value);
+                    setIsDirty(true);
+                  }}
+                />
+              </Box>
+            </Paper>
+
             {/* Header row for Sequence */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
               <Typography sx={{ fontSize: '17px', fontWeight: 600, color: '#1F1E1C' }}>
@@ -695,6 +786,8 @@ export default function LearningPathBuilderPage() {
         open={isEnrolModalOpen}
         onClose={() => setIsEnrolModalOpen(false)}
         learningPathTitle={pathTitle}
+        pathwayId={pathwayId}
+        courseIds={sequence.map((item) => item.courseId).filter(Boolean) as string[]}
         onEnrolSuccess={(count, type) => {
           if (type === 'groups') {
             setEnrolledSummary((prev) => ({

@@ -1,5 +1,6 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
 import { post, put } from './RestClient';
+import { getServiceHeaders, getSessionTenantId } from '@/utils/API/serviceHeaders';
 
 export interface CohortCustomField {
   fieldId: string;
@@ -38,11 +39,14 @@ export interface CohortItemApi {
 export interface CohortSearchParams {
   limit?: number;
   offset?: number;
-  filters: {
+  sort?: string[];
+  filters?: {
     type?: string;
     tenantId?: string;
     status?: string | string[];
     name?: string;
+    start_year?: string;
+    cohortId?: string;
     [key: string]: any;
   };
 }
@@ -57,18 +61,19 @@ export interface CohortSearchResponse {
     };
   };
 }
-import { getAspireHeaders } from '@/utils/API/aspireHeaders';
-
-
-
 export const getCohortSearch = async (
   payload: CohortSearchParams,
   customHeaders: Record<string, string> = {}
 ): Promise<CohortSearchResponse> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortSearch;
-    const headers = getAspireHeaders(customHeaders);
-    const response = await post(apiUrl, payload, headers);
+    const headers = getServiceHeaders(customHeaders);
+    // The search API scopes results by the tenant given in the filters
+    const body: CohortSearchParams = {
+      ...payload,
+      filters: { tenantId: getSessionTenantId(), ...payload.filters },
+    };
+    const response = await post(apiUrl, body, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in getCohortSearch:', error);
@@ -100,7 +105,7 @@ export const getCohortMemberListApplication = async (
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberListApplication;
-    const headers = getAspireHeaders(customHeaders);
+    const headers = getServiceHeaders(customHeaders);
     const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
@@ -122,11 +127,13 @@ export interface CohortMemberListParams {
 }
 
 export const getCohortMemberList = async (
-  payload: CohortMemberListParams
+  payload: CohortMemberListParams,
+  customHeaders: Record<string, string> = {}
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberList;
-    const response = await post(apiUrl, payload);
+    const headers = getServiceHeaders(customHeaders);
+    const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in getCohortMemberList:', error);
@@ -142,11 +149,13 @@ export interface CohortContentSearchParams {
 }
 
 export const getCohortContentSearch = async (
-  payload: CohortContentSearchParams
+  payload: CohortContentSearchParams,
+  customHeaders: Record<string, string> = {}
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortContentSearch;
-    const response = await post(apiUrl, payload);
+    const headers = getServiceHeaders(customHeaders);
+    const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in getCohortContentSearch:', error);
@@ -154,10 +163,14 @@ export const getCohortContentSearch = async (
   }
 };
 
-export const createCohort = async (payload: any): Promise<any> => {
+export const createCohort = async (
+  payload: any,
+  customHeaders: Record<string, string> = {}
+): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortCreate;
-    const response = await post(apiUrl, payload);
+    const headers = getServiceHeaders(customHeaders);
+    const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in createCohort:', error);
@@ -165,10 +178,15 @@ export const createCohort = async (payload: any): Promise<any> => {
   }
 };
 
-export const updateCohort = async (cohortId: string, payload: any): Promise<any> => {
+export const updateCohort = async (
+  cohortId: string,
+  payload: any,
+  customHeaders: Record<string, string> = {}
+): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortUpdate(cohortId);
-    const response = await put(apiUrl, payload);
+    const headers = getServiceHeaders(customHeaders);
+    const response = await put(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in updateCohort:', error);
@@ -176,10 +194,14 @@ export const updateCohort = async (cohortId: string, payload: any): Promise<any>
   }
 };
 
-export const deleteCohort = async (cohortId: string): Promise<any> => {
+export const deleteCohort = async (
+  cohortId: string,
+  customHeaders: Record<string, string> = {}
+): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortUpdate(cohortId);
-    const response = await put(apiUrl, { status: 'archived' });
+    const headers = getServiceHeaders(customHeaders);
+    const response = await put(apiUrl, { status: 'archived' }, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in deleteCohort:', error);
@@ -187,16 +209,20 @@ export const deleteCohort = async (cohortId: string): Promise<any> => {
   }
 };
 
-export const bulkCreateCohortMembers = async (payload: {
-  userId: string[];
-  cohortId: string[];
-  role?: string;
-  status?: string;
-  [key: string]: any;
-}): Promise<any> => {
+export const bulkCreateCohortMembers = async (
+  payload: {
+    userId: string[];
+    cohortId: string[];
+    role?: string;
+    status?: string;
+    [key: string]: any;
+  },
+  customHeaders: Record<string, string> = {}
+): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberBulkCreate;
-    const response = await post(apiUrl, payload);
+    const headers = getServiceHeaders(customHeaders);
+    const response = await post(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in bulkCreateCohortMembers:', error);
@@ -206,11 +232,13 @@ export const bulkCreateCohortMembers = async (payload: {
 
 export const updateCohortMember = async (
   membershipId: string | number,
-  payload: any
+  payload: any,
+  customHeaders: Record<string, string> = {}
 ): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberUpdate(membershipId);
-    const response = await put(apiUrl, payload);
+    const headers = getServiceHeaders(customHeaders);
+    const response = await put(apiUrl, payload, headers);
     return response?.data;
   } catch (error) {
     console.error('Error in updateCohortMember:', error);
@@ -218,3 +246,37 @@ export const updateCohortMember = async (
   }
 };
 
+const COHORT_MEMBER_PAGE_SIZE = 100;
+
+/** User ids of every learner in a group (reviewers are left out), across all member pages */
+/** Member rows of a cohort member list response, which comes as `result.userDetails` or a bare `result` array. */
+export const getMemberRows = (res: any): any[] => {
+  if (Array.isArray(res?.result?.userDetails)) return res.result.userDetails;
+  return Array.isArray(res?.result) ? res.result : [];
+};
+
+/** Total member count of a cohort member list response. */
+export const getMemberTotal = (res: any, rows: any[]): number => {
+  if (typeof res?.result?.totalCount === 'number') return res.result.totalCount;
+  const rowTotal = rows[0]?.total_count;
+  return rowTotal ? Number(rowTotal) : rows.length;
+};
+
+export const getCohortLearnerIds = async (cohortId: string): Promise<string[]> => {
+  const ids: string[] = [];
+  for (let offset = 0; ; offset += COHORT_MEMBER_PAGE_SIZE) {
+    const res = await getCohortMemberListApplication({
+      limit: COHORT_MEMBER_PAGE_SIZE,
+      offset,
+      filters: { cohortId: [cohortId] },
+    });
+    const rows = getMemberRows(res);
+    rows.forEach((row) => {
+      const role = String(row.role || row.membershipRole || 'Student').toLowerCase();
+      const userId = row.userId || row.id;
+      if (userId && role !== 'reviewer') ids.push(userId);
+    });
+    if (rows.length < COHORT_MEMBER_PAGE_SIZE) break;
+  }
+  return Array.from(new Set(ids));
+};

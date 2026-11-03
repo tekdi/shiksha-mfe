@@ -34,13 +34,12 @@ import nextI18NextConfig from '../../../next-i18next.config.js';
 import SDBVHierarchyFilter, { SDBVFilterValues } from '@/components/common/SDBVHierarchyFilter';
 import CommonTextField from '@/components/common/CommonTextField';
 import CommonSelect from '@/components/common/CommonSelect';
-import { getUserList } from '@/services/UserService';
+import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
 import {
   createCohort,
   bulkCreateCohortMembers,
   getCohortById,
 } from '@/services/CohortService';
-import { SWADHAAR_FIELD_IDS } from '@/utils/userPayloadBuilder';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
 
 export interface UserRow {
@@ -72,9 +71,12 @@ const DEFAULT_FILTERS: SDBVFilterValues = {
   role: 'all',
 };
 
+/** The add-members list opens on Trainer users; the Role filter can switch to another role or all roles */
+const ADD_MEMBERS_DEFAULT_FILTERS: SDBVFilterValues = { ...DEFAULT_FILTERS, role: 'Trainer' };
+
 const isActiveFilter = (value?: string): value is string => Boolean(value) && value !== 'all';
 
-const USER_FILTER_KEYS = ['role', 'state', 'district', 'branch', 'program'] as const;
+const USER_FILTER_KEYS = ['state', 'district', 'branch', 'program'] as const;
 
 const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPerPage: number) => {
   const filterObj: Record<string, string[]> = {
@@ -91,11 +93,18 @@ const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPer
     limit: rowsPerPage,
     offset: page * rowsPerPage,
     filters: filterObj,
-    sort: ['name', 'asc'],
+    sort: ['createdAt', 'desc'],
   };
   const search = filters.search?.trim();
   if (search) {
-    payload.search = search;
+    // /user/v1/list has no free-text search: 10 digits match the mobile, anything else the first/last name
+    if (/^\d{10}$/.test(search)) {
+      filterObj.mobile = search as any;
+    } else {
+      const [first, ...rest] = search.split(/\s+/);
+      filterObj.firstName = first as any;
+      if (rest.length) filterObj.lastName = rest.join(' ') as any;
+    }
   }
   return payload;
 };
@@ -142,43 +151,34 @@ const mapUserToRow = (u: any, idx: number): UserRow => {
   };
 };
 
-const COHORT_LOCATION_FIELDS = [
-  ['state', SWADHAAR_FIELD_IDS.STATE],
-  ['district', SWADHAAR_FIELD_IDS.DISTRICT],
-  ['branch', SWADHAAR_FIELD_IDS.BRANCH],
-  ['program', SWADHAAR_FIELD_IDS.PROGRAM],
-] as const;
-
-const buildCohortCustomFields = (filters: SDBVFilterValues) =>
-  COHORT_LOCATION_FIELDS.filter(([key]) => isActiveFilter(filters[key])).map(([key, fieldId]) => ({
-    fieldId,
-    value: [filters[key] as string],
-  }));
-
-/** Creates the cohort and returns its id (throws when the API does not return one). */
+/** Creates the cohort with name, status, type, and optional description metadata */
 const createCohortFromForm = async (
   groupName: string,
   groupDescription: string,
-  groupStatus: string,
-  filters: SDBVFilterValues
+  groupStatus: string
 ): Promise<string> => {
-  const customFields = buildCohortCustomFields(filters);
   const cohortPayload: any = {
     name: groupName.trim(),
-    status: groupStatus.toLowerCase(),
+    status: groupStatus ? groupStatus.toLowerCase() : 'active',
     type: 'COHORT',
-    cohort_type: 'batch',
-    customFields: customFields.length > 0 ? customFields : undefined,
   };
   if (groupDescription.trim()) {
+    cohortPayload.metadata = JSON.stringify({ description: groupDescription.trim() });
     cohortPayload.description = groupDescription.trim();
   }
 
   const createRes = await createCohort(cohortPayload);
   const cohortId =
-    createRes?.result?.cohortId || createRes?.result?.id || createRes?.cohortId || createRes?.data?.cohortId;
+    createRes?.result?.cohortId ||
+    createRes?.result?.id ||
+    createRes?.cohortId ||
+    createRes?.data?.cohortId;
   if (!cohortId) {
-    throw new Error('Failed to retrieve newly created cohort ID.');
+    throw new Error(
+      createRes?.params?.errmsg ||
+      createRes?.params?.err ||
+      'Failed to retrieve newly created cohort ID.'
+    );
   }
   return cohortId;
 };
@@ -189,10 +189,20 @@ const enrollMembers = async (cohortId: string, members: SelectedMember[]) => {
   const reviewers = members.filter((m) => m.roleInGroup === 'Reviewer').map((m) => m.userId);
 
   if (learners.length > 0) {
-    await bulkCreateCohortMembers({ userId: learners, cohortId: [cohortId], role: 'Student' });
+    await bulkCreateCohortMembers({
+      cohortId: [cohortId],
+      userId: learners,
+      role: 'Student',
+      status: 'active',
+    });
   }
   if (reviewers.length > 0) {
-    await bulkCreateCohortMembers({ userId: reviewers, cohortId: [cohortId], role: 'Reviewer' });
+    await bulkCreateCohortMembers({
+      cohortId: [cohortId],
+      userId: reviewers,
+      role: 'Reviewer',
+      status: 'active',
+    });
   }
 };
 
@@ -227,7 +237,9 @@ export default function CreateCohortPage() {
   const [loadingUsers, setLoadingUsers] = useState<boolean>(true);
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
-  const [filters, setFilters] = useState<SDBVFilterValues>(DEFAULT_FILTERS);
+  const [filters, setFilters] = useState<SDBVFilterValues>(ADD_MEMBERS_DEFAULT_FILTERS);
+  const [roleNames, setRoleNames] = useState<string[]>([]);
+  const [rolesLoaded, setRolesLoaded] = useState(false);
 
   // Selected members state (userId -> SelectedMember)
   const [selectedMembers, setSelectedMembers] = useState<Map<string, SelectedMember>>(new Map());
@@ -275,20 +287,27 @@ export default function CreateCohortPage() {
     }
   }, [targetCohortId]);
 
+  // Role filter options: titles from the tenant roles API
+  useEffect(() => {
+    getTenantRoles()
+      .then((roles) => {
+        setRoleNames(roles.map((r) => r.name));
+        setRolesLoaded(true);
+      })
+      .catch(() => setRolesLoaded(true));
+  }, []);
+
   // Fetch users from API
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
       const payload = buildUserSearchPayload(filters, page, rowsPerPage);
 
-      const response = await getUserList(payload);
-      const rawList = response?.result?.getUserDetails || [];
-      const total =
-        Number(response?.result?.totalCount) ||
-        Number(rawList[0]?.total_count) ||
-        rawList.length;
+      // A chosen role is one list call; "All roles" lists every tenant role
+      const roleTitles = isActiveFilter(filters.role) ? [filters.role] : roleNames;
+      const { users: rawList, total } = await listUsersByRoles(payload, roleTitles);
 
-      setTotalCount(total);
+      setTotalCount(total || rawList.length);
 
       const mapped: UserRow[] = rawList.map(mapUserToRow);
 
@@ -300,11 +319,12 @@ export default function CreateCohortPage() {
     } finally {
       setLoadingUsers(false);
     }
-  }, [rowsPerPage, page, filters]);
+  }, [rowsPerPage, page, filters, roleNames]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    // Wait for the role titles: "All roles" is built from them
+    if (rolesLoaded) fetchUsers();
+  }, [fetchUsers, rolesLoaded]);
 
   // Selection toggle handler
   const handleToggleUser = (user: UserRow) => {
@@ -395,7 +415,7 @@ export default function CreateCohortPage() {
     try {
       const finalCohortId = isAddMembersMode
         ? targetCohortId
-        : await createCohortFromForm(groupName, groupDescription, groupStatus, filters);
+        : await createCohortFromForm(groupName, groupDescription, groupStatus);
 
       // Step 2: Enroll selected members
       const membersArray = Array.from(selectedMembers.values());
@@ -611,10 +631,11 @@ export default function CreateCohortPage() {
               showSearch={true}
               searchPlaceholder="Search people by name, email, or mobile..."
               showRole={true}
+              roleOptions={roleNames}
               showBranch={true}
               showProgram={true}
               onClear={() => {
-                setFilters(DEFAULT_FILTERS);
+                setFilters(ADD_MEMBERS_DEFAULT_FILTERS);
                 setPage(0);
               }}
             />

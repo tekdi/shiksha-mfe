@@ -13,18 +13,43 @@ import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
+import { inferCourseUsage } from '@/services/ContentLibraryService';
 import {
-  getContentRead,
-  createContent,
-  updateContent,
-  inferCourseUsage,
-  resolveEditableDuration,
-} from '@/services/ContentLibraryService';
-import { detectLanguage } from '@/services/CourseService';
+  detectLanguage,
+  createDocumentLesson,
+  uploadLessonMedia,
+  getLmsLessonById,
+  updateLmsLesson,
+  lessonDescriptionToText,
+} from '@/services/CourseService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
+import useUsedInQuery from '@/hooks/useUsedInQuery';
 import { ContentFormHeader, FormAlerts, FormCardHeader, DescriptionField, LanguageSelect, UsedInCard, CARD_SX, LabeledTextField } from '@/components/content/ContentFormParts';
 
+/** "20" or "20 min" -> 20 */
+const parseIdealMinutes = (value: string): number | undefined => {
+  const minutes = /^(\d+)/.exec(value.trim());
+  return minutes ? Number(minutes[1]) : undefined;
+};
+
 const toLanguageOption = (language: string): 'Hindi' | 'English' => (language === 'Hindi' ? 'Hindi' : 'English');
+
+const toDescriptionHtml = (text: string): string => (text.trim() ? `<p>${text.trim()}</p>` : '');
+
+/** Optional courseId / moduleId from the route query, only when they are non-empty strings */
+const getCourseTarget = (query: Record<string, unknown>) => {
+  const { courseId, moduleId } = query;
+  return {
+    ...(typeof courseId === 'string' && courseId ? { courseId } : {}),
+    ...(typeof moduleId === 'string' && moduleId ? { moduleId } : {}),
+  };
+};
+
+const getValidationError = (title: string, isEditing: boolean, pdfFile: File | null): string | null => {
+  if (!title.trim()) return 'PDF title is required.';
+  if (!isEditing && !pdfFile) return 'Please choose a PDF file.';
+  return null;
+};
 
 export default function CreatePdfPage() {
   const router = useRouter();
@@ -36,6 +61,7 @@ export default function CreatePdfPage() {
   const [readingTime, setReadingTime] = useState('');
   const [language, setLanguage] = useState('Hindi');
   const [fileName, setFileName] = useState<string | null>(null);
+  const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [allowDownload, setAllowDownload] = useState(true);
   const [usedIn, setUsedIn] = useState<string>((router.query.usedIn as string) || '');
 
@@ -68,29 +94,24 @@ export default function CreatePdfPage() {
     'You have unsaved changes to this document. Are you sure you want to leave this page?'
   );
 
-  useEffect(() => {
-    if (router.query.usedIn && typeof router.query.usedIn === 'string') {
-      setUsedIn(router.query.usedIn);
-    }
-  }, [router.query.usedIn]);
+  useUsedInQuery(setUsedIn);
 
   // Load existing PDF details if editing
   useEffect(() => {
     if (id && typeof id === 'string') {
       setLoading(true);
-      getContentRead(id)
-        .then((res: any) => {
-          const content = res?.content || res;
-          if (content) {
-            const loadedTitle = content.name || content.title || '';
-            const loadedDesc = content.description || '';
-            const loadedDur = resolveEditableDuration(content);
-            const loadedLang = detectLanguage(loadedTitle, content.language || content.languageCode);
+      getLmsLessonById(id)
+        .then((lesson: any) => {
+          if (lesson) {
+            const loadedTitle = lesson.title || '';
+            const loadedDesc = lessonDescriptionToText(lesson.description);
+            const loadedDur = lesson.idealTime ? `${lesson.idealTime} min` : '';
+            const loadedLang = detectLanguage(loadedTitle, lesson.language ?? lesson.params?.language);
             const loadedFile =
-              content.artifactUrl?.split('/').pop() ||
-              content.downloadUrl?.split('/').pop() ||
+              (lesson.media?.path || lesson.media?.source || '').split('?')[0].split('/').pop() ||
               'document.pdf';
-            const courseUsage = (router.query.usedIn as string) || inferCourseUsage(content);
+            const courseUsage =
+              (router.query.usedIn as string) || inferCourseUsage({ usedIn: lesson.courseTitle });
 
             setTitle(loadedTitle);
             setDescription(loadedDesc);
@@ -116,34 +137,45 @@ export default function CreatePdfPage() {
     }
   }, [id, router.query.usedIn]);
 
+  const updateExistingPdf = async (lessonId: string, isDraft: boolean) => {
+    // A newly chosen file replaces the stored one; otherwise the existing media is kept
+    const newPath = pdfFile ? (await uploadLessonMedia(pdfFile, 'document')).path : undefined;
+    await updateLmsLesson(lessonId, {
+      title: title.trim(),
+      description: toDescriptionHtml(description),
+      status: isDraft ? 'unpublished' : 'published',
+      idealTime: parseIdealMinutes(readingTime),
+      ...(newPath ? { mediaContentPath: newPath } : {}),
+    });
+    setSuccessMsg('PDF updated successfully.');
+  };
+
+  const createNewPdf = async (isDraft: boolean) => {
+    const { path } = await uploadLessonMedia(pdfFile as File, 'document');
+    await createDocumentLesson({
+      title: title.trim(),
+      description: toDescriptionHtml(description) || undefined,
+      status: isDraft ? 'unpublished' : 'published',
+      mediaContentPath: path,
+      idealTime: parseIdealMinutes(readingTime),
+      ...getCourseTarget(router.query),
+    });
+    setSuccessMsg(isDraft ? `PDF saved as draft.` : `PDF created successfully.`);
+  };
+
   const handleSave = async (isDraft = false) => {
-    if (!title.trim()) {
-      setError('PDF title is required.');
+    const validationError = getValidationError(title, isEditing, pdfFile);
+    if (validationError) {
+      setError(validationError);
       return;
     }
     setError(null);
     setLoading(true);
     try {
       if (isEditing && typeof id === 'string') {
-        await updateContent(id, {
-          name: title.trim(),
-          description: description.trim(),
-          duration: readingTime.trim() || undefined,
-          language: [language],
-          status: isDraft ? 'Draft' : 'Live',
-        });
-        setSuccessMsg('PDF updated successfully.');
+        await updateExistingPdf(id, isDraft);
       } else {
-        await createContent({
-          name: title.trim(),
-          description: description.trim(),
-          mimeType: 'application/pdf',
-          primaryCategory: 'Learning Resource',
-          duration: readingTime.trim() || undefined,
-          language: [language],
-          status: isDraft ? 'Draft' : 'Live',
-        });
-        setSuccessMsg(isDraft ? `PDF saved as draft.` : `PDF created successfully.`);
+        await createNewPdf(isDraft);
       }
       setTimeout(() => {
         router.push('/content?tab=pdfs');
@@ -240,7 +272,10 @@ export default function CreatePdfPage() {
                   hidden
                   onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) setFileName(file.name);
+                    if (file) {
+                      setFileName(file.name);
+                      setPdfFile(file);
+                    }
                   }}
                 />
               </Box>
@@ -305,7 +340,10 @@ export default function CreatePdfPage() {
                       hidden
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) setFileName(file.name);
+                        if (file) {
+                      setFileName(file.name);
+                      setPdfFile(file);
+                    }
                       }}
                     />
                   </Button>

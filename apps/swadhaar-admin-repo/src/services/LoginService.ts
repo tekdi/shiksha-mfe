@@ -1,7 +1,6 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
 import { post, get } from './RestClient';
 import { SWADHAAR_TENANT_ID } from '@/utils/app.constant';
-import axios from 'axios';
 
 interface LoginParams {
   username: string;
@@ -20,35 +19,29 @@ export interface VerifyOTPParams {
   hash: string;
 }
 
+const OTP_REASON = 'signup';
+
+const getStoredTenantId = (): string =>
+  (typeof window !== 'undefined' && localStorage.getItem('tenantId')) || SWADHAAR_TENANT_ID;
+
 /**
- * Step 1: Query user/list to verify if the user exists with role: 'Admin' in Swadhaar
+ * Step 1: Verify the mobile belongs to an Admin user of the tenant.
+ * Goes through /api/swadhaar/check-admin, which calls /user/v1/list with a server-held service token.
  */
 export const checkAdminUserExistence = async (
   mobile: string,
-  tenantId: string = SWADHAAR_TENANT_ID
-): Promise<any> => {
-  const apiUrl = API_ENDPOINTS.adminUserList || API_ENDPOINTS.userList;
-  const payload = {
-    limit: 10,
-    filters: {
-      role: 'admin',
-      tenantId: tenantId,
-      mobile: mobile,
-    },
-    sort: ['firstName', 'asc'],
-    offset: 0,
-  };
-
-  try {
-    const response = await post(apiUrl, payload, {
-      tenantid: tenantId,
-      'X-Tenant-Id': tenantId,
-    });
-    return response?.data;
-  } catch (error) {
-    console.error('Error in checkAdminUserExistence:', error);
-    throw error;
+  tenantId: string = getStoredTenantId()
+): Promise<boolean> => {
+  const response = await fetch('/api/swadhaar/check-admin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mobile, tenantId }),
+  });
+  if (!response.ok) {
+    throw new Error('Unable to verify the account. Please try again.');
   }
+  const data = await response.json();
+  return Boolean(data?.exists);
 };
 
 /**
@@ -56,19 +49,11 @@ export const checkAdminUserExistence = async (
  */
 export const sendOTP = async (
   mobile: string,
-  reason: string = 'login'
+  reason: string = OTP_REASON
 ): Promise<any> => {
   const apiUrl = API_ENDPOINTS.sendOTP;
-  const payload = {
-    mobile,
-    reason,
-  };
-
   try {
-    const response = await post(apiUrl, payload, {
-      tenantid: SWADHAAR_TENANT_ID,
-      'X-Tenant-Id': SWADHAAR_TENANT_ID,
-    });
+    const response = await post(apiUrl, { mobile, reason }, { tenantid: getStoredTenantId() });
     return response?.data;
   } catch (error) {
     console.error('Error in sendOTP:', error);
@@ -76,33 +61,33 @@ export const sendOTP = async (
   }
 };
 
+export interface VerifyOTPResult {
+  verified: boolean;
+  access_token?: string;
+  refresh_token?: string;
+  message?: string;
+}
+
 /**
- * Step 3: Verify OTP with mobile, reason, otp, and hash
+ * Step 3: Verify OTP (mobile, reason, otp and the hash returned by send-otp).
+ * Goes through /api/swadhaar/verify-login: verify-otp only answers { success: true }, so the server
+ * issues the session tokens after a valid OTP.
  */
 export const verifyOTP = async ({
   mobile,
-  reason = 'login',
+  reason = OTP_REASON,
   otp,
   hash,
-}: VerifyOTPParams): Promise<any> => {
-  const apiUrl = API_ENDPOINTS.verifyOTP;
-  const payload = {
-    mobile,
-    reason,
-    otp,
-    hash,
-  };
-
-  try {
-    const response = await post(apiUrl, payload, {
-      tenantid: SWADHAAR_TENANT_ID,
-      'X-Tenant-Id': SWADHAAR_TENANT_ID,
-    });
-    return response?.data;
-  } catch (error) {
-    console.error('Error in verifyOTP:', error);
-    throw error;
-  }
+}: VerifyOTPParams): Promise<VerifyOTPResult> => {
+  const response = await fetch('/api/swadhaar/verify-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ mobile, reason, otp, hash, tenantId: getStoredTenantId() }),
+  });
+  const data = await response.json().catch(() => ({}));
+  return response.ok && data?.verified
+    ? data
+    : { verified: false, message: data?.message };
 };
 
 /**
@@ -111,10 +96,8 @@ export const verifyOTP = async ({
 export const getUserAuth = async (token: string): Promise<any> => {
   const apiUrl = API_ENDPOINTS.userAuth;
   try {
-    const response = await axios.get(apiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const response = await get(apiUrl, {
+      Authorization: `Bearer ${token}`,
     });
     return response?.data;
   } catch (error) {
@@ -122,6 +105,8 @@ export const getUserAuth = async (token: string): Promise<any> => {
     throw error;
   }
 };
+
+export { syncActiveAcademicYear } from '@/utils/API/academicYear';
 
 /**
  * Step 5: Fetch full user profile details from /user/read/{userId}?fieldvalue=true
@@ -192,10 +177,8 @@ export const getUserId = async (): Promise<any> => {
     if (!token) {
       throw new Error('Authorization token not found');
     }
-    const response = await axios.get(apiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
+    const response = await get(apiUrl, {
+      Authorization: `Bearer ${token}`,
     });
     return response?.data?.result;
   } catch (error) {

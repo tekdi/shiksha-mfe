@@ -16,6 +16,7 @@ import {
   checkAdminUserExistence,
   sendOTP,
   verifyOTP,
+  syncActiveAcademicYear,
   getUserAuth,
   getUserDetails,
 } from '@/services/LoginService';
@@ -169,20 +170,14 @@ export default function LoginPage() {
     setIsSendingOtp(true);
     try {
       // Step 1: Check user existence with Admin role in Swadhaar
-      const checkResp = await checkAdminUserExistence(trimmed, SWADHAAR_TENANT_ID);
-      const userList =
-        checkResp?.result?.getUserDetails ||
-        checkResp?.result?.users ||
-        checkResp?.result?.userData ||
-        checkResp?.result;
-
-      if (!userList || (Array.isArray(userList) && userList.length === 0)) {
+      const isAdmin = await checkAdminUserExistence(trimmed);
+      if (!isAdmin) {
         showToastMessage(t('LOGIN_PAGE.NO_ADMIN_ACCOUNT'), 'error');
         return;
       }
 
       // Step 2: Send OTP
-      const otpResp = await sendOTP(trimmed, 'login');
+      const otpResp = await sendOTP(trimmed);
       const hash =
         otpResp?.result?.data?.hash ||
         otpResp?.result?.hash ||
@@ -214,7 +209,7 @@ export default function LoginPage() {
    * 1. /user/verify-otp with mobile, reason, otp, hash
    * 2. /user/auth with Bearer token
    * 3. /user/read/{userId}?fieldvalue=true
-   * 4. Persist session and redirect to /dashboard
+   * 4. Persist session and redirect to /users
    */
   const handleSignIn = async () => {
     const otpStr = otp.join('');
@@ -228,34 +223,24 @@ export default function LoginPage() {
       const trimmed = mobile.trim();
       const verifyResp = await verifyOTP({
         mobile: trimmed,
-        reason: 'login',
         otp: otpStr,
         hash: otpHash,
       });
 
-      const token =
-        verifyResp?.result?.token ||
-        verifyResp?.result?.access_token ||
-        verifyResp?.token ||
-        verifyResp?.access_token;
+      const token = verifyResp.verified ? verifyResp.access_token : undefined;
 
       if (!token) {
-        const errorMsg =
-          verifyResp?.params?.errmsg ||
-          verifyResp?.message ||
-          t('LOGIN_PAGE.INVALID_OTP');
-        showToastMessage(errorMsg, 'error');
+        showToastMessage(verifyResp.message || t('LOGIN_PAGE.INVALID_OTP'), 'error');
         return;
       }
 
-      const refreshToken =
-        verifyResp?.result?.refresh_token || verifyResp?.refresh_token || '';
+      const refreshToken = verifyResp.refresh_token || '';
 
       // Step 4: Fetch user session info via /user/auth
       const authResp = await getUserAuth(token);
       const authData = authResp?.result?.userData || authResp?.userData || authResp?.result || {};
       const userId =
-        authData?.userId || authData?.sub || authData?.id || verifyResp?.result?.userId;
+        authData?.userId || authData?.sub || authData?.id;
       const firstName = authData?.firstName || authData?.given_name || '';
       const lastName = authData?.lastName || authData?.family_name || '';
       const fullName =
@@ -284,6 +269,7 @@ export default function LoginPage() {
       if (refreshToken) localStorage.setItem('refreshToken', refreshToken);
       localStorage.setItem('userId', userId || '');
       localStorage.setItem('tenantId', SWADHAAR_TENANT_ID);
+      await syncActiveAcademicYear(token, SWADHAAR_TENANT_ID);
       localStorage.setItem('mobileNumber', trimmed);
       localStorage.setItem(
         'adminInfo',
@@ -301,7 +287,7 @@ export default function LoginPage() {
       document.cookie = `token=${token}; path=/; max-age=86400; SameSite=Lax`;
 
       showToastMessage(t('LOGIN_PAGE.LOGIN_SUCCESS'), 'success');
-      const returnUrl = (router.query.returnUrl as string) || '/dashboard';
+      const returnUrl = (router.query.returnUrl as string) || '/users';
       router.push(returnUrl);
     } catch (err: unknown) {
       console.error('Sign in error:', err);

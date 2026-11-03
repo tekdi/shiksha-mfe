@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Grid } from '@mui/material';
 import { useTranslation } from 'next-i18next';
 import MasterDataService, { LocationOption } from '@/services/MasterDataService';
-import TenantService from '@/services/TenantService';
-import { createUserAccount, updateUserAccount, getUserDetailsInfo } from '@/services/UserService';
+import { getSessionTenantId } from '@/utils/API/serviceHeaders';
+import { createUserAccount, updateUserAccount, getUserDetailsInfo, getTenantRoles, TenantRole } from '@/services/UserService';
 import { showToastMessage } from '@/components/Toastify';
-import { SWADHAAR_TENANT_ID } from '@/utils/app.constant';
 import { NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
 import CommonDialog from './CommonDialog';
@@ -28,6 +27,8 @@ export interface CreateUserModalProps {
 
 interface FormState {
   fullName: string;
+  username: string;
+  password: string;
   employeeId: string;
   email: string;
   phone: string;
@@ -54,6 +55,8 @@ const GENDER_OPTIONS: { value: string; labelKey: string }[] = [
 
 const initialFormState: FormState = {
   fullName: '',
+  username: '',
+  password: '',
   employeeId: '',
   email: '',
   phone: '',
@@ -98,6 +101,8 @@ const formStateFromInitialData = (initialData: any): FormState => {
   const rawUsername = toStr(initialData.username);
   return {
     fullName: toStr(initialData.fullName || initialData.name),
+    username: '',
+    password: '',
     employeeId: toStr(initialData.employeeId) || employeeIdFromUsername(rawUsername, ''),
     email: cleanPlaceholder(toStr(initialData.email), '-'),
     phone: toStr(initialData.phone || initialData.mobile) || phoneFromUsername(rawUsername, ''),
@@ -131,6 +136,8 @@ const mergeServerUserIntoForm = (prev: FormState, user: any): FormState => {
 
   return {
     fullName: computedName || prev.fullName,
+    username: prev.username,
+    password: prev.password,
     employeeId: computedEmpId || prev.employeeId,
     email: uEmail && uEmail !== '-' ? uEmail : prev.email,
     phone: computedPhone || prev.phone,
@@ -170,11 +177,29 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const [districts, setDistricts] = useState<LocationOption[]>([]);
   const [branches, setBranches] = useState<LocationOption[]>([]);
   const [programs, setPrograms] = useState<LocationOption[]>([]);
+  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
 
   // Load programs from MasterDataService
   useEffect(() => {
     setPrograms(MasterDataService.getPrograms());
   }, []);
+
+  // Roles for the dropdown: names are shown, the role id is the value sent on create
+  useEffect(() => {
+    if (open) {
+      getTenantRoles()
+        .then(setTenantRoles)
+        .catch(() => setTenantRoles([]));
+    }
+  }, [open]);
+
+  // Edit mode starts with the role name from the user record; swap it for the matching role id
+  useEffect(() => {
+    if (!formData.role || tenantRoles.length === 0) return;
+    if (tenantRoles.some((r) => r.id === formData.role)) return;
+    const match = tenantRoles.find((r) => r.name.toLowerCase() === formData.role.toLowerCase());
+    if (match) setFormData((prev) => ({ ...prev, role: match.id }));
+  }, [tenantRoles, formData.role]);
 
   // Fetch states on mount / modal open
   useEffect(() => {
@@ -287,18 +312,15 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
   }, [branches, formData.branch]);
 
-  // Role options matching user list page filter with fallbacks
   const roleOptions = React.useMemo(() => {
-    const defaultRoles = ['ARM', 'DI', 'Trainer', 'Admin'];
-    const filteredAvailable = availableRoles
-      .filter((r) => r && !['reviewer'].includes(r.toLowerCase()))
-      .map((r) => r.trim());
-    const combined = Array.from(new Set([...defaultRoles, ...filteredAvailable]));
-    if (formData.role && !combined.includes(formData.role) && formData.role !== '-') {
-      combined.push(formData.role);
+    const options = tenantRoles.map((r) => ({ value: r.id, label: r.name }));
+    const currentName = (formData.role && formData.role !== '-' ? formData.role : '').trim();
+    // Edit mode, before the role ids have loaded: keep the user's current role name visible
+    if (currentName && !options.some((o) => o.value === currentName)) {
+      options.push({ value: currentName, label: currentName });
     }
-    return combined;
-  }, [availableRoles, formData.role]);
+    return options;
+  }, [tenantRoles, formData.role]);
 
   const handleChange = (field: keyof FormState, value: string) => {
     setFormData((prev) => {
@@ -321,20 +343,14 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
     const fullName = toStr(formData.fullName).trim();
-    const employeeId = toStr(formData.employeeId).trim();
     const email = toStr(formData.email).trim();
     const phone = toStr(formData.phone).trim();
-    const state = toStr(formData.state).trim();
-    const role = toStr(formData.role).trim();
+    const password = toStr(formData.password);
 
     if (!fullName) {
       newErrors.fullName = 'USERS.FORM.ERROR_FULL_NAME_REQUIRED';
     } else if (fullName.length < 2) {
       newErrors.fullName = 'USERS.FORM.ERROR_FULL_NAME_MIN';
-    }
-
-    if (!isEdit && !employeeId) {
-      newErrors.employeeId = 'USERS.FORM.ERROR_EMPLOYEE_ID_REQUIRED';
     }
 
     if (!isEdit && !email) {
@@ -353,12 +369,16 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       newErrors.phone = 'USERS.FORM.ERROR_PHONE_INVALID';
     }
 
-    if (!state) {
-      newErrors.state = 'USERS.FORM.ERROR_STATE_REQUIRED';
+    if (!isEdit && !formData.role) {
+      newErrors.role = 'USERS.FORM.ERROR_ROLE_REQUIRED';
     }
 
-    if (!role) {
-      newErrors.role = 'USERS.FORM.ERROR_ROLE_REQUIRED';
+    if (!isEdit && formData.gender === GENDER_NOT_SELECTED) {
+      newErrors.gender = 'USERS.FORM.ERROR_GENDER_REQUIRED';
+    }
+
+    if (!isEdit && password && password.length < 8) {
+      newErrors.password = 'USERS.FORM.ERROR_PASSWORD_MIN';
     }
 
     setErrors(newErrors);
@@ -377,8 +397,11 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
         email: formData.email,
         phone: formData.phone,
         employeeId: formData.employeeId,
+        username: formData.username,
+        password: formData.password,
         gender: formData.gender === GENDER_NOT_SELECTED ? undefined : formData.gender,
-        role: formData.role,
+        role: formData.role || undefined,
+        roleName: tenantRoles.find((r) => r.id === formData.role)?.name,
         state: formData.state,
         district: formData.district,
         branch: formData.branch,
@@ -419,8 +442,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
       }
 
       // Create flow
-      const tenantId = TenantService.getTenantId() || SWADHAAR_TENANT_ID;
-      const payload = buildCreateUserPayload(inputFields, tenantId);
+      const payload = buildCreateUserPayload(inputFields, getSessionTenantId());
       const response = await createUserAccount(payload);
 
       if (
@@ -503,18 +525,31 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
               />
             </Grid>
 
-            {/* Employee ID */}
-            <Grid item xs={12} sm={6}>
-              <CommonTextField
-                label={t('USERS.FORM.EMPLOYEE_ID')}
-                required
-                value={formData.employeeId}
-                onChange={(e) => handleChange('employeeId', e.target.value)}
-                error={Boolean(errors.employeeId)}
-                helperText={errorText('employeeId')}
-                hint={t('USERS.FORM.EMPLOYEE_ID_HINT')}
-              />
-            </Grid>
+            {/* Username (optional, create only; falls back to the phone number) */}
+            {!isEdit && (
+              <Grid item xs={12} sm={6}>
+                <CommonTextField
+                  label={t('USERS.FORM.USERNAME')}
+                  value={formData.username}
+                  onChange={(e) => handleChange('username', e.target.value)}
+                  error={Boolean(errors.username)}
+                  helperText={errorText('username')}
+                  hint={t('USERS.FORM.USERNAME_HINT')}
+                />
+              </Grid>
+            )}
+
+            {/* Employee ID (optional) */}
+            {isEdit && (
+              <Grid item xs={12} sm={6}>
+                <CommonTextField
+                  label={t('USERS.FORM.EMPLOYEE_ID')}
+                  value={formData.employeeId}
+                  onChange={(e) => handleChange('employeeId', e.target.value)}
+                  hint={t('USERS.FORM.EMPLOYEE_ID_HINT')}
+                />
+              </Grid>
+            )}
 
             {/* Email address */}
             <Grid item xs={12} sm={6}>
@@ -548,11 +583,29 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonSelect
                 label={t('USERS.FORM.GENDER')}
+                required={!isEdit}
+                error={Boolean(errors.gender)}
+                helperText={errorText('gender')}
                 value={formData.gender}
                 onChange={(value) => handleChange('gender', value)}
                 options={GENDER_OPTIONS.map((option) => ({ value: option.value, label: t(option.labelKey) }))}
               />
             </Grid>
+
+            {/* Password (optional, create only; a temporary one is generated when blank) */}
+            {!isEdit && (
+              <Grid item xs={12} sm={6}>
+                <CommonTextField
+                  label={t('USERS.FORM.PASSWORD')}
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => handleChange('password', e.target.value)}
+                  error={Boolean(errors.password)}
+                  helperText={errorText('password')}
+                  hint={t('USERS.FORM.PASSWORD_HINT')}
+                />
+              </Grid>
+            )}
           </Grid>
         </Box>
 
@@ -565,7 +618,6 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonSelect
                 label={t('USERS.FORM.STATE')}
-                required
                 value={formData.state}
                 placeholder={t('USERS.FORM.SELECT_STATE')}
                 error={Boolean(errors.state)}
@@ -612,7 +664,7 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
           </Grid>
         </Box>
 
-        {/* 3. ROLE */}
+        {/* 3. ROLE (the option value is the role id that user/v1/create expects) */}
         <Box>
           <Typography sx={SECTION_TITLE_SX}>{t('USERS.FORM.SECTION_ROLE')}</Typography>
 
@@ -620,13 +672,12 @@ export const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonSelect
                 label={t('USERS.FORM.ROLE')}
-                required
                 value={formData.role}
                 placeholder={t('USERS.FORM.SELECT_ROLE')}
                 error={Boolean(errors.role)}
                 helperText={errorText('role')}
                 onChange={(value) => handleChange('role', value)}
-                options={roleOptions.map((r) => ({ value: r, label: r }))}
+                options={roleOptions}
               />
               <Typography sx={{ fontSize: '12px', color: NEUTRAL.muted, mt: 0.5, lineHeight: 1.4 }}>
                 {t('USERS.FORM.ROLE_HINT')}

@@ -109,6 +109,9 @@ const extractLocation = (customFields?: any[]) => {
 
 export default function CohortsPage() {
   const router = useRouter();
+  const isGroupsRoute = router.pathname.startsWith('/groups');
+  const basePath = isGroupsRoute ? '/groups' : '/cohorts';
+
   const [cohorts, setCohorts] = useState<CohortItem[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -130,10 +133,10 @@ export default function CohortsPage() {
     severity: 'info',
   });
 
-  // Common Hierarchy & Search Filter State
+  // Common Hierarchy & Search Filter State (default status: 'active' matching API curl)
   const [filters, setFilters] = useState<SDBVFilterValues>({
     search: '',
-    status: 'all',
+    status: 'active',
     state: 'all',
     district: 'all',
     block: 'all',
@@ -142,15 +145,24 @@ export default function CohortsPage() {
     program: 'all',
   });
 
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(filters.search?.trim() || '');
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [filters.search]);
+
   const fetchCohorts = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const payload: any = {
         limit: rowsPerPage,
         offset: page * rowsPerPage,
         sort: ['updatedAt', 'desc'],
         filters: {
-          start_year: '2026',
           status:
             filters.status && filters.status !== 'all'
               ? [filters.status.toLowerCase()]
@@ -158,9 +170,18 @@ export default function CohortsPage() {
         },
       };
 
+      if (debouncedSearch) {
+        payload.filters.name = debouncedSearch;
+      }
+
       const response = await getCohortSearch(payload);
-      const rawCohortDetails = response?.result?.results?.cohortDetails || [];
-      const total = response?.result?.count ?? rawCohortDetails.length;
+      const rawCohortDetails = Array.isArray(response?.result?.results?.cohortDetails)
+        ? response.result.results.cohortDetails
+        : [];
+      const total =
+        typeof response?.result?.count === 'number'
+          ? response.result.count
+          : rawCohortDetails.length;
       setTotalCount(total);
 
       const enrichedCohorts: CohortItem[] = rawCohortDetails.map((cohort: any) => {
@@ -175,7 +196,7 @@ export default function CohortsPage() {
           cohortId: cid,
           name: cohort.name || 'Untitled Group',
           branch: loc.block || loc.district || '-',
-          location: loc.locationSummary,
+          location: loc.locationSummary !== '-' ? loc.locationSummary : '',
           state: loc.state,
           district: loc.district,
           block: loc.block,
@@ -198,16 +219,25 @@ export default function CohortsPage() {
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage, page, filters.status]);
+  }, [rowsPerPage, page, filters.status, debouncedSearch]);
 
   useEffect(() => {
     fetchCohorts();
   }, [fetchCohorts]);
 
-  // Client-side search and filtering across loaded cohorts
+  // Client-side hierarchy location filtering across server-returned cohort page
   const displayedCohorts = useMemo(
-    () => cohorts.filter((cohort) => matchesCohortFilters(cohort, filters)),
-    [cohorts, filters]
+    () =>
+      cohorts.filter((cohort) => {
+        const stateMatch = matchesLocationFilter(cohort, filters.state, [cohort.state]);
+        const districtMatch = matchesLocationFilter(cohort, filters.district, [cohort.district]);
+        const branchMatch = matchesLocationFilter(cohort, filters.branch || filters.block, [
+          cohort.block,
+          cohort.branch,
+        ]);
+        return stateMatch && districtMatch && branchMatch;
+      }),
+    [cohorts, filters.state, filters.district, filters.branch, filters.block]
   );
 
   const handleConfirmDelete = async () => {
@@ -242,7 +272,7 @@ export default function CohortsPage() {
         render: (row) => (
           <Box
             sx={{ cursor: 'pointer', display: 'inline-block' }}
-            onClick={() => router.push(`/cohorts/${row.cohortId}`)}
+            onClick={() => router.push(`${basePath}/${row.cohortId}`)}
           >
             <Typography
               variant="body2"
@@ -338,7 +368,7 @@ export default function CohortsPage() {
                 size="small"
                 onClick={(e) => {
                   e.stopPropagation();
-                  router.push(`/cohorts/create?cohortId=${row.cohortId}&mode=addMembers`);
+                  router.push(`${basePath}/create?cohortId=${row.cohortId}&mode=addMembers`);
                 }}
                 sx={{ color: '#4B5563', '&:hover': { color: 'primary.main' } }}
               >
@@ -373,7 +403,7 @@ export default function CohortsPage() {
         ),
       },
     ],
-    [router]
+    [router, basePath]
   );
 
   return (
@@ -391,7 +421,7 @@ export default function CohortsPage() {
       >
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#1F2937', fontSize: '24px' }}>
-            Groups & Cohorts
+            {isGroupsRoute ? 'Groups' : 'Groups & Cohorts'}
           </Typography>
           <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '13px', mt: 0.3 }}>
             Manage training batches, beneficiary groups, and field cohorts.
@@ -400,7 +430,7 @@ export default function CohortsPage() {
 
         <Button
           variant="contained"
-          onClick={() => router.push('/cohorts/create')}
+          onClick={() => router.push(`${basePath}/create`)}
           startIcon={<GroupAddOutlinedIcon />}
           sx={{
             backgroundColor: '#D4752A',
@@ -459,7 +489,7 @@ export default function CohortsPage() {
       >
         <Typography variant="body2" sx={{ color: '#4B5563', fontSize: '13px', fontWeight: 500 }}>
           Showing {totalCount > 0 ? page * rowsPerPage + 1 : 0}–
-          {Math.min((page + 1) * rowsPerPage, totalCount)} of {totalCount} cohorts
+          {Math.min((page + 1) * rowsPerPage, totalCount)} of {totalCount} {isGroupsRoute ? 'groups' : 'cohorts'}
         </Typography>
       </Box>
 

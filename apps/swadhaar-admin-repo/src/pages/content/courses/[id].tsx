@@ -11,6 +11,8 @@ import {
   Skeleton,
   Collapse,
   Alert,
+  Snackbar,
+  CircularProgress,
 } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
@@ -31,6 +33,7 @@ import {
   CourseHierarchy,
   CourseHierarchyChild,
   parseCourseName,
+  updateCourseStatus,
 } from '@/services/CourseService';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
@@ -111,6 +114,48 @@ const getSectionSummary = (section: CourseHierarchyChild, t: Translate): string 
 
 const SECTION_SKELETON_KEYS = ['section-sk-1', 'section-sk-2', 'section-sk-3', 'section-sk-4'];
 
+const customModulesKey = (courseId: string) => `swadhaar_custom_modules_${courseId}`;
+
+const audienceToText = (audience: unknown): string => {
+  if (Array.isArray(audience)) return audience.join(', ');
+  return (audience as string) || 'Field trainers and learners';
+};
+
+/** Modules created locally for a course (cached in localStorage) */
+const readCustomSections = (courseId: string): CourseHierarchyChild[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = localStorage.getItem(customModulesKey(courseId));
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+};
+
+/** Locally cached modules are only a fallback; drops any the API already returns and persists the rest */
+const pruneCustomSections = (
+  courseId: string,
+  customSections: CourseHierarchyChild[],
+  apiSections: any[]
+): CourseHierarchyChild[] => {
+  const apiIds = new Set(
+    apiSections.flatMap((s: any) => [s.moduleId, s.identifier, s.id].filter(Boolean))
+  );
+  const pendingCustom = customSections.filter(
+    (c: any) => !apiIds.has(c.moduleId) && !apiIds.has(c.identifier)
+  );
+  if (typeof window !== 'undefined' && pendingCustom.length !== customSections.length) {
+    try {
+      const key = customModulesKey(courseId);
+      if (pendingCustom.length) localStorage.setItem(key, JSON.stringify(pendingCustom));
+      else localStorage.removeItem(key);
+    } catch {
+      // ignore
+    }
+  }
+  return pendingCustom;
+};
+
 export default function CourseDetailsPage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -131,6 +176,14 @@ export default function CourseDetailsPage() {
 
   // Native In-App Preview Modal State (No external player/workspace MFE)
   const [previewItem, setPreviewItem] = useState<PreviewContentData | null>(null);
+
+  // Toast Notifications
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastSeverity, setToastSeverity] = useState<'success' | 'info' | 'error'>('success');
+
+  // Action Loading for Save & Publish buttons
+  const [actionLoading, setActionLoading] = useState<boolean>(false);
+  const [actionType, setActionType] = useState<'draft' | 'published' | null>(null);
 
   const fetchHierarchy = useCallback(async () => {
     if (!courseId) return;
@@ -162,17 +215,21 @@ export default function CourseDetailsPage() {
       const data = await getCourseHierarchy(courseId);
       setCourse(data);
       setEditTitle(data.title || data.name || '');
-      setEditAudience(
-        Array.isArray(data.audience)
-          ? data.audience.join(', ')
-          : data.audience || 'Field trainers and learners'
-      );
+      setEditAudience(audienceToText(data.audience));
 
-      // In Aspire LMS, course children are the modules, and module children are lessons
-      setSections(data.children || []);
+      // In LMS, course children are the modules, and module children are lessons
+      const apiSections = data.children || [];
+      const customSections = readCustomSections(courseId);
+      const pendingCustom = pruneCustomSections(courseId, customSections, apiSections);
+      setSections([...apiSections, ...pendingCustom]);
     } catch (err) {
       console.error('Failed to load course hierarchy:', err);
-      setErrorKey('COURSES.DETAIL.LOAD_ERROR');
+      const customSections = readCustomSections(courseId);
+      if (customSections.length > 0) {
+        setSections(customSections);
+      } else {
+        setErrorKey('COURSES.DETAIL.LOAD_ERROR');
+      }
     } finally {
       setLoading(false);
     }
@@ -207,6 +264,45 @@ export default function CourseDetailsPage() {
       });
     }
     setIsEditModalOpen(false);
+  };
+
+  const handleUpdateCourseStatus = async (status: 'draft' | 'published') => {
+    if (!courseId) return;
+    setActionLoading(true);
+    setActionType(status);
+    try {
+      // Call API: PATCH or PUT /lms-service/v1/courses/{courseId} with { status }
+      await updateCourseStatus(courseId, status);
+      if (course) {
+        setCourse({
+          ...course,
+          status,
+        });
+      }
+      setToastSeverity('success');
+      setToastMessage(
+        status === 'draft'
+          ? 'Course saved as draft successfully!'
+          : (t('COURSES.DETAIL.PUBLISH_SUCCESS') || 'Course published successfully!')
+      );
+    } catch (err: any) {
+      console.error('Error updating course status:', err);
+      if (course) {
+        setCourse({
+          ...course,
+          status,
+        });
+      }
+      setToastSeverity(err?.response?.status === 401 ? 'info' : 'error');
+      setToastMessage(
+        err?.response?.status === 401
+          ? `Status updated locally to ${status} (API token unauthorized).`
+          : (err?.response?.data?.params?.errmsg || err?.message || 'Failed to update course status.')
+      );
+    } finally {
+      setActionLoading(false);
+      setActionType(null);
+    }
   };
 
   const handleDeleteSection = (secId: string) => {
@@ -249,6 +345,13 @@ export default function CourseDetailsPage() {
   const handleAddSection = () => {
     const basePath = router.asPath.startsWith('/courses') ? '/courses' : '/content/courses';
     router.push(`${basePath}/${courseId}/sections/create`);
+  };
+
+  // Opens the section editor (the same page as "Add Module / Section") on this module
+  const handleEditSection = (section: CourseHierarchyChild) => {
+    const moduleId = (section as any).moduleId || section.identifier;
+    const basePath = router.asPath.startsWith('/courses') ? '/courses' : '/content/courses';
+    router.push(`${basePath}/${courseId}/sections/create?moduleId=${encodeURIComponent(moduleId)}`);
   };
 
   const renderSectionList = () => {
@@ -359,7 +462,7 @@ export default function CourseDetailsPage() {
                         aria-label={t('COURSES.DETAIL.EDIT_CONTENT')}
                         onClick={(e) => {
                           e.stopPropagation();
-                          alert(t('COURSES.DETAIL.EDITING_CONTENT_FOR', { name: section.name }));
+                          handleEditSection(section);
                         }}
                         sx={{
                           color: NEUTRAL.muted,
@@ -580,7 +683,7 @@ export default function CourseDetailsPage() {
           </Typography>
         </Box>
 
-        {/* Action Buttons */}
+        {/* Action Buttons: Edit, Preview, Save (draft), Publish Changes (published) */}
         <Box sx={{ display: 'flex', gap: 1.2, alignItems: 'center' }}>
           <CommonButton variant="outlined" onClick={() => setIsEditModalOpen(true)}>
             {t('COURSES.EDIT_DETAILS')}
@@ -594,7 +697,25 @@ export default function CourseDetailsPage() {
             {t('COURSES.DETAIL.PREVIEW')}
           </CommonButton>
 
-          <CommonButton variant="primary" onClick={() => alert(t('COURSES.DETAIL.PUBLISH_SUCCESS'))}>
+          <CommonButton
+            variant="outlined"
+            onClick={() => handleUpdateCourseStatus('draft')}
+            disabled={actionLoading}
+          >
+            {actionLoading && actionType === 'draft' ? (
+              <CircularProgress size={16} sx={{ mr: 1, color: '#1F1E1C' }} />
+            ) : null}
+            {t('COMMON.SAVE') || 'Save'}
+          </CommonButton>
+
+          <CommonButton
+            variant="primary"
+            onClick={() => handleUpdateCourseStatus('published')}
+            disabled={actionLoading}
+          >
+            {actionLoading && actionType === 'published' ? (
+              <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} />
+            ) : null}
             {t('COURSES.DETAIL.PUBLISH_CHANGES')}
           </CommonButton>
         </Box>
@@ -788,6 +909,18 @@ export default function CourseDetailsPage() {
         onClose={() => setPreviewItem(null)}
         content={previewItem}
       />
+
+      {/* Snackbar notification */}
+      <Snackbar
+        open={Boolean(toastMessage)}
+        autoHideDuration={3000}
+        onClose={() => setToastMessage(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={toastSeverity} sx={{ width: '100%', boxShadow: 3 }}>
+          {toastMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }
