@@ -139,48 +139,65 @@ const detectPreviewKind = (content: PreviewContentData) => {
   return { isVideo, isPdf, isAssessment };
 };
 
-export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, onClose, content }) => {
-  const { t } = useTranslation();
-  const [assessmentMode, setAssessmentMode] = useState<AssessmentMode>('review');
-  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
-  const [submitted, setSubmitted] = useState(false);
-  const [fetched, setFetched] = useState<{
-    questions: NonNullable<PreviewContentData['questions']>;
-    passMark?: number;
-    timeLimit?: string;
-  } | null>(null);
-  const [loadingQuestions, setLoadingQuestions] = useState(false);
+interface FetchedAssessment {
+  questions: NonNullable<PreviewContentData['questions']>;
+  passMark?: number;
+  timeLimit?: string;
+}
 
-  // An assessment is previewed with its real questions: GET /assessment/v1/tests/:id/test-hierarchy
+const loadAssessment = async (testId: string): Promise<FetchedAssessment> => {
+  const [testRes, hierarchyRes] = await Promise.all([
+    AssessmentService.getTestById(testId),
+    AssessmentService.getTestHierarchy(testId),
+  ]);
+  const test = testRes?.result?.test ?? testRes?.result ?? {};
+  const { readHierarchyQuestions } = await import('@/components/content/AssessmentBuilder');
+  return {
+    questions: readHierarchyQuestions(hierarchyRes).questions,
+    passMark: test.passingMarks ?? undefined,
+    timeLimit: test.timeDuration ? `${test.timeDuration} min` : undefined,
+  };
+};
+
+/** An assessment is previewed with its real questions: GET /assessment/v1/tests/:id/test-hierarchy */
+const useAssessmentPreview = (open: boolean, content: PreviewContentData | null) => {
+  const [fetched, setFetched] = useState<FetchedAssessment | null>(null);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
   const needsQuestions = Boolean(open && content && !content.questions && detectPreviewKind(content).isAssessment);
   const testId = content?.testId || content?.identifier;
+
   useEffect(() => {
     setFetched(null);
     if (!needsQuestions || !testId) return undefined;
     let cancelled = false;
     setLoadingQuestions(true);
-    Promise.all([AssessmentService.getTestById(testId), AssessmentService.getTestHierarchy(testId)])
-      .then(async ([testRes, hierarchyRes]) => {
-        const test = testRes?.result?.test ?? testRes?.result ?? {};
-        const { readHierarchyQuestions } = await import('@/components/content/AssessmentBuilder');
-        if (cancelled) return;
-        setFetched({
-          questions: readHierarchyQuestions(hierarchyRes).questions,
-          passMark: test.passingMarks ?? undefined,
-          timeLimit: test.timeDuration ? `${test.timeDuration} min` : undefined,
-        });
-      })
+    loadAssessment(testId)
+      .then((result) => !cancelled && setFetched(result))
       .catch((err) => {
         console.error('Failed to load the assessment for preview:', err);
         if (!cancelled) setFetched({ questions: [] });
       })
-      .finally(() => {
-        if (!cancelled) setLoadingQuestions(false);
-      });
+      .finally(() => !cancelled && setLoadingQuestions(false));
     return () => {
       cancelled = true;
     };
   }, [needsQuestions, testId]);
+
+  return { fetched, loadingQuestions };
+};
+
+const isPlaceholder = (value?: string | number | null) =>
+  value === undefined || value === null || value === '' || value === '—';
+
+/** "15 min" -> "15" (the label adds the unit) */
+const withoutMinutesUnit = (value: string) => (value.toLowerCase().endsWith('min') ? value.slice(0, -3).trim() : value);
+
+export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, onClose, content }) => {
+  const { t } = useTranslation();
+  const [assessmentMode, setAssessmentMode] = useState<AssessmentMode>('review');
+  const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+  const { fetched, loadingQuestions } = useAssessmentPreview(open, content);
 
   if (!content) return null;
 
@@ -192,7 +209,6 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
   const isInteractive = assessmentMode === 'interactive';
 
   const questionsList = content.questions || fetched?.questions || [];
-  const isPlaceholder = (value?: string | number | null) => value === undefined || value === null || value === '' || value === '—';
   const passMark = fetched?.passMark ?? (isPlaceholder(content.passMark) ? undefined : content.passMark);
   const timeLimit = fetched?.timeLimit ?? (isPlaceholder(content.timeLimit) ? undefined : content.timeLimit);
 
@@ -297,7 +313,7 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
             <Typography sx={{ fontSize: '11px', color: '#B0B8C4' }}>
               {t(getSubtitleKey(isVideo, isPdf))}
               {content.duration ? ` · ${content.duration}` : ''}
-              {timeLimit ? ` · ${t('CONTENT.PREVIEW.TIME', { value: timeLimit.replace(/\s*min$/i, '') })}` : ''}
+              {timeLimit ? ` · ${t('CONTENT.PREVIEW.TIME', { value: withoutMinutesUnit(timeLimit) })}` : ''}
             </Typography>
           </Box>
         </Box>
