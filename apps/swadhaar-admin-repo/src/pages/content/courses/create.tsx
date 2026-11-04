@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -21,11 +21,9 @@ import nextI18NextConfig from '../../../../next-i18next.config.js';
 import CommonButton from '@/components/common/CommonButton';
 import CommonTextField from '@/components/common/CommonTextField';
 import CommonRadioGroup from '@/components/common/CommonRadioGroup';
-import CommonSelect from '@/components/common/CommonSelect';
 import FieldLabel from '@/components/common/FieldLabel';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 import { createCourse, CreateCoursePayload } from '@/services/CourseService';
-import { getCohortSearch, CohortItemApi } from '@/services/CohortService';
 
 interface ObjectiveItem {
   id: string;
@@ -36,7 +34,6 @@ const COURSES_LIST_PATH = '/content/courses';
 const DEFAULT_COHORT_ID = '8f6156bc-e298-41e7-a3f1-f4d4d23e51a7';
 const DEFAULT_IMAGE_URL =
   'https://aspire-leaders-assets-qa.s3.us-east-1.amazonaws.com/lms/modules/file_1793263413927_c5ac1a.png';
-const DEFAULT_CERTIFICATE_ID = ['cmtr5gy7v003sr00ja8dx3822'];
 
 const LANGUAGE_OPTIONS = [
   { value: 'hindi', labelKey: 'COURSES.LANGUAGE_HINDI' },
@@ -131,56 +128,14 @@ export default function CreateCoursePage() {
   ]);
 
   // Language state (single select)
-  const [language, setLanguage] = useState<string>('english');
+  const [language, setLanguage] = useState<string>('');
 
   // Course Image & Cohort Association
-  const [imageUrl, setImageUrl] = useState<string>(DEFAULT_IMAGE_URL);
-  const [cohortId, setCohortId] = useState<string>(DEFAULT_COHORT_ID);
-  const [cohortOptions, setCohortOptions] = useState<Array<{ value: string; label: string }>>([
-    { value: DEFAULT_COHORT_ID, label: 'Aspire Dev Cohort (Default)' },
-  ]);
 
   // UI feedback states
-  const [loadingCohorts, setLoadingCohorts] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-
-  // Load cohorts on mount
-  useEffect(() => {
-    let isMounted = true;
-    setLoadingCohorts(true);
-    getCohortSearch({
-      limit: 100,
-      offset: 0,
-      filters: { type: 'COHORT', status: ['active'] },
-    })
-      .then((res) => {
-        if (!isMounted) return;
-        const details = res?.result?.results?.cohortDetails || [];
-        if (details.length > 0) {
-          const opts = details.map((c: CohortItemApi) => ({
-            value: c.cohortId,
-            label: c.name || c.cohortId,
-          }));
-          // Make sure default is preserved if not in list
-          if (!opts.some((o) => o.value === DEFAULT_COHORT_ID)) {
-            opts.unshift({ value: DEFAULT_COHORT_ID, label: 'Aspire Dev Cohort (Default)' });
-          }
-          setCohortOptions(opts);
-        }
-      })
-      .catch((err) => {
-        console.error('Failed to load cohorts:', err);
-      })
-      .finally(() => {
-        if (isMounted) setLoadingCohorts(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   // Objectives reordering
   const handleMoveObjective = (index: number, direction: 'up' | 'down') => {
@@ -219,9 +174,16 @@ export default function CreateCoursePage() {
       setError(t('COURSES.CREATE.NAME_REQUIRED') || 'Course name is required');
       return false;
     }
+    if (!language) {
+      setError(t('COURSES.CREATE.LANGUAGE_REQUIRED') || 'Language is required');
+      return false;
+    }
     setError(null);
     return true;
   };
+
+  // Course name and language are mandatory for both save buttons
+  const canSave = Boolean(courseName.trim()) && Boolean(language);
 
   const handleSaveCourse = async (
     statusToSave: 'published' | 'unpublished',
@@ -241,11 +203,10 @@ export default function CreateCoursePage() {
         shortDescription: shortDescription.trim() || targetAudience.trim() || 'Description',
         description: formattedDescription,
         status: statusToSave,
-        image: imageUrl.trim() || DEFAULT_IMAGE_URL,
-        certificateId: DEFAULT_CERTIFICATE_ID,
+        image: DEFAULT_IMAGE_URL,
         prerequisites: [],
         params: {
-          cohortId: cohortId || DEFAULT_COHORT_ID,
+          cohortId: DEFAULT_COHORT_ID,
           targetAudience: targetAudience.trim(),
           learningDuration: learningDuration.trim(),
           assessmentDuration: assessmentDuration.trim(),
@@ -354,7 +315,7 @@ export default function CreateCoursePage() {
           <CommonButton
             variant="outlined"
             onClick={() => handleSaveCourse('unpublished', 'list')}
-            disabled={submitting}
+            disabled={submitting || !canSave}
           >
             {submitting ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
             {t('COURSES.SAVE_AS_DRAFT') || 'Save as Draft'}
@@ -363,7 +324,7 @@ export default function CreateCoursePage() {
           <CommonButton
             variant="primary"
             onClick={() => handleSaveCourse('published', 'sections')}
-            disabled={submitting}
+            disabled={submitting || !canSave}
           >
             {submitting ? <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} /> : null}
             {t('COURSES.CREATE.SAVE_AND_ADD_SECTIONS') || 'Save & Add Sections'}
@@ -614,74 +575,6 @@ export default function CreateCoursePage() {
         {/* Right Column (4 cols): Cohort Settings + Image + Language + Added after saving */}
         <Grid item xs={12} lg={4}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-            {/* Card 3: Associated Cohort / Group */}
-            <Paper elevation={0} sx={CARD_SX}>
-              <Box sx={CARD_HEADER_SX}>
-                <Typography sx={CARD_TITLE_SX}>
-                  {t('COURSES.CREATE.ASSOCIATED_COHORT') || 'Associated Cohort / Group'}
-                </Typography>
-              </Box>
-
-              <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <CommonSelect
-                  id="course-cohort-select"
-                  label={t('COURSES.CREATE.SELECT_COHORT') || 'Cohort Group'}
-                  value={cohortId}
-                  onChange={(val) => setCohortId(val)}
-                  options={cohortOptions}
-                  disabled={loadingCohorts}
-                />
-                <Typography variant="caption" sx={{ color: NEUTRAL.muted, fontSize: '12px' }}>
-                  {t('COURSES.CREATE.COHORT_HINT') ||
-                    'Learners enrolled in this cohort will have access to this course.'}
-                </Typography>
-              </Box>
-            </Paper>
-
-            {/* Card 4: Course Thumbnail Image */}
-            <Paper elevation={0} sx={CARD_SX}>
-              <Box sx={CARD_HEADER_SX}>
-                <Typography sx={CARD_TITLE_SX}>
-                  {t('COURSES.CREATE.COURSE_IMAGE') || 'Course Thumbnail Image'}
-                </Typography>
-              </Box>
-
-              <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.8 }}>
-                <CommonTextField
-                  id="course-image-url"
-                  label={t('COURSES.CREATE.IMAGE_URL') || 'Image URL'}
-                  value={imageUrl}
-                  onChange={(e) => setImageUrl(e.target.value)}
-                  placeholder="https://..."
-                />
-
-                {imageUrl && (
-                  <Box
-                    sx={{
-                      width: '100%',
-                      height: 140,
-                      borderRadius: '8px',
-                      overflow: 'hidden',
-                      border: `1px solid ${NEUTRAL.border}`,
-                      backgroundColor: '#F9FAFB',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    <img
-                      src={imageUrl}
-                      alt="Course Preview"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = DEFAULT_IMAGE_URL;
-                      }}
-                    />
-                  </Box>
-                )}
-              </Box>
-            </Paper>
-
             {/* Card 5: Language */}
             <Paper elevation={0} sx={CARD_SX}>
               <Box

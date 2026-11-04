@@ -59,7 +59,7 @@ export default function CreatePdfPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [readingTime, setReadingTime] = useState('');
-  const [language, setLanguage] = useState('Hindi');
+  const [language, setLanguage] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [allowDownload, setAllowDownload] = useState(true);
@@ -163,7 +163,14 @@ export default function CreatePdfPage() {
     setSuccessMsg(isDraft ? `PDF saved as draft.` : `PDF created successfully.`);
   };
 
+  // Title, language and a PDF file (already on the record when editing) are mandatory
+  const canSave = Boolean(title.trim()) && Boolean(language) && (isEditing || Boolean(pdfFile));
+
   const handleSave = async (isDraft = false) => {
+    if (!language) {
+      setError('Language is required.');
+      return;
+    }
     const validationError = getValidationError(title, isEditing, pdfFile);
     if (validationError) {
       setError(validationError);
@@ -198,6 +205,7 @@ export default function CreatePdfPage() {
         onCancel={() => router.push('/content?tab=pdfs')}
         onSaveDraft={() => handleSave(true)}
         onSave={() => handleSave(false)}
+        saveDisabled={!canSave}
       />
 
       <FormAlerts

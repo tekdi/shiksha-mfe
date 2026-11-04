@@ -10,6 +10,8 @@ import {
   FormControl,
   Select,
   MenuItem,
+  Tabs,
+  Tab,
   FormControlLabel,
   Checkbox,
   IconButton,
@@ -29,6 +31,7 @@ import Link from 'next/link';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import { getCourseList, CourseItem } from '@/services/CourseService';
+import { searchContentLibrary } from '@/services/ContentLibraryService';
 import {
   createPathway,
   getPathwayById,
@@ -46,7 +49,11 @@ interface SequenceItem {
   title: string;
   unlockCondition: string;
   courseId?: string;
+  /** Set when the step is an assessment (a test), not a course */
+  testId?: string;
 }
+
+const ASSESSMENT_PREFIX = 'assessment:';
 
 const BUILDER_CARD_SX = {
   backgroundColor: '#FFFFFF',
@@ -138,6 +145,8 @@ export default function LearningPathBuilderPage() {
   const [isEnrolModalOpen, setIsEnrolModalOpen] = useState(false);
   const [isAddCourseModalOpen, setIsAddCourseModalOpen] = useState(false);
   const [selectedCourseToAdd, setSelectedCourseToAdd] = useState<string>('');
+  const [addTab, setAddTab] = useState<'course' | 'assessment'>('course');
+  const [assessmentsList, setAssessmentsList] = useState<Array<{ identifier: string; name: string }>>([]);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -240,8 +249,35 @@ export default function LearningPathBuilderPage() {
     setIsDirty(true);
   };
 
+  // Assessments the admin can add as a step, next to the courses
+  useEffect(() => {
+    searchContentLibrary({ tab: 'assessments', query: '', limit: 100, offset: 0 })
+      .then((res) => setAssessmentsList(res.content.map((c) => ({ identifier: c.identifier, name: c.name }))))
+      .catch(() => setAssessmentsList([]));
+  }, []);
+
   const handleAddCourseToSequence = () => {
     if (!selectedCourseToAdd) return;
+    if (selectedCourseToAdd.startsWith(ASSESSMENT_PREFIX)) {
+      const testId = selectedCourseToAdd.slice(ASSESSMENT_PREFIX.length);
+      const test = assessmentsList.find((a) => a.identifier === testId);
+      if (!test) return;
+      setSequence([
+        ...sequence,
+        {
+          id: `seq-${Date.now()}`,
+          stepNumber: sequence.length + 1,
+          label: 'Assessment',
+          title: test.name,
+          unlockCondition: sequence.length === 0 ? 'Open from start' : 'Unlocks after previous',
+          testId,
+        },
+      ]);
+      setIsAddCourseModalOpen(false);
+      setSelectedCourseToAdd('');
+      setIsDirty(true);
+      return;
+    }
     const course = coursesList.find((c) => c.identifier === selectedCourseToAdd);
     if (!course) return;
 
@@ -259,6 +295,9 @@ export default function LearningPathBuilderPage() {
     setSelectedCourseToAdd('');
     setIsDirty(true);
   };
+
+  // A name and at least one course or assessment are mandatory
+  const canSave = Boolean(pathName.trim()) && sequence.length > 0;
 
   const handleSave = async () => {
     if (!pathName.trim()) {
@@ -386,6 +425,7 @@ export default function LearningPathBuilderPage() {
           <Button
             variant="outlined"
             onClick={() => setIsEnrolModalOpen(true)}
+            disabled={!canSave}
             sx={{
               borderColor: '#E6873C',
               color: '#E6873C',
@@ -407,7 +447,7 @@ export default function LearningPathBuilderPage() {
           <Button
             variant="contained"
             onClick={handleSave}
-            disabled={saving}
+            disabled={saving || !canSave}
             sx={{
               backgroundColor: '#E6873C',
               color: '#FFFFFF',
@@ -814,9 +854,24 @@ export default function LearningPathBuilderPage() {
           Add Course or Assessment to Sequence
         </DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          <Typography variant="body2" sx={{ color: '#6B6862', mb: 2 }}>
-            Select a course from Sunbird composite search results to append to this learning pathway:
-          </Typography>
+          <Tabs
+            value={addTab}
+            onChange={(_, value) => {
+              setAddTab(value);
+              setSelectedCourseToAdd('');
+            }}
+            sx={{
+              mb: 2,
+              minHeight: 40,
+              borderBottom: '1px solid #D6D3CC',
+              '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minHeight: 40 },
+              '& .Mui-selected': { color: '#E6873C' },
+              '& .MuiTabs-indicator': { backgroundColor: '#E6873C' },
+            }}
+          >
+            <Tab value="course" label="Course" />
+            <Tab value="assessment" label="Assessment" />
+          </Tabs>
           <FormControl fullWidth size="small">
             <Select
               value={selectedCourseToAdd}
@@ -829,13 +884,19 @@ export default function LearningPathBuilderPage() {
               }}
             >
               <MenuItem value="" disabled>
-                Select Course
+                {addTab === 'course' ? 'Select course' : 'Select assessment'}
               </MenuItem>
-              {coursesList.map((c) => (
-                <MenuItem key={c.identifier} value={c.identifier}>
-                  {c.cleanTitle || c.name}
-                </MenuItem>
-              ))}
+              {addTab === 'course'
+                ? coursesList.map((c) => (
+                    <MenuItem key={c.identifier} value={c.identifier}>
+                      {c.cleanTitle || c.name}
+                    </MenuItem>
+                  ))
+                : assessmentsList.map((a) => (
+                    <MenuItem key={a.identifier} value={`${ASSESSMENT_PREFIX}${a.identifier}`}>
+                      {a.name}
+                    </MenuItem>
+                  ))}
             </Select>
           </FormControl>
         </DialogContent>

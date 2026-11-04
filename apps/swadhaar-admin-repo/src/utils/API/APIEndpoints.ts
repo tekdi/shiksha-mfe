@@ -8,7 +8,7 @@ const cohortBaseUrl = baseurl;
 const lmsBase = `${baseurl}/lms-service/v1`;
 const assessmentBase = trimTrailingSlashes(process.env.NEXT_PUBLIC_ASSESSMENT_SERVICE_URL || `${baseurl}/assessment/v1`);
 const certificateBase = trimTrailingSlashes(
-  process.env.NEXT_PUBLIC_CERTIFICATE_SERVICE_URL || `${baseurl}/importuserspecific/certificate`
+  process.env.NEXT_PUBLIC_CERTIFICATE_SERVICE_URL || `${baseurl}/aspirespecific/certificate`
 );
 
 /**
@@ -113,9 +113,9 @@ export const API_ENDPOINTS = {
   courseStatus: `${baseurl}/tracking/user_certificate/user_course_status`,
   courseWiseLernerList: `${baseurl}/tracking/user_certificate/status/search`,
   getCourseName: `${baseurl}/action/composite/v3/search`,
-  trackingIssueCertificate: `${baseurl}/tracking/certificate/issue`,
-  renderCertificate: `${baseurl}/tracking/certificate/render`,
-  downloadCertificate: `${baseurl}/tracking/certificate/render`,
+  trackingIssueCertificate: `${certificateBase}/issue`,
+  renderCertificate: `${certificateBase}/render`,
+  downloadCertificate: `${certificateBase}/render`,
 
   // LMS Service
   lmsCourses: `${lmsBase}/courses`,

@@ -26,7 +26,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { useTranslation } from 'next-i18next';
 import { getCohortSearch, getCohortLearnerIds } from '@/services/CohortService';
-import { getUserList } from '@/services/UserService';
+import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
 import {
   assignPathwayToUser,
   enrolLearnerInCourses,
@@ -191,14 +191,11 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
-      const payload = {
-        limit: 50,
-        offset: 0,
-        filters: {},
-      };
-
-      const response = await getUserList(payload);
-      const rawUsers = response?.result?.getUserDetails || [];
+      // /user/v1/list returns only Students (404 when there are none) unless a role is sent,
+      // so the learners to enrol are listed per non-admin role of the tenant
+      const roles = await getTenantRoles();
+      const learnerRoles = roles.map((r) => r.name).filter((name) => !/admin/i.test(name));
+      const { users: rawUsers } = await listUsersByRoles({ limit: 50, offset: 0, filters: {} }, learnerRoles);
 
       if (rawUsers.length > 0) {
         const mapped: UserRow[] = rawUsers.map((u: any, idx: number) => {

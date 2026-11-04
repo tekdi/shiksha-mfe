@@ -166,9 +166,19 @@ const SECTION_TITLE_SX = {
   mb: 1.4,
 } as const;
 
+const FULL_NAME_REGEX = /^[A-Za-z][A-Za-z .'-]*$/;
+
 export const validateFullName = (fullName: string, isEdit: boolean) => {
   if (!fullName) return isEdit ? undefined : 'USERS.FORM.ERROR_FULL_NAME_REQUIRED';
-  return fullName.length < 2 ? 'USERS.FORM.ERROR_FULL_NAME_MIN' : undefined;
+  if (fullName.length < 2) return 'USERS.FORM.ERROR_FULL_NAME_MIN';
+  return FULL_NAME_REGEX.test(fullName) ? undefined : 'USERS.FORM.ERROR_FULL_NAME_INVALID';
+};
+
+/** On create the username is the 10-digit mobile number */
+const validateUsername = (username: string, isEdit: boolean) => {
+  if (isEdit) return undefined;
+  if (!username) return 'USERS.FORM.ERROR_USERNAME_REQUIRED';
+  return PHONE_REGEX.test(username) ? undefined : 'USERS.FORM.ERROR_USERNAME_INVALID';
 };
 
 const validateEmail = (email: string, isEdit: boolean) => {
@@ -364,6 +374,10 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const handleChange = (field: keyof FormState, value: string) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: toStr(value) };
+      // On create the username defaults to the phone number until the admin types their own
+      if (field === 'phone' && !isEdit && (prev.username === '' || prev.username === prev.phone)) {
+        next.username = toStr(value);
+      }
       // Cascade clear child location fields
       if (field === 'state') {
         next.district = '';
@@ -379,6 +393,17 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
   };
 
+  // Create needs every mandatory field filled and valid before the button enables
+  const canCreate =
+    isEdit ||
+    (!validateFullName(toStr(formData.fullName).trim(), false) &&
+      !validateUsername(toStr(formData.username).trim(), false) &&
+      !validateEmail(toStr(formData.email).trim(), false) &&
+      !validatePhone(toStr(formData.phone).trim(), false) &&
+      formData.gender !== GENDER_NOT_SELECTED &&
+      Boolean(formData.role) &&
+      !(formData.password && formData.password.length < 8));
+
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
     const fullName = toStr(formData.fullName).trim();
@@ -389,6 +414,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     // Nothing is mandatory when editing; filled fields are still checked for format
     const fieldErrors: Partial<Record<keyof FormState, string | undefined>> = {
       fullName: validateFullName(fullName, isEdit),
+      username: validateUsername(toStr(formData.username).trim(), isEdit),
       email: validateEmail(email, isEdit),
       phone: validatePhone(phone, isEdit),
       role: !isEdit && !formData.role ? 'USERS.FORM.ERROR_ROLE_REQUIRED' : undefined,
@@ -524,7 +550,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
           <CommonButton variant="outlined" onClick={onClose} disabled={loading}>
             {t('COMMON.CANCEL')}
           </CommonButton>
-          <CommonButton variant="dark" onClick={handleSubmit} loading={loading}>
+          <CommonButton variant="dark" onClick={handleSubmit} loading={loading} disabled={!canCreate}>
             {isEdit ? t('COMMON.SAVE_CHANGES') : t('USERS.FORM.CREATE_USER')}
           </CommonButton>
         </>
@@ -552,8 +578,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonTextField
                 label={t('USERS.FORM.USERNAME')}
+                required={!isEdit}
                 value={formData.username}
-                onChange={(e) => handleChange('username', e.target.value)}
+                onChange={(e) => handleChange('username', isEdit ? e.target.value : e.target.value.replace(/\D/g, '').slice(0, 10))}
                 error={Boolean(errors.username)}
                 helperText={errorText('username')}
                 hint={isEdit ? undefined : t('USERS.FORM.USERNAME_HINT')}
@@ -683,6 +710,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonSelect
                 label={t('USERS.FORM.ROLE')}
+                required={!isEdit}
                 value={formData.role}
                 placeholder={t('USERS.FORM.SELECT_ROLE')}
                 error={Boolean(errors.role)}
