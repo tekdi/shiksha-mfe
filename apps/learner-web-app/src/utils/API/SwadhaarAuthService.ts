@@ -22,6 +22,16 @@ export const isSwadhaarSession = (): boolean =>
 export const swadhaarUserReadUrl = (userId: string | string[], fieldValue: boolean): string =>
   `${SWADHAAR_BASE_URL}/user/v1/read/${userId}?fieldvalue=${fieldValue}`;
 
+/** Swadhaar's own user update endpoint; the shared one points at another tenant's backend. */
+export const swadhaarUserUpdateUrl = (userId: string): string => `${SWADHAAR_BASE_URL}/user/v1/update/${userId}`;
+
+/** Headers the Swadhaar middleware expects on session calls, on top of the shared client's auth token. */
+export const swadhaarSessionHeaders = (): Record<string, string> => ({
+  tenantid: SWADHAAR_TENANT_ID,
+  organisationid: SWADHAAR_ORGANISATION_ID,
+  academicyearid: SWADHAAR_ACADEMIC_YEAR_ID,
+});
+
 const tenantHeaders = (tenantId: string = SWADHAAR_TENANT_ID): Record<string, string> => ({
   tenantid: tenantId,
   'X-Tenant-Id': tenantId,

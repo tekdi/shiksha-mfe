@@ -546,7 +546,8 @@ export function HierarchyNode({ node, courseId, moduleId, parentId, statusData, 
 
   const borderColor = isCompleted ? SUCCESS : (isCurrent ? PRIMARY : '#E5E7EB');
 
-  if (isFirstLevel) {
+  // A first-level node that is itself a lesson (no children) is shown as a lesson card, not an accordion
+  if (isFirstLevel && (!isLeaf || isModuleNode)) {
     return (
       <Box sx={{
         mb: 2,

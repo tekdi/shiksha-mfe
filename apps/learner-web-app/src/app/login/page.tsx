@@ -108,13 +108,13 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
     otp: "",
     remember: false,
   });
-  
+
   // Get tenant colors
   const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
   const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
   const backgroundColor = contentFilter?.backgroundColor || contentFilter?.theme?.backgroundColor || "#F5F5F5";
   const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#FFFFFF";
-  
+
   // OTP input refs for individual boxes
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -135,8 +135,8 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
   // Determine if we should show OTP mode
   // For OTP login method, show OTP if mobile number and OTP sent
   // For password login method, always show password
-  const isOtpMode = isOtpLoginMethod && 
-    otpSent && 
+  const isOtpMode = isOtpLoginMethod &&
+    otpSent &&
     !forcePasswordMode;
 
   // Function to check user existence and send OTP
@@ -174,7 +174,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         if (!domainTenantId) {
           domainTenantId = tenant?.tenantId || null;
         }
-        
+
         if (!domainTenantId) {
           console.error("No tenant found for this domain");
           showToastMessage(
@@ -183,7 +183,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           );
           return;
         }
-        
+
         // First check if user exists with the specific tenant ID
         const userCheckResponse = await checkUserExistenceWithTenant(
           processedMobile,
@@ -236,7 +236,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           console.log("User found, sending OTP:", userWithTargetTenant);
           // User exists, send OTP for login
           const response = await sendOTP({
-            mobile: processedMobile,
+            whatsapp: processedMobile,
             reason: "login",
           });
 
@@ -287,7 +287,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           errorResponse?.response?.data?.responseCode === 404 ||
           errorResponse?.response?.data?.params?.status === "failed" ||
           errorResponse?.response?.data?.params?.errmsg ===
-            "User does not exist"
+          "User does not exist"
         ) {
           console.log("User does not exist - showing error message");
           // Show error message and call the redirect handler
@@ -321,7 +321,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
       // Only send OTP if user is not already authenticated and login method is OTP
       const existingToken =
         localStorage.getItem("token") || getCookieValue("token");
-    
+
 
       if (!existingToken && isMobileNumber(prefilledUsername) && isOtpLoginMethod) {
         sendOtp(prefilledUsername);
@@ -405,7 +405,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
   const handleOtpChange = (index: number, value: string) => {
     // Filter out non-numeric characters
     const numericValue = value.replace(/\D/g, "");
-    
+
     if (numericValue.length > 1) {
       // If pasting, handle all digits
       const digits = numericValue.slice(0, 6).split("");
@@ -450,24 +450,24 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
     const pastedData = e.clipboardData.getData("text");
     // Filter out non-numeric characters
     const numericValue = pastedData.replace(/\D/g, "");
-    
+
     if (numericValue.length > 0) {
       // Take only first 6 digits
       const digits = numericValue.slice(0, 6).split("");
       const newOtp = new Array(6).fill("");
-      
+
       // Fill the OTP array with pasted digits
       digits.forEach((digit, i) => {
         if (i < 6) {
           newOtp[i] = digit;
         }
       });
-      
+
       setFormData((prev) => ({
         ...prev,
         otp: newOtp.join(""),
       }));
-      
+
       // Focus on the last filled box or the last box if all 6 digits are pasted
       const nextIndex = Math.min(digits.length - 1, 5);
       if (nextIndex >= 0) {
@@ -496,14 +496,14 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
     if (formData.username && isMobileNumber(formData.username)) {
       setResendTimer(120); // Start 120 second timer
       setResendAttempts((prev) => prev + 1); // Increment attempt count
-      
+
       // Reset the flag to allow resend but keep OTP mode active
       setHasCheckedUser(false);
-      
+
       // Call sendOtp directly without resetting otpSent
       const processedMobile = processMobileNumber(formData.username);
       setIsSendingOtp(true);
-      
+
       try {
         const response = await sendOTP({
           mobile: processedMobile,
@@ -555,9 +555,9 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
   };
   // If password login method, show password form
   if (!isOtpLoginMethod) {
-  return (
+    return (
       <Box
-      sx={{
+        sx={{
           maxWidth: { xs: "100%", sm: 500 },
           width: "100%",
           mx: "auto",
@@ -618,29 +618,29 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         />
 
         {/* Password Field */}
-          <TextField
+        <TextField
           label={t("LEARNER_APP.LOGIN.password_label") || "Password"}
-            name="password"
-            type={showPassword ? "text" : "password"}
-            value={formData.password}
-            onChange={handleChange}
-            variant="outlined"
-            fullWidth
-            margin="normal"
-            autoComplete="new-password"
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    edge="end"
+          name="password"
+          type={showPassword ? "text" : "password"}
+          value={formData.password}
+          onChange={handleChange}
+          variant="outlined"
+          fullWidth
+          margin="normal"
+          autoComplete="new-password"
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  edge="end"
                   sx={{ color: secondaryColor }}
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
+                >
+                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
           sx={{
             "& .MuiOutlinedInput-root": {
               borderRadius: "4px",
@@ -860,8 +860,8 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                 borderRadius: "50%",
                 backgroundColor: "#E0E0E0",
               }}
-          />
-        </Box>
+            />
+          </Box>
         </>
       ) : (
         // OTP Verification Step
@@ -952,11 +952,11 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           </Box>
 
           {/* Send Button */}
-        <Button
+          <Button
             onClick={handleSubmit}
             disabled={formData.otp.length !== 6}
-          fullWidth
-          sx={{
+            fullWidth
+            sx={{
               py: { xs: 1.25, sm: 1.5 },
               backgroundColor: primaryColor,
               color: `${buttonTextColor} !important`,
@@ -965,7 +965,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               textTransform: "none",
               borderRadius: "8px",
               mb: { xs: 1.5, sm: 2 },
-            "&:hover": {
+              "&:hover": {
                 backgroundColor: primaryColor,
                 opacity: 0.9,
                 color: `${buttonTextColor} !important`,
@@ -979,11 +979,11 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                 backgroundColor: backgroundColor,
                 color: secondaryColor,
                 opacity: 0.5,
-            },
-          }}
-        >
+              },
+            }}
+          >
             {t("LEARNER_APP.LOGIN.ENTER_OTP") || "ENTER OTP"}
-        </Button>
+          </Button>
 
           {/* Resend OTP Button */}
           <Box
@@ -1015,8 +1015,8 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               {resendAttempts >= 2
                 ? t("LEARNER_APP.LOGIN.RESEND_OTP_DISABLED") || "Resend OTP (Limit Reached)"
                 : resendTimer > 0
-                ? `${t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"} (${Math.floor(resendTimer / 60)}:${String(resendTimer % 60).padStart(2, "0")})`
-                : t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"}
+                  ? `${t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"} (${Math.floor(resendTimer / 60)}:${String(resendTimer % 60).padStart(2, "0")})`
+                  : t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"}
             </Button>
           </Box>
 
@@ -1233,7 +1233,7 @@ const LoginPage = () => {
         // Validate that user's tenant matches the domain tenant
         const userTenantId = userResponse?.tenantData?.[0]?.tenantId;
         const domainTenantId = tenant?.tenantId;
-        
+
         if (!domainTenantId) {
           showToastMessage(
             "Tenant configuration not found. Please contact administrator.",
@@ -1244,7 +1244,7 @@ const LoginPage = () => {
           localStorage.removeItem("refreshToken");
           return;
         }
-        
+
         if (userTenantId !== domainTenantId) {
           console.error(
             `Tenant mismatch: User tenantId (${userTenantId}) does not match domain tenantId (${domainTenantId})`
@@ -1258,15 +1258,15 @@ const LoginPage = () => {
           localStorage.removeItem("refreshToken");
           return;
         }
-        
+
         // Parse token to check actual user roles, as tenantData might incorrectly return 'Learner'
         let actualUserRole = userResponse?.tenantData?.[0]?.roleName;
-        
+
         // Force DI role for this known test user ID
         if (userResponse?.userId === "a1be2596-6ece-417b-8d00-f8bc6de84273") {
           actualUserRole = "DI";
         }
-        
+
         try {
           if (token) {
             const base64Url = token.split('.')[1];
@@ -1284,11 +1284,11 @@ const LoginPage = () => {
         } catch (e) {
           console.warn("Could not decode token for role check", e);
         }
-        
+
         const userRole = actualUserRole;
 
         // Handle Learner role - redirect to learner dashboard
-        if (userRole === "Learner"  || userRole === "Teacher" || userRole === "CFL" || userRole === "DI" || userRole === "District Incharge") {
+        if (userRole === "Learner" || userRole === "Teacher" || userRole === "CFL" || userRole === "DI" || userRole === "District Incharge") {
           const finalUserId = userResponse?.userId;
           localStorage.setItem("userId", finalUserId);
           localStorage.setItem("userRole", userRole);
@@ -1307,9 +1307,9 @@ const LoginPage = () => {
 
           localStorage.setItem("tenantId", tenantId);
           localStorage.setItem("userProgram", tenantName);
-        
-        
-        
+
+
+
           try {
             await profileComplitionCheck();
           } catch (profileErr) {
@@ -1384,7 +1384,7 @@ const LoginPage = () => {
             },
           };
           telemetryFactory.interact(telemetryInteract);
-        console.log("telemetryInteract",telemetryInteract);
+          console.log("telemetryInteract", telemetryInteract);
           const channelId = userResponse?.tenantData?.[0]?.channelId;
           localStorage.setItem("channelId", channelId);
 
@@ -1409,7 +1409,7 @@ const LoginPage = () => {
 
           // Check for redirect path stored by AuthGuard or go to CFL/Dashboard home
           if (userRole === "CFL" || userRole === "DI") {
-             
+
             window.location.href = `${window.location.origin}/cfl/home`;
           } else {
             const redirectAfterLogin = sessionStorage.getItem("redirectAfterLogin");
@@ -1524,10 +1524,10 @@ const LoginPage = () => {
           // Check if we have all required authentication data
           const userId = localStorage.getItem("userId");
           const tenantId = localStorage.getItem("tenantId");
-          
+
           // If we have all required data, redirect directly
           if (userId && tenantId) {
-            
+
             // Check for redirect URL in query parameters
             if (typeof window !== "undefined") {
               const searchParams = new URLSearchParams(window.location.search);
@@ -1537,9 +1537,8 @@ const LoginPage = () => {
 
               if (redirectUrl && redirectUrl.startsWith("/")) {
                 // Direct redirect to the target URL without going through login flow
-                window.location.href = `${window.location.origin}${redirectUrl}${
-                  activeLink ? `?activeLink=${activeLink}` : ""
-                }`;
+                window.location.href = `${window.location.origin}${redirectUrl}${activeLink ? `?activeLink=${activeLink}` : ""
+                  }`;
                 return;
               }
             }
@@ -1705,7 +1704,7 @@ const LoginPage = () => {
         try {
           const authUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/user/auth`;
           const cookieToken = getCookieValue("token") || getCookieValue("access_token") || getCookieValue("authToken");
-          
+
           const headers: Record<string, string> = {};
           if (cookieToken) {
             headers.Authorization = `Bearer ${cookieToken}`;
@@ -1720,7 +1719,7 @@ const LoginPage = () => {
           access_token = authResult?.token || authResult?.access_token;
           refresh_token = authResult?.refresh_token;
 
-        
+
 
 
           console.log("Successfully fetched token from /user/auth after OTP verification:", access_token ? "Yes" : "No");
@@ -1733,7 +1732,7 @@ const LoginPage = () => {
         // Store tokens in localStorage
         localStorage.setItem("token", access_token);
 
-          
+
         if (refresh_token) {
           localStorage.setItem("refreshToken", refresh_token);
         }
@@ -1810,10 +1809,10 @@ const LoginPage = () => {
 
   return (
     <Suspense fallback={
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         backgroundColor: backgroundColor,
       }}>
@@ -1894,7 +1893,7 @@ const LoginPage = () => {
               {tenantName}
             </Typography>
           </Box>
-          
+
           {/* Language Dropdown */}
           <Box
             sx={{
@@ -2136,7 +2135,7 @@ const LoginPage = () => {
                     alt={tenantAlt}
                     width={300}
                     height={300}
-                    style={{ 
+                    style={{
                       objectFit: "contain",
                       maxWidth: "100%",
                       height: "auto",
@@ -2148,7 +2147,7 @@ const LoginPage = () => {
                     alt={tenantAlt}
                     width={300}
                     height={300}
-                    style={{ 
+                    style={{
                       objectFit: "contain",
                       maxWidth: "100%",
                       height: "auto",

@@ -42,7 +42,11 @@ export const useContentTracking = ({
     attemptRef.current = attemptId
       ? Promise.resolve(attemptId)
       : startSwadhaarLessonAttempt(contentId, courseId, moduleId)
-          .then((attempt) => attempt?.lessonTrackId as string)
+          .then((attempt) => {
+            const id = (attempt?.lessonTrackId || attempt?.attemptId || attempt?.id) as string | undefined;
+            if (!id) console.warn(`[TRACKING] Attempt response for lesson ${contentId} has no attempt id`, attempt);
+            return id;
+          })
           .catch((err) => {
             console.warn(`[TRACKING] Could not start an attempt for lesson ${contentId}`, err);
             return undefined;
@@ -63,9 +67,12 @@ export const useContentTracking = ({
       return;
     }
 
+    // The LMS lets an explicit status override its own completion check, so a 100% report must say "completed"
+    const isComplete = isFinal || percentage >= 100;
+
     try {
       await updateSwadhaarAttemptProgress(currentAttemptId, {
-        status: isFinal ? 'completed' : 'incomplete',
+        status: isComplete ? 'completed' : 'incomplete',
         lessonId: contentId,
         totalContent: 100,
         currentPosition: Math.round(percentage),

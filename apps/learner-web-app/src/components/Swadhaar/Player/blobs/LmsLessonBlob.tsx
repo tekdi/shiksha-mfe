@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { fetchSwadhaarAttempt, fetchSwadhaarLesson } from '@learner/utils/API/SwadhaarService';
+import { SWADHAAR_BASE_URL } from '@learner/utils/API/SwadhaarAuthService';
 import { VideoBlob } from './VideoBlob';
 import { ImageBlob } from './ImageBlob';
 import { TextCardBlob } from './TextCardBlob';
@@ -96,7 +97,13 @@ export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, attemptI
     );
   }
 
-  const url: string = (lesson.media?.path || lesson.media?.source || '').trim();
+  // Uploaded files are stored as a server path (/uploads/...) that the LMS serves under /lms-service
+  const mediaPath: string = (lesson.media?.path || '').trim();
+  const url: string = mediaPath
+    ? /^https?:\/\//i.test(mediaPath)
+      ? mediaPath
+      : `${SWADHAAR_BASE_URL}/lms-service/${mediaPath.replace(/^\/+/, '')}`
+    : (lesson.media?.source || '').trim();
   const format: string = lesson.format;
   const subFormat: string = lesson.subFormat || '';
   const initialProgress = attempt?.completionPercentage ?? 0;
@@ -107,7 +114,7 @@ export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, attemptI
   }
 
   if (format === 'video') {
-    if (embed) return <Frame title={name} src={embed} />;
+    // YouTube videos also go through VideoBlob: it listens to the player so progress and completion are reported
     return (
       <VideoBlob
         name={name}

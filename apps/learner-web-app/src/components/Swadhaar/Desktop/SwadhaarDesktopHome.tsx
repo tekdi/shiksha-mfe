@@ -4,7 +4,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import { useRouter } from 'next/navigation';
 import { useTranslation } from '@shared-lib';
-import { trackCourseClick } from '@learner/utils/API/SwadhaarService';
+import { trackCourseClick, fetchSwadhaarModuleLessons } from '@learner/utils/API/SwadhaarService';
 import { AlertCard } from '@learner/utils/alertsStore';
 import ConfirmationModal from '@learner/components/ConfirmationModal/ConfirmationModal';
 
@@ -142,6 +142,32 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
     const targetLevel = levels.find((l) => l.id === levelId);
     // Find the module within that level
     const module = targetLevel?.rawChildren?.find((m: any) => m.identifier === moduleId);
+
+    // Swadhaar modules are listed without lessons: load them and open the first one still to do in the player
+    if (module && !(module.children || []).length) {
+      const openFirstLesson = async () => {
+        try {
+          const detail = await fetchSwadhaarModuleLessons(levelId, moduleId);
+          const lessons = detail.children || [];
+          const done = new Set(
+            (detail.trackingStatus || [])
+              .filter((s: any) => s.status === 2)
+              .map((s: any) => s.contentId)
+          );
+          const next = lessons.find((l: any) => !done.has(l.identifier)) || lessons[0];
+          router.push(
+            next
+              ? `/learn/${levelId}/${moduleId}/${moduleId}/${next.identifier}`
+              : `/learn/${levelId}/${moduleId}`
+          );
+        } catch {
+          router.push(`/learn/${levelId}/${moduleId}`);
+        }
+      };
+      if (onBeforeNavigate) onBeforeNavigate(openFirstLesson);
+      else openFirstLesson();
+      return;
+    }
 
     if (module) {
       const statusMap = new Map<string, any>();

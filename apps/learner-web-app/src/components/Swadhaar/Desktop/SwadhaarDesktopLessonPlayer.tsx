@@ -652,7 +652,12 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
                 const mId = currentModule.identifier || currentModule.id;
                 const modPerc = Math.round(completionCache.get(mId) ?? 0);
                 const modDone = modPerc >= 70;
-                const allModLessons = (currentModule.children || []).flatMap((s: any) => s.children || []);
+                // Modules hold lessons directly; count every playable lesson, however deep
+                const countLessons = (n: any): number =>
+                  isCollection(n) ? (n.children || []).reduce((sum: number, c: any) => sum + countLessons(c), 0) : 1;
+                const allModLessons = (currentModule.children || []).map(countLessons);
+                const lessonCount = allModLessons.reduce((sum: number, c: number) => sum + c, 0);
+                const subtopicCount = (currentModule.children || []).filter((c: any) => isCollection(c)).length;
                 const modStroke = 4;
                 const modR = 22;
                 const modCirc = 2 * Math.PI * modR;
@@ -663,7 +668,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
                     <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', mb: 0.5, textAlign: 'center' }}>
                       <Typography sx={{ fontFamily: 'Open Sans', fontSize: '13px', fontWeight: 700, color: '#1A1A1A', lineHeight: 1.3 }}>{currentModule.name}</Typography>
                       <Typography sx={{ fontFamily: 'Open Sans', fontSize: '10px', color: '#9E9E9E', fontWeight: 400, mt: 0.25 }}>
-                        {(currentModule.children || []).length} Subtopics · {allModLessons.length} Lessons
+                        {subtopicCount > 0 ? `${subtopicCount} Subtopics · ` : ''}{lessonCount} {lessonCount === 1 ? 'Lesson' : 'Lessons'}
                       </Typography>
                     </Box>
                     {/* Figma: #E0E0E0 divider below the module heading */}
@@ -805,7 +810,7 @@ const SwadhaarDesktopLessonPlayer: React.FC<SwadhaarDesktopLessonPlayerProps> = 
                             {node.name}
                           </Typography>
                           <Typography sx={{ fontFamily: 'Inter', fontSize: '10px', color: '#999999', fontWeight: 400, mt: 0.2 }}>
-                            {node.topic || node.contentType || 'Topic'}
+                            {node.topic || node.contentType || 'Lesson'}
                           </Typography>
                         </Box>
                         <ArrowForwardRoundedIcon sx={{ fontSize: 16, color: lDone ? SUCCESS : (isStarted ? PRIMARY : '#D1D5DB') }} />
