@@ -258,6 +258,78 @@ export const updateSwadhaarAttemptProgress = async (
   return response?.data?.result;
 };
 
+const ASSESSMENT_BASE = `${SWADHAAR_BASE_URL}/assessment/v1`;
+const assessmentHeaders = () => ({ ...lmsHeaders(), 'Content-Type': 'application/json' });
+
+/** A test with its sections and questions, without the answer key (GET assessment/v1/tests/:testId/hierarchy). */
+export const fetchSwadhaarTest = async (testId: string): Promise<any> => {
+  const response = await axios.get(`${ASSESSMENT_BASE}/tests/${testId}/hierarchy`, { headers: assessmentHeaders() });
+  return response?.data?.result;
+};
+
+/** The learner's attempts on a test: canResume / canAttempt / lastAttempt (GET assessment/v1/tests/:testId/users/:userId/status). */
+export const fetchSwadhaarTestStatus = async (testId: string): Promise<any> => {
+  const response = await axios.get(
+    `${ASSESSMENT_BASE}/tests/${testId}/users/${localStorage.getItem('userId')}/status`,
+    { headers: assessmentHeaders() }
+  );
+  return response?.data?.result;
+};
+
+/** An in-progress attempt with its saved answers (GET assessment/v1/attempts/:attemptId/resume/:userId). */
+export const resumeSwadhaarTestAttempt = async (attemptId: string): Promise<any> => {
+  const response = await axios.get(
+    `${ASSESSMENT_BASE}/attempts/${attemptId}/resume/${localStorage.getItem('userId')}`,
+    { headers: assessmentHeaders() }
+  );
+  return response?.data?.result;
+};
+
+/** Starts the learner's attempt on a test (POST assessment/v1/attempts/start/:testId). */
+export const startSwadhaarTestAttempt = async (testId: string): Promise<any> => {
+  const response = await axios.post(
+    `${ASSESSMENT_BASE}/attempts/start/${testId}`,
+    {},
+    { headers: assessmentHeaders() }
+  );
+  return response?.data?.result;
+};
+
+/** Answers a learner gave in a finished attempt; falls back to the resume view when the list endpoint is missing. */
+export const fetchSwadhaarAttemptAnswers = async (attemptId: string): Promise<any> => {
+  try {
+    const response = await axios.get(`${ASSESSMENT_BASE}/attempts/${attemptId}/answers`, { headers: assessmentHeaders() });
+    return response?.data?.result;
+  } catch {
+    return resumeSwadhaarTestAttempt(attemptId);
+  }
+};
+
+export interface SwadhaarTestAnswer {
+  questionId: string;
+  answer: { selectedOptionIds: string[] };
+}
+
+/** Saves the learner's answers (POST assessment/v1/attempts/:attemptId/answers, body { answers: [...] }). */
+export const saveSwadhaarTestAnswers = async (
+  attemptId: string,
+  answers: SwadhaarTestAnswer[],
+  timeSpent: number
+): Promise<any> => {
+  const response = await axios.post(`${ASSESSMENT_BASE}/attempts/${attemptId}/answers`, { answers, timeSpent }, {
+    headers: assessmentHeaders(),
+  });
+  return response?.data?.result;
+};
+
+/** Submits the attempt for scoring (POST assessment/v1/attempts/:attemptId/submit). */
+export const submitSwadhaarTestAttempt = async (attemptId: string): Promise<any> => {
+  const response = await axios.post(`${ASSESSMENT_BASE}/attempts/${attemptId}/submit`, {}, {
+    headers: assessmentHeaders(),
+  });
+  return response?.data?.result;
+};
+
 /** The learner's attempt on a lesson (GET lms-service/v1/tracking/attempts/:attemptId/:userId). */
 export const fetchSwadhaarAttempt = async (attemptId: string): Promise<any> => {
   const response = await axios.get(

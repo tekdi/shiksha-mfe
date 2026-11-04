@@ -349,7 +349,7 @@ export const SwadhaarContentPlayer: React.FC<SwadhaarContentPlayerProps> = ({
   }, [courseId, identifier, localAttempts, onComplete, onQuizFail, questionItems.length]);
 
   if (format) {
-    return <LmsLessonBlob lessonId={lmsLessonId || identifier} attemptId={attemptId} name={name} onProgress={onProgress} onComplete={onComplete} />;
+    return <LmsLessonBlob lessonId={lmsLessonId || identifier} courseId={courseId} moduleId={unitId} attemptId={attemptId} name={name} onProgress={onProgress} onComplete={onComplete} />;
   }
 
   if (loading) {

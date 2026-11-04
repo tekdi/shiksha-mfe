@@ -7,6 +7,7 @@ import { SWADHAAR_BASE_URL } from '@learner/utils/API/SwadhaarAuthService';
 import { VideoBlob } from './VideoBlob';
 import { ImageBlob } from './ImageBlob';
 import { TextCardBlob } from './TextCardBlob';
+import { LmsTestBlob } from './LmsTestBlob';
 
 const PRIMARY = '#E6873C';
 const YOUTUBE_ID_REGEX = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/))([\w-]{11})/;
@@ -15,6 +16,8 @@ const IMAGE_EXTENSION_REGEX = /\.(png|jpe?g|gif|svg|webp)(\?|$)/i;
 
 export interface LmsLessonBlobProps {
   lessonId: string;
+  courseId?: string;
+  moduleId?: string;
   attemptId?: string;
   name: string;
   onProgress?: (percentage: number) => void;
@@ -26,11 +29,12 @@ const youtubeEmbedUrl = (url: string): string | null => {
   return id ? `https://www.youtube.com/embed/${id}?rel=0` : null;
 };
 
-const Frame: React.FC<{ title: string; src: string; height?: number | string }> = ({ title, src, height = 420 }) => (
+const Frame: React.FC<{ title: string; src: string; height?: number | string; onLoad?: () => void }> = ({ title, src, height = 420, onLoad }) => (
   <Box sx={{ width: '100%', height, bgcolor: '#000' }}>
     <iframe
       title={title}
       src={src}
+      onLoad={onLoad}
       style={{ width: '100%', height: '100%', border: 0 }}
       allow="autoplay; encrypted-media; fullscreen"
       allowFullScreen
@@ -66,7 +70,7 @@ const NoticeCard: React.FC<{ message: string; actionLabel?: string; href?: strin
  * YouTube or file video, PDF documents, links and text. Quizzes and assessments need their own
  * question APIs and are not rendered here.
  */
-export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, attemptId, name, onProgress, onComplete }) => {
+export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, courseId, moduleId, attemptId, name, onProgress, onComplete }) => {
   const [lesson, setLesson] = useState<any>(null);
   const [attempt, setAttempt] = useState<any>(null);
   const [error, setError] = useState(false);
@@ -110,7 +114,9 @@ export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, attemptI
   const embed = youtubeEmbedUrl(url);
 
   if (format === 'test') {
-    return <NoticeCard message="This quiz is not available in the app yet." />;
+    const testId: string = (lesson.media?.source || lesson.mediaContentSource || '').trim();
+    if (!testId) return <NoticeCard message="This assessment has no test attached." />;
+    return <LmsTestBlob testId={testId} lessonId={lessonId} courseId={courseId} moduleId={moduleId} onComplete={onComplete} />;
   }
 
   if (format === 'video') {
@@ -131,14 +137,14 @@ export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, attemptI
     if (!url) return <NoticeCard message="This document has no file attached." />;
     return (
       <>
-        <Frame title={name} src={url} height={520} />
+        <Frame title={name} src={url} height={520} onLoad={() => onComplete()} />
         <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fff' }}>
-          <Button href={url} target="_blank" rel="noopener noreferrer" sx={{ textTransform: 'none', color: PRIMARY }}>
+          <Button href={url} target="_blank" rel="noopener noreferrer" onClick={() => onComplete()} sx={{ textTransform: 'none', color: PRIMARY }}>
             Open in new tab
           </Button>
           <Button
             variant="contained"
-            onClick={onComplete}
+            onClick={() => onComplete()}
             sx={{ bgcolor: PRIMARY, textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
           >
             Mark as read
@@ -164,7 +170,7 @@ export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, attemptI
         <TextCardBlob name={name} body={lesson.description} description={lesson.description} onComplete={onComplete} />
       )}
       {url && (
-        <NoticeCard message="This lesson opens in a separate page." actionLabel="Open lesson" href={url} onAction={onComplete} />
+        <NoticeCard message="This lesson opens in a separate page." actionLabel="Open lesson" href={url} onAction={() => onComplete()} />
       )}
     </>
   );

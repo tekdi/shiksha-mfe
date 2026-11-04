@@ -53,6 +53,14 @@ export const useContentTracking = ({
           });
   }, [contentId, attemptId, trackable, courseId, moduleId]);
 
+  // The lesson page is reused when moving between lessons, so each lesson starts with fresh tracking state
+  useEffect(() => {
+    completedRef.current = false;
+    lastProgressRef.current = 0;
+    lastApiProgressRef.current = 0;
+    openedAtRef.current = Date.now();
+  }, [contentId]);
+
   /* ───────────────── INIT USER ───────────────── */
   useEffect(() => {
     userIdRef.current = localStorage.getItem('userId');
@@ -85,7 +93,9 @@ export const useContentTracking = ({
   }, [contentId]);
 
   /* ───────────────── COMPLETE HANDLER ───────────────── */
-  const handleComplete = useCallback(async (score?: number) => {
+  const handleComplete = useCallback(async (rawScore?: unknown) => {
+    // Click/load handlers can pass an event here; only a real number is a score
+    const score = typeof rawScore === 'number' ? rawScore : undefined;
     const userId = userIdRef.current;
     if (!userId || !contentId || completedRef.current) return;
 
