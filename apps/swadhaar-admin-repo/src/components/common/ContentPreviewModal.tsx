@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -12,6 +12,7 @@ import {
   Radio,
   Paper,
   Alert,
+  CircularProgress,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
@@ -20,10 +21,13 @@ import QuizOutlinedIcon from '@mui/icons-material/QuizOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useTranslation } from 'next-i18next';
 import CommonButton from './CommonButton';
+import AssessmentService from '@/services/AssessmentService';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 
 export interface PreviewContentData {
   identifier?: string;
+  /** Assessment (test) id; the questions are read from the assessment service when none are passed */
+  testId?: string;
   name?: string;
   title?: string;
   type?: string; // 'video' | 'pdf' | 'assessment' | 'document' | 'test'
@@ -107,49 +111,6 @@ function getSubtitleKey(isVideo: boolean, isPdf: boolean): string {
   return 'CONTENT.PREVIEW.SUBTITLE_ASSESSMENT';
 }
 
-// Fallback questions for Swadhaar assessments if not provided (sample content data)
-const DEFAULT_ASSESSMENT_QUESTIONS = [
-  {
-    id: 'q-1',
-    questionNumber: 1,
-    prompt: 'What is the primary reason to maintain an emergency saving fund?',
-    type: 'Multiple choice – single answer',
-    tags: 'Topic: Saving · Module: Course 1',
-    explanation: 'An emergency fund prevents families from falling into high-interest debt during sudden crises or income disruptions.',
-    options: [
-      { id: 'opt-1-1', text: 'To fund unexpected medical or household crises without borrowing', isCorrect: true },
-      { id: 'opt-1-2', text: 'To invest in high-risk speculative schemes', isCorrect: false },
-      { id: 'opt-1-3', text: 'To avoid maintaining a bank savings account', isCorrect: false },
-    ],
-  },
-  {
-    id: 'q-2',
-    questionNumber: 2,
-    prompt: 'Which of the following is a key feature of formal savings in a regulated bank?',
-    type: 'Multiple choice – single answer',
-    tags: 'Topic: Banking · Module: Course 1',
-    explanation: 'Formal bank deposits are insured and regulated by statutory authorities, offering safety and periodic interest.',
-    options: [
-      { id: 'opt-2-1', text: 'Safe deposit with regulated interest and government insurance', isCorrect: true },
-      { id: 'opt-2-2', text: 'High risk of complete capital loss', isCorrect: false },
-      { id: 'opt-2-3', text: 'No record or passbook of deposited funds', isCorrect: false },
-    ],
-  },
-  {
-    id: 'q-3',
-    questionNumber: 3,
-    prompt: 'What should be prioritized first when creating a monthly household budget?',
-    type: 'Multiple choice – single answer',
-    tags: 'Topic: Budgeting · Module: Course 1',
-    explanation: 'Separating non-negotiable household needs from discretionary wants is the fundamental cornerstone of disciplined budgeting.',
-    options: [
-      { id: 'opt-3-1', text: 'Essential living expenses (food, rent, healthcare, utility bills)', isCorrect: true },
-      { id: 'opt-3-2', text: 'Entertainment and luxury expenditures', isCorrect: false },
-      { id: 'opt-3-3', text: 'Immediate borrowing from informal money lenders', isCorrect: false },
-    ],
-  },
-];
-
 const detectPreviewKind = (content: PreviewContentData) => {
   const rawType = (content.type || '').toLowerCase();
   const mime = (content.mimeType || '').toLowerCase();
@@ -178,11 +139,65 @@ const detectPreviewKind = (content: PreviewContentData) => {
   return { isVideo, isPdf, isAssessment };
 };
 
+interface FetchedAssessment {
+  questions: NonNullable<PreviewContentData['questions']>;
+  passMark?: number;
+  timeLimit?: string;
+}
+
+const loadAssessment = async (testId: string): Promise<FetchedAssessment> => {
+  const [testRes, hierarchyRes] = await Promise.all([
+    AssessmentService.getTestById(testId),
+    AssessmentService.getTestHierarchy(testId),
+  ]);
+  const test = testRes?.result?.test ?? testRes?.result ?? {};
+  const { readHierarchyQuestions } = await import('@/components/content/AssessmentBuilder');
+  return {
+    questions: readHierarchyQuestions(hierarchyRes).questions,
+    passMark: test.passingMarks ?? undefined,
+    timeLimit: test.timeDuration ? `${test.timeDuration} min` : undefined,
+  };
+};
+
+/** An assessment is previewed with its real questions: GET /assessment/v1/tests/:id/test-hierarchy */
+const useAssessmentPreview = (open: boolean, content: PreviewContentData | null) => {
+  const [fetched, setFetched] = useState<FetchedAssessment | null>(null);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const needsQuestions = Boolean(open && content && !content.questions && detectPreviewKind(content).isAssessment);
+  const testId = content?.testId || content?.identifier;
+
+  useEffect(() => {
+    setFetched(null);
+    if (!needsQuestions || !testId) return undefined;
+    let cancelled = false;
+    setLoadingQuestions(true);
+    loadAssessment(testId)
+      .then((result) => !cancelled && setFetched(result))
+      .catch((err) => {
+        console.error('Failed to load the assessment for preview:', err);
+        if (!cancelled) setFetched({ questions: [] });
+      })
+      .finally(() => !cancelled && setLoadingQuestions(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [needsQuestions, testId]);
+
+  return { fetched, loadingQuestions };
+};
+
+const isPlaceholder = (value?: string | number | null) =>
+  value === undefined || value === null || value === '' || value === '—';
+
+/** "15 min" -> "15" (the label adds the unit) */
+const withoutMinutesUnit = (value: string) => (value.toLowerCase().endsWith('min') ? value.slice(0, -3).trim() : value);
+
 export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, onClose, content }) => {
   const { t } = useTranslation();
   const [assessmentMode, setAssessmentMode] = useState<AssessmentMode>('review');
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
   const [submitted, setSubmitted] = useState(false);
+  const { fetched, loadingQuestions } = useAssessmentPreview(open, content);
 
   if (!content) return null;
 
@@ -193,8 +208,9 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
   const youtubeEmbedUrl = getYouTubeEmbedUrl(rawUrl);
   const isInteractive = assessmentMode === 'interactive';
 
-  const questionsList =
-    content.questions && content.questions.length > 0 ? content.questions : DEFAULT_ASSESSMENT_QUESTIONS;
+  const questionsList = content.questions || fetched?.questions || [];
+  const passMark = fetched?.passMark ?? (isPlaceholder(content.passMark) ? undefined : content.passMark);
+  const timeLimit = fetched?.timeLimit ?? (isPlaceholder(content.timeLimit) ? undefined : content.timeLimit);
 
   const handleOptionSelect = (qId: string, optId: string) => {
     if (submitted) return;
@@ -217,7 +233,7 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
     return {
       score: correct,
       total: questionsList.length,
-      percentage: Math.round((correct / questionsList.length) * 100),
+      percentage: questionsList.length ? Math.round((correct / questionsList.length) * 100) : 0,
     };
   };
 
@@ -297,7 +313,7 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
             <Typography sx={{ fontSize: '11px', color: '#B0B8C4' }}>
               {t(getSubtitleKey(isVideo, isPdf))}
               {content.duration ? ` · ${content.duration}` : ''}
-              {content.timeLimit ? ` · ${t('CONTENT.PREVIEW.TIME', { value: content.timeLimit })}` : ''}
+              {timeLimit ? ` · ${t('CONTENT.PREVIEW.TIME', { value: withoutMinutesUnit(timeLimit) })}` : ''}
             </Typography>
           </Box>
         </Box>
@@ -424,18 +440,18 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <Chip
-                  label={t('CONTENT.PREVIEW.QUESTIONS_COUNT', { n: questionsList.length })}
+                  label={t('CONTENT.PREVIEW.QUESTIONS_COUNT', { count: questionsList.length })}
                   size="small"
                   sx={{ backgroundColor: '#F3F4F6', fontWeight: 600, color: 'secondary.main' }}
                 />
                 <Chip
-                  label={t('CONTENT.PREVIEW.PASSING_MARK', { value: content.passMark || '70%' })}
+                  label={t('CONTENT.PREVIEW.PASSING_MARK', { mark: String(passMark ?? PASS_PERCENTAGE).replace(/%$/, '') })}
                   size="small"
                   sx={{ backgroundColor: BRAND.primarySoft, fontWeight: 600, color: 'primary.main' }}
                 />
                 <Chip
                   label={t('CONTENT.PREVIEW.TIME_LIMIT', {
-                    value: content.timeLimit || t('CONTENT.PREVIEW.DEFAULT_TIME_LIMIT'),
+                    limit: timeLimit || t('CONTENT.PREVIEW.DEFAULT_TIME_LIMIT'),
                   })}
                   size="small"
                   sx={{ backgroundColor: '#F3F4F6', color: '#4B5563' }}
@@ -474,7 +490,7 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
                   </Button>
                 }
               >
-                <strong>{t('CONTENT.PREVIEW.SCORE', scoreResult)}</strong>
+                <strong>{t('CONTENT.PREVIEW.SCORE', { score: scoreResult.percentage, correct: scoreResult.score, total: scoreResult.total })}</strong>
                 {' — '}
                 {hasPassed ? t('CONTENT.PREVIEW.PASSED') : t('CONTENT.PREVIEW.BELOW_PASS')}
               </Alert>
@@ -482,6 +498,16 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
 
             {/* Questions List */}
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              {loadingQuestions && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress size={28} />
+                </Box>
+              )}
+              {!loadingQuestions && questionsList.length === 0 && (
+                <Typography sx={{ fontSize: '13px', color: NEUTRAL.muted }}>
+                  {t('CONTENT.PREVIEW.NO_QUESTIONS', 'This assessment has no questions yet.')}
+                </Typography>
+              )}
               {questionsList.map((q, idx) => {
                 const selectedOptId = userAnswers[q.id];
 

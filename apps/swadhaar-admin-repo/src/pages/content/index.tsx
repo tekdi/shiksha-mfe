@@ -502,7 +502,7 @@ export default function ContentLibraryPage() {
         minWidth: 90,
         render: (row) => (
           <Typography variant="body2" sx={{ ...cellTextSx, fontWeight: 600 }}>
-            {row.questionsCount || 10}
+            {row.questionsCount ? row.questionsCount : '—'}
           </Typography>
         ),
       },
@@ -546,7 +546,7 @@ export default function ContentLibraryPage() {
         minWidth: 130,
         render: (row) => (
           <Typography variant="body2" sx={cellTextSx}>
-            {row.assignedTo || t('CONTENT.LIBRARY.N_GROUPS')}
+            {row.assignedTo || '—'}
           </Typography>
         ),
       },
@@ -572,6 +572,7 @@ export default function ContentLibraryPage() {
                   setPreviewContent({
                     ...row,
                     type: 'assessment',
+                    testId: row.identifier,
                   });
                 }}
                 sx={actionIconSx}

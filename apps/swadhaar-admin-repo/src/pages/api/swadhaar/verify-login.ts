@@ -27,6 +27,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     const verifyJson = await verifyResp.json().catch(() => ({}));
     if (!verifyResp.ok || verifyJson?.result?.success !== true) {
+      console.warn('[verify-login] verify-otp rejected', {
+        status: verifyResp.status,
+        errmsg: verifyJson?.params?.errmsg,
+        mobile,
+        reason,
+        hashExpiresAt: String(hash).split('.')[1],
+      });
       return res.status(401).json({
         verified: false,
         message: verifyJson?.params?.errmsg || 'Invalid or expired OTP',

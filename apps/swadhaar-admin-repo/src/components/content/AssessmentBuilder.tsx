@@ -27,7 +27,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import { getCourseHierarchy, getCourseList } from '@/services/CourseService';
+import { createModule, createTestLesson, getCourseHierarchy, getCourseList, getModuleList } from '@/services/CourseService';
 import AssessmentService from '@/services/AssessmentService';
 import { BankQuestion, fetchQuestionBank, mapBankQuestion } from '@/services/ContentLibraryService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
@@ -377,7 +377,7 @@ const createDefaultSection = async (testId: string): Promise<string> => {
 };
 
 /** Questions of GET /tests/:id/test-hierarchy, flattened across sections */
-const readHierarchyQuestions = (res: any): { questions: AssessmentQuestion[]; sectionId?: string } => {
+export const readHierarchyQuestions = (res: any): { questions: AssessmentQuestion[]; sectionId?: string } => {
   const root = res?.result?.test ?? res?.result ?? res;
   const sections: any[] = root?.sections || [];
   const raw: any[] = [
@@ -409,6 +409,10 @@ const readHierarchyQuestions = (res: any): { questions: AssessmentQuestion[]; se
 };
 
 /** Maps a loaded assessment name to the linked-course option shown in edit mode. */
+const FINAL_ASSESSMENT_MODULE = 'Final Assessment';
+const MAX_MODULE_TITLE_ATTEMPTS = 5;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const linkedContentFromName = (assessmentName?: string): string | null => {
   if (assessmentName?.includes('Course 0')) return 'Course 0 · Introduction to Swadhaar FinAccess';
   if (assessmentName?.includes('Course 1')) return 'Course 1 · Introduction to Saving';
@@ -434,13 +438,8 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
     'Let us now test your understanding of the concepts covered in this course.'
   );
 
-  // Questions state. The create page opens on a blank question, with the existing sample questions
-  // listed below it for reference.
-  const [questions, setQuestions] = useState<AssessmentQuestion[]>(() =>
-    isCreatePage
-      ? [createBlankQuestion(1), ...SAMPLE_QUESTIONS.map((q, idx) => ({ ...q, questionNumber: idx + 2 }))]
-      : [createBlankQuestion(1)]
-  );
+  // Questions state. Both the create and edit pages open on a single blank question.
+  const [questions, setQuestions] = useState<AssessmentQuestion[]>(() => [createBlankQuestion(1)]);
   // Section new questions are added to when editing, and the loaded state used to find changed questions
   const sectionIdRef = useRef<string | undefined>(undefined);
   const loadedSnapshots = useRef<Record<string, string>>({});
@@ -763,6 +762,54 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
     return sectionIdRef.current;
   };
 
+  // Module titles are unique per course, and a deleted module keeps its title. Reuse a module that
+  // already has the title, and when the title is still taken, create the module under a numbered title.
+  const createFinalAssessmentModule = async (courseId: string, ordering: number): Promise<string | undefined> => {
+    for (let attempt = 1; attempt <= MAX_MODULE_TITLE_ATTEMPTS; attempt++) {
+      const title = attempt === 1 ? FINAL_ASSESSMENT_MODULE : `${FINAL_ASSESSMENT_MODULE} ${attempt}`;
+      try {
+        const created = await createModule({
+          title,
+          alias: title.toLowerCase().replace(/\s+/g, '-'),
+          courseId,
+          description: '<p>End-of-course knowledge check</p>',
+          image: '/uploads/module/default.png',
+          ordering,
+          status: 'published',
+        });
+        return created?.result?.moduleId;
+      } catch (err: any) {
+        if (err?.response?.status !== 409) throw err;
+      }
+    }
+    return undefined;
+  };
+
+  // The course hierarchy only lists lessons module by module, so the test goes into a "Final Assessment" module
+  const addTestToCourse = async (courseId: string, testId: string) => {
+    const hierarchy = await getCourseHierarchy(courseId);
+    const modules = hierarchy?.children || [];
+    const isFinal = (title?: string) => title?.trim().toLowerCase() === FINAL_ASSESSMENT_MODULE.toLowerCase();
+    const existing = modules.find((m) => isFinal(m.name));
+    let moduleId: string | undefined = existing?.identifier;
+    if (!moduleId || !UUID_REGEX.test(moduleId)) {
+      const found = (await getModuleList(courseId, { query: FINAL_ASSESSMENT_MODULE, limit: 50 })).modules.find((m) =>
+        isFinal(m.title)
+      );
+      moduleId = found?.moduleId || (await createFinalAssessmentModule(courseId, modules.length + 1));
+    }
+    if (!moduleId) throw new Error('The Final Assessment module could not be created.');
+
+    await createTestLesson({
+      title: name.trim(),
+      description: description || undefined,
+      courseId,
+      moduleId,
+      mediaContentSource: testId,
+      ordering: (existing?.children?.length || 0) + 1,
+    });
+  };
+
   const saveNewAssessment = async () => {
     const testRes = await AssessmentService.createTest({
       ...buildTestSettings({ name, description, timeLimit, passMark, attempts, shuffle, showExplanations }),
@@ -782,6 +829,15 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
     await attachBankQuestions(testId, sectionId);
 
     await AssessmentService.updateTest(testId, { status: 'published' });
+
+    if (targetCourseId) {
+      try {
+        await addTestToCourse(targetCourseId, testId);
+      } catch (err: any) {
+        const reason = err?.response?.data?.params?.errmsg || err?.message || 'unknown error';
+        throw new Error(`The assessment was saved, but adding it to the course failed: ${reason}`);
+      }
+    }
   };
 
   // Loaded questions are patched only when edited; questions written here are created

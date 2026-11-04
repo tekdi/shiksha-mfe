@@ -34,6 +34,7 @@ import {
   CourseHierarchyChild,
   parseCourseName,
   updateCourseStatus,
+  deleteLmsLesson,
 } from '@/services/CourseService';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
@@ -193,6 +194,10 @@ export default function CourseDetailsPage() {
   // Native In-App Preview Modal State (No external player/workspace MFE)
   const [previewItem, setPreviewItem] = useState<PreviewContentData | null>(null);
 
+  // Lesson awaiting delete confirmation
+  const [lessonToDelete, setLessonToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deletingLesson, setDeletingLesson] = useState(false);
+
   // Toast Notifications
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastSeverity, setToastSeverity] = useState<'success' | 'info' | 'error'>('success');
@@ -340,6 +345,41 @@ export default function CourseDetailsPage() {
     } finally {
       setActionLoading(false);
       setActionType(null);
+    }
+  };
+
+  // Assessment lessons carry the test id (media.source); the preview modal loads the questions itself
+  const openLessonPreview = (unit: any, courseTitle: string) => {
+    setPreviewItem({
+      name: unit.name,
+      type: unit.format || unit.subFormat || 'video',
+      description: unit.description || `${courseTitle} · ${t('COURSES.DETAIL.LESSON')}`,
+      duration: formatMinutes(unit.idealTime),
+      totalMarks: unit.totalMarks,
+      passingMarks: unit.passingMarks,
+      testId: unit.format === 'test' ? unit.media?.source : undefined,
+    });
+  };
+
+  const handleConfirmDeleteLesson = async () => {
+    if (!lessonToDelete) return;
+    setDeletingLesson(true);
+    try {
+      await deleteLmsLesson(lessonToDelete.id, localStorage.getItem('userId') || '');
+      setSections((prev) =>
+        prev.map((s) => ({
+          ...s,
+          children: (s.children || []).filter((l: any) => (l.lessonId || l.identifier) !== lessonToDelete.id),
+        }))
+      );
+      setToastSeverity('success');
+      setToastMessage(t('COURSES.DETAIL.LESSON_DELETED', 'Lesson deleted'));
+      setLessonToDelete(null);
+    } catch (err: any) {
+      setToastSeverity('error');
+      setToastMessage(err?.response?.data?.params?.errmsg || err?.message || 'Failed to delete the lesson.');
+    } finally {
+      setDeletingLesson(false);
     }
   };
 
@@ -602,17 +642,7 @@ export default function CourseDetailsPage() {
                                 <IconButton
                                   size="small"
                                   aria-label={t('COURSES.DETAIL.PREVIEW_LESSON')}
-                                  onClick={() => {
-                                    setPreviewItem({
-                                      name: unit.name,
-                                      type: unit.format || unit.subFormat || 'video',
-                                      description:
-                                        unit.description || `${cleanTitle} · ${t('COURSES.DETAIL.LESSON')}`,
-                                      duration: formatMinutes(unit.idealTime),
-                                      totalMarks: unit.totalMarks,
-                                      passingMarks: unit.passingMarks,
-                                    });
-                                  }}
+                                  onClick={() => openLessonPreview(unit, cleanTitle)}
                                   sx={{
                                     color: NEUTRAL.muted,
                                     width: 28,
@@ -626,6 +656,23 @@ export default function CourseDetailsPage() {
                                   <VisibilityOutlinedIcon sx={{ fontSize: 16 }} />
                                 </IconButton>
                               </Tooltip>
+                              {unit.lessonId && (
+                                <Tooltip title={t('COMMON.DELETE')}>
+                                  <IconButton
+                                    size="small"
+                                    aria-label={t('COMMON.DELETE')}
+                                    onClick={() => setLessonToDelete({ id: unit.lessonId, name: unit.name })}
+                                    sx={{
+                                      color: '#BA1A1A',
+                                      width: 28,
+                                      height: 28,
+                                      '&:hover': { backgroundColor: '#FEE2E2' },
+                                    }}
+                                  >
+                                    <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </Tooltip>
+                              )}
                             </Box>
                           </Box>
                         ))}
@@ -914,6 +961,23 @@ export default function CourseDetailsPage() {
           </Box>
         </Grid>
       </Grid>
+
+      {/* Delete lesson confirmation */}
+      <CommonDialog
+        open={Boolean(lessonToDelete)}
+        onClose={() => !deletingLesson && setLessonToDelete(null)}
+        title={t('COMMON.CONFIRM_DELETE', 'Confirm Delete')}
+        onConfirm={handleConfirmDeleteLesson}
+        confirmLabel={t('COMMON.DELETE')}
+        loading={deletingLesson}
+        maxWidth="xs"
+      >
+        <Typography variant="body2">
+          {t('COURSES.DETAIL.DELETE_LESSON_CONFIRM', 'Delete the lesson "{{name}}"? This cannot be undone.', {
+            name: lessonToDelete?.name,
+          })}
+        </Typography>
+      </CommonDialog>
 
       {/* Edit Details Dialog */}
       <CommonDialog

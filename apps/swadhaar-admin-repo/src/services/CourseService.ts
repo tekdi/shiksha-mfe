@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
-import { get, getBlob, post, put, patch } from './RestClient';
+import { get, getBlob, post, put, patch, deleteApi } from './RestClient';
 import { getServiceHeaders } from '@/utils/API/serviceHeaders';
 
 export interface CourseItem {
@@ -807,6 +807,29 @@ export const createVideoLesson = async (
   return createLesson('video', 'youtube.url', 'createVideoLesson', payload, customHeaders);
 };
 
+export interface CreateTestLessonPayload {
+  title: string;
+  description?: string;
+  courseId: string;
+  moduleId: string;
+  /** testId of the assessment created in the assessment service */
+  mediaContentSource: string;
+  ordering?: number;
+  noOfAttempts?: number;
+  [key: string]: any;
+}
+
+/**
+ * Add an assessment (test) to a course as a lesson
+ * POST /lms-service/v1/lessons  { format: "test", mediaContentSource: testId, courseId, moduleId }
+ */
+export const createTestLesson = async (
+  payload: CreateTestLessonPayload,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  return createLesson('test', 'assessment', 'createTestLesson', { noOfAttempts: 1, ...payload }, customHeaders);
+};
+
 export interface CreateDocumentLessonPayload {
   title: string;
   description?: string;
@@ -911,6 +934,29 @@ export const updateLmsLesson = async (
     return response?.data;
   } catch (error) {
     console.error(`Error in CourseService.updateLmsLesson for ${lessonId}:`, error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a lesson
+ * DELETE /lms-service/v1/lessons/:lessonId?userId=:userId
+ */
+export const deleteLmsLesson = async (
+  lessonId: string,
+  userId: string,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const headers = getServiceHeaders(customHeaders);
+    const response = await deleteApi(
+      `${API_ENDPOINTS.lmsLessonById(lessonId)}`,
+      undefined,
+      headers
+    );
+    return response?.data;
+  } catch (error) {
+    console.error(`Error in CourseService.deleteLmsLesson for ${lessonId}:`, error);
     throw error;
   }
 };
