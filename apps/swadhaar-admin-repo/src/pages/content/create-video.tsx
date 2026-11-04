@@ -95,7 +95,7 @@ export default function CreateVideoPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [duration, setDuration] = useState('');
-  const [language, setLanguage] = useState('Hindi');
+  const [language, setLanguage] = useState('');
   const [sourceType, setSourceType] = useState<'link' | 'upload'>('link');
   const [videoUrl, setVideoUrl] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
@@ -201,7 +201,17 @@ export default function CreateVideoPage() {
     setSuccessMsg(isDraft ? `Video saved as draft.` : `Video created successfully.`);
   };
 
+  // Title, language and a video source (link or chosen file) are mandatory
+  const canSave =
+    Boolean(title.trim()) &&
+    Boolean(language) &&
+    (sourceType === 'link' ? Boolean(videoUrl.trim()) : Boolean(fileName || videoUrl.trim()));
+
   const handleSave = async (isDraft = false) => {
+    if (!language) {
+      setError('Language is required.');
+      return;
+    }
     const validationError = getValidationError(title, sourceType, videoUrl);
     if (validationError) {
       setError(validationError);
@@ -255,6 +265,7 @@ export default function CreateVideoPage() {
         onCancel={() => router.push('/content?tab=videos')}
         onSaveDraft={() => handleSave(true)}
         onSave={() => handleSave(false)}
+        saveDisabled={!canSave}
       />
 
       <FormAlerts

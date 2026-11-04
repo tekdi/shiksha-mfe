@@ -61,6 +61,8 @@ interface ContentFormHeaderProps {
   /** When omitted, the "Save as draft" button is not shown. */
   onSaveDraft?: () => void;
   saveDraftLabel?: string;
+  /** Disables both save buttons until the mandatory fields are filled. */
+  saveDisabled?: boolean;
 }
 
 export const ContentFormHeader: React.FC<ContentFormHeaderProps> = ({
@@ -72,6 +74,7 @@ export const ContentFormHeader: React.FC<ContentFormHeaderProps> = ({
   onSave,
   onSaveDraft,
   saveDraftLabel = 'Save as draft',
+  saveDisabled = false,
 }) => (
   <>
     {/* Breadcrumb Navigation */}
@@ -121,6 +124,7 @@ export const ContentFormHeader: React.FC<ContentFormHeaderProps> = ({
           <Button
             variant="outlined"
             onClick={onSaveDraft}
+            disabled={saveDisabled}
             sx={{
               ...SECONDARY_BUTTON_SX,
               '&:hover': { backgroundColor: '#FDF3E9', borderColor: '#E6873C', color: '#E6873C' },
@@ -133,6 +137,7 @@ export const ContentFormHeader: React.FC<ContentFormHeaderProps> = ({
         <Button
           variant="contained"
           onClick={onSave}
+          disabled={saveDisabled}
           sx={{
             backgroundColor: '#E6873C',
             color: '#FFFFFF',
@@ -280,6 +285,8 @@ export const LanguageSelect: React.FC<LanguageSelectProps> = ({ value, onChange 
     <FormControl size="small" fullWidth>
       <Select
         value={value}
+        displayEmpty
+        renderValue={(selected) => (selected ? String(selected) : <span style={{ color: '#9CA3AF' }}>Select language</span>)}
         onChange={(e) => onChange(e.target.value)}
         sx={{
           borderRadius: '6px',

@@ -430,7 +430,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
   const isNew = isCreatePage || assessmentId === 'new';
 
   // Details
-  const [name, setName] = useState('Course 1 Assessment – Introduction to Saving');
+  const [name, setName] = useState('');
   const [linkedContent, setLinkedContent] = useState('Course 1 · Introduction to Saving');
   const [linkedOptions, setLinkedOptions] = useState<string[]>(EDIT_LINKED_OPTIONS);
   const [timeLimit, setTimeLimit] = useState('');
@@ -873,6 +873,9 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
     }
   };
 
+  // The name and at least one question with text are mandatory
+  const canSave = Boolean(name.trim()) && questions.some((q) => q.prompt.trim());
+
   const handleSave = async () => {
     if (!name.trim()) {
       setError('Assessment name is required.');
@@ -927,6 +930,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
         onSaveDraft={handleSave}
         saveDraftLabel="Save"
         onSave={handleSave}
+        saveDisabled={!canSave}
       />
 
       <FormAlerts
