@@ -27,7 +27,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
-import { createModule, createTestLesson, getCourseHierarchy, getCourseList } from '@/services/CourseService';
+import { createModule, createTestLesson, getCourseHierarchy, getCourseList, getModuleList } from '@/services/CourseService';
 import AssessmentService from '@/services/AssessmentService';
 import { BankQuestion, fetchQuestionBank, mapBankQuestion } from '@/services/ContentLibraryService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
@@ -410,6 +410,7 @@ export const readHierarchyQuestions = (res: any): { questions: AssessmentQuestio
 
 /** Maps a loaded assessment name to the linked-course option shown in edit mode. */
 const FINAL_ASSESSMENT_MODULE = 'Final Assessment';
+const MAX_MODULE_TITLE_ATTEMPTS = 5;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const linkedContentFromName = (assessmentName?: string): string | null => {
@@ -761,23 +762,41 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
     return sectionIdRef.current;
   };
 
+  // Module titles are unique per course, and a deleted module keeps its title. Reuse a module that
+  // already has the title, and when the title is still taken, create the module under a numbered title.
+  const createFinalAssessmentModule = async (courseId: string, ordering: number): Promise<string | undefined> => {
+    for (let attempt = 1; attempt <= MAX_MODULE_TITLE_ATTEMPTS; attempt++) {
+      const title = attempt === 1 ? FINAL_ASSESSMENT_MODULE : `${FINAL_ASSESSMENT_MODULE} ${attempt}`;
+      try {
+        const created = await createModule({
+          title,
+          alias: title.toLowerCase().replace(/\s+/g, '-'),
+          courseId,
+          description: '<p>End-of-course knowledge check</p>',
+          image: '/uploads/module/default.png',
+          ordering,
+          status: 'published',
+        });
+        return created?.result?.moduleId;
+      } catch (err: any) {
+        if (err?.response?.status !== 409) throw err;
+      }
+    }
+    return undefined;
+  };
+
   // The course hierarchy only lists lessons module by module, so the test goes into a "Final Assessment" module
   const addTestToCourse = async (courseId: string, testId: string) => {
     const hierarchy = await getCourseHierarchy(courseId);
     const modules = hierarchy?.children || [];
-    const existing = modules.find((m) => m.name?.trim().toLowerCase() === FINAL_ASSESSMENT_MODULE.toLowerCase());
+    const isFinal = (title?: string) => title?.trim().toLowerCase() === FINAL_ASSESSMENT_MODULE.toLowerCase();
+    const existing = modules.find((m) => isFinal(m.name));
     let moduleId: string | undefined = existing?.identifier;
     if (!moduleId || !UUID_REGEX.test(moduleId)) {
-      const created = await createModule({
-        title: FINAL_ASSESSMENT_MODULE,
-        alias: 'final-assessment',
-        courseId,
-        description: '<p>End-of-course knowledge check</p>',
-        image: '/uploads/module/default.png',
-        ordering: modules.length + 1,
-        status: 'published',
-      });
-      moduleId = created?.result?.moduleId;
+      const found = (await getModuleList(courseId, { query: FINAL_ASSESSMENT_MODULE, limit: 50 })).modules.find((m) =>
+        isFinal(m.title)
+      );
+      moduleId = found?.moduleId || (await createFinalAssessmentModule(courseId, modules.length + 1));
     }
     if (!moduleId) throw new Error('The Final Assessment module could not be created.');
 
