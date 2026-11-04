@@ -1196,6 +1196,9 @@
       "SAVE": "Save Video Lesson"
     },
     "PREVIEW": {
+      "SUBTITLE_VIDEO": "Video preview",
+      "SUBTITLE_PDF": "Document preview",
+      "SUBTITLE_ASSESSMENT": "Assessment preview",
       "DEFAULT_TITLE": "Content Preview",
       "DEFAULT_TIME_LIMIT": "No time limit",
       "TIME": "{{value}} min",
@@ -1208,8 +1211,8 @@
       "TIME_LIMIT": "Time Limit: {{limit}}",
       "PASSING_MARK": "Passing: {{mark}}%",
       "QUESTION_N": "Question {{n}}",
-      "CORRECT_ANSWER": "Correct Answer: {{answer}}",
-      "EXPLANATION": "Explanation: {{text}}",
+      "CORRECT_ANSWER": "Correct Answer",
+      "EXPLANATION": "Explanation",
       "SCORE": "Your Score: {{score}}% ({{correct}}/{{total}} correct)",
       "PASSED": "Congratulations! You passed this assessment.",
       "BELOW_PASS": "You did not achieve the passing score. Please review the material and try again.",

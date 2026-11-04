@@ -48,12 +48,12 @@ export const checkAdminUserExistence = async (
  * Step 2: Send OTP to mobile number
  */
 export const sendOTP = async (
-  mobile: string,
+  whatsapp: string,
   reason: string = OTP_REASON
 ): Promise<any> => {
   const apiUrl = API_ENDPOINTS.sendOTP;
   try {
-    const response = await post(apiUrl, { mobile, reason }, { tenantid: getStoredTenantId() });
+    const response = await post(apiUrl, { whatsapp, reason }, { tenantid: getStoredTenantId() });
     return response?.data;
   } catch (error) {
     console.error('Error in sendOTP:', error);

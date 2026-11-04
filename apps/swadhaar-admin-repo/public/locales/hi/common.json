@@ -1102,6 +1102,9 @@
       "SAVE": "वीडियो पाठ सहेजें"
     },
     "PREVIEW": {
+      "SUBTITLE_VIDEO": "वीडियो पूर्वावलोकन",
+      "SUBTITLE_PDF": "दस्तावेज़ पूर्वावलोकन",
+      "SUBTITLE_ASSESSMENT": "मूल्यांकन पूर्वावलोकन",
       "DEFAULT_TITLE": "सामग्री पूर्वावलोकन",
       "DEFAULT_TIME_LIMIT": "कोई समय सीमा नहीं",
       "TIME": "{{value}} मिनट",
@@ -1114,8 +1117,8 @@
       "TIME_LIMIT": "समय सीमा: {{limit}}",
       "PASSING_MARK": "उत्तीर्ण: {{mark}}%",
       "QUESTION_N": "प्रश्न {{n}}",
-      "CORRECT_ANSWER": "सही उत्तर: {{answer}}",
-      "EXPLANATION": "स्पष्टीकरण: {{text}}",
+      "CORRECT_ANSWER": "सही उत्तर",
+      "EXPLANATION": "स्पष्टीकरण",
       "SCORE": "आपका स्कोर: {{score}}% ({{correct}}/{{total}} सही)",
       "PASSED": "बधाई हो! आपने यह मूल्यांकन उत्तीर्ण कर लिया है।",
       "BELOW_PASS": "आपने उत्तीर्ण अंक प्राप्त नहीं किए। कृपया सामग्री की समीक्षा करें और पुनः प्रयास करें।",

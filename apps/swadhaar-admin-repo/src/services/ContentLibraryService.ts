@@ -213,7 +213,6 @@ const mapTestToAssessmentItem = (t: any): ContentItem => {
     passMark: t.passingMarks ? `${t.passingMarks}%` : '—',
     attempts: t.attempts ? String(t.attempts) : 'Unlimited',
     timeLimit: minutes ? `${minutes} min` : '—',
-    assignedTo: 'All Learners',
     linkedTo: getCourseLabel(title, 'None'),
     createdOn: t.createdAt,
     lastUpdatedOn: t.updatedAt,
