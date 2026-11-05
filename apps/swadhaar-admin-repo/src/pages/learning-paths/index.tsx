@@ -70,9 +70,14 @@ export default function LearningPathsListPage() {
       ]);
       // A course belongs to a path through its params.pathwayId (the pathway's own total_items counts videos/resources)
       const courseCounts = new Map<string, number>();
+      const cohortIds = new Map<string, Set<string>>();
       courses.forEach((course) => {
         const pathwayId = course.params?.pathwayId;
-        if (pathwayId) courseCounts.set(pathwayId, (courseCounts.get(pathwayId) || 0) + 1);
+        if (!pathwayId) return;
+        courseCounts.set(pathwayId, (courseCounts.get(pathwayId) || 0) + 1);
+        const enrolled = cohortIds.get(pathwayId) || new Set<string>();
+        (course.params?.enrolledCohortIds || []).forEach((id: string) => enrolled.add(id));
+        cohortIds.set(pathwayId, enrolled);
       });
       setLearningPaths(
         pathways.map((p) => {
@@ -83,7 +88,7 @@ export default function LearningPathsListPage() {
             codeRange: count > 0 ? t('LEARNING_PATHS.COURSES_RANGE', { from: 0, to: count - 1 }) : p.key,
             steps: t('LEARNING_PATHS.STEPS_COURSES_ASSESSMENTS', { n: count }),
             coursesCount: count,
-            enrolled: NO_VALUE,
+            enrolled: cohortIds.get(p.id)?.size ? `${cohortIds.get(p.id)?.size} cohorts` : NO_VALUE,
             startDate: NO_VALUE,
             endDate: NO_VALUE,
             certificate: NO_VALUE,
@@ -109,10 +114,12 @@ export default function LearningPathsListPage() {
   };
 
   const handleEnrolSuccess = (count: number, type: 'groups' | 'users') => {
-    const enrolled =
-      type === 'groups'
-        ? `${count} cohorts`
-        : `${count} individual users`;
+    if (type === 'groups') {
+      // The saved list of enrolled groups is the source for the column
+      fetchLearningPaths();
+      return;
+    }
+    const enrolled = `${count} individual users`;
     setLearningPaths((prev) =>
       prev.map((item) => (item.id === activePath?.id ? { ...item, enrolled } : item))
     );
@@ -175,17 +182,17 @@ export default function LearningPathsListPage() {
           </Typography>
         ),
       },
-      {
-        id: 'dates',
-        label: t('LEARNING_PATHS.COL_START_END'),
-        labelKey: 'LEARNING_PATHS.COL_START_END',
-        minWidth: 160,
-        render: (row) => (
-          <Typography variant="body2" sx={{ color: NEUTRAL.muted, fontSize: '13px' }}>
-            {row.startDate} – {row.endDate}
-          </Typography>
-        ),
-      },
+      // {
+      //   id: 'dates',
+      //   label: t('LEARNING_PATHS.COL_START_END'),
+      //   labelKey: 'LEARNING_PATHS.COL_START_END',
+      //   minWidth: 160,
+      //   render: (row) => (
+      //     <Typography variant="body2" sx={{ color: NEUTRAL.muted, fontSize: '13px' }}>
+      //       {row.startDate} – {row.endDate}
+      //     </Typography>
+      //   ),
+      // },
       {
         id: 'certificate',
         label: t('LEARNING_PATHS.COL_CERTIFICATE'),

@@ -13,6 +13,7 @@ import CreateUserModal from '@/components/common/CreateUserModal';
 import CommonButton from '@/components/common/CommonButton';
 import CommonDialog from '@/components/common/CommonDialog';
 import PageHeader from '@/components/common/PageHeader';
+import { NEUTRAL } from '@/styles/customTheme';
 import { blockUser, deleteUser, getTenantRoles, listUsersByRoles, unblockUser } from '@/services/UserService';
 import { apiErrorMessage } from '@/utils/concurrency';
 import { SWADHAAR_FIELD_IDS } from '@/utils/userPayloadBuilder';
@@ -310,6 +311,11 @@ export default function UsersPage() {
         sort: ['createdAt', 'desc'],
       };
       if (debouncedSearch) applySearchFilters(payload.filters, debouncedSearch);
+      // Location filters use the field option values: states, city (district) and block
+      const hasValue = (v?: string): v is string => Boolean(v) && v !== 'all';
+      if (hasValue(filters.state)) payload.filters.states = filters.state;
+      if (hasValue(filters.district)) payload.filters.city = filters.district;
+      if (hasValue(filters.block || filters.branch)) payload.filters.block = filters.block || filters.branch;
 
       // A chosen role filters by its title (one role at a time); otherwise role "all" lists every role
       const chosenRole = filters.role && filters.role !== 'all' ? filters.role : '';
@@ -340,7 +346,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage, page, filters.role, filters.status, debouncedSearch]);
+  }, [rowsPerPage, page, filters.role, filters.status, filters.state, filters.district, filters.block, filters.branch, debouncedSearch]);
 
   useEffect(() => {
     fetchUsers();
@@ -466,13 +472,14 @@ export default function UsersPage() {
           >
             <Typography
               sx={{
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: 600,
-                color: 'primary.main',
+                color: NEUTRAL.ink,
                 whiteSpace: 'nowrap',
+                transition: 'color 0.2s',
                 '&:hover': {
                   textDecoration: 'underline',
-                  color: 'primary.dark',
+                  color: 'primary.main',
                 },
               }}
             >
@@ -480,6 +487,12 @@ export default function UsersPage() {
             </Typography>
           </Box>
         ),
+      },
+      {
+        id: 'phone',
+        label: t('USERS.LIST.COL_PHONE'),
+        labelKey: 'USERS.LIST.COL_PHONE',
+        render: (row) => <Typography sx={CELL_TEXT_SX}>{row.phone || '-'}</Typography>,
       },
       {
         id: 'email',
@@ -527,19 +540,14 @@ export default function UsersPage() {
         render: (row) => <Typography sx={CELL_TEXT_SX}>{row.branch}</Typography>,
       },
       {
-        id: 'program',
-        label: t('USERS.LIST.COL_PROGRAM'),
-        labelKey: 'USERS.LIST.COL_PROGRAM',
-        render: (row) => <Typography sx={CELL_TEXT_SX}>{row.program}</Typography>,
-      },
-      {
         id: 'status',
         label: t('USERS.LIST.COL_STATUS'),
         labelKey: 'USERS.LIST.COL_STATUS',
         render: (row) => {
           const isBlocked =
             blockedUserIds.has(row.userId) || isBlockedStatus(row.status);
-          const effectiveStatus = isBlocked ? STATUS_BLOCKED : row.status;
+          // Archived (blocked) users are inactive, which is the status the API holds for them
+          const effectiveStatus = isBlocked ? 'inactive' : row.status;
 
           return (
             <Chip
@@ -631,27 +639,6 @@ export default function UsersPage() {
         }}
       />
 
-      {/* 3. Subtitle Row with Count */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 1.5,
-          px: 0.5,
-          flexWrap: 'wrap',
-          gap: 1,
-        }}
-      >
-        <Typography variant="body2" sx={{ color: '#4B5563', fontSize: '13px', fontWeight: 500 }}>
-          {t('USERS.LIST.SHOWING_USERS', {
-            from: totalCount > 0 ? page * rowsPerPage + 1 : 0,
-            to: Math.min((page + 1) * rowsPerPage, totalCount),
-            total: totalCount,
-          })}
-        </Typography>
-      </Box>
-
       {/* 4. Common Table Component: SwadhaarDataTable */}
       <SwadhaarDataTable<UserRowItem>
         columns={columns}
@@ -707,9 +694,6 @@ export default function UsersPage() {
             {t('USERS.LIST.BLOCK')}
           </MenuItem>
         )}
-        <MenuItem onClick={() => openActionDialog('delete')} sx={{ ...MENU_ITEM_SX, color: '#DC2626' }}>
-          {t('COMMON.DELETE')}
-        </MenuItem>
       </Menu>
 
       {/* 6. Create User Modal */}

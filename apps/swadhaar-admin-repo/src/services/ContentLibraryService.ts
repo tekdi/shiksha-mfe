@@ -252,7 +252,8 @@ const mapLessonToContentItem = (lesson: LessonItem): ContentItem => {
   return {
     ...base,
     detectedLanguage: detectLanguage(lesson.title || '', language),
-    formattedDuration: formatDurationString(base),
+    // Duration (videos) and reading time (PDFs) are saved as idealTime in minutes
+    formattedDuration: lesson.idealTime ? `${lesson.idealTime} min` : formatDurationString(base),
     source,
     usedIn: inferCourseUsage({ ...base, usedIn: lesson.courseTitle }),
   };
@@ -274,7 +275,24 @@ export const searchContentLibrary = async (
         offset: params.offset ?? 0,
       });
       const { tests, count } = readTestList(res);
-      return { count, content: tests.map(mapTestToAssessmentItem) };
+      const items = tests.map(mapTestToAssessmentItem);
+      // The test list carries no question count, so it is read from each test's hierarchy
+      await Promise.all(
+        items.map(async (item) => {
+          try {
+            const hierarchy = await AssessmentService.getTestHierarchy(item.identifier);
+            const root = hierarchy?.result?.test ?? hierarchy?.result ?? hierarchy;
+            const inSections = (root?.sections || []).reduce(
+              (sum: number, sec: any) => sum + (sec.questions?.length || 0),
+              0
+            );
+            item.questionsCount = inSections + (root?.questions?.length || 0);
+          } catch (error) {
+            console.error('Could not read question count for', item.identifier, error);
+          }
+        })
+      );
+      return { count, content: items };
     }
 
     if (params.tab === 'videos' || params.tab === 'pdfs') {

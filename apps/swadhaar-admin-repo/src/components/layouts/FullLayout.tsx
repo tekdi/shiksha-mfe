@@ -7,7 +7,7 @@ import Footer from './footer/Footer';
 
 const MainWrapper = styled('div')(({ theme }) => ({
   display: 'flex',
-  minHeight: '100vh',
+  height: '100vh',
   overflow: 'hidden',
   width: '100%',
   backgroundColor: theme.palette.background.default,
@@ -20,6 +20,9 @@ const PageWrapper = styled('div')(({ theme }) => ({
   overflow: 'hidden',
   backgroundColor: theme.palette.background.default,
   paddingTop: '64px',
+  minWidth: 0,
+  height: '100vh',
+  boxSizing: 'border-box',
 }));
 
 export const FullLayout = ({ children }: { children: React.ReactNode }) => {
@@ -40,21 +43,23 @@ export const FullLayout = ({ children }: { children: React.ReactNode }) => {
         onSidebarClose={() => setMobileSidebarOpen(false)}
       />
       <PageWrapper>
-        <Container
-          maxWidth={false}
-          sx={{
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            paddingLeft: isSidebarOpen && lgUp ? '280px !important' : '20px !important',
-            paddingRight: '20px !important',
-            py: 3,
-            backgroundColor: 'background.default',
-          }}
-        >
-          <Box sx={{ flex: 1 }}>{children}</Box>
+        {/* Only this area scrolls; header, side menu and footer stay in place */}
+        <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden' }}>
+          <Container
+            maxWidth={false}
+            sx={{
+              paddingLeft: isSidebarOpen && lgUp ? '280px !important' : '20px !important',
+              paddingRight: '20px !important',
+              py: 3,
+              backgroundColor: 'background.default',
+            }}
+          >
+            {children}
+          </Container>
+        </Box>
+        <Box sx={{ pl: isSidebarOpen && lgUp ? '260px' : 0, flexShrink: 0, backgroundColor: 'background.paper' }}>
           <Footer />
-        </Container>
+        </Box>
       </PageWrapper>
     </MainWrapper>
   );

@@ -122,9 +122,6 @@ export default function QuestionBankTable() {
           }}
           sx={{ width: 320, backgroundColor: 'background.paper' }}
         />
-        <Typography variant="body2" sx={{ color: NEUTRAL.muted, fontSize: '13px' }}>
-          Showing {rows.length} of {total} questions
-        </Typography>
       </Box>
       <SwadhaarDataTable<BankQuestion>
         columns={columns}

@@ -71,6 +71,8 @@ const DEFAULT_FILTERS: SDBVFilterValues = {
   role: 'all',
 };
 
+const DESCRIPTION_MAX_LENGTH = 500;
+
 /** The add-members list opens on Trainer users; the Role filter can switch to another role or all roles */
 const ADD_MEMBERS_DEFAULT_FILTERS: SDBVFilterValues = { ...DEFAULT_FILTERS, role: 'Trainer' };
 
@@ -663,10 +665,6 @@ export default function CreateCohortPage() {
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
                 Beneficiaries & Learners
               </Typography>
-              <Typography sx={{ fontSize: '12.5px', color: '#6B7280' }}>
-                Showing {totalCount > 0 ? page * rowsPerPage + 1 : 0}–
-                {Math.min((page + 1) * rowsPerPage, totalCount)} of {totalCount} users
-              </Typography>
             </Box>
 
             <TableContainer sx={{ minHeight: 340 }}>
@@ -812,8 +810,15 @@ export default function CreateCohortPage() {
                   id="create-cohort-description"
                   label="Description"
                   value={groupDescription}
-                  onChange={(e) => setGroupDescription(e.target.value)}
+                  onChange={(e) => setGroupDescription(e.target.value.slice(0, DESCRIPTION_MAX_LENGTH))}
                   placeholder="Optional notes or batch objectives..."
+                  inputProps={{ maxLength: DESCRIPTION_MAX_LENGTH }}
+                  error={groupDescription.length >= DESCRIPTION_MAX_LENGTH}
+                  helperText={
+                    groupDescription.length >= DESCRIPTION_MAX_LENGTH
+                      ? `Description cannot exceed ${DESCRIPTION_MAX_LENGTH} characters.`
+                      : `${groupDescription.length}/${DESCRIPTION_MAX_LENGTH}`
+                  }
                   multiline
                   rows={2}
                 />
@@ -825,7 +830,7 @@ export default function CreateCohortPage() {
                   onChange={(val) => setGroupStatus(val)}
                   options={[
                     { value: 'active', label: 'Active' },
-                    { value: 'draft', label: 'Draft' },
+                    { value: 'inactive', label: 'Inactive' },
                   ]}
                 />
               </Box>

@@ -1,3 +1,5 @@
+import { resolveMediaUrl } from '@/utils/API/APIEndpoints';
+import { minutesFieldError } from '@/utils/minutesInput';
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import {
@@ -202,7 +204,9 @@ export default function CreateVideoPage() {
   };
 
   // Title, language and a video source (link or chosen file) are mandatory
+  const durationError = minutesFieldError(duration, true);
   const canSave =
+    !durationError &&
     Boolean(title.trim()) &&
     Boolean(language) &&
     (sourceType === 'link' ? Boolean(videoUrl.trim()) : Boolean(fileName || videoUrl.trim()));
@@ -292,7 +296,7 @@ export default function CreateVideoPage() {
               {/* Duration and Language */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <LabeledTextField label="Duration" value={duration} onChange={setDuration} placeholder="e.g. 1:43 or 45 min" hint="Shown to learners, as in the course document" />
+                  <LabeledTextField label="Duration" value={duration} onChange={setDuration} error={durationError} placeholder="e.g. 1:43 or 45 min" hint="Shown to learners, as in the course document" />
                 </Grid>
 
                 <Grid item xs={12} sm={6}>
@@ -387,7 +391,7 @@ export default function CreateVideoPage() {
               <FormCardHeader title="Preview" />
 
               <Box sx={{ p: 2 }}>
-                {sourceType === 'link' && videoUrl.includes('youtube') ? (
+                {isYoutubeUrl(videoUrl) ? (
                   <Box
                     sx={{
                       position: 'relative',
@@ -413,6 +417,13 @@ export default function CreateVideoPage() {
                       allowFullScreen
                     />
                   </Box>
+                ) : videoUrl.trim() ? (
+                  <Box
+                    component="video"
+                    controls
+                    src={resolveMediaUrl(videoUrl.trim()) || videoUrl.trim()}
+                    sx={{ width: '100%', aspectRatio: '16/9', borderRadius: '6px', backgroundColor: '#1F1E1C' }}
+                  />
                 ) : (
                   <Box
                     sx={{

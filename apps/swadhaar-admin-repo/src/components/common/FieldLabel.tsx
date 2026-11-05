@@ -1,6 +1,7 @@
 import React from 'react';
 import { Typography } from '@mui/material';
 import { NEUTRAL } from '@/styles/customTheme';
+import { renderRequiredLabel } from './RequiredLabel';
 
 interface FieldLabelProps {
   label: React.ReactNode;
@@ -15,8 +16,7 @@ const FieldLabel: React.FC<FieldLabelProps> = ({ label, required = false, htmlFo
     htmlFor={htmlFor}
     sx={{ display: 'block', fontSize: '13px', fontWeight: 600, color: NEUTRAL.ink, mb: 0.6 }}
   >
-    {label}
-    {required && ' *'}
+    {renderRequiredLabel(label, required)}
   </Typography>
 );
 

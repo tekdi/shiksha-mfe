@@ -1,3 +1,4 @@
+import { isValidMinutes, sanitizeMinutes, MINUTES_ERROR, MINUTES_MAX_DIGITS } from '@/utils/minutesInput';
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/router';
 import {
@@ -874,7 +875,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
   };
 
   // The name and at least one question with text are mandatory
-  const canSave = Boolean(name.trim()) && questions.some((q) => q.prompt.trim());
+  const canSave = Boolean(name.trim()) && questions.some((q) => q.prompt.trim()) && isValidMinutes(timeLimit);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -991,7 +992,9 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                   <LabeledTextField
                     label="Time limit (min)"
                     value={timeLimit}
-                    onChange={setTimeLimit}
+                    onChange={(v) => setTimeLimit(sanitizeMinutes(v))}
+                    numeric={{ maxLength: MINUTES_MAX_DIGITS }}
+                    error={isValidMinutes(timeLimit) ? undefined : MINUTES_ERROR}
                     placeholder="e.g. 15"
                   />
                 </Grid>
@@ -1226,7 +1229,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                   {/* Row 2: Question * */}
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
                     <Typography component="label" sx={{ fontSize: '13px', fontWeight: 600, color: '#1F1E1C' }}>
-                      Question *
+                      Question<span style={{ color: "#D92D20" }}> *</span>
                     </Typography>
                     <TextField
                       fullWidth
@@ -1443,21 +1446,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             {/* Card 1: Rules (BRD §8.2) */}
             <Paper elevation={0} sx={CARD_SX}>
-              <Box
-                sx={{
-                  px: 2.5,
-                  py: 1.8,
-                  borderBottom: '1px solid #ECEAE5',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#1F1E1C' }}>Rules</Typography>
-                <Box component="span" sx={BRD_TAG_SX}>
-                  BRD §8.2
-                </Box>
-              </Box>
+
 
               <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
@@ -1498,7 +1487,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                   </FormControl>
                 </Box>
 
-                <FormControlLabel
+                {/* <FormControlLabel
                   control={
                     <Checkbox
                       checked={shuffle}
@@ -1526,27 +1515,13 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                       Show correct answers after submission
                     </Typography>
                   }
-                />
+                /> */}
               </Box>
             </Paper>
 
             {/* Card 2: Assign to (BRD §8.2) */}
             <Paper elevation={0} sx={CARD_SX}>
-              <Box
-                sx={{
-                  px: 2.5,
-                  py: 1.8,
-                  borderBottom: '1px solid #ECEAE5',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#1F1E1C' }}>Assign to</Typography>
-                <Box component="span" sx={BRD_TAG_SX}>
-                  BRD §8.2
-                </Box>
-              </Box>
+
 
               <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.2, fontSize: '14px' }}>
                 {assignedGroups.map((grp) => (
@@ -1577,7 +1552,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
             </Paper>
 
             {/* Card 3: Notifications (BRD §8.3) */}
-            <Paper elevation={0} sx={CARD_SX}>
+            {/* <Paper elevation={0} sx={CARD_SX}>
               <Box
                 sx={{
                   px: 2.5,
@@ -1625,7 +1600,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                   }
                 />
               </Box>
-            </Paper>
+            </Paper> */}
           </Box>
         </Grid>
       </Grid>

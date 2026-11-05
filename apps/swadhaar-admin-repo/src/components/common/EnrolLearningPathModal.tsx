@@ -31,6 +31,7 @@ import {
   assignPathwayToUser,
   enrolLearnerInCourses,
   getPathwayCourseIds,
+  addPathwayCohorts,
 } from '@/services/PathwayService';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
@@ -120,6 +121,8 @@ const enrolGroups = async (pathwayId: string, groupIds: string[], courseIds?: st
     const reason = firstError ? `: ${firstError}` : '';
     throw new Error(`${failed} of ${learnerIds.length} learner(s) could not be enrolled${reason}`);
   }
+  // Remember the groups so the learning path list can show them in the Enrolled column
+  await addPathwayCohorts(courses, groupIds).catch((err) => console.error('Could not record enrolled groups:', err));
 };
 
 export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({

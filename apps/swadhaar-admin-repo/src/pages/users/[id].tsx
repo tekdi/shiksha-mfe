@@ -23,9 +23,17 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import RemoveCircleOutlineOutlinedIcon from '@mui/icons-material/RemoveCircleOutlineOutlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
-import { apiErrorMessage } from '@/utils/concurrency';
+import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { getUserDetailsInfo, blockUser, unblockUser, deleteUser } from '@/services/UserService';
 import CreateUserModal from '@/components/common/CreateUserModal';
+import { readUserLocation, resolveLocationLabels, UserLocation } from '@/utils/userLocation';
+import { AddToGroupDialog, AddReviewUsersDialog, UserGroup, ReviewUser } from '@/components/common/UserGroupDialogs';
+import {
+  bulkCreateCohortMembers,
+  getCohortMemberListApplication,
+  getCohortSearch,
+  getMemberRows,
+} from '@/services/CohortService';
 
 const EMPTY_PARSED_USER = {
   fullName: '-',
@@ -37,6 +45,9 @@ const EMPTY_PARSED_USER = {
   state: '-',
   district: '-',
   branch: '-',
+  stateValue: '',
+  districtValue: '',
+  blockValue: '',
   program: '-',
   role: 'Student',
   status: 'active',
@@ -117,16 +128,21 @@ const parseUserDetails = (userData: any) => {
     getCustomFields(userData)
   );
 
+  const stored = readUserLocation(userData);
+
   return {
+    stateValue: stored.state,
+    districtValue: stored.district,
+    blockValue: stored.block,
     fullName,
     initials: getInitials(fn, ln, userData.username),
     email: userData.email || userData.username || '-',
     phone: userData.mobile || userData.phone || '-',
     empId: userData.employeeId || (isPhoneUsername ? '-' : userData.username),
     gender,
-    state: location.state || userData.currentCountry || userData.country || '-',
-    district: location.district || '-',
-    branch: location.branch || '-',
+    state: stored.state || location.state || userData.currentCountry || userData.country || '-',
+    district: stored.district || location.district || '-',
+    branch: stored.block || location.branch || '-',
     program: location.program || role,
     role,
     status: (userData.status || 'active').toLowerCase(),
@@ -144,9 +160,10 @@ const toEditInitialData = (userId: string, parsedUser: typeof EMPTY_PARSED_USER)
   employeeId: dashToEmpty(parsedUser.empId),
   gender: dashToEmpty(parsedUser.gender),
   role: parsedUser.role,
-  state: dashToEmpty(parsedUser.state),
-  district: dashToEmpty(parsedUser.district),
-  branch: dashToEmpty(parsedUser.branch),
+  // The stored option values (ids), so the edit dialog can select them in its state, district and block lists
+  state: parsedUser.stateValue || dashToEmpty(parsedUser.state),
+  district: parsedUser.districtValue || dashToEmpty(parsedUser.district),
+  branch: parsedUser.blockValue || dashToEmpty(parsedUser.branch),
   program: dashToEmpty(parsedUser.program),
   status: parsedUser.status,
 });
@@ -295,20 +312,100 @@ export default function UserDetailsPage() {
   }, [userId, fetchUserDetails]);
 
   // Extract parsed fields from userData
-  const parsedUser = useMemo(() => parseUserDetails(userData), [userData]);
+  const baseParsedUser = useMemo(() => parseUserDetails(userData), [userData]);
 
-  const userCohorts = useMemo(() => {
-    if (!userData) return [];
-    if (Array.isArray(userData.cohorts)) return userData.cohorts;
-    if (Array.isArray(userData.cohortData)) return userData.cohortData;
-    return [];
-  }, [userData]);
+  // The record stores option ids (e.g. state "4"); show their names
+  const [locationNames, setLocationNames] = useState<UserLocation | null>(null);
+  useEffect(() => {
+    setLocationNames(null);
+    const { stateValue, districtValue, blockValue } = baseParsedUser;
+    if (!stateValue) return;
+    let cancelled = false;
+    resolveLocationLabels({ state: stateValue, district: districtValue, block: blockValue })
+      .then((names) => { if (!cancelled) setLocationNames(names); })
+      .catch((e) => console.error('Failed to resolve location names:', e));
+    return () => { cancelled = true; };
+  }, [baseParsedUser]);
 
-  const reviewGroups = useMemo(() => {
-    if (!userData) return [];
-    if (Array.isArray(userData.reviewCohorts)) return userData.reviewCohorts;
-    return [];
-  }, [userData]);
+  const parsedUser = useMemo(
+    () =>
+      locationNames
+        ? {
+            ...baseParsedUser,
+            state: locationNames.state || baseParsedUser.state,
+            district: locationNames.district || baseParsedUser.district,
+            branch: locationNames.block || baseParsedUser.branch,
+          }
+        : baseParsedUser,
+    [baseParsedUser, locationNames]
+  );
+
+  // Groups the user belongs to: from the cohort member list, falling back to what the user record carries
+  const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+  const [groupReviewers, setGroupReviewers] = useState<Array<{ id: string; name: string; group: string }>>([]);
+  const [individualReviews, setIndividualReviews] = useState<ReviewUser[]>([]);
+  const [addGroupOpen, setAddGroupOpen] = useState(false);
+  const [groupToRemove, setGroupToRemove] = useState<UserGroup | null>(null);
+  const [addReviewOpen, setAddReviewOpen] = useState(false);
+
+  const loadGroups = useCallback(async () => {
+    if (!userId) return;
+    // The member list cannot be filtered by user, so each group's members are checked for this user
+    const mine: UserGroup[] = [];
+    const reviewers: Array<{ id: string; name: string; group: string }> = [];
+    try {
+      const search = await getCohortSearch({
+        limit: 200,
+        offset: 0,
+        filters: { status: ['active', 'draft', 'inactive'] },
+      });
+      const all: any[] = search?.result?.results?.cohortDetails || [];
+      await runWithConcurrency(all, 5, async (g) => {
+        try {
+          const res = await getCohortMemberListApplication({
+            limit: 1000,
+            offset: 0,
+            filters: { cohortId: [g.cohortId] },
+          });
+          const rows = getMemberRows(res);
+          const me = rows.find((m: any) => (m.userId || m.id) === userId);
+          if (!me) return;
+          mine.push({ cohortId: g.cohortId, name: g.name, role: me.role });
+          rows
+            .filter((m: any) => String(m.role || '').toLowerCase() === 'reviewer' && (m.userId || m.id) !== userId)
+            .forEach((m: any) => {
+              const name = [m.firstName, m.lastName].filter(Boolean).join(' ') || m.name || m.username || '-';
+              reviewers.push({ id: m.userId || m.id, name, group: g.name });
+            });
+        } catch (e) {
+          console.error('Failed to load members of group:', g.name, e);
+        }
+      });
+    } catch (e) {
+      console.error('Failed to load user groups:', e);
+    }
+    setUserGroups(mine.sort((x, y) => x.name.localeCompare(y.name)));
+    setGroupReviewers(reviewers);
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) loadGroups();
+  }, [userId, loadGroups]);
+
+  const handleAddToGroup = async (groups: UserGroup[]) => {
+    await bulkCreateCohortMembers({ userId: [userId], cohortId: groups.map((g) => g.cohortId), role: 'Student', status: 'active' });
+    setFeedback({ open: true, message: `${parsedUser.fullName} added to ${groups.map((g) => g.name).join(', ')}.`, severity: 'success' });
+    setAddGroupOpen(false);
+    loadGroups();
+  };
+
+  const handleRemoveFromGroup = async (group: UserGroup) => {
+    await bulkCreateCohortMembers({ userId: [userId], cohortId: [], removeCohortId: [group.cohortId] });
+    setFeedback({ open: true, message: `${parsedUser.fullName} removed from ${group.name}.`, severity: 'success' });
+    loadGroups();
+  };
+
+  const userCohorts = userGroups;
 
   const handleStatusChange = async (status: 'blocked' | 'active', verb: 'block' | 'unblock') => {
     try {
@@ -384,7 +481,7 @@ export default function UserDetailsPage() {
           </Typography>
         </Breadcrumbs>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Box
             sx={{
               display: 'flex',
@@ -422,7 +519,7 @@ export default function UserDetailsPage() {
               </Typography>
             </Box>
           </Box>
-        </Box>
+        </Box> */}
       </Box>
 
       {/* 2. Top User Card Matching Image 2 */}
@@ -509,26 +606,6 @@ export default function UserDetailsPage() {
             <Button
               variant="outlined"
               size="small"
-              onClick={() =>
-                setFeedback({ open: true, message: 'Notification modal opened', severity: 'info' })
-              }
-              sx={{
-                textTransform: 'none',
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 500,
-                color: '#374151',
-                borderColor: '#D1D5DB',
-                backgroundColor: '#FFFFFF',
-                '&:hover': { backgroundColor: '#F9FAFB', borderColor: '#9CA3AF' },
-              }}
-            >
-              Send notification
-            </Button>
-
-            <Button
-              variant="outlined"
-              size="small"
               onClick={() => setIsEditModalOpen(true)}
               sx={{
                 textTransform: 'none',
@@ -560,7 +637,7 @@ export default function UserDetailsPage() {
                   '&:hover': { backgroundColor: '#F9FAFB', borderColor: '#9CA3AF' },
                 }}
               >
-                Unblock
+                Restore
               </Button>
             ) : (
               <Button
@@ -578,11 +655,11 @@ export default function UserDetailsPage() {
                   '&:hover': { backgroundColor: '#F9FAFB', borderColor: '#9CA3AF' },
                 }}
               >
-                Block
+                Archive
               </Button>
             )}
 
-            <Button
+            {/* <Button
               variant="outlined"
               size="small"
               onClick={() => setDialogType('delete')}
@@ -598,7 +675,7 @@ export default function UserDetailsPage() {
               }}
             >
               Delete
-            </Button>
+            </Button> */}
           </Box>
         </Box>
       </Card>
@@ -677,18 +754,7 @@ export default function UserDetailsPage() {
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
                 Location and program
               </Typography>
-              <Chip
-                label="CLIENT REVIEW"
-                size="small"
-                sx={{
-                  backgroundColor: '#DCFCE7',
-                  color: '#15803D',
-                  fontWeight: 700,
-                  fontSize: '11px',
-                  borderRadius: '6px',
-                  height: '20px',
-                }}
-              />
+
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.8 }}>
@@ -707,7 +773,7 @@ export default function UserDetailsPage() {
               </Box>
 
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Branch</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Block</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.branch}
                 </Typography>
@@ -736,18 +802,7 @@ export default function UserDetailsPage() {
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
                 Role
               </Typography>
-              <Chip
-                label="CLIENT REVIEW"
-                size="small"
-                sx={{
-                  backgroundColor: '#DCFCE7',
-                  color: '#15803D',
-                  fontWeight: 700,
-                  fontSize: '11px',
-                  borderRadius: '6px',
-                  height: '20px',
-                }}
-              />
+
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.8 }}>
@@ -758,14 +813,7 @@ export default function UserDetailsPage() {
                 </Typography>
               </Box>
 
-              <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>
-                  Learner / Reviewer
-                </Typography>
-                <Typography sx={{ fontSize: '13px', color: '#6B7280' }}>
-                  Set per group – see Groups
-                </Typography>
-              </Box>
+
             </Box>
           </Card>
         </Grid>
@@ -790,9 +838,7 @@ export default function UserDetailsPage() {
               <Button
                 size="small"
                 variant="outlined"
-                onClick={() =>
-                  setFeedback({ open: true, message: 'Add to group dialog opened', severity: 'info' })
-                }
+                onClick={() => setAddGroupOpen(true)}
                 sx={{
                   textTransform: 'none',
                   fontSize: '12px',
@@ -839,14 +885,7 @@ export default function UserDetailsPage() {
                       />
                       <IconButton
                         size="small"
-                        onClick={() =>
-                          setConfirmDialog({
-                            open: true,
-                            title: `Remove from ${c.name || 'group'}`,
-                            description: `Remove this user from ${c.name || 'group'}?`,
-                            actionType: 'remove_group',
-                          })
-                        }
+                        onClick={() => setGroupToRemove(c)}
                         sx={{ color: '#9CA3AF', p: 0.3 }}
                       >
                         <RemoveCircleOutlineOutlinedIcon fontSize="small" />
@@ -861,23 +900,7 @@ export default function UserDetailsPage() {
               )}
 
               {/* Bottom footnote */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', pt: 1 }}>
-                <Typography sx={{ fontSize: '12px', color: '#6B7280' }}>
-                  A user can be both Reviewer and Learner.
-                </Typography>
-                <Chip
-                  label="CLIENT REVIEW"
-                  size="small"
-                  sx={{
-                    backgroundColor: '#DCFCE7',
-                    color: '#15803D',
-                    fontWeight: 700,
-                    fontSize: '10px',
-                    borderRadius: '6px',
-                    height: '18px',
-                  }}
-                />
-              </Box>
+
             </Box>
           </Card>
 
@@ -899,9 +922,7 @@ export default function UserDetailsPage() {
               <Button
                 size="small"
                 variant="outlined"
-                onClick={() =>
-                  setFeedback({ open: true, message: 'Add individual user dialog opened', severity: 'info' })
-                }
+                onClick={() => setAddReviewOpen(true)}
                 sx={{
                   textTransform: 'none',
                   fontSize: '12px',
@@ -915,36 +936,38 @@ export default function UserDetailsPage() {
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.8 }}>
-              {reviewGroups.length > 0 ? (
-                reviewGroups.map((rg: any) => (
-                  <Box key={rg.cohortId || rg.name} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Box>
-                      <Typography
-                        sx={{
-                          fontSize: '13px',
-                          fontWeight: 600,
-                          color: 'primary.main',
-                          cursor: 'pointer',
-                          '&:hover': { textDecoration: 'underline' },
-                        }}
-                        onClick={() => router.push(rg.cohortId ? `/cohorts/${rg.cohortId}` : '/cohorts')}
-                      >
-                        {rg.name}
-                      </Typography>
+              {groupReviewers.length + individualReviews.length > 0 ? (
+                <>
+                  {groupReviewers.map((r) => (
+                    <Box key={`${r.group}-${r.id}`}>
+                      <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{r.name}</Typography>
                       <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
-                        {rg.subtitle || 'Assigned review group'}
+                        Reviewer · from the Reviewer role in {r.group}
                       </Typography>
                     </Box>
-                    <Chip
-                      label={rg.type || 'Group'}
-                      size="small"
-                      sx={{ backgroundColor: '#F3F4F6', color: '#4B5563', fontSize: '11px', height: '22px' }}
-                    />
-                  </Box>
-                ))
+                  ))}
+                  {individualReviews.map((u) => (
+                    <Box key={u.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box>
+                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{u.name}</Typography>
+                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                          Individual user{u.role ? ` · ${u.role}` : ''}
+                        </Typography>
+                      </Box>
+                      <IconButton
+                        size="small"
+                        aria-label={`Remove ${u.name}`}
+                        onClick={() => setIndividualReviews((prev) => prev.filter((x) => x.id !== u.id))}
+                        sx={{ color: '#9CA3AF', p: 0.3 }}
+                      >
+                        <RemoveCircleOutlineOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
+                  ))}
+                </>
               ) : (
                 <Typography sx={{ fontSize: '13px', color: '#6B7280', py: 0.5 }}>
-                  No active review assignments.
+                  No reviewer assigned.
                 </Typography>
               )}
             </Box>
@@ -1007,14 +1030,14 @@ export default function UserDetailsPage() {
       <UserActionDialog
         open={dialogType === 'block'}
         onClose={() => setDialogType(null)}
-        title={`Block ${parsedUser.fullName}?`}
-        confirmLabel="Block user"
+        title={`Archive ${parsedUser.fullName}?`}
+        confirmLabel="Archive user"
         confirmColors={DARK_CONFIRM_COLORS}
         onConfirm={() => handleStatusChange('blocked', 'block')}
       >
         <DialogText mb={2}>
           Their platform access is revoked immediately. The account and its data are not deleted, and
-          you can unblock at any time.
+          you can restore them at any time.
         </DialogText>
         <DialogText mb={3}>They will see a message when they try to log in.</DialogText>
       </UserActionDialog>
@@ -1022,8 +1045,8 @@ export default function UserDetailsPage() {
       <UserActionDialog
         open={dialogType === 'unblock'}
         onClose={() => setDialogType(null)}
-        title={`Unblock ${parsedUser.fullName}?`}
-        confirmLabel="Unblock user"
+        title={`Restore ${parsedUser.fullName}?`}
+        confirmLabel="Restore user"
         confirmColors={DARK_CONFIRM_COLORS}
         onConfirm={() => handleStatusChange('active', 'unblock')}
       >
@@ -1096,6 +1119,52 @@ export default function UserDetailsPage() {
             sx={{ textTransform: 'none', borderRadius: '6px' }}
           >
             Confirm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <AddToGroupDialog
+        open={addGroupOpen}
+        userName={parsedUser.fullName}
+        currentGroups={userGroups}
+        onClose={() => setAddGroupOpen(false)}
+        onAdd={handleAddToGroup}
+        onRemove={handleRemoveFromGroup}
+      />
+      <AddReviewUsersDialog
+        open={addReviewOpen}
+        reviewerName={parsedUser.fullName}
+        excludeId={userId}
+        assignedIds={individualReviews.map((u) => u.id)}
+        onClose={() => setAddReviewOpen(false)}
+        onAdd={(picked) => {
+          setIndividualReviews((prev) => [...prev, ...picked.filter((u) => !prev.some((x) => x.id === u.id))]);
+          setAddReviewOpen(false);
+        }}
+      />
+      <Dialog open={Boolean(groupToRemove)} onClose={() => setGroupToRemove(null)}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '16px' }}>Remove from {groupToRemove?.name}</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: '13.5px', color: '#4B5563' }}>
+            Remove {parsedUser.fullName} from {groupToRemove?.name}?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setGroupToRemove(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              const g = groupToRemove;
+              setGroupToRemove(null);
+              if (!g) return;
+              try {
+                await handleRemoveFromGroup(g);
+              } catch (e) {
+                setFeedback({ open: true, message: apiErrorMessage(e) || 'Failed to remove from group.', severity: 'error' });
+              }
+            }}
+          >
+            Remove
           </Button>
         </DialogActions>
       </Dialog>

@@ -485,7 +485,7 @@ export default function LearningPathBuilderPage() {
             <Paper elevation={0} sx={{ ...BUILDER_CARD_SX, p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Box>
                 <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1F1E1C', mb: 0.6 }}>
-                  Learning path name *
+                  Learning path name<span style={{ color: "#D92D20" }}> *</span>
                 </Typography>
                 <TextField
                   fullWidth

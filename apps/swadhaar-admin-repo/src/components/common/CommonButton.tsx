@@ -85,6 +85,7 @@ const CommonButton: React.FC<CommonButtonProps> = ({
           fontWeight: 600,
           px: 2.2,
           py: 0.8,
+          minHeight: 38,
           whiteSpace: 'nowrap',
           '&.Mui-disabled': { opacity: 0.6 },
         },
