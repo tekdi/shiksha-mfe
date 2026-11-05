@@ -107,6 +107,40 @@ export interface DidGeneratePayload {
  * Certificate Service Implementation
  * ========================================================================= */
 
+export interface CertificateTemplate {
+  templateId: string;
+  title: string;
+}
+
+/**
+ * List the certificate templates available to the tenant
+ * POST /lms-service/v1/certificate/templates-list
+ */
+export const getCertificateTemplates = async (): Promise<CertificateTemplate[]> => {
+  const response = await post<any>(
+    API_ENDPOINTS.certificateTemplatesList,
+    { templateType: 'certificate', isAllocated: false, limit: 100, offset: 0 },
+    getServiceHeaders()
+  );
+  const list: any[] = response?.data?.result?.templates || [];
+  return list
+    .filter((t) => t?.templateId)
+    .map((t) => ({ templateId: t.templateId, title: t.title || t.templateId }));
+};
+
+/**
+ * Attach a certificate template to courses
+ * POST /lms-service/v1/certificate/course-template
+ */
+export const attachCourseTemplate = async (templateId: string, courseIds: string[]): Promise<void> => {
+  if (!templateId || courseIds.length === 0) return;
+  await post<any>(
+    API_ENDPOINTS.certificateCourseTemplate,
+    { templateId: [templateId], contextId: courseIds },
+    getServiceHeaders()
+  );
+};
+
 export const CertificateService = {
   /**
    * Issue a verifiable completion certificate

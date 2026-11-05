@@ -139,6 +139,8 @@ export const API_ENDPOINTS = {
   pathwayUpdate: (id: string) => `${baseurl}/user/v1/pathway/update/${id}`,
   pathwayOrderStructure: `${baseurl}/user/v1/pathway/order/structure`,
   pathwayAssign: `${baseurl}/user/v1/pathway/assign`,
+  certificateCourseTemplate: `${baseurl}/lms-service/v1/certificate/course-template`,
+  certificateTemplatesList: `${baseurl}/lms-service/v1/certificate/templates-list`,
   lmsEnrollmentCreate: `${baseurl}/lms-service/v1/enrollments`,
   lmsEnrollments: (userId: string) => `${baseurl}/lms-service/v1/enrollments?userId=${userId}`,
   lmsLessonAttempt: (lessonId: string, userId: string) => `${baseurl}/tracking/lesson/attempt/${lessonId}?userId=${userId}`,
