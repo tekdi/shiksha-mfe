@@ -74,7 +74,7 @@ export const RichTextField: React.FC<RichTextFieldProps> = ({ value, onChange, p
 
   const run = (command: string, arg?: string) => {
     editorRef.current?.focus();
-    document.execCommand(command, false, arg);
+    document.execCommand(command, false, arg); // NOSONAR: execCommand is the only built-in way to format editable text
     emit();
   };
 
@@ -152,7 +152,7 @@ export const RichTextField: React.FC<RichTextFieldProps> = ({ value, onChange, p
         onPaste={(e: React.ClipboardEvent) => {
           // Pasted text keeps no outside styling
           e.preventDefault();
-          document.execCommand('insertText', false, e.clipboardData.getData('text/plain'));
+          document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); // NOSONAR: see run()
         }}
         sx={{
           minHeight,

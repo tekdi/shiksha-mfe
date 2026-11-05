@@ -318,7 +318,9 @@ export default function CreateCohortPage() {
 
       setUsers(mapped);
       // Names replace the ids a moment later, so the list itself is not held back
-      resolveRowLocations(mapped).then(setUsers);
+      resolveRowLocations(mapped)
+        .then(setUsers)
+        .catch((err) => console.error('Failed to resolve user locations:', err));
     } catch (err) {
       console.error('Failed to fetch users:', err);
       setUsers([]);

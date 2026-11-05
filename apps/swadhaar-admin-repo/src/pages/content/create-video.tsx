@@ -106,7 +106,7 @@ const getVideoUrlError = (value: string): string => {
   if (!v) return '';
   if (/\s/.test(v)) return 'The link cannot contain spaces.';
   const url = parseHttpUrl(v);
-  if (!url || !url.hostname.includes('.')) {
+  if (!url?.hostname.includes('.')) {
     return 'Enter a valid link starting with http:// or https://, for example https://www.youtube.com/watch?v=…';
   }
   if (isYoutubeHost(url.hostname) && !getYoutubeVideoId(v)) {

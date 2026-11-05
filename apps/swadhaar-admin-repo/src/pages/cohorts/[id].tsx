@@ -403,9 +403,10 @@ export default function GroupDetailsPage() {
       setSelectedIds([]);
       setIsChangeRoleOpen(false);
     } else {
+      const reason = firstError ? `: ${firstError}` : '.';
       setFeedback({
         open: true,
-        message: `${failed} of ${selectedIds.length} member(s) could not be updated${firstError ? `: ${firstError}` : '.'}`,
+        message: `${failed} of ${selectedIds.length} member(s) could not be updated${reason}`,
         severity: 'error',
       });
     }
