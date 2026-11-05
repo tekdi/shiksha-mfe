@@ -140,17 +140,27 @@ export const getPathwayCourseIds = async (pathwayId: string): Promise<string[]> 
 /**
  * Puts a course in a learning path (or takes it out with `null`) through the course's `params.pathwayId`:
  * PATCH /lms-service/v1/courses/:courseId (no userId query). The service replaces `params` as a whole, so the course is read first
- * and its other params are sent back with pathwayId added or removed.
+ * and its other params are sent back with pathwayId added or removed. The path's selected certificate template is stored
+ * alongside it as `params.certificateTemplateId` (and removed with the course).
  */
-export const setCoursePathway = async (courseId: string, pathwayId: string | null): Promise<void> => {
+export const setCoursePathway = async (
+  courseId: string,
+  pathwayId: string | null,
+  certificateTemplateId?: string
+): Promise<void> => {
   try {
     const headers = getServiceHeaders();
     const courseUrl = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
     const current = await get(courseUrl, headers);
-    const { pathwayId: currentPathwayId, ...otherParams } = current?.data?.result?.params || {};
-    if ((currentPathwayId || null) === pathwayId) return;
+    const { pathwayId: currentPathwayId, certificateTemplateId: currentTemplateId, ...otherParams } =
+      current?.data?.result?.params || {};
+    const nextTemplateId = pathwayId ? certificateTemplateId || undefined : undefined;
+    if ((currentPathwayId || null) === pathwayId && (currentTemplateId || undefined) === nextTemplateId) return;
 
-    await patch(courseUrl, { params: pathwayId ? { ...otherParams, pathwayId } : otherParams }, headers);
+    const params: Record<string, any> = { ...otherParams };
+    if (pathwayId) params.pathwayId = pathwayId;
+    if (nextTemplateId) params.certificateTemplateId = nextTemplateId;
+    await patch(courseUrl, { params }, headers);
   } catch (error) {
     console.error(`Error in PathwayService.setCoursePathway for ${courseId}:`, error);
     throw error;

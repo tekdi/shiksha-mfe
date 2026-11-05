@@ -28,6 +28,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
 import Link from 'next/link';
+import { getCertificateTemplates, attachCourseTemplate, CertificateTemplate } from '@/services/CertificateService';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import { getCourseList, CourseItem } from '@/services/CourseService';
@@ -133,7 +134,8 @@ export default function LearningPathBuilderPage() {
   const [endDate, setEndDate] = useState('2026-12-31');
   const [deadline, setDeadline] = useState('2026-12-31');
   const [generateCertificate, setGenerateCertificate] = useState(true);
-  const [certificateTemplate, setCertificateTemplate] = useState('Financial Inclusion Certificate');
+  const [certificateTemplate, setCertificateTemplate] = useState('');
+  const [certificateTemplates, setCertificateTemplates] = useState<CertificateTemplate[]>([]);
 
   // Enrolled status state
   const [enrolledSummary, setEnrolledSummary] = useState({
@@ -176,6 +178,8 @@ export default function LearningPathBuilderPage() {
         // A course belongs to a path through its params.pathwayId
         const linked = courses.filter((c) => c.params?.pathwayId === pathwayId);
         linkedCourseIds.current = linked.map((c) => c.identifier);
+        const savedTemplateId = linked.find((c) => c.params?.certificateTemplateId)?.params?.certificateTemplateId;
+        if (savedTemplateId) setCertificateTemplate(savedTemplateId);
         setSequence(
           renumber(
             linked.map((course, idx) => ({
@@ -203,6 +207,15 @@ export default function LearningPathBuilderPage() {
     if (!router.isReady) return;
     fetchCourses();
   }, [fetchCourses, router.isReady]);
+
+  useEffect(() => {
+    getCertificateTemplates()
+      .then((templates) => {
+        setCertificateTemplates(templates);
+        setCertificateTemplate((current) => current || templates[0]?.templateId || '');
+      })
+      .catch((err) => console.error('Failed to load certificate templates:', err));
+  }, []);
 
   // Sequence Reordering Functions (Up / Down)
   const handleMoveUp = (index: number) => {
@@ -333,10 +346,15 @@ export default function LearningPathBuilderPage() {
       }
       const removed = linkedCourseIds.current.filter((id) => !courseIds.includes(id));
       await Promise.all([
-        ...courseIds.map((id) => setCoursePathway(id, savedPathwayId)),
+        ...courseIds.map((id) => setCoursePathway(id, savedPathwayId, generateCertificate ? certificateTemplate : '')),
         ...removed.map((id) => setCoursePathway(id, null)),
       ]);
       linkedCourseIds.current = courseIds;
+
+      // Attach the selected certificate template to the path's courses
+      if (generateCertificate && certificateTemplate) {
+        await attachCourseTemplate(certificateTemplate, courseIds);
+      }
 
       setIsDirty(false);
       setSaveSuccess(true);
@@ -772,8 +790,11 @@ export default function LearningPathBuilderPage() {
                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#E6873C' },
                       }}
                     >
-                      <MenuItem value="Financial Inclusion Certificate">Financial Inclusion Certificate</MenuItem>
-                      <MenuItem value="Field Trainer Completion Certificate">Field Trainer Completion Certificate</MenuItem>
+                      {certificateTemplates.map((t) => (
+                        <MenuItem key={t.templateId} value={t.templateId}>
+                          {t.title}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 </Box>
