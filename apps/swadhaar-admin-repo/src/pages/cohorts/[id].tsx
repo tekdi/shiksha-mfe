@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { getTenantRoles, TenantRole, updateUserRole } from '@/services/UserService';
+import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -43,7 +45,8 @@ import {
   getCohortMemberListApplication,
   getMemberRows,
   getMemberTotal,
-  bulkCreateCohortMembers,
+  getMembershipId,
+  removeCohortMemberships,
   deleteCohort,
   getCohortContentSearch,
 } from '@/services/CohortService';
@@ -54,6 +57,7 @@ export interface MemberRowItem {
   fullName: string;
   email: string;
   role: string;
+  membershipId: string;
   stateDistrict: string;
   branch: string;
   program: string;
@@ -77,6 +81,15 @@ const getMemberStatusStyle = (status: string) => MEMBER_STATUS_STYLES[status] ??
 const getQueryParam = (value: string | string[] | undefined): string => {
   if (typeof value === 'string') return value;
   return Array.isArray(value) ? value[0] : '';
+};
+
+/** Cohort dates come as ISO strings; shown as 05 Nov 2026, or '—' when not set */
+const formatCohortDate = (value?: string | null): string => {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? '—'
+    : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const toGroupStatus = (status?: string): 'Active' | 'Inactive' | 'Archived' => {
@@ -159,6 +172,7 @@ const mapMemberToRow = (user: any, index: number): MemberRowItem => {
     fullName,
     email,
     role: user.role || user.membershipRole || 'Student',
+    membershipId: getMembershipId(user),
     stateDistrict: displayLocation,
     branch: location.branch || location.district || country || '-',
     program: location.program || user.form?.title || '-',
@@ -183,18 +197,27 @@ export default function GroupDetailsPage() {
   const [cohortContents, setCohortContents] = useState<any[]>([]);
 
   // Filter States
-  const [statusFilter, setStatusFilter] = useState<string>('all');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  // Role filter options: titles from the tenant roles API, as on the Users page
+  const [roleOptions, setRoleOptions] = useState<string[]>([]);
+  // Roles just changed on this page, shown until the page is left (the member list may still return the old one)
+  const updatedRolesRef = useRef(new Map<string, string>());
+  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
+  useEffect(() => {
+    getTenantRoles()
+      .then((roles) => {
+        setTenantRoles(roles);
+        setRoleOptions(roles.map((r) => r.name));
+      })
+      .catch(() => setRoleOptions([]));
+  }, []);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
-    if (router.query.status && typeof router.query.status === 'string') {
-      setStatusFilter(router.query.status);
-    }
     if (router.query.role && typeof router.query.role === 'string') {
       setRoleFilter(router.query.role);
     }
-  }, [router.query.status, router.query.role]);
+  }, [router.query.role]);
 
   // Modals & Action States
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
@@ -202,7 +225,7 @@ export default function GroupDetailsPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState<boolean>(false);
   const [isChangeRoleOpen, setIsChangeRoleOpen] = useState<boolean>(false);
-  const [newSelectedRole, setNewSelectedRole] = useState<'Student' | 'Reviewer'>('Reviewer');
+  const [newRoleId, setNewRoleId] = useState<string>('');
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   // Feedback Snackbar
@@ -238,9 +261,6 @@ export default function GroupDetailsPage() {
         cohortId: [cohortId],
       };
 
-      if (statusFilter && statusFilter !== 'all') {
-        filtersObj.status = [statusFilter];
-      }
       if (roleFilter && roleFilter !== 'all') {
         filtersObj.role = roleFilter;
       }
@@ -255,7 +275,11 @@ export default function GroupDetailsPage() {
       const userDetails = getMemberRows(res);
       setTotalCount(getMemberTotal(res, userDetails));
 
-      const mapped = userDetails.map((u: any, idx: number) => mapMemberToRow(u, idx));
+      const mapped = userDetails.map((u: any, idx: number) => {
+        const row = mapMemberToRow(u, idx);
+        const updatedRole = updatedRolesRef.current.get(row.userId);
+        return updatedRole ? { ...row, role: updatedRole } : row;
+      });
       setMembers(mapped);
     } catch (err) {
       console.error('Failed to load cohort members:', err);
@@ -264,7 +288,7 @@ export default function GroupDetailsPage() {
     } finally {
       setLoading(false);
     }
-  }, [cohortId, page, rowsPerPage, statusFilter, roleFilter]);
+  }, [cohortId, page, rowsPerPage, roleFilter]);
 
   // Fetch cohort assigned contents/learning paths
   const fetchCohortContent = useCallback(async () => {
@@ -333,11 +357,8 @@ export default function GroupDetailsPage() {
     if (selectedIds.length === 0 || !cohortId) return;
     setActionLoading(true);
     try {
-      await bulkCreateCohortMembers({
-        userId: selectedIds,
-        cohortId: [],
-        removeCohortId: [cohortId],
-      });
+      const memberships = selectedIds.map((userId) => members.find((m) => m.userId === userId)?.membershipId || '');
+      await removeCohortMemberships(memberships);
       setFeedback({
         open: true,
         message: `Successfully removed ${selectedIds.length} member(s) from group.`,
@@ -351,7 +372,7 @@ export default function GroupDetailsPage() {
       console.error('Failed to remove members:', err);
       setFeedback({
         open: true,
-        message: err?.response?.data?.message || err?.message || 'Failed to remove members from group.',
+        message: apiErrorMessage(err) || 'Failed to remove members from group.',
         severity: 'error',
       });
     } finally {
@@ -359,34 +380,43 @@ export default function GroupDetailsPage() {
     }
   };
 
-  // Action: Change role of selected members
+  // Action: set the chosen tenant role on every selected member (PATCH /user/v1/update/:userId)
   const handleConfirmChangeRole = async () => {
-    if (selectedIds.length === 0 || !cohortId) return;
+    const role = tenantRoles.find((r) => r.id === newRoleId);
+    if (selectedIds.length === 0 || !role) return;
     setActionLoading(true);
-    try {
-      await bulkCreateCohortMembers({
-        userId: selectedIds,
-        cohortId: [cohortId],
-        role: newSelectedRole,
-      });
-      setFeedback({
-        open: true,
-        message: `Updated role to ${newSelectedRole} for ${selectedIds.length} member(s).`,
-        severity: 'success',
-      });
+    let failed = 0;
+    let firstError = '';
+    const succeeded: string[] = [];
+    await runWithConcurrency(selectedIds, 5, (userId) =>
+      updateUserRole(userId, role.id).then(
+        () => { succeeded.push(userId); },
+        (err: any) => {
+          failed += 1;
+          firstError = firstError || apiErrorMessage(err);
+        }
+      )
+    );
+    const updated = selectedIds.length - failed;
+    if (failed === 0) {
+      setFeedback({ open: true, message: `Role changed to ${role.name} for ${updated} member(s).`, severity: 'success' });
       setSelectedIds([]);
       setIsChangeRoleOpen(false);
-      fetchMembers();
-    } catch (err: any) {
-      console.error('Failed to change member role:', err);
+    } else {
+      const reason = firstError ? `: ${firstError}` : '.';
       setFeedback({
         open: true,
-        message: err?.response?.data?.message || err?.message || 'Failed to change role in group.',
+        message: `${failed} of ${selectedIds.length} member(s) could not be updated${reason}`,
         severity: 'error',
       });
-    } finally {
-      setActionLoading(false);
     }
+    if (updated > 0) {
+      // Show the new role right away, and keep it when the list is loaded again
+      succeeded.forEach((userId) => updatedRolesRef.current.set(userId, role.name));
+      setMembers((prev) => prev.map((m) => (succeeded.includes(m.userId) ? { ...m, role: role.name } : m)));
+      fetchMembers();
+    }
+    setActionLoading(false);
   };
 
   // Action: Delete cohort
@@ -636,6 +666,9 @@ export default function GroupDetailsPage() {
           <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '13px' }}>
             {cohort?.description || 'Cohort training group'} · {totalCount} enrolled member(s)
           </Typography>
+          <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '13px', mt: 0.3 }}>
+            Start date: {formatCohortDate(cohort?.cohort_startDate)} · End date: {formatCohortDate(cohort?.cohort_endDate)}
+          </Typography>
         </Box>
 
         {/* Action Buttons */}
@@ -736,7 +769,10 @@ export default function GroupDetailsPage() {
                   variant="outlined"
                   size="small"
                   disabled={selectedIds.length === 0}
-                  onClick={() => setIsChangeRoleOpen(true)}
+                  onClick={() => {
+                    setNewRoleId((prev) => prev || tenantRoles[0]?.id || '');
+                    setIsChangeRoleOpen(true);
+                  }}
                   sx={{
                     textTransform: 'none',
                     borderRadius: '6px',
@@ -746,7 +782,7 @@ export default function GroupDetailsPage() {
                     borderColor: '#D1D5DB',
                   }}
                 >
-                  Change role in group
+                  Change role
                 </Button>
 
                 <Button
@@ -807,42 +843,6 @@ export default function GroupDetailsPage() {
               />
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                {/* Status Chips */}
-                <Box sx={{ display: 'flex', gap: 0.8, flexWrap: 'wrap' }}>
-                  {[
-                    { label: 'All', value: 'all' },
-                    { label: 'Applied', value: 'applied' },
-                    { label: 'Shortlisted', value: 'shortlisted' },
-                    { label: 'Submitted', value: 'submitted' },
-                    { label: 'Inactive', value: 'inactive' },
-                  ].map((tab) => {
-                    const isSelected = statusFilter === tab.value;
-                    return (
-                      <Chip
-                        key={tab.value}
-                        label={tab.label}
-                        size="small"
-                        onClick={() => {
-                          setStatusFilter(tab.value);
-                          setPage(0);
-                        }}
-                        sx={{
-                          cursor: 'pointer',
-                          fontWeight: isSelected ? 700 : 500,
-                          fontSize: '12px',
-                          borderRadius: '8px',
-                          border: isSelected ? '1px solid #D4752A' : '1px solid #E5E7EB',
-                          backgroundColor: isSelected ? 'rgba(212, 117, 42, 0.1)' : '#FFFFFF',
-                          color: isSelected ? '#D4752A' : '#4B5563',
-                          '&:hover': {
-                            backgroundColor: isSelected ? 'rgba(212, 117, 42, 0.15)' : '#F9FAFB',
-                          },
-                        }}
-                      />
-                    );
-                  })}
-                </Box>
-
                 {/* Role Filter */}
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                   <Select
@@ -861,18 +861,11 @@ export default function GroupDetailsPage() {
                     <MenuItem value="all" sx={{ fontSize: '12.5px' }}>
                       All Roles
                     </MenuItem>
-                    <MenuItem value="Student" sx={{ fontSize: '12.5px' }}>
-                      Student
-                    </MenuItem>
-                    <MenuItem value="Reviewer" sx={{ fontSize: '12.5px' }}>
-                      Reviewer
-                    </MenuItem>
-                    <MenuItem value="Admin" sx={{ fontSize: '12.5px' }}>
-                      Admin
-                    </MenuItem>
-                    <MenuItem value="Observer" sx={{ fontSize: '12.5px' }}>
-                      Observer
-                    </MenuItem>
+                    {roleOptions.map((roleName) => (
+                      <MenuItem key={roleName} value={roleName} sx={{ fontSize: '12.5px' }}>
+                        {roleName}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               </Box>
@@ -1099,7 +1092,7 @@ export default function GroupDetailsPage() {
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
                 Learning Paths
               </Typography>
-              <Box sx={{ display: 'flex', gap: 2 }}>
+              {/* <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button
                   size="small"
                   onClick={() => setIsAssignPathOpen(true)}
@@ -1114,7 +1107,7 @@ export default function GroupDetailsPage() {
                 >
                   Browse paths
                 </Button>
-              </Box>
+              </Box> */}
             </Box>
 
             {cohortContents.length === 0 ? (
@@ -1235,23 +1228,27 @@ export default function GroupDetailsPage() {
       <CommonDialog
         open={isChangeRoleOpen}
         onClose={() => setIsChangeRoleOpen(false)}
-        title="Change Role in Group"
-        subtitle={`Select new role for ${selectedIds.length} member(s)`}
+        title="Change Role"
+        subtitle={`Select the new role for ${selectedIds.length} member(s)`}
         confirmLabel={actionLoading ? 'Updating...' : 'Update Role'}
         confirmVariant="primary"
-        confirmDisabled={actionLoading}
+        confirmDisabled={actionLoading || !newRoleId}
         loading={actionLoading}
         onConfirm={handleConfirmChangeRole}
       >
         <Box sx={{ pt: 1 }}>
           <FormControl fullWidth size="small">
             <Select
-              value={newSelectedRole}
-              onChange={(e) => setNewSelectedRole(e.target.value as 'Student' | 'Reviewer')}
+              value={newRoleId}
+              onChange={(e) => setNewRoleId(e.target.value)}
+              displayEmpty
               sx={{ fontSize: '13.5px' }}
             >
-              <MenuItem value="Student">Learner (Student)</MenuItem>
-              <MenuItem value="Reviewer">Reviewer</MenuItem>
+              {tenantRoles.map((role) => (
+                <MenuItem key={role.id} value={role.id}>
+                  {role.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Box>

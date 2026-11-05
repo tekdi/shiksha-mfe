@@ -761,59 +761,59 @@ interface MediaListItemProps {
 }
 
 const MediaListItem = ({ item, isChecked, isLast, onToggle }: MediaListItemProps) => (
-<Box
-  key={item.id}
-  component="label"
-  onClick={() => onToggle(item.id)}
-  sx={{
-    display: 'flex',
-    gap: 1.5,
-    alignItems: 'center',
-    padding: '10px 14px',
-    borderBottom: isLast ? 'none' : '1px solid #ECEAE5',
-    fontSize: '14px',
-    backgroundColor: isChecked ? '#FAF9F6' : '#FFFFFF',
-    cursor: 'pointer',
-    userSelect: 'none',
-    transition: 'background-color 0.1s ease',
-    '&:hover': {
-      backgroundColor: isChecked ? '#F5F4EE' : '#F9F9F8',
-    },
-  }}
->
-  <Checkbox
-    checked={isChecked}
-    size="small"
+  <Box
+    key={item.id}
+    component="label"
+    onClick={() => onToggle(item.id)}
     sx={{
-      p: 0,
-      color: '#BDB9B1',
-      '&.Mui-checked': {
-        color: '#4F46E5', // Distinct purple/blue as in the prototype screenshot
+      display: 'flex',
+      gap: 1.5,
+      alignItems: 'center',
+      padding: '10px 14px',
+      borderBottom: isLast ? 'none' : '1px solid #ECEAE5',
+      fontSize: '14px',
+      backgroundColor: isChecked ? '#FAF9F6' : '#FFFFFF',
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'background-color 0.1s ease',
+      '&:hover': {
+        backgroundColor: isChecked ? '#F5F4EE' : '#F9F9F8',
       },
     }}
-  />
-  <Typography
-    component="span"
-    sx={{
-      flexGrow: 1,
-      fontSize: '14px',
-      color: '#1F1E1C',
-      fontWeight: isChecked ? 500 : 400,
-    }}
   >
-    {item.title}
-  </Typography>
-  <Typography
-    component="span"
-    sx={{
-      fontSize: '12px',
-      color: '#6B6862',
-      whiteSpace: 'nowrap',
-    }}
-  >
-    {item.duration || '[—]'}
-  </Typography>
-</Box>
+    <Checkbox
+      checked={isChecked}
+      size="small"
+      sx={{
+        p: 0,
+        color: '#BDB9B1',
+        '&.Mui-checked': {
+          color: '#4F46E5', // Distinct purple/blue as in the prototype screenshot
+        },
+      }}
+    />
+    <Typography
+      component="span"
+      sx={{
+        flexGrow: 1,
+        fontSize: '14px',
+        color: '#1F1E1C',
+        fontWeight: isChecked ? 500 : 400,
+      }}
+    >
+      {item.title}
+    </Typography>
+    <Typography
+      component="span"
+      sx={{
+        fontSize: '12px',
+        color: '#6B6862',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {item.duration || '[—]'}
+    </Typography>
+  </Box>
 );
 
 interface MediaPickerDialogProps {
@@ -1344,7 +1344,7 @@ const SectionSidebar = ({
       </Paper>
 
       {/* Card 3: Cohort & Settings */}
-      <Paper
+      {/* <Paper
         elevation={0}
         sx={{
           backgroundColor: '#FFFFFF',
@@ -1381,7 +1381,7 @@ const SectionSidebar = ({
             </Typography>
           </Box>
         </Box>
-      </Paper>
+      </Paper> */}
     </Box>
   </Grid>
 );
@@ -1981,185 +1981,185 @@ const SectionHeader = ({
   handleCancel,
 }: SectionHeaderProps) => (
   <>
-  {/* Top Breadcrumb Navigation */}
-  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
-    <Link href={basePath} style={{ textDecoration: 'none' }}>
-      <Typography
-        variant="body2"
-        sx={{
-          color: '#6B6862',
-          fontSize: '13px',
-          fontWeight: 500,
-          '&:hover': { color: '#E6873C' },
-        }}
-      >
-        Learning
+    {/* Top Breadcrumb Navigation */}
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+      <Link href={basePath} style={{ textDecoration: 'none' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: '#6B6862',
+            fontSize: '13px',
+            fontWeight: 500,
+            '&:hover': { color: '#E6873C' },
+          }}
+        >
+          Learning
+        </Typography>
+      </Link>
+      <Typography variant="body2" sx={{ color: '#8A867F', fontSize: '13px' }}>
+        /
       </Typography>
-    </Link>
-    <Typography variant="body2" sx={{ color: '#8A867F', fontSize: '13px' }}>
-      /
-    </Typography>
-    <Link href={basePath} style={{ textDecoration: 'none' }}>
-      <Typography
-        variant="body2"
-        sx={{
-          color: '#6B6862',
-          fontSize: '13px',
-          fontWeight: 500,
-          '&:hover': { color: '#E6873C' },
-        }}
-      >
-        Courses
+      <Link href={basePath} style={{ textDecoration: 'none' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: '#6B6862',
+            fontSize: '13px',
+            fontWeight: 500,
+            '&:hover': { color: '#E6873C' },
+          }}
+        >
+          Courses
+        </Typography>
+      </Link>
+      <Typography variant="body2" sx={{ color: '#8A867F', fontSize: '13px' }}>
+        /
       </Typography>
-    </Link>
-    <Typography variant="body2" sx={{ color: '#8A867F', fontSize: '13px' }}>
-      /
-    </Typography>
-    <Link href={`${basePath}/${courseId}`} style={{ textDecoration: 'none' }}>
-      <Typography
-        variant="body2"
-        sx={{
-          color: '#6B6862',
-          fontSize: '13px',
-          fontWeight: 500,
-          '&:hover': { color: '#E6873C' },
-        }}
-      >
-        {courseDisplayName}
+      <Link href={`${basePath}/${courseId}`} style={{ textDecoration: 'none' }}>
+        <Typography
+          variant="body2"
+          sx={{
+            color: '#6B6862',
+            fontSize: '13px',
+            fontWeight: 500,
+            '&:hover': { color: '#E6873C' },
+          }}
+        >
+          {courseDisplayName}
+        </Typography>
+      </Link>
+      <Typography variant="body2" sx={{ color: '#8A867F', fontSize: '13px' }}>
+        /
       </Typography>
-    </Link>
-    <Typography variant="body2" sx={{ color: '#8A867F', fontSize: '13px' }}>
-      /
-    </Typography>
-    <Typography variant="body2" sx={{ color: '#1F1E1C', fontSize: '13px', fontWeight: 600 }}>
-      {sectionPrefix} {title || 'New Section'}
-    </Typography>
-  </Box>
+      <Typography variant="body2" sx={{ color: '#1F1E1C', fontSize: '13px', fontWeight: 600 }}>
+        {sectionPrefix} {title || 'New Section'}
+      </Typography>
+    </Box>
 
-  {/* Main Header Row */}
-  <Box
-    sx={{
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      mb: 3,
-      flexWrap: 'wrap',
-      gap: 2,
-    }}
-  >
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-      <Typography variant="h4" sx={{ fontWeight: 600, color: '#1F1E1C', fontSize: '26px' }}>
-        {sectionPrefix} · {title || 'New Section'}
-      </Typography>
-      <Chip
-        label={course?.status || 'Draft'}
-        size="small"
-        sx={{
-          textTransform: 'capitalize',
-          backgroundColor: course?.status === 'published' ? '#DCFCE7' : '#FEF3C7',
-          color: course?.status === 'published' ? '#14532D' : '#92400E',
-          fontWeight: 600,
-          fontSize: '11px',
-          height: 24,
-          borderRadius: '4px',
-        }}
-      />
-      {course?.alias && (
+    {/* Main Header Row */}
+    <Box
+      sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        mb: 3,
+        flexWrap: 'wrap',
+        gap: 2,
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        <Typography variant="h4" sx={{ fontWeight: 600, color: '#1F1E1C', fontSize: '26px' }}>
+          {sectionPrefix} · {title || 'New Section'}
+        </Typography>
         <Chip
-          label={`Alias: ${course.alias}`}
+          label={course?.status || 'Draft'}
           size="small"
           sx={{
-            backgroundColor: '#EEEDE9',
-            color: '#3D3B37',
-            fontWeight: 500,
+            textTransform: 'capitalize',
+            backgroundColor: course?.status === 'published' ? '#DCFCE7' : '#FEF3C7',
+            color: course?.status === 'published' ? '#14532D' : '#92400E',
+            fontWeight: 600,
             fontSize: '11px',
-            fontFamily: 'monospace',
             height: 24,
             borderRadius: '4px',
           }}
         />
-      )}
-    </Box>
-
-    {/* Action Buttons: Cancel, Save (draft), Publish changes (published) */}
-    <Box sx={{ display: 'flex', gap: 1.2, alignItems: 'center' }}>
-      <Button
-        variant="outlined"
-        onClick={handleCancel}
-        disabled={saveLoading}
-        sx={{
-          borderColor: '#BDB9B1',
-          color: '#1F1E1C',
-          backgroundColor: '#FFFFFF',
-          fontWeight: 500,
-          fontSize: '14px',
-          textTransform: 'none',
-          borderRadius: '6px',
-          height: 38,
-          px: 2,
-          '&:hover': { borderColor: '#1F1E1C', backgroundColor: '#F9F9F8' },
-        }}
-      >
-        Cancel
-      </Button>
-
-      <Button
-        variant="outlined"
-        onClick={() => handleSave('draft')}
-        disabled={saveLoading}
-        sx={{
-          borderColor: '#BDB9B1',
-          color: '#1F1E1C',
-          backgroundColor: '#FFFFFF',
-          fontWeight: 500,
-          fontSize: '14px',
-          textTransform: 'none',
-          borderRadius: '6px',
-          height: 38,
-          px: 2,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          '&:hover': { borderColor: '#1F1E1C', backgroundColor: '#F9F9F8' },
-        }}
-      >
-        {saveLoading && savingType === 'draft' && (
-          <CircularProgress size={16} sx={{ color: '#1F1E1C' }} />
+        {course?.alias && (
+          <Chip
+            label={`Alias: ${course.alias}`}
+            size="small"
+            sx={{
+              backgroundColor: '#EEEDE9',
+              color: '#3D3B37',
+              fontWeight: 500,
+              fontSize: '11px',
+              fontFamily: 'monospace',
+              height: 24,
+              borderRadius: '4px',
+            }}
+          />
         )}
-        Save
-      </Button>
+      </Box>
 
-      <Button
-        variant="contained"
-        onClick={() => handleSave('published')}
-        disabled={saveLoading}
-        sx={{
-          backgroundColor: '#1F1E1C',
-          color: '#FFFFFF',
-          fontWeight: 500,
-          fontSize: '14px',
-          textTransform: 'none',
-          borderRadius: '6px',
-          height: 38,
-          px: 2.5,
-          boxShadow: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          '&:hover': { backgroundColor: '#000000', boxShadow: 'none' },
-          '&.Mui-disabled': {
-            backgroundColor: '#D6D3CC',
-            color: '#8A867F',
-          },
-        }}
-      >
-        {saveLoading && savingType === 'published' && (
-          <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />
-        )}
-        Publish changes
-      </Button>
+      {/* Action Buttons: Cancel, Save (draft), Publish changes (published) */}
+      <Box sx={{ display: 'flex', gap: 1.2, alignItems: 'center' }}>
+        <Button
+          variant="outlined"
+          onClick={handleCancel}
+          disabled={saveLoading}
+          sx={{
+            borderColor: '#BDB9B1',
+            color: '#1F1E1C',
+            backgroundColor: '#FFFFFF',
+            fontWeight: 500,
+            fontSize: '14px',
+            textTransform: 'none',
+            borderRadius: '6px',
+            height: 38,
+            px: 2,
+            '&:hover': { borderColor: '#1F1E1C', backgroundColor: '#F9F9F8' },
+          }}
+        >
+          Cancel
+        </Button>
+
+        <Button
+          variant="outlined"
+          onClick={() => handleSave('draft')}
+          disabled={saveLoading}
+          sx={{
+            borderColor: '#BDB9B1',
+            color: '#1F1E1C',
+            backgroundColor: '#FFFFFF',
+            fontWeight: 500,
+            fontSize: '14px',
+            textTransform: 'none',
+            borderRadius: '6px',
+            height: 38,
+            px: 2,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            '&:hover': { borderColor: '#1F1E1C', backgroundColor: '#F9F9F8' },
+          }}
+        >
+          {saveLoading && savingType === 'draft' && (
+            <CircularProgress size={16} sx={{ color: '#1F1E1C' }} />
+          )}
+          Save
+        </Button>
+
+        <Button
+          variant="contained"
+          onClick={() => handleSave('published')}
+          disabled={saveLoading}
+          sx={{
+            backgroundColor: '#1F1E1C',
+            color: '#FFFFFF',
+            fontWeight: 500,
+            fontSize: '14px',
+            textTransform: 'none',
+            borderRadius: '6px',
+            height: 38,
+            px: 2.5,
+            boxShadow: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1,
+            '&:hover': { backgroundColor: '#000000', boxShadow: 'none' },
+            '&.Mui-disabled': {
+              backgroundColor: '#D6D3CC',
+              color: '#8A867F',
+            },
+          }}
+        >
+          {saveLoading && savingType === 'published' && (
+            <CircularProgress size={16} sx={{ color: '#FFFFFF' }} />
+          )}
+          Publish changes
+        </Button>
+      </Box>
     </Box>
-  </Box>
   </>
 );
 

@@ -23,6 +23,8 @@ export interface UserGroup {
   cohortId: string;
   name: string;
   role?: string;
+  /** Membership of the user in the group, needed to remove them */
+  membershipId?: string;
 }
 
 const ROW_SX = {

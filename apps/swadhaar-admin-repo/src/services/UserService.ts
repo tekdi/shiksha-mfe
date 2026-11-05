@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
 import { get, post, patch } from './RestClient';
-import { getServiceHeaders } from '@/utils/API/serviceHeaders';
+import { getServiceHeaders, getSessionTenantId } from '@/utils/API/serviceHeaders';
 import { SWADHAAR_TENANT_ID } from '@/utils/app.constant';
 
 export const getUserDetailsInfo = async (
@@ -131,6 +131,24 @@ export const updateUserAccount = async (
     return response?.data;
   } catch (error) {
     console.error('Error in updateUserAccount:', error);
+    throw error;
+  }
+};
+
+/**
+ * Changes a user's tenant role: PATCH /user/v1/update/:userId with the new role in `tenantCohortRoleMapping`
+ * (the same shape the create call uses).
+ */
+export const updateUserRole = async (userId: string, roleId: string): Promise<any> => {
+  try {
+    const response = await patch(
+      API_ENDPOINTS.userUpdate(userId),
+      { userData: {}, tenantCohortRoleMapping: [{ tenantId: getSessionTenantId() || SWADHAAR_TENANT_ID, roleId }] },
+      getServiceHeaders()
+    );
+    return response?.data;
+  } catch (error) {
+    console.error('Error in updateUserRole:', error);
     throw error;
   }
 };

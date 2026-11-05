@@ -1,4 +1,5 @@
 import { isValidMinutes, sanitizeMinutes, MINUTES_ERROR, MINUTES_MAX_DIGITS } from '@/utils/minutesInput';
+import RichTextField from '@/components/content/RichTextField';
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -55,30 +56,6 @@ const CARD_HEADER_SX = {
 };
 
 const CARD_TITLE_SX = { fontSize: '15px', fontWeight: 600, color: NEUTRAL.ink };
-
-const TOOLBAR_ITEM_SX = {
-  cursor: 'pointer',
-  px: 0.6,
-  py: 0.2,
-  borderRadius: '3px',
-  '&:hover': { backgroundColor: '#EEEDE9', color: NEUTRAL.ink },
-};
-
-const TOOLBAR_ITEMS: { labelKey: string; display?: string; displayKey?: string; sx: object }[] = [
-  { labelKey: 'COURSES.EDITOR.BOLD', display: 'B', sx: { fontWeight: 700, fontSize: '13px' } },
-  { labelKey: 'COURSES.EDITOR.ITALIC', display: 'I', sx: { fontStyle: 'italic', fontSize: '13px' } },
-  { labelKey: 'COURSES.EDITOR.UNDERLINE', display: 'U', sx: { textDecoration: 'underline', fontSize: '13px' } },
-  {
-    labelKey: 'COURSES.EDITOR.BULLETED_LIST',
-    displayKey: 'COURSES.EDITOR.LIST',
-    sx: { fontSize: '12px', fontWeight: 500 },
-  },
-  {
-    labelKey: 'COURSES.EDITOR.INSERT_LINK',
-    displayKey: 'COURSES.EDITOR.LINK',
-    sx: { fontSize: '12px', fontWeight: 500 },
-  },
-];
 
 const OBJECTIVE_MOVE_BUTTON_SX = {
   width: 22,
@@ -189,10 +166,7 @@ export default function CreateCoursePage() {
     isValidMinutes(learningDuration) &&
     isValidMinutes(assessmentDuration);
 
-  const handleSaveCourse = async (
-    statusToSave: 'published' | 'unpublished',
-    redirectAction: 'list' | 'sections'
-  ) => {
+  const handleSaveCourse = async (statusToSave: 'published' | 'unpublished') => {
     if (!validateForm()) return;
     setSubmitting(true);
     setError(null);
@@ -233,9 +207,8 @@ export default function CreateCoursePage() {
       setSuccessMsg(successText);
 
       setTimeout(() => {
-        if (redirectAction === 'sections' && createdCourseId) {
-          router.push(`/content/courses/${createdCourseId}/sections/create`);
-        } else if (createdCourseId) {
+        // Both saves open the saved course, where its modules and sections are added
+        if (createdCourseId) {
           router.push(`/content/courses/${createdCourseId}`);
         } else {
           router.push(COURSES_LIST_PATH);
@@ -318,7 +291,7 @@ export default function CreateCoursePage() {
 
           <CommonButton
             variant="outlined"
-            onClick={() => handleSaveCourse('unpublished', 'list')}
+            onClick={() => handleSaveCourse('unpublished')}
             disabled={submitting || !canSave}
           >
             {submitting ? <CircularProgress size={16} sx={{ mr: 1 }} /> : null}
@@ -327,7 +300,7 @@ export default function CreateCoursePage() {
 
           <CommonButton
             variant="primary"
-            onClick={() => handleSaveCourse('published', 'sections')}
+            onClick={() => handleSaveCourse('published')}
             disabled={submitting || !canSave}
           >
             {submitting ? <CircularProgress size={16} color="inherit" sx={{ mr: 1 }} /> : null}
@@ -432,39 +405,11 @@ export default function CreateCoursePage() {
               {/* Introduction with Rich Text Toolbar */}
               <Box sx={{ display: 'flex', flexDirection: 'column' }}>
                 <FieldLabel label={t('COURSES.CREATE.INTRODUCTION') || 'Introduction'} htmlFor="course-introduction" />
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                    px: 1.5,
-                    py: 0.8,
-                    backgroundColor: NEUTRAL.canvas,
-                    border: `1px solid ${NEUTRAL.borderStrong}`,
-                    borderBottom: 'none',
-                    borderRadius: '6px 6px 0 0',
-                    color: NEUTRAL.muted,
-                  }}
-                >
-                  {TOOLBAR_ITEMS.map((item, idx) => (
-                    <React.Fragment key={item.labelKey}>
-                      {idx === 3 && <Box sx={{ width: '1px', height: 16, backgroundColor: NEUTRAL.border }} />}
-                      <Tooltip title={t(item.labelKey)}>
-                        <Box component="span" sx={{ ...TOOLBAR_ITEM_SX, ...item.sx }}>
-                          {item.displayKey ? t(item.displayKey) : item.display}
-                        </Box>
-                      </Tooltip>
-                    </React.Fragment>
-                  ))}
-                </Box>
-                <CommonTextField
+                <RichTextField
                   id="course-introduction"
-                  multiline
-                  rows={3}
                   value={introduction}
-                  onChange={(e) => setIntroduction(e.target.value)}
+                  onChange={setIntroduction}
                   placeholder={t('COURSES.CREATE.INTRODUCTION_PLACEHOLDER') || 'Enter course introduction...'}
-                  InputProps={{ sx: { borderRadius: '0 0 6px 6px' } }}
                 />
               </Box>
 

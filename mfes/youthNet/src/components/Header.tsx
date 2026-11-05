@@ -195,7 +195,7 @@ const Header: React.FC<HeaderProps> = ({ toggleDrawer, openDrawer }) => {
             }
             className={isRTL ? '' : 'pl-md-20'}
           >
-            {/* <Box
+            <Box
               onClick={() => {
                 if (openDrawer) {
                   if (toggleDrawer) {
@@ -217,7 +217,7 @@ const Header: React.FC<HeaderProps> = ({ toggleDrawer, openDrawer }) => {
                 alt="menu"
                 style={{ cursor: 'pointer' }}
               />
-            </Box> */}
+            </Box>
 
             <Image
               height={40}

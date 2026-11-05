@@ -1,3 +1,4 @@
+import RichTextField from './RichTextField';
 import React from 'react';
 import { renderRequiredLabel } from '@/components/common/RequiredLabel';
 import Link from 'next/link';
@@ -231,7 +232,7 @@ interface DescriptionFieldProps {
   label?: string;
 }
 
-/** Description textarea with the (visual-only) formatting toolbar used across content forms. */
+/** Description box with a working B / I / U / List / Link toolbar; the value is HTML. */
 export const DescriptionField: React.FC<DescriptionFieldProps> = ({
   value,
   onChange,
@@ -242,41 +243,7 @@ export const DescriptionField: React.FC<DescriptionFieldProps> = ({
     <Typography component="label" sx={FIELD_LABEL_SX}>
       {label}
     </Typography>
-    <Box
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        px: 1.5,
-        py: 0.8,
-        backgroundColor: '#FAF9F6',
-        border: '1px solid #BDB9B1',
-        borderBottom: 'none',
-        borderRadius: '6px 6px 0 0',
-        color: '#6B6862',
-      }}
-    >
-      <Box component="span" sx={{ fontWeight: 700, fontSize: '13px', cursor: 'pointer' }}>B</Box>
-      <Box component="span" sx={{ fontStyle: 'italic', fontSize: '13px', cursor: 'pointer' }}>I</Box>
-      <Box component="span" sx={{ textDecoration: 'underline', fontSize: '13px', cursor: 'pointer' }}>U</Box>
-      <Box sx={{ width: '1px', height: 16, backgroundColor: '#D6D3CC' }} />
-      <Box component="span" sx={{ fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>• List</Box>
-      <Box component="span" sx={{ fontSize: '12px', fontWeight: 500, cursor: 'pointer' }}>Link</Box>
-    </Box>
-    <TextField
-      fullWidth
-      multiline
-      rows={3}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      sx={{
-        '& .MuiOutlinedInput-root': {
-          ...OUTLINED_FIELD_SX['& .MuiOutlinedInput-root'],
-          borderRadius: '0 0 6px 6px',
-        },
-      }}
-    />
+    <RichTextField value={value} onChange={onChange} placeholder={placeholder} />
   </Box>
 );
 
