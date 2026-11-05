@@ -239,6 +239,16 @@ const applySearchFilters = (filters: Record<string, any>, search: string) => {
   }
 };
 
+const hasFilterValue = (v?: string): v is string => Boolean(v) && v !== 'all';
+
+/** Location filters use the field option values: states, city (district) and block */
+const applyLocationFilters = (target: Record<string, any>, values: SDBVFilterValues) => {
+  const block = values.block || values.branch;
+  if (hasFilterValue(values.state)) target.states = values.state;
+  if (hasFilterValue(values.district)) target.city = values.district;
+  if (hasFilterValue(block)) target.block = block;
+};
+
 export default function UsersPage() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -312,10 +322,7 @@ export default function UsersPage() {
       };
       if (debouncedSearch) applySearchFilters(payload.filters, debouncedSearch);
       // Location filters use the field option values: states, city (district) and block
-      const hasValue = (v?: string): v is string => Boolean(v) && v !== 'all';
-      if (hasValue(filters.state)) payload.filters.states = filters.state;
-      if (hasValue(filters.district)) payload.filters.city = filters.district;
-      if (hasValue(filters.block || filters.branch)) payload.filters.block = filters.block || filters.branch;
+      applyLocationFilters(payload.filters, filters);
 
       // A chosen role filters by its title (one role at a time); otherwise role "all" lists every role
       const chosenRole = filters.role && filters.role !== 'all' ? filters.role : '';

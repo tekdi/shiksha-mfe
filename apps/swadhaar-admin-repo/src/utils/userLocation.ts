@@ -7,7 +7,7 @@ export interface UserLocation {
   block: string;
 }
 
-const lower = (v: unknown): string => String(v ?? '').trim().toLowerCase();
+const lower = (v: unknown): string => (typeof v === 'string' || typeof v === 'number' ? String(v) : '').trim().toLowerCase();
 
 /** First value of a custom field: `value` may be an array or a string, `selectedValues` carries {id, value} */
 const firstFieldValue = (cf: any): string => {

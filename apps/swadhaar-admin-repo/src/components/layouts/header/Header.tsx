@@ -314,7 +314,7 @@ export const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar, sx }) => {
           }}
         >
           {/* Theme Toggle Button */}
-          <Tooltip title={mode === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}>
+          {/* <Tooltip title={mode === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}>
             <IconButton onClick={toggleThemeMode} sx={{ color: '#4B5563' }} size="small">
               {mode === 'dark' ? (
                 <LightModeOutlinedIcon sx={{ fontSize: 20 }} />
@@ -322,7 +322,7 @@ export const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar, sx }) => {
                 <DarkModeOutlinedIcon sx={{ fontSize: 20 }} />
               )}
             </IconButton>
-          </Tooltip>
+          </Tooltip> */}
 
           {/* Language Switcher */}
           <Box

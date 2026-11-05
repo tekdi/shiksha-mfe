@@ -204,6 +204,9 @@ export default function CreateVideoPage() {
   };
 
   // Title, language and a video source (link or chosen file) are mandatory
+  let previewKind: 'youtube' | 'file' | 'none' = 'none';
+  if (isYoutubeUrl(videoUrl)) previewKind = 'youtube';
+  else if (videoUrl.trim()) previewKind = 'file';
   const durationError = minutesFieldError(duration, true);
   const canSave =
     !durationError &&
@@ -391,7 +394,7 @@ export default function CreateVideoPage() {
               <FormCardHeader title="Preview" />
 
               <Box sx={{ p: 2 }}>
-                {isYoutubeUrl(videoUrl) ? (
+                {previewKind === 'youtube' && (
                   <Box
                     sx={{
                       position: 'relative',
@@ -417,14 +420,16 @@ export default function CreateVideoPage() {
                       allowFullScreen
                     />
                   </Box>
-                ) : videoUrl.trim() ? (
+                )}
+                {previewKind === 'file' && (
                   <Box
                     component="video"
                     controls
                     src={resolveMediaUrl(videoUrl.trim()) || videoUrl.trim()}
                     sx={{ width: '100%', aspectRatio: '16/9', borderRadius: '6px', backgroundColor: '#1F1E1C' }}
                   />
-                ) : (
+                )}
+                {previewKind === 'none' && (
                   <Box
                     sx={{
                       aspectRatio: '16/9',

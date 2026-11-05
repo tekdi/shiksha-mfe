@@ -112,6 +112,7 @@ const extractLocation = (customFields?: any[]) => {
 export default function CohortsPage() {
   const router = useRouter();
   const isGroupsRoute = router.pathname.startsWith('/groups');
+  const itemLabel = isGroupsRoute ? 'groups' : 'cohorts';
   const basePath = isGroupsRoute ? '/groups' : '/cohorts';
 
   const [cohorts, setCohorts] = useState<CohortItem[]>([]);
@@ -155,6 +156,9 @@ export default function CohortsPage() {
     }, 350);
     return () => clearTimeout(timer);
   }, [filters.search]);
+
+  let emptyMessage = `No ${itemLabel} found.`;
+  if (debouncedSearch) emptyMessage = `No ${itemLabel} found for "${debouncedSearch}". Try a different name.`;
 
   const fetchCohorts = useCallback(async () => {
     setLoading(true);
@@ -490,7 +494,7 @@ export default function CohortsPage() {
           setRowsPerPage(newSize);
           setPage(0);
         }}
-        emptyMessage={debouncedSearch ? `No ${isGroupsRoute ? 'groups' : 'cohorts'} found for "${debouncedSearch}". Try a different name.` : `No ${isGroupsRoute ? 'groups' : 'cohorts'} found.`}
+        emptyMessage={emptyMessage}
       />
 
       {/* Edit Cohort Modal */}

@@ -384,7 +384,9 @@ export default function UserDetailsPage() {
     } catch (e) {
       console.error('Failed to load user groups:', e);
     }
-    setUserGroups(mine.sort((x, y) => x.name.localeCompare(y.name)));
+    const sortedGroups = [...mine];
+    sortedGroups.sort((x, y) => x.name.localeCompare(y.name));
+    setUserGroups(sortedGroups);
     setGroupReviewers(reviewers);
   }, [userId]);
 
