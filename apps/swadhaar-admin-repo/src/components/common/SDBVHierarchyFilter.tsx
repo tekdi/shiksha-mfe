@@ -351,19 +351,11 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
               sx={{ borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' }}
             >
               <MenuItem value="all">All branches</MenuItem>
-              {blocks.length > 0 ? (
-                blocks.map((b) => (
-                  <MenuItem key={b.value} value={b.value}>
-                    {b.label}
-                  </MenuItem>
-                ))
-              ) : (
-                <>
-                  <MenuItem value="Haveli Branch">Haveli Branch</MenuItem>
-                  <MenuItem value="Kamptee Branch">Kamptee Branch</MenuItem>
-                  <MenuItem value="Dindori Branch">Dindori Branch</MenuItem>
-                </>
-              )}
+              {blocks.map((b) => (
+                <MenuItem key={b.value} value={b.value}>
+                  {b.label}
+                </MenuItem>
+              ))}
             </Select>
           </Grid>
 

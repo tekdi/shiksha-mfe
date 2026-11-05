@@ -27,6 +27,7 @@ import {
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
 import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
@@ -34,6 +35,7 @@ import nextI18NextConfig from '../../../next-i18next.config.js';
 import SDBVHierarchyFilter, { SDBVFilterValues } from '@/components/common/SDBVHierarchyFilter';
 import CommonTextField from '@/components/common/CommonTextField';
 import CommonSelect from '@/components/common/CommonSelect';
+import { readUserLocation, resolveLocationLabels, UserLocation } from '@/utils/userLocation';
 import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
 import {
   createCohort,
@@ -49,6 +51,8 @@ export interface UserRow {
   role: string;
   stateDistrict: string;
   branch: string;
+  /** Stored state, district and block option ids */
+  location?: UserLocation;
   rawUser?: any;
 }
 
@@ -73,23 +77,20 @@ const DEFAULT_FILTERS: SDBVFilterValues = {
 
 const DESCRIPTION_MAX_LENGTH = 500;
 
-/** The add-members list opens on Trainer users; the Role filter can switch to another role or all roles */
-const ADD_MEMBERS_DEFAULT_FILTERS: SDBVFilterValues = { ...DEFAULT_FILTERS, role: 'Trainer' };
+/** The add-members list opens on all roles; the Role filter can narrow it to one role */
+const ADD_MEMBERS_DEFAULT_FILTERS: SDBVFilterValues = { ...DEFAULT_FILTERS };
 
 const isActiveFilter = (value?: string): value is string => Boolean(value) && value !== 'all';
-
-const USER_FILTER_KEYS = ['state', 'district', 'branch', 'program'] as const;
 
 const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPerPage: number) => {
   const filterObj: Record<string, string[]> = {
     status: isActiveFilter(filters.status) ? [filters.status.toLowerCase()] : ['active'],
   };
-  USER_FILTER_KEYS.forEach((key) => {
-    const value = filters[key];
-    if (isActiveFilter(value)) {
-      filterObj[key] = [value];
-    }
-  });
+  // Location filters use the field option values: states, city (district) and block
+  const block = filters.block || filters.branch;
+  if (isActiveFilter(filters.state)) filterObj.states = filters.state as any;
+  if (isActiveFilter(filters.district)) filterObj.city = filters.district as any;
+  if (isActiveFilter(block)) filterObj.block = block as any;
 
   const payload: Record<string, any> = {
     limit: rowsPerPage,
@@ -111,44 +112,39 @@ const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPer
   return payload;
 };
 
-const trimmedOrEmpty = (value?: string | number | null): string => (value ? String(value).trim() : '');
-
-interface UserLocation {
-  state: string;
-  district: string;
-  branch: string;
-}
-
-/** Overrides location fields with matching custom field values (last match wins, as before). */
-const applyLocationCustomFields = (initial: UserLocation, customFields: unknown): UserLocation => {
-  const result = { ...initial };
-  if (!Array.isArray(customFields)) return result;
-  for (const cf of customFields) {
-    const label = (cf.label || cf.name || '').toLowerCase();
-    const val = cf.selectedValues?.[0]?.value || cf.value?.[0] || cf.value;
-    if (typeof val !== 'string' || !val.trim()) continue;
-    if (label.includes('state')) result.state = val;
-    if (label.includes('district') || label.includes('city')) result.district = val;
-    if (label.includes('branch') || label.includes('block')) result.branch = val;
-  }
-  return result;
+/** Replaces the stored ids of each row with the state, district and block names (each combination looked up once) */
+const resolveRowLocations = async (rows: UserRow[]): Promise<UserRow[]> => {
+  const cache = new Map<string, Promise<UserLocation>>();
+  return Promise.all(
+    rows.map(async (row) => {
+      if (!row.location?.state) return row;
+      const key = `${row.location.state}|${row.location.district}|${row.location.block}`;
+      if (!cache.has(key)) cache.set(key, resolveLocationLabels(row.location).catch(() => row.location as UserLocation));
+      const names = await cache.get(key)!;
+      return {
+        ...row,
+        stateDistrict: [names.state, names.district].filter(Boolean).join(' · ') || '-',
+        branch: names.block || '-',
+      };
+    })
+  );
 };
+
+const trimmedOrEmpty = (value?: string | number | null): string => (value ? String(value).trim() : '');
 
 const mapUserToRow = (u: any, idx: number): UserRow => {
   const nameParts = [u.firstName, u.middleName, u.lastName].map(trimmedOrEmpty);
-  const location = applyLocationCustomFields(
-    { state: u.state || '', district: u.district || u.city || '', branch: u.branch || u.block || '' },
-    u.customFields
-  );
-  const locParts = [location.state, location.district].filter(Boolean);
+  // The stored option ids; their names are filled in after the list loads (see resolveRowLocations)
+  const location = readUserLocation(u);
 
   return {
     userId: u.userId || u.id || `user-${idx}`,
     name: nameParts.filter(Boolean).join(' ') || u.name || u.username || '-',
     email: u.email && u.email !== '-' ? u.email : u.username || '-',
     role: u.role || u.tenantData?.[0]?.roleName || 'Student',
-    stateDistrict: locParts.length > 0 ? locParts.join(' · ') : '-',
-    branch: location.branch || '-',
+    stateDistrict: [location.state, location.district].filter(Boolean).join(' · ') || '-',
+    branch: location.block || '-',
+    location,
     rawUser: u,
   };
 };
@@ -157,13 +153,17 @@ const mapUserToRow = (u: any, idx: number): UserRow => {
 const createCohortFromForm = async (
   groupName: string,
   groupDescription: string,
-  groupStatus: string
+  groupStatus: string,
+  startDate: string,
+  endDate: string
 ): Promise<string> => {
   const cohortPayload: any = {
     name: groupName.trim(),
     status: groupStatus ? groupStatus.toLowerCase() : 'active',
     type: 'COHORT',
   };
+  if (startDate) cohortPayload.cohort_startDate = startDate;
+  if (endDate) cohortPayload.cohort_endDate = endDate;
   if (groupDescription.trim()) {
     cohortPayload.metadata = JSON.stringify({ description: groupDescription.trim() });
     cohortPayload.description = groupDescription.trim();
@@ -232,6 +232,9 @@ export default function CreateCohortPage() {
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [groupStatus, setGroupStatus] = useState('active');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const dateError = startDate && endDate && endDate < startDate ? 'End date cannot be before the start date.' : '';
 
   // User search & table state
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -314,6 +317,8 @@ export default function CreateCohortPage() {
       const mapped: UserRow[] = rawList.map(mapUserToRow);
 
       setUsers(mapped);
+      // Names replace the ids a moment later, so the list itself is not held back
+      resolveRowLocations(mapped).then(setUsers);
     } catch (err) {
       console.error('Failed to fetch users:', err);
       setUsers([]);
@@ -417,7 +422,7 @@ export default function CreateCohortPage() {
     try {
       const finalCohortId = isAddMembersMode
         ? targetCohortId
-        : await createCohortFromForm(groupName, groupDescription, groupStatus);
+        : await createCohortFromForm(groupName, groupDescription, groupStatus, startDate, endDate);
 
       // Step 2: Enroll selected members
       const membersArray = Array.from(selectedMembers.values());
@@ -455,7 +460,7 @@ export default function CreateCohortPage() {
 
   const selectedCount = selectedMembers.size;
   const isSubmitDisabled =
-    submitting || (isAddMembersMode ? selectedCount === 0 : !groupName.trim());
+    submitting || (isAddMembersMode ? selectedCount === 0 : !groupName.trim() || Boolean(dateError));
   const pageTitle = isAddMembersMode
     ? `Add Members: ${existingCohort?.name || 'Group'}`
     : 'Create New Group';
@@ -464,7 +469,7 @@ export default function CreateCohortPage() {
     if (loadingUsers) {
       return (
         <TableRow>
-          <TableCell colSpan={5} sx={{ textAlign: 'center', py: 6 }}>
+          <TableCell colSpan={6} sx={{ textAlign: 'center', py: 6 }}>
             <CircularProgress size={28} sx={{ color: 'primary.main', mb: 1 }} />
             <Typography sx={{ fontSize: '13px', color: '#6B7280' }}>
               Loading users directory...
@@ -476,7 +481,7 @@ export default function CreateCohortPage() {
     if (users.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={5} sx={{ textAlign: 'center', py: 6 }}>
+          <TableCell colSpan={6} sx={{ textAlign: 'center', py: 6 }}>
             <Typography sx={{ fontSize: '13.5px', color: '#6B7280' }}>
               No users found matching the filter criteria.
             </Typography>
@@ -556,8 +561,13 @@ export default function CreateCohortPage() {
                 whiteSpace: 'nowrap',
               }}
             >
-              {row.branch !== '-' ? `${row.branch} · ` : ''}
               {row.stateDistrict}
+            </Typography>
+          </TableCell>
+
+          <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+            <Typography sx={{ fontSize: '12px', color: '#6B7280', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {row.branch}
             </Typography>
           </TableCell>
         </TableRow>
@@ -730,7 +740,19 @@ export default function CreateCohortPage() {
                         borderBottom: '1px solid #E5E7EB',
                       }}
                     >
-                      LOCATION
+                      STATE · DISTRICT
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        color: '#6B7280',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        borderBottom: '1px solid #E5E7EB',
+                      }}
+                    >
+                      BRANCH
                     </TableCell>
                   </TableRow>
                 </TableHead>
@@ -814,14 +836,50 @@ export default function CreateCohortPage() {
                   placeholder="Optional notes or batch objectives..."
                   inputProps={{ maxLength: DESCRIPTION_MAX_LENGTH }}
                   error={groupDescription.length >= DESCRIPTION_MAX_LENGTH}
+                  FormHelperTextProps={{ component: 'div', sx: { mx: 0 } }}
                   helperText={
-                    groupDescription.length >= DESCRIPTION_MAX_LENGTH
-                      ? `Description cannot exceed ${DESCRIPTION_MAX_LENGTH} characters.`
-                      : `${groupDescription.length}/${DESCRIPTION_MAX_LENGTH}`
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mt: 0.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, fontSize: '13px' }}>
+                        {groupDescription.length >= DESCRIPTION_MAX_LENGTH && (
+                          <>
+                            <ErrorOutlineIcon sx={{ fontSize: 18 }} />
+                            <span>You have reached the maximum limit of {DESCRIPTION_MAX_LENGTH} characters.</span>
+                          </>
+                        )}
+                      </Box>
+                      <Box
+                        component="span"
+                        sx={{ fontSize: '13px', fontWeight: groupDescription.length >= DESCRIPTION_MAX_LENGTH ? 700 : 500 }}
+                      >
+                        {groupDescription.length}/{DESCRIPTION_MAX_LENGTH}
+                      </Box>
+                    </Box>
                   }
                   multiline
                   rows={2}
                 />
+
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <CommonTextField
+                    id="create-cohort-start-date"
+                    label="Start Date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  <CommonTextField
+                    id="create-cohort-end-date"
+                    label="End Date"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    inputProps={{ min: startDate || undefined }}
+                    InputLabelProps={{ shrink: true }}
+                    error={Boolean(dateError)}
+                    helperText={dateError || undefined}
+                  />
+                </Box>
 
                 <CommonSelect
                   id="create-cohort-status"

@@ -30,6 +30,8 @@ import { readUserLocation, resolveLocationLabels, UserLocation } from '@/utils/u
 import { AddToGroupDialog, AddReviewUsersDialog, UserGroup, ReviewUser } from '@/components/common/UserGroupDialogs';
 import {
   bulkCreateCohortMembers,
+  getMembershipId,
+  removeCohortMemberships,
   getCohortMemberListApplication,
   getCohortSearch,
   getMemberRows,
@@ -370,7 +372,7 @@ export default function UserDetailsPage() {
           const rows = getMemberRows(res);
           const me = rows.find((m: any) => (m.userId || m.id) === userId);
           if (!me) return;
-          mine.push({ cohortId: g.cohortId, name: g.name, role: me.role });
+          mine.push({ cohortId: g.cohortId, name: g.name, role: me.role, membershipId: getMembershipId(me) });
           rows
             .filter((m: any) => String(m.role || '').toLowerCase() === 'reviewer' && (m.userId || m.id) !== userId)
             .forEach((m: any) => {
@@ -402,7 +404,7 @@ export default function UserDetailsPage() {
   };
 
   const handleRemoveFromGroup = async (group: UserGroup) => {
-    await bulkCreateCohortMembers({ userId: [userId], cohortId: [], removeCohortId: [group.cohortId] });
+    await removeCohortMemberships([group.membershipId || '']);
     setFeedback({ open: true, message: `${parsedUser.fullName} removed from ${group.name}.`, severity: 'success' });
     loadGroups();
   };

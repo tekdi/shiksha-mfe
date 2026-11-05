@@ -1,4 +1,5 @@
-import { minutesFieldError } from '@/utils/minutesInput';
+import { isValidMinutes, sanitizeMinutes, MINUTES_ERROR, MINUTES_MAX_DIGITS } from '@/utils/minutesInput';
+import { sanitizeRichHtml } from '@/components/content/RichTextField';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import {
@@ -22,11 +23,12 @@ import {
   uploadLessonMedia,
   getLmsLessonById,
   updateLmsLesson,
-  lessonDescriptionToText,
 } from '@/services/CourseService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
 import useUsedInQuery from '@/hooks/useUsedInQuery';
 import { ContentFormHeader, FormAlerts, FormCardHeader, DescriptionField, LanguageSelect, UsedInCard, CARD_SX, LabeledTextField } from '@/components/content/ContentFormParts';
+
+const MAX_PDF_BYTES = 25 * 1024 * 1024;
 
 /** "20" or "20 min" -> 20 */
 const parseIdealMinutes = (value: string): number | undefined => {
@@ -36,7 +38,12 @@ const parseIdealMinutes = (value: string): number | undefined => {
 
 const toLanguageOption = (language: string): 'Hindi' | 'English' => (language === 'Hindi' ? 'Hindi' : 'English');
 
-const toDescriptionHtml = (text: string): string => (text.trim() ? `<p>${text.trim()}</p>` : '');
+// The description editor produces HTML; a plain-text value is wrapped in a paragraph
+const toDescriptionHtml = (html: string): string => {
+  const value = html.trim();
+  if (!value) return '';
+  return value.startsWith('<') ? value : `<p>${value}</p>`;
+};
 
 /** Optional courseId / moduleId from the route query, only when they are non-empty strings */
 const getCourseTarget = (query: Record<string, unknown>) => {
@@ -112,8 +119,8 @@ export default function CreatePdfPage() {
         .then((lesson: any) => {
           if (lesson) {
             const loadedTitle = lesson.title || '';
-            const loadedDesc = lessonDescriptionToText(lesson.description);
-            const loadedDur = lesson.idealTime ? `${lesson.idealTime} min` : '';
+            const loadedDesc = sanitizeRichHtml(lesson.description || '');
+            const loadedDur = lesson.idealTime ? String(lesson.idealTime) : '';
             const loadedLang = detectLanguage(loadedTitle, lesson.language ?? lesson.params?.language);
             const loadedFile =
               (lesson.media?.path || lesson.media?.source || '').split('?')[0].split('/').pop() ||
@@ -146,6 +153,25 @@ export default function CreatePdfPage() {
     }
   }, [id, router.query.usedIn]);
 
+  // Only PDF files up to 25MB are accepted; anything else is refused with a message
+  const handlePdfChosen = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    const isPdf = file.type ? file.type === 'application/pdf' : /\.pdf$/i.test(file.name);
+    if (!isPdf) {
+      setError('Only PDF files can be uploaded. Please choose a .pdf file.');
+      return;
+    }
+    if (file.size > MAX_PDF_BYTES) {
+      setError('The PDF is larger than 25MB. Please choose a smaller file.');
+      return;
+    }
+    setError(null);
+    setFileName(file.name);
+    setPdfFile(file);
+  };
+
   const updateExistingPdf = async (lessonId: string, isDraft: boolean) => {
     // A newly chosen file replaces the stored one; otherwise the existing media is kept
     const newPath = pdfFile ? (await uploadLessonMedia(pdfFile, 'document')).path : undefined;
@@ -173,7 +199,7 @@ export default function CreatePdfPage() {
   };
 
   // Title, language and a PDF file (already on the record when editing) are mandatory
-  const readingTimeError = minutesFieldError(readingTime);
+  const readingTimeError = isValidMinutes(readingTime) ? '' : MINUTES_ERROR;
   const canSave = Boolean(title.trim()) && Boolean(language) && (isEditing || Boolean(pdfFile)) && !readingTimeError;
 
   const handleSave = async (isDraft = false) => {
@@ -242,7 +268,7 @@ export default function CreatePdfPage() {
               {/* Reading Time and Language */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <LabeledTextField label="Reading time (min)" value={readingTime} onChange={setReadingTime} error={readingTimeError} placeholder="e.g. 10" hint="Optional, like video durations" />
+                  <LabeledTextField label="Reading time (min)" value={readingTime} onChange={(v) => setReadingTime(sanitizeMinutes(v))} numeric={{ maxLength: MINUTES_MAX_DIGITS }} error={readingTimeError} placeholder="e.g. 10" hint="Optional, in minutes" />
                 </Grid>
 
                 <Grid item xs={12} sm={6}>
@@ -288,13 +314,7 @@ export default function CreatePdfPage() {
                   type="file"
                   accept="application/pdf"
                   hidden
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      setFileName(file.name);
-                      setPdfFile(file);
-                    }
-                  }}
+                  onChange={handlePdfChosen}
                 />
               </Box>
 
@@ -356,13 +376,7 @@ export default function CreatePdfPage() {
                       type="file"
                       accept="application/pdf"
                       hidden
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                      setFileName(file.name);
-                      setPdfFile(file);
-                    }
-                      }}
+                      onChange={handlePdfChosen}
                     />
                   </Button>
                 </Box>

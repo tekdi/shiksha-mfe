@@ -246,6 +246,20 @@ export const updateCohortMember = async (
   }
 };
 
+/** Id of a member row's membership in the cohort (the key differs between list responses) */
+export const getMembershipId = (row: any): string =>
+  String(row?.cohortMembershipId || row?.membershipId || row?.cohortMemberId || '');
+
+/**
+ * Takes members out of a group. bulkCreate rejects an empty `cohortId` ("cohortId should not be empty"), so each
+ * membership is archived instead: PUT /user/v1/cohortmember/update/:membershipId { status: 'archived' }.
+ */
+export const removeCohortMemberships = async (membershipIds: string[]): Promise<void> => {
+  const missing = membershipIds.filter((id) => !id).length;
+  if (missing > 0) throw new Error('Could not find the membership of this member in the group.');
+  await Promise.all(membershipIds.map((id) => updateCohortMember(id, { status: 'archived' })));
+};
+
 const COHORT_MEMBER_PAGE_SIZE = 100;
 
 /** User ids of every learner in a group (reviewers are left out), across all member pages */

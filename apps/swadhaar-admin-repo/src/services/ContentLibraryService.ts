@@ -296,8 +296,9 @@ export const searchContentLibrary = async (
     }
 
     if (params.tab === 'videos' || params.tab === 'pdfs') {
+      // status '' lists lessons of every status, drafts included
       const { count, lessons } = await getLmsLessons({
-        status: 'published',
+        status: '',
         format: LESSON_FORMAT_BY_TAB[params.tab],
         query: params.query,
         limit: params.limit ?? 20,
@@ -391,8 +392,8 @@ export const searchContentLibrary = async (
  */
 export const fetchContentTabCounts = async (): Promise<ContentTabCounts> => {
   const [vid, pdf, assess] = await Promise.allSettled([
-    getLmsLessons({ format: LESSON_FORMAT_BY_TAB.videos, limit: 1 }),
-    getLmsLessons({ format: LESSON_FORMAT_BY_TAB.pdfs, limit: 1 }),
+    getLmsLessons({ status: '', format: LESSON_FORMAT_BY_TAB.videos, limit: 1 }),
+    getLmsLessons({ status: '', format: LESSON_FORMAT_BY_TAB.pdfs, limit: 1 }),
     AssessmentService.getAllTests({ status: 'published', limit: 1, offset: 0 }),
   ]);
 

@@ -258,9 +258,9 @@ const customTheme = extendTheme({
           '&:not([colspan])': { textAlign: 'left' },
         },
         head: {
-          // Headers are centred
-          '&:not([colspan])': { textAlign: 'center' },
-          justifyContent: 'center',
+          // Headers are left-aligned, in line with the data below them
+          '&:not([colspan])': { textAlign: 'left' },
+          justifyContent: 'flex-start',
           fontWeight: 600,
           color: BRAND.textSecondary,
           backgroundColor: NEUTRAL.canvas,
