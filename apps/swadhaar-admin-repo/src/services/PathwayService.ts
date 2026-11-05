@@ -157,6 +157,23 @@ export const setCoursePathway = async (courseId: string, pathwayId: string | nul
   }
 };
 
+/**
+ * Records the groups enrolled in a path as `params.enrolledCohortIds` on each of the path's courses (the backend has no
+ * group link on a pathway). PATCH replaces `params` as a whole, so each course is read first and the ids are merged.
+ */
+export const addPathwayCohorts = async (courseIds: string[], cohortIds: string[]): Promise<void> => {
+  const headers = getServiceHeaders();
+  await Promise.all(
+    courseIds.map(async (courseId) => {
+      const courseUrl = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
+      const current = await get(courseUrl, headers);
+      const params = current?.data?.result?.params || {};
+      const merged = Array.from(new Set([...(params.enrolledCohortIds || []), ...cohortIds]));
+      await patch(courseUrl, { params: { ...params, enrolledCohortIds: merged } }, headers);
+    })
+  );
+};
+
 /** Id of a pathway returned by create/update */
 export const pathwayIdFromResponse = (res: any): string =>
   res?.result?.id || res?.result?.pathway?.id || res?.result?.pathwayId || res?.id || '';

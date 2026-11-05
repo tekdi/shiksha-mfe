@@ -79,9 +79,9 @@ const getQueryParam = (value: string | string[] | undefined): string => {
   return Array.isArray(value) ? value[0] : '';
 };
 
-const toGroupStatus = (status?: string): 'Active' | 'Draft' | 'Archived' => {
+const toGroupStatus = (status?: string): 'Active' | 'Inactive' | 'Archived' => {
   const rawStatus = (status || 'active').toLowerCase();
-  if (rawStatus === 'draft') return 'Draft';
+  if (rawStatus === 'inactive' || rawStatus === 'draft') return 'Inactive';
   if (rawStatus === 'archived') return 'Archived';
   return 'Active';
 };

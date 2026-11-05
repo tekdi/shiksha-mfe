@@ -1,4 +1,5 @@
 import React from 'react';
+import { renderRequiredLabel } from '@/components/common/RequiredLabel';
 import Link from 'next/link';
 import { Alert, Box, Button, Chip, FormControl, MenuItem, Paper, Select, TextField, Typography } from '@mui/material';
 
@@ -182,7 +183,7 @@ export const FormAlerts: React.FC<FormAlertsProps> = ({ error, successMsg, onClo
 
 export const FormCardHeader: React.FC<{ title: string }> = ({ title }) => (
   <Box sx={{ px: 2.5, py: 1.8, borderBottom: '1px solid #ECEAE5' }}>
-    <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#1F1E1C' }}>{title}</Typography>
+    <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#1F1E1C' }}>{renderRequiredLabel(title)}</Typography>
   </Box>
 );
 
@@ -192,13 +193,17 @@ interface LabeledTextFieldProps {
   onChange: (value: string) => void;
   placeholder?: string;
   hint?: string;
+  /** Shown in red under the field; also outlines it */
+  error?: string;
+  /** Numeric keypad and a length limit, for number-only values */
+  numeric?: { maxLength: number };
 }
 
 /** Label + small outlined text field (+ optional muted hint) used by the content forms. */
-export const LabeledTextField: React.FC<LabeledTextFieldProps> = ({ label, value, onChange, placeholder, hint }) => (
+export const LabeledTextField: React.FC<LabeledTextFieldProps> = ({ label, value, onChange, placeholder, hint, error, numeric }) => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
     <Typography component="label" sx={FIELD_LABEL_SX}>
-      {label}
+      {renderRequiredLabel(label)}
     </Typography>
     <TextField
       fullWidth
@@ -206,9 +211,12 @@ export const LabeledTextField: React.FC<LabeledTextFieldProps> = ({ label, value
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      error={Boolean(error)}
+      helperText={error || undefined}
+      inputProps={numeric ? { inputMode: 'numeric', maxLength: numeric.maxLength } : undefined}
       sx={OUTLINED_FIELD_SX}
     />
-    {hint && (
+    {hint && !error && (
       <Typography variant="caption" sx={{ color: '#6B6862', fontSize: '12px' }}>
         {hint}
       </Typography>
@@ -280,7 +288,7 @@ interface LanguageSelectProps {
 export const LanguageSelect: React.FC<LanguageSelectProps> = ({ value, onChange }) => (
   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
     <Typography component="label" sx={FIELD_LABEL_SX}>
-      Language *
+      {renderRequiredLabel('Language *')}
     </Typography>
     <FormControl size="small" fullWidth>
       <Select

@@ -1,3 +1,4 @@
+import { isValidMinutes, sanitizeMinutes, MINUTES_ERROR, MINUTES_MAX_DIGITS } from '@/utils/minutesInput';
 import React, { useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -99,18 +100,17 @@ export default function CreateCoursePage() {
   const [courseName, setCourseName] = useState<string>('');
   const [shortDescription, setShortDescription] = useState<string>('Description');
   const [targetAudience, setTargetAudience] = useState<string>(
-    'New field trainers and Community Resource Persons joining Swadhaar FinAccess'
+    ''
   );
   const [learningDuration, setLearningDuration] = useState<string>('45');
   const [assessmentDuration, setAssessmentDuration] = useState<string>('15');
   const [deliveryMode, setDeliveryMode] = useState<string>('Online learning via LMS');
   const [introduction, setIntroduction] = useState<string>(
-    'Welcome to your very first step as a Swadhaar FinAccess field trainer…'
+    ''
   );
-  const [howItWorks, setHowItWorks] = useState<string>(
-    'Complete each section and pass its assessment. Score 70% or above on the final assessment to progress to the next course…'
-  );
-
+  // Fixed text shown to admins, not editable
+  const howItWorks =
+    'Complete each section and pass its assessment. Score 70% or above on the final assessment to progress to the next course…';
   // Objectives List
   const [objectives, setObjectives] = useState<ObjectiveItem[]>([
     {
@@ -183,7 +183,11 @@ export default function CreateCoursePage() {
   };
 
   // Course name and language are mandatory for both save buttons
-  const canSave = Boolean(courseName.trim()) && Boolean(language);
+  const canSave =
+    Boolean(courseName.trim()) &&
+    Boolean(language) &&
+    isValidMinutes(learningDuration) &&
+    isValidMinutes(assessmentDuration);
 
   const handleSaveCourse = async (
     statusToSave: 'published' | 'unpublished',
@@ -393,8 +397,11 @@ export default function CreateCoursePage() {
                     id="course-learning-duration"
                     label={t('COURSES.CREATE.LEARNING_CONTENT_MIN') || 'Learning Content (min)'}
                     value={learningDuration}
-                    onChange={(e) => setLearningDuration(e.target.value)}
+                    onChange={(e) => setLearningDuration(sanitizeMinutes(e.target.value))}
                     placeholder="45"
+                    inputProps={{ inputMode: 'numeric', maxLength: MINUTES_MAX_DIGITS }}
+                    error={!isValidMinutes(learningDuration)}
+                    helperText={isValidMinutes(learningDuration) ? undefined : MINUTES_ERROR}
                   />
                 </Grid>
 
@@ -403,8 +410,11 @@ export default function CreateCoursePage() {
                     id="course-assessment-duration"
                     label={t('COURSES.CREATE.ASSESSMENT_MIN') || 'Assessment (min)'}
                     value={assessmentDuration}
-                    onChange={(e) => setAssessmentDuration(e.target.value)}
+                    onChange={(e) => setAssessmentDuration(sanitizeMinutes(e.target.value))}
                     placeholder="15"
+                    inputProps={{ inputMode: 'numeric', maxLength: MINUTES_MAX_DIGITS }}
+                    error={!isValidMinutes(assessmentDuration)}
+                    helperText={isValidMinutes(assessmentDuration) ? undefined : MINUTES_ERROR}
                   />
                 </Grid>
 
@@ -465,7 +475,7 @@ export default function CreateCoursePage() {
                 multiline
                 rows={2}
                 value={howItWorks}
-                onChange={(e) => setHowItWorks(e.target.value)}
+                InputProps={{ readOnly: true }}
                 placeholder={t('COURSES.CREATE.HOW_IT_WORKS_PLACEHOLDER') || 'Explain progression and requirements...'}
               />
             </Box>
@@ -585,7 +595,7 @@ export default function CreateCoursePage() {
                   alignItems: 'center',
                 }}
               >
-                <Typography sx={CARD_TITLE_SX}>{t('COMMON.LANGUAGE') || 'Language'} *</Typography>
+                <Typography sx={CARD_TITLE_SX}>{t('COMMON.LANGUAGE') || 'Language'}<span style={{ color: '#D92D20' }}> *</span></Typography>
               </Box>
 
               <Box sx={{ p: 2.5 }}>

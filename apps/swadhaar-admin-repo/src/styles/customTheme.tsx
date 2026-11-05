@@ -178,10 +178,26 @@ const customTheme = extendTheme({
           borderRadius: '8px',
           textTransform: 'none',
           fontWeight: 600,
+          fontSize: '13px',
+          minHeight: 38,
+          padding: '6px 18px',
+          lineHeight: 1.4,
           boxShadow: 'none',
           '&:hover': {
             boxShadow: '0 2px 6px rgba(0,0,0,0.1)',
           },
+        },
+        contained: {
+          backgroundColor: BRAND.primary,
+          color: BRAND.buttonText,
+          '&:hover': { backgroundColor: BRAND.primaryDark },
+          '&.Mui-disabled': { opacity: 0.6, color: BRAND.buttonText, backgroundColor: BRAND.primary },
+        },
+        outlined: {
+          borderColor: NEUTRAL.borderStrong,
+          color: NEUTRAL.ink,
+          '&:hover': { borderColor: BRAND.primary, backgroundColor: BRAND.primarySoft },
+          '&.Mui-disabled': { opacity: 0.6 },
         },
         containedPrimary: {
           backgroundColor: BRAND.primary,
@@ -238,8 +254,13 @@ const customTheme = extendTheme({
           fontSize: '13px',
           borderColor: NEUTRAL.divider,
           padding: '12px 16px',
+          // Table data is left-aligned (rows spanning all columns, e.g. empty states, keep their own alignment)
+          '&:not([colspan])': { textAlign: 'left' },
         },
         head: {
+          // Headers are centred
+          '&:not([colspan])': { textAlign: 'center' },
+          justifyContent: 'center',
           fontWeight: 600,
           color: BRAND.textSecondary,
           backgroundColor: NEUTRAL.canvas,

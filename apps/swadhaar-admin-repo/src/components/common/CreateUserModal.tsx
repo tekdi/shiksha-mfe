@@ -90,8 +90,16 @@ const employeeIdFromUsername = (username: string, fallback: string): string =>
   !PHONE_REGEX.test(username) && username ? username : fallback;
 
 const findCustomFieldValue = (customFields: any[], matches: (cf: any) => boolean): string => {
-  const field = customFields.find(matches);
-  return field?.value?.[0] ? toStr(field.value[0]) : '';
+  const field = customFields.find((cf) => matches(cf) && readFieldValue(cf));
+  return field ? readFieldValue(field) : '';
+};
+
+/** `value` may be an array or a string; `selectedValues` carries {id, value} */
+const readFieldValue = (cf: any): string => {
+  const raw = Array.isArray(cf?.value) ? cf.value[0] : cf?.value;
+  if (raw !== undefined && raw !== null && toStr(raw).trim()) return toStr(raw).trim();
+  const selected = cf?.selectedValues?.[0];
+  return toStr(selected?.id ?? selected?.value).trim();
 };
 
 const hasLabelOrName = (cf: any, names: string[]): boolean =>
@@ -126,7 +134,7 @@ const mergeServerUserIntoForm = (prev: FormState, user: any): FormState => {
   const computedEmpId = toStr(user.employeeId) || employeeIdFromUsername(uUsername, prev.employeeId);
   const computedGender = formatGender(user.gender);
   const computedRole = toStr(user.role || user.tenantData?.[0]?.roleName) || prev.role;
-  const customFields: any[] = Array.isArray(user.customFields) ? user.customFields : [];
+  const customFields: any[] = user.customFields || user.customField || [];
 
   const stateVal = findCustomFieldValue(
     customFields,
@@ -374,10 +382,10 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const handleChange = (field: keyof FormState, value: string) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: toStr(value) };
-      // On create the username defaults to the phone number until the admin types their own
-      if (field === 'phone' && !isEdit && (prev.username === '' || prev.username === prev.phone)) {
-        next.username = toStr(value);
-      }
+      // On create the username and phone number mirror each other (either can be edited) until they differ
+      const linked = prev.username === prev.phone;
+      if (!isEdit && linked && field === 'phone') next.username = toStr(value);
+      if (!isEdit && linked && field === 'username') next.phone = toStr(value).slice(0, 10);
       // Cascade clear child location fields
       if (field === 'state') {
         next.district = '';
@@ -589,7 +597,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             </Grid>
 
             {/* Employee ID (optional) */}
-            {isEdit && (
+            {/* {isEdit && (
               <Grid item xs={12} sm={6}>
                 <CommonTextField
                   label={t('USERS.FORM.EMPLOYEE_ID')}
@@ -598,7 +606,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                   hint={t('USERS.FORM.EMPLOYEE_ID_HINT')}
                 />
               </Grid>
-            )}
+            )} */}
 
             {/* Email address */}
             <Grid item xs={12} sm={6}>
@@ -610,7 +618,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 onChange={(e) => handleChange('email', e.target.value)}
                 error={Boolean(errors.email)}
                 helperText={errorText('email')}
-                hint={t('USERS.FORM.EMAIL_HINT')}
+                hint={t('USERS.FORM.EMAIL_HINT') || undefined}
               />
             </Grid>
 
@@ -643,7 +651,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
             {/* Password (optional, create only; a temporary one is generated when blank) */}
             {/* {!isEdit && ( */}
-            <Grid item xs={12} sm={6}>
+            {/* <Grid item xs={12} sm={6}>
               <CommonTextField
                 label={t('USERS.FORM.PASSWORD')}
                 type="password"
@@ -653,7 +661,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 helperText={errorText('password')}
                 hint={t('USERS.FORM.PASSWORD_HINT')}
               />
-            </Grid>
+            </Grid> */}
             {/* )} */}
           </Grid>
         </Box>
@@ -723,22 +731,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
               </Typography>
             </Grid>
           </Grid>
-        </Box>
-
-        {/* Information Banner */}
-        <Box
-          sx={{
-            display: 'flex',
-            gap: 1.5,
-            padding: '12px 16px',
-            backgroundColor: NEUTRAL.hover,
-            borderRadius: '8px',
-            mt: 0.5,
-          }}
-        >
-          <Typography sx={{ fontSize: '13px', lineHeight: 1.5, color: NEUTRAL.ink }}>
-            {t('USERS.FORM.CREDENTIALS_INFO')}
-          </Typography>
         </Box>
       </Box>
     </CommonDialog>

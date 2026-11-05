@@ -461,7 +461,6 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
               {/* Mode Toggle */}
               <Box sx={{ display: 'flex', gap: 1 }}>
                 <CommonButton
-                  size="small"
                   variant={assessmentMode === 'review' ? 'dark' : 'outlined'}
                   sx={{ fontSize: '12px' }}
                   onClick={() => setAssessmentMode('review')}
@@ -469,7 +468,6 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
                   {t('CONTENT.PREVIEW.ANSWER_KEY_MODE')}
                 </CommonButton>
                 <CommonButton
-                  size="small"
                   variant={isInteractive ? 'primary' : 'secondary'}
                   sx={{ fontSize: '12px' }}
                   onClick={() => setAssessmentMode('interactive')}
@@ -650,14 +648,13 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
           {isPdf && rawUrl && (
             <CommonButton
               variant="outlined"
-              size="small"
               startIcon={<OpenInNewIcon fontSize="small" />}
               onClick={() => window.open(rawUrl, '_blank')}
             >
               {t('CONTENT.PREVIEW.OPEN_NEW_WINDOW')}
             </CommonButton>
           )}
-          <CommonButton variant="dark" size="small" sx={{ px: 2.5 }} onClick={onClose}>
+          <CommonButton variant="primary" onClick={onClose}>
             {t('COMMON.CLOSE')}
           </CommonButton>
         </Box>

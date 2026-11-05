@@ -19,7 +19,8 @@ export interface EditCohortModalProps {
 }
 
 const normalizeCohortStatus = (status: string): string => {
-  if (status === 'archived' || status === 'draft') return status;
+  if (status === 'archived' || status === 'inactive') return status;
+  if (status === 'draft') return 'inactive'; // draft is no longer an accepted status
   return 'active';
 };
 
@@ -191,7 +192,7 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
           onChange={(val) => setStatus(val)}
           options={[
             { value: 'active', label: 'Active' },
-            { value: 'draft', label: 'Draft' },
+            { value: 'inactive', label: 'Inactive' },
             { value: 'archived', label: 'Archived' },
           ]}
         />

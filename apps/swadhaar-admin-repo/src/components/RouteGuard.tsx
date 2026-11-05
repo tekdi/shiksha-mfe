@@ -9,12 +9,12 @@ const RouteGuard = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     authCheck(router.asPath);
 
-    const hideContent = () => setAuthorized(false);
-    router.events.on('routeChangeStart', hideContent);
+    // The check runs on the target route; hiding everything here would unmount the sidebar, header and footer
+    router.events.on('routeChangeStart', authCheck);
     router.events.on('routeChangeComplete', authCheck);
 
     return () => {
-      router.events.off('routeChangeStart', hideContent);
+      router.events.off('routeChangeStart', authCheck);
       router.events.off('routeChangeComplete', authCheck);
     };
   }, [router]);

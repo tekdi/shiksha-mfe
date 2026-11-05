@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { minutesFieldError } from '@/utils/minutesInput';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -13,6 +14,7 @@ import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
+import { resolveMediaUrl } from '@/utils/API/APIEndpoints';
 import { inferCourseUsage } from '@/services/ContentLibraryService';
 import {
   detectLanguage,
@@ -62,6 +64,12 @@ export default function CreatePdfPage() {
   const [language, setLanguage] = useState('');
   const [fileName, setFileName] = useState<string | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
+  const [savedPdfPath, setSavedPdfPath] = useState('');
+
+  // A newly chosen file previews from the browser; a saved one from its stored path
+  const pdfFileUrl = useMemo(() => (pdfFile ? URL.createObjectURL(pdfFile) : ''), [pdfFile]);
+  useEffect(() => () => { if (pdfFileUrl) URL.revokeObjectURL(pdfFileUrl); }, [pdfFileUrl]);
+  const previewUrl = pdfFileUrl || resolveMediaUrl(savedPdfPath);
   const [allowDownload, setAllowDownload] = useState(true);
   const [usedIn, setUsedIn] = useState<string>((router.query.usedIn as string) || '');
 
@@ -117,6 +125,7 @@ export default function CreatePdfPage() {
             setDescription(loadedDesc);
             setReadingTime(loadedDur);
             setFileName(loadedFile);
+            setSavedPdfPath(lesson.media?.path || lesson.media?.source || '');
             setLanguage(toLanguageOption(loadedLang));
             setUsedIn(courseUsage);
 
@@ -164,7 +173,8 @@ export default function CreatePdfPage() {
   };
 
   // Title, language and a PDF file (already on the record when editing) are mandatory
-  const canSave = Boolean(title.trim()) && Boolean(language) && (isEditing || Boolean(pdfFile));
+  const readingTimeError = minutesFieldError(readingTime);
+  const canSave = Boolean(title.trim()) && Boolean(language) && (isEditing || Boolean(pdfFile)) && !readingTimeError;
 
   const handleSave = async (isDraft = false) => {
     if (!language) {
@@ -232,7 +242,7 @@ export default function CreatePdfPage() {
               {/* Reading Time and Language */}
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <LabeledTextField label="Reading time (min)" value={readingTime} onChange={setReadingTime} placeholder="e.g. 10" hint="Optional, like video durations" />
+                  <LabeledTextField label="Reading time (min)" value={readingTime} onChange={setReadingTime} error={readingTimeError} placeholder="e.g. 10" hint="Optional, like video durations" />
                 </Grid>
 
                 <Grid item xs={12} sm={6}>
@@ -384,25 +394,39 @@ export default function CreatePdfPage() {
               <FormCardHeader title="Preview" />
 
               <Box sx={{ p: 2 }}>
-                <Box
-                  sx={{
-                    aspectRatio: '3/4',
-                    maxHeight: 260,
-                    margin: '0 auto',
-                    borderRadius: '6px',
-                    backgroundColor: '#E2DFD8',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 1,
-                    color: '#6B6862',
-                    fontSize: '13px',
-                  }}
-                >
-                  <PictureAsPdfOutlinedIcon sx={{ fontSize: 40, color: '#8A867F' }} />
-                  <span>{fileName || 'First page'}</span>
-                </Box>
+                {previewUrl ? (
+                  <Box>
+                    <Box
+                      component="iframe"
+                      src={`${previewUrl}#toolbar=0&navpanes=0&view=FitH`}
+                      title="PDF preview"
+                      sx={{ width: '100%', height: 360, border: '1px solid #E5E7EB', borderRadius: '6px', backgroundColor: '#E2DFD8' }}
+                    />
+                    <Typography sx={{ fontSize: '12px', mt: 1 }}>
+                      <a href={previewUrl} target="_blank" rel="noreferrer">Open in new tab</a>
+                    </Typography>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      aspectRatio: '3/4',
+                      maxHeight: 260,
+                      margin: '0 auto',
+                      borderRadius: '6px',
+                      backgroundColor: '#E2DFD8',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 1,
+                      color: '#6B6862',
+                      fontSize: '13px',
+                    }}
+                  >
+                    <PictureAsPdfOutlinedIcon sx={{ fontSize: 40, color: '#8A867F' }} />
+                    <span>{fileName || 'First page'}</span>
+                  </Box>
+                )}
               </Box>
             </Paper>
 

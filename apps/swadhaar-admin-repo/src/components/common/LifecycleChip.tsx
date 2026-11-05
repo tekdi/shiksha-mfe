@@ -98,6 +98,9 @@ const getStateConfig = (state: string): StateStyleConfig => {
       dotColor: '#9F1239',
     };
   }
+  if (normalized === 'inactive') {
+    return { rawLabel: 'Inactive', bg: '#FEF3C7', color: '#B45309', dotColor: '#B45309' };
+  }
   if (normalized === 'suspended' || normalized === 'blocked' || normalized === 'deleted') {
     return {
       labelKey: normalized === 'deleted' ? 'LIFECYCLE.DELETED' : 'LIFECYCLE.BLOCKED',

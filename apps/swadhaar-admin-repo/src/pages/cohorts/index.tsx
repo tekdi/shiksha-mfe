@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { NEUTRAL } from '@/styles/customTheme';
 import { useRouter } from 'next/router';
 import {
   Box,
@@ -39,14 +40,15 @@ export interface CohortItem {
   membersCount: number;
   contentCount: number;
   trainer: string;
-  status: 'Active' | 'Draft' | 'Archived';
+  status: 'Active' | 'Inactive' | 'Archived';
   startDate: string;
   rawCohort?: any;
 }
 
 const toDisplayStatus = (status?: string): CohortItem['status'] => {
   const rawStatus = (status || 'active').toLowerCase();
-  if (rawStatus === 'draft') return 'Draft';
+  // The API accepts active, inactive and archived; groups saved earlier as draft read as inactive
+  if (rawStatus === 'inactive' || rawStatus === 'draft') return 'Inactive';
   if (rawStatus === 'archived') return 'Archived';
   return 'Active';
 };
@@ -64,7 +66,7 @@ const isActiveFilter = (value?: string): value is string => Boolean(value) && va
 const matchesSearch = (cohort: CohortItem, search?: string): boolean => {
   const term = search?.toLowerCase().trim();
   if (!term) return true;
-  return [cohort.name, cohort.branch, cohort.trainer, cohort.location].some((field) =>
+  return [cohort.name, cohort.branch, cohort.location].some((field) =>
     field.toLowerCase().includes(term)
   );
 };
@@ -110,6 +112,7 @@ const extractLocation = (customFields?: any[]) => {
 export default function CohortsPage() {
   const router = useRouter();
   const isGroupsRoute = router.pathname.startsWith('/groups');
+  const itemLabel = isGroupsRoute ? 'groups' : 'cohorts';
   const basePath = isGroupsRoute ? '/groups' : '/cohorts';
 
   const [cohorts, setCohorts] = useState<CohortItem[]>([]);
@@ -154,6 +157,9 @@ export default function CohortsPage() {
     return () => clearTimeout(timer);
   }, [filters.search]);
 
+  let emptyMessage = `No ${itemLabel} found.`;
+  if (debouncedSearch) emptyMessage = `No ${itemLabel} found for "${debouncedSearch}". Try a different name.`;
+
   const fetchCohorts = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
@@ -166,7 +172,7 @@ export default function CohortsPage() {
           status:
             filters.status && filters.status !== 'all'
               ? [filters.status.toLowerCase()]
-              : ['active', 'draft', 'archived'],
+              : ['active', 'inactive', 'archived'],
         },
       };
 
@@ -211,10 +217,12 @@ export default function CohortsPage() {
       });
 
       setCohorts(enrichedCohorts);
-    } catch (err) {
-      console.error('Failed to fetch cohorts:', err);
+    } catch (err: any) {
       setCohorts([]);
       setTotalCount(0);
+      // The search answers 404 when nothing matches; that is an empty result, not a failure
+      if (err?.response?.status === 404) return;
+      console.error('Failed to fetch cohorts:', err);
       setFetchError('Failed to load cohorts from the server. Please check your connection and try again.');
     } finally {
       setLoading(false);
@@ -278,11 +286,12 @@ export default function CohortsPage() {
               variant="body2"
               sx={{
                 fontWeight: 600,
-                color: 'primary.main',
-                fontSize: '13.5px',
+                color: NEUTRAL.ink,
+                fontSize: '14px',
+                transition: 'color 0.2s',
                 '&:hover': {
                   textDecoration: 'underline',
-                  color: '#B85D1B',
+                  color: 'primary.main',
                 },
               }}
             >
@@ -330,15 +339,6 @@ export default function CohortsPage() {
               height: '24px',
             }}
           />
-        ),
-      },
-      {
-        id: 'trainer',
-        label: 'ASSIGNED TRAINER',
-        render: (row) => (
-          <Typography variant="body2" sx={{ color: '#4B5563', fontSize: '13px' }}>
-            {row.trainer}
-          </Typography>
         ),
       },
       {
@@ -456,9 +456,9 @@ export default function CohortsPage() {
             setPage(0);
           }}
           showSearch={true}
-          searchPlaceholder="Search by group name, location, or trainer..."
+          searchPlaceholder="Search by group name or location..."
           showStatus={true}
-          statusOptions={['active', 'draft', 'archived']}
+          statusOptions={['active', 'inactive', 'archived']}
           showBranch={true}
           showProgram={true}
           onClear={() => {
@@ -475,22 +475,6 @@ export default function CohortsPage() {
             setPage(0);
           }}
         />
-      </Box>
-
-      {/* 3. Subtitle Row with Count */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 1.5,
-          px: 0.5,
-        }}
-      >
-        <Typography variant="body2" sx={{ color: '#4B5563', fontSize: '13px', fontWeight: 500 }}>
-          Showing {totalCount > 0 ? page * rowsPerPage + 1 : 0}–
-          {Math.min((page + 1) * rowsPerPage, totalCount)} of {totalCount} {isGroupsRoute ? 'groups' : 'cohorts'}
-        </Typography>
       </Box>
 
       {/* 4. Common Table Component: SwadhaarDataTable */}
@@ -510,7 +494,7 @@ export default function CohortsPage() {
           setRowsPerPage(newSize);
           setPage(0);
         }}
-        emptyMessage="No cohorts or groups found matching the filter criteria."
+        emptyMessage={emptyMessage}
       />
 
       {/* Edit Cohort Modal */}

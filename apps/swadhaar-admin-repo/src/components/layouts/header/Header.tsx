@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { getUserDetailsInfo } from '@/services/UserService';
 import {
   AppBar,
   Toolbar,
@@ -132,6 +133,16 @@ export const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar, sx }) => {
             roles: data.roles?.length ? data.roles : ['Super Admin'],
           });
         }
+        return data;
+      })
+      .then(async (data) => {
+        // The stored name comes from the login token; the user record holds the real first and last name
+        const userId = data?.userId;
+        if (!userId || userId === 'admin-01') return;
+        const res = await getUserDetailsInfo(userId);
+        const user = res?.result?.userData || res?.userData;
+        const fullName = [user?.firstName, user?.middleName, user?.lastName].filter(Boolean).join(' ').trim();
+        if (fullName) setProfile((prev) => ({ ...prev, name: fullName }));
       })
       .catch((err) => console.error('Failed to load user profile:', err));
   }, []);
@@ -303,7 +314,7 @@ export const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar, sx }) => {
           }}
         >
           {/* Theme Toggle Button */}
-          <Tooltip title={mode === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}>
+          {/* <Tooltip title={mode === 'dark' ? 'Switch to Light Theme' : 'Switch to Dark Theme'}>
             <IconButton onClick={toggleThemeMode} sx={{ color: '#4B5563' }} size="small">
               {mode === 'dark' ? (
                 <LightModeOutlinedIcon sx={{ fontSize: 20 }} />
@@ -311,7 +322,7 @@ export const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar, sx }) => {
                 <DarkModeOutlinedIcon sx={{ fontSize: 20 }} />
               )}
             </IconButton>
-          </Tooltip>
+          </Tooltip> */}
 
           {/* Language Switcher */}
           <Box

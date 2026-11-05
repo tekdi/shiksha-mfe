@@ -7,11 +7,10 @@ const Footer = () => {
   return (
     <Box
       sx={{
-        py: 2.5,
+        py: 1.25,
         textAlign: 'center',
         borderTop: '1px solid',
         borderColor: 'divider',
-        mt: 'auto',
       }}
     >
       <Typography variant="body2" sx={{ color: 'text.secondary', fontSize: '12px' }}>

@@ -16,7 +16,6 @@ import {
 } from '@mui/material';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
@@ -587,15 +586,6 @@ export default function ContentLibraryPage() {
                 sx={actionIconSx}
               >
                 <EditOutlinedIcon sx={{ fontSize: 16 }} />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title={t('CONTENT.LIBRARY.RESULTS_ANALYTICS')}>
-              <IconButton
-                size="small"
-                onClick={() => alert(t('CONTENT.LIBRARY.RESULTS_FOR', { name: row.name }))}
-                sx={actionIconSx}
-              >
-                <BarChartOutlinedIcon sx={{ fontSize: 16 }} />
               </IconButton>
             </Tooltip>
           </Box>

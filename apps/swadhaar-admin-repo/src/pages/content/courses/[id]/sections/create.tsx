@@ -1,3 +1,4 @@
+import { isValidMinutes, sanitizeMinutes, MINUTES_ERROR, MINUTES_MAX_DIGITS } from '@/utils/minutesInput';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
@@ -1188,7 +1189,7 @@ const SectionSidebar = ({
           {/* Title */}
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8 }}>
             <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1F1E1C' }}>
-              Title *
+              Title<span style={{ color: "#D92D20" }}> *</span>
             </Typography>
             <TextField
               size="small"
@@ -1215,10 +1216,12 @@ const SectionSidebar = ({
             <TextField
               size="small"
               fullWidth
-              type="number"
               placeholder="e.g. 21"
               value={duration}
-              onChange={(e) => setDuration(e.target.value)}
+              onChange={(e) => setDuration(sanitizeMinutes(e.target.value))}
+              inputProps={{ inputMode: 'numeric', maxLength: MINUTES_MAX_DIGITS }}
+              error={!isValidMinutes(duration)}
+              helperText={isValidMinutes(duration) ? undefined : MINUTES_ERROR}
               sx={{
                 '& .MuiOutlinedInput-root': {
                   height: 40,
@@ -1228,9 +1231,11 @@ const SectionSidebar = ({
                 },
               }}
             />
-            <Typography variant="caption" sx={{ color: '#6B6862', fontSize: '12px' }}>
-              Estimated completion duration
-            </Typography>
+            {isValidMinutes(duration) && (
+              <Typography variant="caption" sx={{ color: '#6B6862', fontSize: '12px' }}>
+                Estimated completion duration
+              </Typography>
+            )}
           </Box>
 
           {/* Course Name */}
