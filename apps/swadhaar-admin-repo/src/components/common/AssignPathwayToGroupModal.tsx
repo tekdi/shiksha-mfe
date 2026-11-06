@@ -11,7 +11,13 @@ import {
   Alert,
   Button,
 } from '@mui/material';
-import { getPathwayList, assignPathwayToUser, PathwayItem } from '@/services/PathwayService';
+import {
+  getPathwayList,
+  getPathwayCourseIds,
+  assignCohortToCourses,
+  enrolLearnerInCohortCourses,
+  PathwayItem,
+} from '@/services/PathwayService';
 import { getCohortLearnerIds } from '@/services/CohortService';
 import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
@@ -27,7 +33,10 @@ interface AssignPathwayToGroupModalProps {
 
 const ASSIGN_CONCURRENCY = 5;
 
-/** Assigns one learning path to every learner in a group: POST /user/v1/pathway/assign once per learner */
+/**
+ * Assigns a learning path to a group: the path's courses are linked to the group (params.cohortId), then each
+ * learner of the group is enrolled in the group's courses (POST /lms-service/v1/enrollments/cohort).
+ */
 export const AssignPathwayToGroupModal: React.FC<AssignPathwayToGroupModalProps> = ({
   open,
   onClose,
@@ -59,31 +68,40 @@ export const AssignPathwayToGroupModal: React.FC<AssignPathwayToGroupModalProps>
   const handleAssign = async () => {
     if (!selectedId || learnerIds.length === 0) return;
     setAssigning(true);
-    let assigned = 0;
-    let failed = 0;
-    let firstError = '';
-    await runWithConcurrency(learnerIds, ASSIGN_CONCURRENCY, (userId) =>
-      assignPathwayToUser(userId, selectedId).then(
-        () => {
-          assigned += 1;
-        },
-        (err: any) => {
-          failed += 1;
-          firstError = firstError || apiErrorMessage(err);
-        }
-      )
-    );
-    setAssigning(false);
-
+    setError('');
     const pathwayName = pathways.find((p) => p.id === selectedId)?.name || 'learning path';
-    if (failed === 0) {
-      onDone?.(`Assigned "${pathwayName}" to ${assigned} learner(s).`, 'success');
+    try {
+      const courseIds = await getPathwayCourseIds(selectedId);
+      if (courseIds.length === 0) {
+        throw new Error('This learning path has no courses yet. Add courses before assigning it to a group.');
+      }
+      await assignCohortToCourses(courseIds, cohortId);
+
+      let enrolled = 0;
+      let failed = 0;
+      let firstError = '';
+      await runWithConcurrency(learnerIds, ASSIGN_CONCURRENCY, (learnerId) =>
+        enrolLearnerInCohortCourses(learnerId, cohortId).then(
+          () => {
+            enrolled += 1;
+          },
+          (err: any) => {
+            failed += 1;
+            firstError = firstError || apiErrorMessage(err);
+          }
+        )
+      );
+      if (failed === 0) {
+        onDone?.(`Assigned "${pathwayName}" to the group and enrolled ${enrolled} learner(s).`, 'success');
+      } else {
+        const reason = firstError ? `: ${firstError}` : '';
+        onDone?.(`Assigned "${pathwayName}"; ${enrolled} learner(s) enrolled, ${failed} failed${reason}.`, 'error');
+      }
       onClose();
-    } else {
-      const reason = firstError ? `: ${firstError}` : '';
-      onDone?.(`Assigned to ${assigned} learner(s); ${failed} failed${reason}.`, 'error');
-      if (assigned > 0) onClose();
-      else setError(firstError || 'Could not assign the learning path.');
+    } catch (err: any) {
+      setError(apiErrorMessage(err) || 'Could not assign the learning path.');
+    } finally {
+      setAssigning(false);
     }
   };
 
@@ -107,7 +125,7 @@ export const AssignPathwayToGroupModal: React.FC<AssignPathwayToGroupModalProps>
             <Typography sx={{ fontSize: '13px', color: NEUTRAL.muted, mb: 1.5 }}>
               {learnerIds.length === 0
                 ? 'This group has no learners to assign to.'
-                : `The path is assigned to each of the ${learnerIds.length} learner(s) in this group.`}
+                : `The path is linked to this group and its ${learnerIds.length} learner(s) are enrolled in it. A course belongs to one group, so its courses move here from any group they were linked to.`}
             </Typography>
             {pathways.length === 0 && !error ? (
               <Typography sx={{ fontSize: '13px' }}>No learning paths available.</Typography>

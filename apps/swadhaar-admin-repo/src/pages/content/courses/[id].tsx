@@ -36,6 +36,7 @@ import {
   updateCourseStatus,
   deleteLmsLesson,
 } from '@/services/CourseService';
+import { getCoursePathway } from '@/services/PathwayService';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
 import CommonButton from '@/components/common/CommonButton';
@@ -205,6 +206,15 @@ export default function CourseDetailsPage() {
   // Action Loading for Save & Publish buttons
   const [actionLoading, setActionLoading] = useState<boolean>(false);
   const [actionType, setActionType] = useState<'draft' | 'published' | null>(null);
+
+  // Learning path this course belongs to (params.pathwayId)
+  const [coursePath, setCoursePath] = useState<{ id: string; name: string; step: number; total: number } | null>(null);
+  useEffect(() => {
+    if (!courseId || courseId.startsWith('new')) return;
+    getCoursePathway(courseId)
+      .then(setCoursePath)
+      .catch((err) => console.error('Failed to load the learning path of the course:', err));
+  }, [courseId]);
 
   // FAQs, summary and transition (course-level items)
   const [editingItem, setEditingItem] = useState<CourseLevelItem | null>(null);
@@ -941,21 +951,29 @@ export default function CourseDetailsPage() {
               </Box>
 
               <Box sx={{ p: '16px 20px', display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                <Typography
-                  sx={{
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    color: NEUTRAL.ink,
-                    cursor: 'pointer',
-                    '&:hover': { color: 'primary.main', textDecoration: 'underline' },
-                  }}
-                  onClick={() => router.push('/learning-paths/financial-inclusion-training-programme')}
-                >
-                  {t('COURSES.PROGRAMME_NAME')}
-                </Typography>
-                <Typography variant="caption" sx={{ color: NEUTRAL.muted }}>
-                  {t('COURSES.DETAIL.STEP_OF', { step: 2, total: 7 })}
-                </Typography>
+                {coursePath ? (
+                  <>
+                    <Typography
+                      sx={{
+                        fontSize: '14px',
+                        fontWeight: 600,
+                        color: NEUTRAL.ink,
+                        cursor: 'pointer',
+                        '&:hover': { color: 'primary.main', textDecoration: 'underline' },
+                      }}
+                      onClick={() => router.push(`/learning-paths/builder?id=${coursePath.id}`)}
+                    >
+                      {coursePath.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: NEUTRAL.muted }}>
+                      {t('COURSES.DETAIL.STEP_OF', { step: coursePath.step, total: coursePath.total })}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="body2" sx={{ color: NEUTRAL.muted }}>
+                    Not used in any learning path yet.
+                  </Typography>
+                )}
               </Box>
             </Paper>
           </Box>

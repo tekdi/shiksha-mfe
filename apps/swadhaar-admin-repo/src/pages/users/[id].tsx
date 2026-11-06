@@ -11,6 +11,7 @@ import {
   Breadcrumbs,
   Link as MuiLink,
   IconButton,
+  Tooltip,
   LinearProgress,
   Dialog,
   DialogTitle,
@@ -24,6 +25,7 @@ import RemoveCircleOutlineOutlinedIcon from '@mui/icons-material/RemoveCircleOut
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
+import { getUserCourseProgress, UserCourseProgress } from '@/services/CourseService';
 import { getUserDetailsInfo, blockUser, unblockUser, deleteUser } from '@/services/UserService';
 import CreateUserModal from '@/components/common/CreateUserModal';
 import { readUserLocation, resolveLocationLabels, UserLocation } from '@/utils/userLocation';
@@ -31,7 +33,8 @@ import { AddToGroupDialog, AddReviewUsersDialog, UserGroup, ReviewUser } from '@
 import {
   bulkCreateCohortMembers,
   getMembershipId,
-  removeCohortMemberships,
+  isCurrentMember,
+  removeUsersFromCohorts,
   getCohortMemberListApplication,
   getCohortSearch,
   getMemberRows,
@@ -333,11 +336,11 @@ export default function UserDetailsPage() {
     () =>
       locationNames
         ? {
-            ...baseParsedUser,
-            state: locationNames.state || baseParsedUser.state,
-            district: locationNames.district || baseParsedUser.district,
-            branch: locationNames.block || baseParsedUser.branch,
-          }
+          ...baseParsedUser,
+          state: locationNames.state || baseParsedUser.state,
+          district: locationNames.district || baseParsedUser.district,
+          branch: locationNames.block || baseParsedUser.branch,
+        }
         : baseParsedUser,
     [baseParsedUser, locationNames]
   );
@@ -349,6 +352,9 @@ export default function UserDetailsPage() {
   const [addGroupOpen, setAddGroupOpen] = useState(false);
   const [groupToRemove, setGroupToRemove] = useState<UserGroup | null>(null);
   const [addReviewOpen, setAddReviewOpen] = useState(false);
+  const [courseProgress, setCourseProgress] = useState<UserCourseProgress[]>([]);
+  const [progressLoading, setProgressLoading] = useState(true);
+  const [reviewToRemove, setReviewToRemove] = useState<ReviewUser | null>(null);
 
   const loadGroups = useCallback(async () => {
     if (!userId) return;
@@ -369,7 +375,7 @@ export default function UserDetailsPage() {
             offset: 0,
             filters: { cohortId: [g.cohortId] },
           });
-          const rows = getMemberRows(res);
+          const rows = getMemberRows(res).filter(isCurrentMember);
           const me = rows.find((m: any) => (m.userId || m.id) === userId);
           if (!me) return;
           mine.push({ cohortId: g.cohortId, name: g.name, role: me.role, membershipId: getMembershipId(me) });
@@ -393,6 +399,18 @@ export default function UserDetailsPage() {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
+    setProgressLoading(true);
+    getUserCourseProgress(userId)
+      .then(setCourseProgress)
+      .catch((e) => {
+        console.error('Failed to load learning progress:', e);
+        setCourseProgress([]);
+      })
+      .finally(() => setProgressLoading(false));
+  }, [userId]);
+
+  useEffect(() => {
     if (userId) loadGroups();
   }, [userId, loadGroups]);
 
@@ -404,7 +422,7 @@ export default function UserDetailsPage() {
   };
 
   const handleRemoveFromGroup = async (group: UserGroup) => {
-    await removeCohortMemberships([group.membershipId || '']);
+    await removeUsersFromCohorts([userId], [group.cohortId]);
     setFeedback({ open: true, message: `${parsedUser.fullName} removed from ${group.name}.`, severity: 'success' });
     loadGroups();
   };
@@ -727,12 +745,12 @@ export default function UserDetailsPage() {
                 </Typography>
               </Box>
 
-              <Box sx={{ display: 'flex' }}>
+              {/* <Box sx={{ display: 'flex' }}>
                 <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Employee ID</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.empId}
                 </Typography>
-              </Box>
+              </Box> */}
 
               <Box sx={{ display: 'flex' }}>
                 <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Gender</Typography>
@@ -777,18 +795,18 @@ export default function UserDetailsPage() {
               </Box>
 
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Block</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Branch</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.branch}
                 </Typography>
               </Box>
 
-              <Box sx={{ display: 'flex' }}>
+              {/* <Box sx={{ display: 'flex' }}>
                 <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Program</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.program}
                 </Typography>
-              </Box>
+              </Box> */}
             </Box>
           </Card>
 
@@ -813,7 +831,7 @@ export default function UserDetailsPage() {
               <Box sx={{ display: 'flex' }}>
                 <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Role</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
-                  {parsedUser.role} · company role
+                  {parsedUser.role}
                 </Typography>
               </Box>
 
@@ -887,13 +905,16 @@ export default function UserDetailsPage() {
                         size="small"
                         sx={{ backgroundColor: '#F3F4F6', color: '#4B5563', fontSize: '11px', height: '22px' }}
                       />
-                      <IconButton
-                        size="small"
-                        onClick={() => setGroupToRemove(c)}
-                        sx={{ color: '#9CA3AF', p: 0.3 }}
-                      >
-                        <RemoveCircleOutlineOutlinedIcon fontSize="small" />
-                      </IconButton>
+                      <Tooltip title="Remove">
+                        <IconButton
+                          size="small"
+                          aria-label={`Remove from ${c.name || 'group'}`}
+                          onClick={() => setGroupToRemove(c)}
+                          sx={{ color: '#9CA3AF', p: 0.3 }}
+                        >
+                          <RemoveCircleOutlineOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   </Box>
                 ))
@@ -909,7 +930,7 @@ export default function UserDetailsPage() {
           </Card>
 
           {/* Card 5: Reviews */}
-          <Card
+          {/* <Card
             sx={{
               borderRadius: '12px',
               border: '1px solid #E5E7EB',
@@ -958,14 +979,16 @@ export default function UserDetailsPage() {
                           Individual user{u.role ? ` · ${u.role}` : ''}
                         </Typography>
                       </Box>
-                      <IconButton
-                        size="small"
-                        aria-label={`Remove ${u.name}`}
-                        onClick={() => setIndividualReviews((prev) => prev.filter((x) => x.id !== u.id))}
-                        sx={{ color: '#9CA3AF', p: 0.3 }}
-                      >
-                        <RemoveCircleOutlineOutlinedIcon fontSize="small" />
-                      </IconButton>
+                      <Tooltip title="Remove">
+                        <IconButton
+                          size="small"
+                          aria-label={`Remove ${u.name}`}
+                          onClick={() => setReviewToRemove(u)}
+                          sx={{ color: '#9CA3AF', p: 0.3 }}
+                        >
+                          <RemoveCircleOutlineOutlinedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   ))}
                 </>
@@ -975,7 +998,7 @@ export default function UserDetailsPage() {
                 </Typography>
               )}
             </Box>
-          </Card>
+          </Card> */}
 
           {/* Card 6: Learning progress */}
           <Card
@@ -991,31 +1014,33 @@ export default function UserDetailsPage() {
               Learning progress
             </Typography>
 
-            <Box sx={{ mb: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
-                  Financial Inclusion Training Programme
-                </Typography>
-                <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#6B7280' }}>
-                  75%
-                </Typography>
-              </Box>
-              <LinearProgress
-                variant="determinate"
-                value={75}
-                sx={{
-                  height: 6,
-                  borderRadius: 3,
-                  backgroundColor: '#E5E7EB',
-                  '& .MuiLinearProgress-bar': {
-                    backgroundColor: 'primary.main',
+            {progressLoading && <CircularProgress size={20} sx={{ color: 'primary.main', mb: 2 }} />}
+            {!progressLoading && courseProgress.length === 0 && (
+              <Typography sx={{ fontSize: '13px', color: '#6B7280', mb: 2 }}>Not enrolled in any course yet.</Typography>
+            )}
+            {courseProgress.map((c) => (
+              <Box key={c.courseId} sx={{ mb: 2 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1, gap: 1 }}>
+                  <Typography sx={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>{c.title}</Typography>
+                  <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#6B7280' }}>{c.progress}%</Typography>
+                </Box>
+                <LinearProgress
+                  variant="determinate"
+                  value={c.progress}
+                  sx={{
+                    height: 6,
                     borderRadius: 3,
-                  },
-                }}
-              />
-            </Box>
+                    backgroundColor: '#E5E7EB',
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: 'primary.main',
+                      borderRadius: 3,
+                    },
+                  }}
+                />
+              </Box>
+            ))}
 
-            <MuiLink
+            {/* <MuiLink
               underline="hover"
               onClick={() => router.push('/reports')}
               sx={{
@@ -1026,7 +1051,7 @@ export default function UserDetailsPage() {
               }}
             >
               View in Insights
-            </MuiLink>
+            </MuiLink> */}
           </Card>
         </Grid>
       </Grid>
@@ -1166,6 +1191,30 @@ export default function UserDetailsPage() {
               } catch (e) {
                 setFeedback({ open: true, message: apiErrorMessage(e) || 'Failed to remove from group.', severity: 'error' });
               }
+            }}
+          >
+            Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(reviewToRemove)} onClose={() => setReviewToRemove(null)}>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '16px' }}>Remove reviewer</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: '13.5px', color: '#4B5563' }}>
+            Remove {reviewToRemove?.name} as a reviewer of {parsedUser.fullName}?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setReviewToRemove(null)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              const r = reviewToRemove;
+              setReviewToRemove(null);
+              if (!r) return;
+              setIndividualReviews((prev) => prev.filter((x) => x.id !== r.id));
+              setFeedback({ open: true, message: `${r.name} removed from reviewers.`, severity: 'success' });
             }}
           >
             Remove

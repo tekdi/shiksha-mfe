@@ -37,6 +37,8 @@ export interface CourseSearchParams {
   status?: string;
   sortBy?: string;
   orderBy?: 'ASC' | 'DESC';
+  /** Only the courses linked to this group through params.cohortId */
+  cohortId?: string;
   filters?: {
     status?: string[] | string;
     primaryCategory?: string[];
@@ -208,6 +210,10 @@ export const getCourseList = async (
     // Query Search
     if (params?.query?.trim()) {
       queryParams.set('query', params.query.trim());
+    }
+
+    if (params?.cohortId) {
+      queryParams.set('cohortId', params.cohortId);
     }
 
     // Status Filter (published | unpublished | archived)
@@ -981,3 +987,54 @@ export const associateMediaWithLesson = async (
   }
 };
 
+
+export interface UserCourseProgress {
+  courseId: string;
+  title: string;
+  /** 0-100, weighted by the lessons in each module */
+  progress: number;
+}
+
+/**
+ * A user's learning progress: the courses they are enrolled in
+ * (GET /lms-service/v1/enrollments/users-courses?userId=) and, for each, the module tracking
+ * (GET /lms-service/v1/courses/:courseId/hierarchy/tracking/:userId?includeModules=true).
+ */
+export const getUserCourseProgress = async (userId: string): Promise<UserCourseProgress[]> => {
+  const headers = getServiceHeaders();
+  const PAGE = 50;
+  const courses: any[] = [];
+  for (let offset = 0; ; offset += PAGE) {
+    const res = await get(API_ENDPOINTS.lmsUserCourses(userId, PAGE, offset), headers);
+    const result = res?.data?.result;
+    const page: any[] = result?.courses || [];
+    courses.push(...page);
+    const total = Number(result?.totalElements ?? courses.length);
+    if (page.length === 0 || courses.length >= total) break;
+  }
+
+  return Promise.all(
+    courses.map(async (course) => {
+      let progress = 0;
+      try {
+        const res = await get(API_ENDPOINTS.lmsCourseTracking(course.courseId, userId), headers);
+        const modules: any[] = res?.data?.result?.modules || [];
+        const lessons = modules.reduce((sum, m) => sum + (Number(m.tracking?.totalLessons) || 0), 0);
+        if (lessons > 0) {
+          progress =
+            modules.reduce((sum, m) => sum + (Number(m.tracking?.progress) || 0) * (Number(m.tracking?.totalLessons) || 0), 0) /
+            lessons;
+        } else if (modules.length > 0) {
+          progress = modules.reduce((sum, m) => sum + (Number(m.tracking?.progress) || 0), 0) / modules.length;
+        }
+      } catch (error) {
+        console.error(`Failed to load progress of course ${course.courseId}:`, error);
+      }
+      return {
+        courseId: course.courseId,
+        title: course.title || course.name || 'Course',
+        progress: Math.min(100, Math.max(0, Math.round(progress))),
+      };
+    })
+  );
+};

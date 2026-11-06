@@ -141,6 +141,12 @@ export const API_ENDPOINTS = {
   pathwayAssign: `${baseurl}/user/v1/pathway/assign`,
   certificateCourseTemplate: `${baseurl}/lms-service/v1/certificate/course-template`,
   certificateTemplatesList: `${baseurl}/lms-service/v1/certificate/templates-list`,
+  lmsUserCourses: (userId: string, limit: number, offset: number) =>
+    `${baseurl}/lms-service/v1/enrollments/users-courses?userId=${userId}&limit=${limit}&offset=${offset}`,
+  lmsCourseTracking: (courseId: string, userId: string) =>
+    `${baseurl}/lms-service/v1/courses/${courseId}/hierarchy/tracking/${userId}?includeModules=true`,
+  lmsEnrollCohort: (adminId: string) =>
+    `${baseurl}/lms-service/v1/enrollments/cohort${adminId ? `?userId=${encodeURIComponent(adminId)}` : ''}`,
   lmsEnrollmentCreate: `${baseurl}/lms-service/v1/enrollments`,
   lmsEnrollments: (userId: string) => `${baseurl}/lms-service/v1/enrollments?userId=${userId}`,
   lmsLessonAttempt: (lessonId: string, userId: string) => `${baseurl}/tracking/lesson/attempt/${lessonId}?userId=${userId}`,

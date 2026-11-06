@@ -38,6 +38,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import CommonDialog from '@/components/common/CommonDialog';
 import EditCohortModal from '@/components/common/EditCohortModal';
+import { getCohortLearningPaths } from '@/services/PathwayService';
 import AssignPathwayToGroupModal from '@/components/common/AssignPathwayToGroupModal';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import {
@@ -46,9 +47,9 @@ import {
   getMemberRows,
   getMemberTotal,
   getMembershipId,
-  removeCohortMemberships,
+  isCurrentMember,
+  removeUsersFromCohorts,
   deleteCohort,
-  getCohortContentSearch,
 } from '@/services/CohortService';
 
 export interface MemberRowItem {
@@ -272,8 +273,9 @@ export default function GroupDetailsPage() {
       };
 
       const res = await getCohortMemberListApplication(payload);
-      const userDetails = getMemberRows(res);
-      setTotalCount(getMemberTotal(res, userDetails));
+      const allRows = getMemberRows(res);
+      const userDetails = allRows.filter(isCurrentMember);
+      setTotalCount(Math.max(getMemberTotal(res, allRows) - (allRows.length - userDetails.length), userDetails.length));
 
       const mapped = userDetails.map((u: any, idx: number) => {
         const row = mapMemberToRow(u, idx);
@@ -294,11 +296,7 @@ export default function GroupDetailsPage() {
   const fetchCohortContent = useCallback(async () => {
     if (!cohortId) return;
     try {
-      const res = await getCohortContentSearch({ filter: { cohortId } });
-      const contents = res?.result?.results?.cohortContent || res?.result || [];
-      if (Array.isArray(contents)) {
-        setCohortContents(contents);
-      }
+      setCohortContents(await getCohortLearningPaths(cohortId as string));
     } catch (err) {
       // Non-critical, fallback gracefully
       console.log('No cohort content returned:', err);
@@ -357,8 +355,7 @@ export default function GroupDetailsPage() {
     if (selectedIds.length === 0 || !cohortId) return;
     setActionLoading(true);
     try {
-      const memberships = selectedIds.map((userId) => members.find((m) => m.userId === userId)?.membershipId || '');
-      await removeCohortMemberships(memberships);
+      await removeUsersFromCohorts(selectedIds, [cohortId]);
       setFeedback({
         open: true,
         message: `Successfully removed ${selectedIds.length} member(s) from group.`,
@@ -820,7 +817,7 @@ export default function GroupDetailsPage() {
             >
               {/* Search input */}
               <TextField
-                size="small"
+                size="medium"
                 placeholder="Search member name, email, location..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -832,7 +829,7 @@ export default function GroupDetailsPage() {
                   ),
                 }}
                 sx={{
-                  minWidth: 260,
+                  minWidth: 320,
                   flexGrow: { xs: 1, sm: 0 },
                   '& .MuiOutlinedInput-root': {
                     borderRadius: '8px',
@@ -1015,7 +1012,7 @@ export default function GroupDetailsPage() {
         {/* Right Column: Reviewers & Learning Paths Cards */}
         <Grid item xs={12} lg={3.5}>
           {/* Reviewers Card */}
-          <Card
+          {/* <Card
             sx={{
               borderRadius: '12px',
               border: '1px solid #E5E7EB',
@@ -1069,7 +1066,7 @@ export default function GroupDetailsPage() {
             >
               Members with the Reviewer role can inspect and verify beneficiary progress in this group.
             </Typography>
-          </Card>
+          </Card> */}
 
           {/* Learning Paths Card */}
           <Card
@@ -1134,7 +1131,7 @@ export default function GroupDetailsPage() {
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                 {cohortContents.map((cc, idx) => (
                   <Box
-                    key={cc.contentId || idx}
+                    key={cc.id || idx}
                     sx={{
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -1152,7 +1149,7 @@ export default function GroupDetailsPage() {
                       }}
                       onClick={() => router.push('/learning-paths')}
                     >
-                      {cc.name || cc.contentTitle || 'Assigned Content'}
+                      {cc.name || 'Learning path'}
                     </Typography>
                     <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
                       Enrolled
@@ -1170,7 +1167,10 @@ export default function GroupDetailsPage() {
         onClose={() => setIsAssignPathOpen(false)}
         cohortId={cohortId as string}
         cohortName={cohort?.name}
-        onDone={(message, severity) => setFeedback({ open: true, message, severity })}
+        onDone={(message, severity) => {
+          setFeedback({ open: true, message, severity });
+          fetchCohortContent();
+        }}
       />
 
       {/* Edit Cohort Modal */}

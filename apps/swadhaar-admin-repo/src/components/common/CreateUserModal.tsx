@@ -177,7 +177,7 @@ const SECTION_TITLE_SX = {
 const FULL_NAME_REGEX = /^[A-Za-z][A-Za-z .'-]*$/;
 
 export const validateFullName = (fullName: string, isEdit: boolean) => {
-  if (!fullName) return isEdit ? undefined : 'USERS.FORM.ERROR_FULL_NAME_REQUIRED';
+  if (!fullName) return 'USERS.FORM.ERROR_FULL_NAME_REQUIRED';
   if (fullName.length < 2) return 'USERS.FORM.ERROR_FULL_NAME_MIN';
   return FULL_NAME_REGEX.test(fullName) ? undefined : 'USERS.FORM.ERROR_FULL_NAME_INVALID';
 };
@@ -190,14 +190,14 @@ const validateUsername = (username: string, isEdit: boolean) => {
 };
 
 const validateEmail = (email: string, isEdit: boolean) => {
-  if (!email) return isEdit ? undefined : 'USERS.FORM.ERROR_EMAIL_REQUIRED';
-  return email !== '-' && !EMAIL_REGEX.test(email)
+  if (!email || email === '-') return 'USERS.FORM.ERROR_EMAIL_REQUIRED';
+  return !EMAIL_REGEX.test(email)
     ? 'USERS.FORM.ERROR_EMAIL_INVALID'
     : undefined;
 };
 
 const validatePhone = (phone: string, isEdit: boolean) => {
-  if (!phone) return isEdit ? undefined : 'USERS.FORM.ERROR_PHONE_REQUIRED';
+  if (!phone || phone === '-') return 'USERS.FORM.ERROR_PHONE_REQUIRED';
   return PHONE_REGEX.test(phone) ? undefined : 'USERS.FORM.ERROR_PHONE_INVALID';
 };
 
@@ -401,16 +401,16 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
   };
 
-  // Create needs every mandatory field filled and valid before the button enables
+  // Create and edit need every mandatory field filled and valid before the button enables
+  // (the username is fixed when editing, so it is not checked there)
   const canCreate =
-    isEdit ||
-    (!validateFullName(toStr(formData.fullName).trim(), false) &&
-      !validateUsername(toStr(formData.username).trim(), false) &&
-      !validateEmail(toStr(formData.email).trim(), false) &&
-      !validatePhone(toStr(formData.phone).trim(), false) &&
-      formData.gender !== GENDER_NOT_SELECTED &&
-      Boolean(formData.role) &&
-      !(formData.password && formData.password.length < 8));
+    !validateFullName(toStr(formData.fullName).trim(), isEdit) &&
+    (isEdit || !validateUsername(toStr(formData.username).trim(), false)) &&
+    !validateEmail(toStr(formData.email).trim(), isEdit) &&
+    !validatePhone(toStr(formData.phone).trim(), isEdit) &&
+    formData.gender !== GENDER_NOT_SELECTED &&
+    Boolean(formData.role) &&
+    !(formData.password && formData.password.length < 8);
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
@@ -419,15 +419,15 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     const phone = toStr(formData.phone).trim();
     const password = toStr(formData.password);
 
-    // Nothing is mandatory when editing; filled fields are still checked for format
+    // The same fields are mandatory when creating and editing (the username is fixed when editing)
     const fieldErrors: Partial<Record<keyof FormState, string | undefined>> = {
       fullName: validateFullName(fullName, isEdit),
       username: validateUsername(toStr(formData.username).trim(), isEdit),
       email: validateEmail(email, isEdit),
       phone: validatePhone(phone, isEdit),
-      role: !isEdit && !formData.role ? 'USERS.FORM.ERROR_ROLE_REQUIRED' : undefined,
+      role: !formData.role ? 'USERS.FORM.ERROR_ROLE_REQUIRED' : undefined,
       gender:
-        !isEdit && formData.gender === GENDER_NOT_SELECTED
+        formData.gender === GENDER_NOT_SELECTED
           ? 'USERS.FORM.ERROR_GENDER_REQUIRED'
           : undefined,
       password:
@@ -574,7 +574,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonTextField
                 label={t('USERS.FORM.FULL_NAME')}
-                required={!isEdit}
+                required
                 value={formData.fullName}
                 onChange={(e) => handleChange('fullName', e.target.value)}
                 error={Boolean(errors.fullName)}
@@ -612,7 +612,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonTextField
                 label={t('USERS.FORM.EMAIL')}
-                required={!isEdit}
+                required
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
@@ -626,7 +626,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonTextField
                 label={t('USERS.FORM.PHONE')}
-                required={!isEdit}
+                required
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleChange('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
@@ -640,7 +640,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonSelect
                 label={t('USERS.FORM.GENDER')}
-                required={!isEdit}
+                required
                 error={Boolean(errors.gender)}
                 helperText={errorText('gender')}
                 value={formData.gender}
@@ -718,7 +718,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             <Grid item xs={12} sm={6}>
               <CommonSelect
                 label={t('USERS.FORM.ROLE')}
-                required={!isEdit}
+                required
                 value={formData.role}
                 placeholder={t('USERS.FORM.SELECT_ROLE')}
                 error={Boolean(errors.role)}

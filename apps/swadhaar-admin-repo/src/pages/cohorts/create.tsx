@@ -43,6 +43,7 @@ import {
   getCohortById,
 } from '@/services/CohortService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
+import LifecycleChip from '@/components/common/LifecycleChip';
 
 export interface UserRow {
   userId: string;
@@ -60,7 +61,7 @@ export interface SelectedMember {
   userId: string;
   name: string;
   email: string;
-  roleInGroup: 'Learner' | 'Reviewer';
+  role: string;
 }
 
 const DEFAULT_FILTERS: SDBVFilterValues = {
@@ -346,7 +347,7 @@ export default function CreateCohortPage() {
           userId: user.userId,
           name: user.name,
           email: user.email,
-          roleInGroup: 'Learner',
+          role: user.role,
         });
       }
       return next;
@@ -643,7 +644,7 @@ export default function CreateCohortPage() {
                 setPage(0);
               }}
               showSearch={true}
-              searchPlaceholder="Search people by name, email, or mobile..."
+              searchPlaceholder="Search by name"
               showRole={true}
               roleOptions={roleNames}
               showBranch={true}
@@ -1001,32 +1002,17 @@ export default function CreateCohortPage() {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <FormControl size="small" sx={{ minWidth: 100 }}>
-                        <Select
-                          size="small"
-                          value={member.roleInGroup}
-                          onChange={(e) =>
-                            handleChangeRole(
-                              member.userId,
-                              e.target.value as 'Learner' | 'Reviewer'
-                            )
-                          }
-                          sx={{
-                            fontSize: '12px',
-                            height: '30px',
-                            backgroundColor: '#FFFFFF',
-                            '& .MuiSelect-select': { py: '4px', px: '8px' },
-                          }}
-                        >
-                          <MenuItem value="Learner" sx={{ fontSize: '12px' }}>
-                            Learner
-                          </MenuItem>
-                          <MenuItem value="Reviewer" sx={{ fontSize: '12px' }}>
-                            Reviewer
-                          </MenuItem>
-                        </Select>
-                      </FormControl>
-
+                      <Typography
+                        sx={{
+                          fontSize: '11.5px',
+                          color: '#6B7280',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {member.role}
+                      </Typography>
                       <Tooltip title="Remove">
                         <IconButton
                           size="small"

@@ -184,6 +184,73 @@ export const addPathwayCohorts = async (courseIds: string[], cohortIds: string[]
   );
 };
 
+/**
+ * Links a group to the courses of a learning path: PATCH /lms-service/v1/courses/:courseId with params.cohortId
+ * (a course holds one cohortId, so it moves from any group it was linked to). The service takes `params` as a whole,
+ * so each course is read first and its other params are sent back. The group is also added to
+ * `params.enrolledCohortIds`, which the learning path list reads.
+ */
+export const assignCohortToCourses = async (courseIds: string[], cohortId: string): Promise<void> => {
+  const headers = getServiceHeaders();
+  await Promise.all(
+    courseIds.map(async (courseId) => {
+      const courseUrl = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
+      const current = await get(courseUrl, headers);
+      const params = current?.data?.result?.params || {};
+      const enrolled = Array.from(new Set([...(params.enrolledCohortIds || []), cohortId]));
+      await patch(courseUrl, { params: { ...params, cohortId, enrolledCohortIds: enrolled } }, headers);
+    })
+  );
+};
+
+/**
+ * Enrols one learner in every active course of the group:
+ * POST /lms-service/v1/enrollments/cohort?userId=<admin> { learnerId, cohortId }
+ */
+export const enrolLearnerInCohortCourses = async (learnerId: string, cohortId: string): Promise<any> => {
+  const adminId = (typeof window !== 'undefined' ? localStorage.getItem('userId') : null) || '';
+  const response = await post(API_ENDPOINTS.lmsEnrollCohort(adminId), { learnerId, cohortId }, getServiceHeaders());
+  return response?.data;
+};
+
+/** Learning paths linked to a group: the paths of the courses whose params.cohortId (or enrolledCohortIds) holds this group */
+export const getCohortLearningPaths = async (cohortId: string): Promise<Array<{ id: string; name: string }>> => {
+  // The courses are filtered here (not by the search's cohortId filter) so a course also counts when the group is
+  // only in its enrolledCohortIds
+  const { content: all } = await getCourseList({ limit: 100 });
+  const content = all.filter(
+    (c) => c.params?.cohortId === cohortId || (c.params?.enrolledCohortIds || []).includes(cohortId)
+  );
+  const pathIds = Array.from(new Set(content.map((c) => c.params?.pathwayId).filter(Boolean) as string[]));
+  const { pathways } = await getPathwayList({ limit: 100 }).catch(() => ({ pathways: [] as PathwayItem[] }));
+  const withoutPath = content.filter((c) => !c.params?.pathwayId).map((c) => ({ id: c.identifier, name: c.title }));
+  return [
+    ...pathIds.map((id) => ({ id, name: pathways.find((p) => p.id === id)?.name || 'Learning path' })),
+    ...withoutPath,
+  ];
+};
+
+/**
+ * The learning path a course belongs to (through params.pathwayId): its name and the course's step in it.
+ * The step is the course's place among the path's courses in their LMS order.
+ */
+export const getCoursePathway = async (
+  courseId: string
+): Promise<{ id: string; name: string; step: number; total: number } | null> => {
+  const { content } = await getCourseList({ limit: 100 });
+  const course = content.find((c) => c.identifier === courseId);
+  const pathwayId = course?.params?.pathwayId;
+  if (!pathwayId) return null;
+  const inPath = content.filter((c) => c.params?.pathwayId === pathwayId);
+  const pathway = await getPathwayById(pathwayId).catch(() => null);
+  return {
+    id: pathwayId,
+    name: pathway?.name || 'Learning path',
+    step: inPath.findIndex((c) => c.identifier === courseId) + 1,
+    total: inPath.length,
+  };
+};
+
 /** Id of a pathway returned by create/update */
 export const pathwayIdFromResponse = (res: any): string =>
   res?.result?.id || res?.result?.pathway?.id || res?.result?.pathwayId || res?.id || '';
