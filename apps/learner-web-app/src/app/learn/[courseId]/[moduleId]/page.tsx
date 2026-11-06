@@ -22,6 +22,7 @@ import {
   fetchSwadhaarModuleLessons,
   trackCourseClick,
   fetchSwadhaarLevelCourses,
+  getCourseCertificateTemplateId,
 } from '@learner/utils/API/SwadhaarService';
 import { issueCertificate, downloadCertificate } from '@shared-lib-v2/utils/CertificateService/coursesCertificates';
 import { sendCourseCompleteNotification } from '@learner/utils/API/NotificationService';
@@ -425,7 +426,7 @@ export default function SubtopicDetailsPage() {
                     const userId = localStorage.getItem('userId') || '';
                     const firstName = localStorage.getItem('firstName') || localStorage.getItem('name') || 'Learner';
                     const lastName = localStorage.getItem('lastName') || '';
-                    const templateId = localStorage.getItem('templtateId') || 'temp';
+                    const templateId = await getCourseCertificateTemplateId(courseId);
                     const issueResult = await issueCertificate({ userId, courseId, courseName, issuanceDate: new Date().toISOString(), expirationDate: new Date(new Date().setFullYear(new Date().getFullYear() + 20)).toISOString(), credentialId: templateId, firstName, middleName: '', lastName });
                     setCertId(issueResult?.credential?.id || 'temp');
                     setShowCertificate(true);

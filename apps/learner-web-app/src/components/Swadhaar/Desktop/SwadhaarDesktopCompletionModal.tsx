@@ -11,6 +11,7 @@ import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
 import UnfoldLessRoundedIcon from '@mui/icons-material/UnfoldLessRounded';
 import { issueCertificate } from '@shared-lib-v2/utils/CertificateService/coursesCertificates';
+import { getCourseCertificateTemplateId } from '@learner/utils/API/SwadhaarService';
 import { CertificateModal, useTranslation } from '@shared-lib';
 import { CircularProgress } from '@mui/material';
 
@@ -102,7 +103,7 @@ const SwadhaarDesktopCompletionModal: React.FC<CompletionModalProps> = ({
       const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
       const firstName = typeof window !== 'undefined' ? localStorage.getItem('firstName') || localStorage.getItem('name') || 'Learner' : 'Learner';
       const lastName = typeof window !== 'undefined' ? localStorage.getItem('lastName') || '' : '';
-      const templateId = typeof window !== 'undefined' ? localStorage.getItem('templtateId') || 'temp' : 'temp';
+      const templateId = await getCourseCertificateTemplateId(courseId || '');
       const result = await issueCertificate({
         userId, courseId, courseName: levelName || 'Course',
         issuanceDate: new Date().toISOString(),

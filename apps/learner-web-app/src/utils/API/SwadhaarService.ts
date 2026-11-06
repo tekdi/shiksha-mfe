@@ -441,6 +441,25 @@ export const getCourseHierarchy = async (courseId: string): Promise<any> => {
   }
 };
 
+/**
+ * Certificate template attached to a course by the admin (stored as `params.certificateTemplateId`);
+ * falls back to the tenant-wide template saved at login when the course has none.
+ * GET lms-service/v1/courses/:courseId
+ */
+export const getCourseCertificateTemplateId = async (courseId: string): Promise<string> => {
+  const fallback =
+    (typeof window !== 'undefined' && localStorage.getItem('templtateId')) || 'temp';
+  try {
+    const response = await axios.get(`${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}`, {
+      headers: lmsHeaders(),
+    });
+    return response?.data?.result?.params?.certificateTemplateId || fallback;
+  } catch (error) {
+    console.error(`Error fetching certificate template for course ${courseId}:`, error);
+    return fallback;
+  }
+};
+
 export const getQuestions = async (ids: string[]): Promise<any[]> => {
   const apiUrl = API_ENDPOINTS.questionList;
 
@@ -899,6 +918,7 @@ export const updateUserProfile = async (
 const SwadhaarService = {
   fetchSwadhaarLevelCourses,
   getCourseHierarchy,
+  getCourseCertificateTemplateId,
   getQuestions,
   getUserCourseStatus,
   createCourseEnrollment,
