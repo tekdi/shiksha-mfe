@@ -574,7 +574,7 @@ export default function UsersPage() {
       },
       {
         id: 'actions',
-        label: '',
+        label: t('COMMON.ACTIONS'),
         align: 'right',
         render: (row) => (
           <IconButton

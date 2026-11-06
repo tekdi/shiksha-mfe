@@ -309,7 +309,7 @@ export default function CoursesPage() {
         align: 'right',
         minWidth: 140,
         render: (row) => (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.8 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 0.8 }}>
             <Tooltip title={t('COURSES.LIST.OPEN_STRUCTURE')}>
               <IconButton
                 size="small"

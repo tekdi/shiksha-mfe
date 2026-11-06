@@ -1228,7 +1228,7 @@
       "SUBTITLE": "Create, update and control platform access for users.",
       "BULK_UPLOAD": "Bulk upload",
       "CREATE_USER": "Create user",
-      "SEARCH_PLACEHOLDER": "Name, username or email",
+      "SEARCH_PLACEHOLDER": "Search by Full Name",
       "SHOWING_USERS": "Showing {{from}}–{{to}} of {{total}} users",
       "COL_FULL_NAME": "FULL NAME",
       "COL_EMAIL": "EMAIL",

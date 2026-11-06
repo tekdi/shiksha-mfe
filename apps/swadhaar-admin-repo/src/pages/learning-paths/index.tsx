@@ -211,7 +211,7 @@ export default function LearningPathsListPage() {
         align: 'right',
         minWidth: 140,
         render: (row) => (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.8 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 0.8 }}>
             {/* Right Arrow: Open Sequence Page */}
             <Tooltip title={t('LEARNING_PATHS.OPEN_SEQUENCE')}>
               <IconButton

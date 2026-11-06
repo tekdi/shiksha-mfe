@@ -19,6 +19,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import SDBVHierarchyFilter, { SDBVFilterValues } from '@/components/common/SDBVHierarchyFilter';
 import SwadhaarDataTable, { ColumnDef } from '@/components/common/SwadhaarDataTable';
+import { getCourseList } from '@/services/CourseService';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import CommonDialog from '@/components/common/CommonDialog';
 import EditCohortModal from '@/components/common/EditCohortModal';
@@ -26,6 +27,7 @@ import {
   getCohortSearch,
   deleteCohort,
 } from '@/services/CohortService';
+import { useTranslation } from 'next-i18next';
 
 export interface CohortItem {
   id: string;
@@ -38,7 +40,7 @@ export interface CohortItem {
   block?: string;
   village?: string;
   membersCount: number;
-  contentCount: number;
+  pathsCount: number;
   trainer: string;
   status: 'Active' | 'Inactive' | 'Archived';
   startDate: string;
@@ -114,7 +116,7 @@ export default function CohortsPage() {
   const isGroupsRoute = router.pathname.startsWith('/groups');
   const itemLabel = isGroupsRoute ? 'groups' : 'cohorts';
   const basePath = isGroupsRoute ? '/groups' : '/cohorts';
-
+  const { t } = useTranslation();
   const [cohorts, setCohorts] = useState<CohortItem[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -190,6 +192,23 @@ export default function CohortsPage() {
           : rawCohortDetails.length;
       setTotalCount(total);
 
+      // A group is enrolled in a path through its courses' params.enrolledCohortIds; count the distinct paths per group
+      const pathsByCohort = new Map<string, Set<string>>();
+      try {
+        const { content: courses } = await getCourseList({ limit: 100 });
+        courses.forEach((course) => {
+          const pathwayId = course.params?.pathwayId;
+          if (!pathwayId) return;
+          (course.params?.enrolledCohortIds || []).forEach((id: string) => {
+            const paths = pathsByCohort.get(id) || new Set<string>();
+            paths.add(pathwayId);
+            pathsByCohort.set(id, paths);
+          });
+        });
+      } catch (err) {
+        console.error('Failed to load learning paths for groups:', err);
+      }
+
       const enrichedCohorts: CohortItem[] = rawCohortDetails.map((cohort: any) => {
         const cid = cohort.cohortId;
         const loc = extractLocation(cohort.customFields);
@@ -208,7 +227,7 @@ export default function CohortsPage() {
           block: loc.block,
           village: loc.village,
           membersCount: cohort.youthCount ?? 0,
-          contentCount: cohort.isFormCreated ? 1 : 0,
+          pathsCount: pathsByCohort.get(cid)?.size || 0,
           trainer: '-',
           status: displayStatus,
           startDate: formattedDate,
@@ -305,7 +324,7 @@ export default function CohortsPage() {
       },
       {
         id: 'membersCount',
-        label: 'LEARNERS',
+        label: 'Members',
         sortable: true,
         render: (row) => (
           <Chip
@@ -323,12 +342,12 @@ export default function CohortsPage() {
         ),
       },
       {
-        id: 'contentCount',
-        label: 'COURSES / CONTENT',
+        id: 'pathsCount',
+        label: 'LEARNING PATHS',
         sortable: true,
         render: (row) => (
           <Chip
-            label={`${row.contentCount} ${row.contentCount === 1 ? 'Content' : 'Contents'}`}
+            label={`${row.pathsCount} ${row.pathsCount === 1 ? 'Learning path' : 'Learning paths'}`}
             size="small"
             sx={{
               fontWeight: 600,
@@ -359,10 +378,10 @@ export default function CohortsPage() {
       },
       {
         id: 'actions',
-        label: '',
+        label: t('COMMON.ACTIONS'),
         align: 'right',
         render: (row) => (
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 0.5 }}>
             <Tooltip title="Add members">
               <IconButton
                 size="small"
