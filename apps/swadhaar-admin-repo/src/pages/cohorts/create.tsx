@@ -62,6 +62,8 @@ export interface SelectedMember {
   name: string;
   email: string;
   role: string;
+  /** Role the member gets in the group */
+  roleInGroup: 'Learner' | 'Reviewer';
 }
 
 const DEFAULT_FILTERS: SDBVFilterValues = {
@@ -348,6 +350,7 @@ export default function CreateCohortPage() {
           name: user.name,
           email: user.email,
           role: user.role,
+          roleInGroup: 'Learner',
         });
       }
       return next;
@@ -365,6 +368,7 @@ export default function CreateCohortPage() {
               userId: u.userId,
               name: u.name,
               email: u.email,
+              role: u.role,
               roleInGroup: 'Learner',
             });
           }
