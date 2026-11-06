@@ -251,13 +251,20 @@ export const getMembershipId = (row: any): string =>
   String(row?.cohortMembershipId || row?.membershipId || row?.cohortMemberId || '');
 
 /**
- * Takes members out of a group. bulkCreate rejects an empty `cohortId` ("cohortId should not be empty"), so each
- * membership is archived instead: PUT /user/v1/cohortmember/update/:membershipId { status: 'archived' }.
+ * Takes users out of groups (removes their membership in each group).
+ * POST /user/v1/cohortmember/bulkCreate?userId=<admin> { userId: [...], removeCohortId: [...] }
  */
-export const removeCohortMemberships = async (membershipIds: string[]): Promise<void> => {
-  const missing = membershipIds.filter((id) => !id).length;
-  if (missing > 0) throw new Error('Could not find the membership of this member in the group.');
-  await Promise.all(membershipIds.map((id) => updateCohortMember(id, { status: 'archived' })));
+export const removeUsersFromCohorts = async (userIds: string[], cohortIds: string[]): Promise<any> => {
+  if (userIds.length === 0 || cohortIds.length === 0) return;
+  try {
+    const adminId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
+    const url = `${API_ENDPOINTS.cohortMemberBulkCreate}${adminId ? `?userId=${encodeURIComponent(adminId)}` : ''}`;
+    const response = await post(url, { userId: userIds, removeCohortId: cohortIds }, getServiceHeaders());
+    return response?.data;
+  } catch (error) {
+    console.error('Error in removeUsersFromCohorts:', error);
+    throw error;
+  }
 };
 
 const COHORT_MEMBER_PAGE_SIZE = 100;
@@ -267,6 +274,15 @@ const COHORT_MEMBER_PAGE_SIZE = 100;
 export const getMemberRows = (res: any): any[] => {
   if (Array.isArray(res?.result?.userDetails)) return res.result.userDetails;
   return Array.isArray(res?.result) ? res.result : [];
+};
+
+/** Statuses of a membership that has been ended: the member list still returns these rows after a removal. */
+const ENDED_MEMBER_STATUSES = ['archived', 'inactive', 'removed', 'dropout', 'rejected'];
+
+/** False for a membership that was removed from the group (its row stays in the member list with an ended status). */
+export const isCurrentMember = (row: any): boolean => {
+  const status = String(row?.memberStatus || row?.membershipStatus || row?.status || '').toLowerCase();
+  return !ENDED_MEMBER_STATUSES.includes(status);
 };
 
 /** Total member count of a cohort member list response. */
@@ -288,7 +304,7 @@ export const getCohortLearnerIds = async (cohortId: string): Promise<string[]> =
     rows.forEach((row) => {
       const role = String(row.role || row.membershipRole || 'Student').toLowerCase();
       const userId = row.userId || row.id;
-      if (userId && role !== 'reviewer') ids.push(userId);
+      if (userId && role !== 'reviewer' && isCurrentMember(row)) ids.push(userId);
     });
     if (rows.length < COHORT_MEMBER_PAGE_SIZE) break;
   }

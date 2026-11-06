@@ -224,19 +224,15 @@ const getStatusLabel = (status: string, t: (key: string) => string): string => {
   return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 };
 
-/** Adds the search term to the list filters: 10 digits search by mobile, otherwise by first and last name */
+/** Adds the search term to the list filters: 10 digits search by mobile, otherwise by full name (searchtext) */
 const applySearchFilters = (filters: Record<string, any>, search: string) => {
   const trimmed = search.trim();
   if (/^\d{10}$/.test(trimmed)) {
     filters.mobile = trimmed;
     return;
   }
-  // If multiple words, split first and last name
-  const parts = trimmed.split(/\s+/);
-  filters.firstName = parts[0];
-  if (parts.length > 1) {
-    filters.lastName = parts.slice(1).join(' ');
-  }
+  // The full name (first + last) is matched by the API's searchtext filter
+  filters.searchtext = trimmed;
 };
 
 const hasFilterValue = (v?: string): v is string => Boolean(v) && v !== 'all';

@@ -41,6 +41,8 @@ export interface SDBVHierarchyFilterProps {
   showStatus?: boolean;
   statusOptions?: (string | OptionItem)[];
   showRole?: boolean;
+  /** Role, State, District and Branch row under the search; on by default */
+  showLocation?: boolean;
   roleOptions?: (string | OptionItem)[];
   onClear?: () => void;
 }
@@ -72,14 +74,15 @@ const hasAnyActiveFilter = (values: SDBVFilterValues): boolean => {
 export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
   values,
   onChange,
-  showProgram = true,
+  showProgram,
   showVillage = true,
-  showBranch = false,
+  showBranch,
   showSearch = false,
   searchPlaceholder = 'Name or email',
   showStatus = false,
   statusOptions = [],
   showRole = false,
+  showLocation = true,
   roleOptions = [],
   onClear,
 }) => {
@@ -198,7 +201,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
         }}
       >
         {/* Row 1: Search, Status, Clear */}
-        <Grid container spacing={2.5} alignItems="flex-end" sx={{ mb: 2 }}>
+        <Grid container spacing={2.5} alignItems="flex-end" sx={{ mb: showLocation ? 2 : 0 }}>
           <Grid item xs={12} sm={8} md={showStatus ? 9 : 11}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
               Search
@@ -265,6 +268,8 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
           </Grid>
         </Grid>
 
+        {showLocation && (
+          <>
         {/* Row 2: Role, State, District, Branch, Program */}
         <Grid container spacing={2}>
           {showRole && (
@@ -361,6 +366,8 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
 
 
         </Grid>
+          </>
+        )}
       </Box>
     );
   }

@@ -136,13 +136,31 @@ export const Header: React.FC<HeaderProps> = ({ toggleMobileSidebar, sx }) => {
         return data;
       })
       .then(async (data) => {
-        // The stored name comes from the login token; the user record holds the real first and last name
+        // The stored name comes from the login token; the user record holds the real first and last name.
+        // The name is cached for the session so the user-read API is called once per login, not on every page load.
         const userId = data?.userId;
         if (!userId || userId === 'admin-01') return;
+        const cacheKey = `headerUserName:${userId}`;
+        let cachedName = '';
+        try {
+          cachedName = sessionStorage.getItem(cacheKey) || '';
+        } catch {
+          // storage unavailable: fall through to the API
+        }
+        if (cachedName) {
+          setProfile((prev) => ({ ...prev, name: cachedName }));
+          return;
+        }
         const res = await getUserDetailsInfo(userId);
         const user = res?.result?.userData || res?.userData;
         const fullName = [user?.firstName, user?.middleName, user?.lastName].filter(Boolean).join(' ').trim();
-        if (fullName) setProfile((prev) => ({ ...prev, name: fullName }));
+        if (!fullName) return;
+        setProfile((prev) => ({ ...prev, name: fullName }));
+        try {
+          sessionStorage.setItem(cacheKey, fullName);
+        } catch {
+          // ignore: the name is simply fetched again next time
+        }
       })
       .catch((err) => console.error('Failed to load user profile:', err));
   }, []);

@@ -478,8 +478,7 @@ export default function CohortsPage() {
           searchPlaceholder="Search by group name or location..."
           showStatus={true}
           statusOptions={['active', 'inactive', 'archived']}
-          showBranch={true}
-          showProgram={true}
+          showLocation={false}
           onClear={() => {
             setFilters({
               search: '',
