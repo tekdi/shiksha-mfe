@@ -718,106 +718,106 @@ export default function ContentLibraryPage() {
             Assessment results
           </Typography>
           <Typography sx={{ fontSize: '13px', color: NEUTRAL.muted }}>
-            Learner scores and attempts will appear here once the results API is connected.
+            Learner scores and attempts will appear here once the results available.
           </Typography>
         </Box>
       )}
 
       {(activeTab !== 'assessments' || assessmentSubTab === 'assessments') && (
         <>
-      {/* Toolbar: Search & Filter dropdowns with Swadhaar Theme */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 2,
-          flexWrap: 'wrap',
-          gap: 2,
-        }}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          {/* Search Box */}
-          <TextField
-            size="small"
-            placeholder={t(tabMeta.searchKey)}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon sx={{ color: NEUTRAL.subtle, fontSize: 18 }} />
-                </InputAdornment>
-              ),
-              endAdornment: searchQuery ? (
-                <InputAdornment position="end">
-                  <IconButton size="small" aria-label={t('COMMON.CLEAR')} onClick={() => setSearchQuery('')}>
-                    <ClearIcon fontSize="small" sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </InputAdornment>
-              ) : null,
-            }}
+          {/* Toolbar: Search & Filter dropdowns with Swadhaar Theme */}
+          <Box
             sx={{
-              width: 260,
-              backgroundColor: 'background.paper',
-              '& .MuiOutlinedInput-root': {
-                height: 38,
-                borderRadius: '6px',
-                fontSize: '13px',
-                '& fieldset': { borderColor: NEUTRAL.border },
-                '&:hover fieldset': { borderColor: 'primary.main' },
-                '&.Mui-focused fieldset': { borderColor: 'primary.main' },
-              },
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 2,
+              flexWrap: 'wrap',
+              gap: 2,
             }}
-          />
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              {/* Search Box */}
+              <TextField
+                size="small"
+                placeholder={t(tabMeta.searchKey)}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: NEUTRAL.subtle, fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: searchQuery ? (
+                    <InputAdornment position="end">
+                      <IconButton size="small" aria-label={t('COMMON.CLEAR')} onClick={() => setSearchQuery('')}>
+                        <ClearIcon fontSize="small" sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+                sx={{
+                  width: 260,
+                  backgroundColor: 'background.paper',
+                  '& .MuiOutlinedInput-root': {
+                    height: 38,
+                    borderRadius: '6px',
+                    fontSize: '13px',
+                    '& fieldset': { borderColor: NEUTRAL.border },
+                    '&:hover fieldset': { borderColor: 'primary.main' },
+                    '&.Mui-focused fieldset': { borderColor: 'primary.main' },
+                  },
+                }}
+              />
 
-          {/* Language filter */}
-          <CommonSelect
-            value={languageFilter}
-            onChange={(value) => {
-              setLanguageFilter(value);
+              {/* Language filter */}
+              <CommonSelect
+                value={languageFilter}
+                onChange={(value) => {
+                  setLanguageFilter(value);
+                  setPage(0);
+                }}
+                options={languageOptions}
+                fullWidth={false}
+                sx={filterSelectSx}
+              />
+            </Box>
+
+            {/* Counter Hint (matching Prototype Image 1) */}
+            <Typography variant="body2" sx={{ color: NEUTRAL.muted, fontSize: '13px' }}>
+              {t(tabMeta.hintKey, { shown: contentList.length, total: totalCount })}
+            </Typography>
+          </Box>
+
+          {/* Swadhaar Data Table */}
+          <SwadhaarDataTable<ContentItem>
+            columns={currentColumns}
+            data={contentList}
+            keyExtractor={(item) => item.identifier}
+            loading={loading}
+            error={error ? t(error) : null}
+            onRetry={fetchContent}
+            hideToolbar={true}
+            emptyMessage={t(tabMeta.emptyKey)}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            totalCount={totalCount}
+            onPageChange={(newPage) => setPage(newPage)}
+            onRowsPerPageChange={(newSize) => {
+              setRowsPerPage(newSize);
               setPage(0);
             }}
-            options={languageOptions}
-            fullWidth={false}
-            sx={filterSelectSx}
           />
-        </Box>
 
-        {/* Counter Hint (matching Prototype Image 1) */}
-        <Typography variant="body2" sx={{ color: NEUTRAL.muted, fontSize: '13px' }}>
-          {t(tabMeta.hintKey, { shown: contentList.length, total: totalCount })}
-        </Typography>
-      </Box>
-
-      {/* Swadhaar Data Table */}
-      <SwadhaarDataTable<ContentItem>
-        columns={currentColumns}
-        data={contentList}
-        keyExtractor={(item) => item.identifier}
-        loading={loading}
-        error={error ? t(error) : null}
-        onRetry={fetchContent}
-        hideToolbar={true}
-        emptyMessage={t(tabMeta.emptyKey)}
-        page={page}
-        rowsPerPage={rowsPerPage}
-        totalCount={totalCount}
-        onPageChange={(newPage) => setPage(newPage)}
-        onRowsPerPageChange={(newSize) => {
-          setRowsPerPage(newSize);
-          setPage(0);
-        }}
-      />
-
-      {/* Prototype Footer Note (matching Image 5) */}
-      <Box sx={{ mt: 1.5, px: 0.5 }}>
-        <Typography variant="caption" sx={{ color: NEUTRAL.subtle, fontSize: '11px' }}>
-          {activeTab === 'assessments'
-            ? t('CONTENT.LIBRARY.FOOTER_ASSESSMENTS')
-            : t('CONTENT.LIBRARY.FOOTER_DEFAULT')}
-        </Typography>
-      </Box>
+          {/* Prototype Footer Note (matching Image 5) */}
+          <Box sx={{ mt: 1.5, px: 0.5 }}>
+            <Typography variant="caption" sx={{ color: NEUTRAL.subtle, fontSize: '11px' }}>
+              {activeTab === 'assessments'
+                ? t('CONTENT.LIBRARY.FOOTER_ASSESSMENTS')
+                : t('CONTENT.LIBRARY.FOOTER_DEFAULT')}
+            </Typography>
+          </Box>
 
         </>
       )}
