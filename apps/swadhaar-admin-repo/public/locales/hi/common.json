@@ -418,6 +418,33 @@
         "PROGRAM": "कार्यक्रम",
         "STATUS": "स्थिति"
       }
+    },
+    "LIST": {
+      "TITLE_GROUPS": "समूह",
+      "SUBTITLE": "प्रशिक्षण बैच, लाभार्थी समूह और फील्ड कोहॉर्ट प्रबंधित करें।",
+      "SEARCH_PLACEHOLDER": "समूह के नाम से खोजें",
+      "COL_NAME": "समूह / कोहॉर्ट का नाम",
+      "COL_MEMBERS": "सदस्य",
+      "COL_PATHS": "लर्निंग पाथ",
+      "COL_STATUS": "स्थिति",
+      "COL_START_DATE": "आरंभ तिथि",
+      "MEMBERS_CHIP": "{{count}} सदस्य",
+      "PATH_ONE": "{{count}} लर्निंग पाथ",
+      "PATH_OTHER": "{{count}} लर्निंग पाथ",
+      "TOOLTIP_ADD_MEMBERS": "सदस्य जोड़ें",
+      "ITEM_GROUPS": "समूह",
+      "ITEM_COHORTS": "कोहॉर्ट",
+      "NONE_FOUND": "कोई {{item}} नहीं मिला।",
+      "NONE_FOUND_FOR": "\"{{search}}\" के लिए कोई {{item}} नहीं मिला। कोई दूसरा नाम आज़माएं।",
+      "LOAD_FAILED": "सर्वर से कोहॉर्ट लोड नहीं हो सके। कृपया अपना कनेक्शन जांचें और पुनः प्रयास करें।",
+      "DELETE_TITLE": "समूह हटाएं",
+      "DELETE_SUBTITLE": "क्या आप समूह \"{{name}}\" को हटाना चाहते हैं?",
+      "DELETE_CONFIRM": "समूह हटाएं",
+      "DELETING": "हटाया जा रहा है...",
+      "DELETE_NOTE": "समूह को सूची से हटा दिया जाएगा।",
+      "DELETED_SUCCESS": "समूह \"{{name}}\" सफलतापूर्वक हटा दिया गया।",
+      "DELETE_FAILED": "समूह हटाने में विफल।",
+      "UPDATED_SUCCESS": "समूह सफलतापूर्वक अपडेट किया गया।"
     }
   },
   "COURSE_PLANNER": {
@@ -1020,9 +1047,9 @@
       "EMPTY_VIDEOS": "कोई वीडियो सामग्री नहीं मिली।",
       "EMPTY_PDFS": "कोई पीडीएफ दस्तावेज़ नहीं मिला।",
       "EMPTY_ASSESSMENTS": "कोई मूल्यांकन नहीं मिला।",
-      "ADD_VIDEO": "वीडियो अपलोड करें",
-      "ADD_PDF": "PDF अपलोड करें",
-      "ADD_ASSESSMENT": "मूल्यांकन बनाएं",
+      "ADD_VIDEO": "+ वीडियो अपलोड करें",
+      "ADD_PDF": "+ PDF अपलोड करें",
+      "ADD_ASSESSMENT": "+ मूल्यांकन बनाएं",
       "ALL_COURSES": "सभी पाठ्यक्रम",
       "ALL_LANGUAGES": "सभी भाषाएं",
       "BADGE_VIDEO": "वीडियो",
@@ -1136,6 +1163,7 @@
       "SEARCH_PLACEHOLDER": "पूरे नाम से खोजें",
       "SHOWING_USERS": "कुल {{total}} उपयोगकर्ताओं में से {{from}}–{{to}} प्रदर्शित",
       "COL_FULL_NAME": "पूरा नाम",
+      "COL_PHONE": "फ़ोन नंबर",
       "COL_EMAIL": "ईमेल (लॉगिन आईडी)",
       "COL_ROLE": "भूमिका",
       "COL_STATE_DISTRICT": "राज्य · जिला",
@@ -1342,7 +1370,8 @@
     "DATA_TABLE": "डेटा तालिका",
     "SELECT_ALL": "सभी पंक्तियाँ चुनें",
     "SELECTED_COUNT": "{{selected}} चयनित",
-    "DISPLAYED_ROWS": "{{from}}–{{to}} / {{total}}"
+    "DISPLAYED_ROWS": "{{from}}–{{to}} / {{total}}",
+    "ROWS_PER_PAGE": "प्रति पृष्ठ पंक्तियाँ:"
   },
   "ASSESSMENTS": {
     "TITLE": "मूल्यांकन",
@@ -1479,11 +1508,32 @@
     "IN_REVIEW": "समीक्षाधीन",
     "PUBLISHED": "प्रकाशित",
     "BLOCKED": "अवरुद्ध",
-    "DELETED": "हटाया गया"
+    "DELETED": "हटाया गया",
+    "INACTIVE": "निष्क्रिय"
   },
   "ERRORS": {
     "PAGE_NOT_FOUND_TITLE": "पृष्ठ नहीं मिला",
     "PAGE_NOT_FOUND_DESCRIPTION": "आप जिस पृष्ठ की तलाश कर रहे हैं उसे स्थानांतरित, पुनः नामित किया गया हो सकता है या वह अस्थायी रूप से अनुपलब्ध है।",
     "RETURN_TO_HOME": "मुख्य पृष्ठ पर लौटें"
+  },
+  "FILTERS": {
+    "SEARCH": "खोजें",
+    "STATUS": "स्थिति",
+    "ALL_STATUSES": "सभी स्थितियां",
+    "CLEAR": "साफ़ करें",
+    "ROLE": "भूमिका",
+    "ALL_ROLES": "सभी भूमिकाएं",
+    "STATE": "राज्य",
+    "ALL_STATES": "सभी राज्य",
+    "DISTRICT": "जिला",
+    "ALL_DISTRICTS": "सभी जिले",
+    "BRANCH": "शाखा",
+    "ALL_BRANCHES": "सभी शाखाएं",
+    "BLOCK": "ब्लॉक",
+    "ALL_BLOCKS": "सभी ब्लॉक",
+    "VILLAGE": "गांव",
+    "ALL_VILLAGES": "सभी गांव",
+    "PROGRAM": "कार्यक्रम",
+    "ALL_PROGRAMS": "सभी कार्यक्रम"
   }
 }

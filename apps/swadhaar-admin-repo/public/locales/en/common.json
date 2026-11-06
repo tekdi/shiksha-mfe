@@ -441,6 +441,33 @@
         "PROGRAM": "Program",
         "STATUS": "Status"
       }
+    },
+    "LIST": {
+      "TITLE_GROUPS": "Groups",
+      "SUBTITLE": "Manage training batches, beneficiary groups, and field cohorts.",
+      "SEARCH_PLACEHOLDER": "Search by group name",
+      "COL_NAME": "GROUP / COHORT NAME",
+      "COL_MEMBERS": "MEMBERS",
+      "COL_PATHS": "LEARNING PATHS",
+      "COL_STATUS": "STATUS",
+      "COL_START_DATE": "START DATE",
+      "MEMBERS_CHIP": "{{count}} Members",
+      "PATH_ONE": "{{count}} Learning path",
+      "PATH_OTHER": "{{count}} Learning paths",
+      "TOOLTIP_ADD_MEMBERS": "Add members",
+      "ITEM_GROUPS": "groups",
+      "ITEM_COHORTS": "cohorts",
+      "NONE_FOUND": "No {{item}} found.",
+      "NONE_FOUND_FOR": "No {{item}} found for \"{{search}}\". Try a different name.",
+      "LOAD_FAILED": "Failed to load cohorts from the server. Please check your connection and try again.",
+      "DELETE_TITLE": "Delete Group",
+      "DELETE_SUBTITLE": "Are you sure you want to delete group \"{{name}}\"?",
+      "DELETE_CONFIRM": "Delete Group",
+      "DELETING": "Deleting...",
+      "DELETE_NOTE": "The group will be removed from the list.",
+      "DELETED_SUCCESS": "Group \"{{name}}\" deleted successfully.",
+      "DELETE_FAILED": "Failed to delete group.",
+      "UPDATED_SUCCESS": "Group updated successfully."
     }
   },
   "COURSE_PLANNER": {
@@ -1115,9 +1142,9 @@
       "EMPTY_VIDEOS": "No video content found.",
       "EMPTY_PDFS": "No PDF documents found.",
       "EMPTY_ASSESSMENTS": "No assessments found.",
-      "ADD_VIDEO": "Video",
-      "ADD_PDF": "PDF",
-      "ADD_ASSESSMENT": "Assessment",
+      "ADD_VIDEO": "+ Video",
+      "ADD_PDF": "+ PDF",
+      "ADD_ASSESSMENT": "+ Assessment",
       "ALL_COURSES": "All Courses",
       "ALL_LANGUAGES": "All Languages",
       "BADGE_VIDEO": "Video",
@@ -1387,7 +1414,7 @@
       "NO_RECORDS": "No valid user records found in the uploaded file."
     },
     "TITLE": "Bulk Upload Users",
-    "SUBTITLE": "Upload CSV file to create or update multiple users simultaneously.",
+    "SUBTITLE": "Upload a CSV or Excel file to create or update multiple users simultaneously.",
     "UPLOAD_SUMMARY": "Upload Summary",
     "PROCESSED_SUFFIX": "records processed",
     "STEPPER": {
@@ -1395,8 +1422,8 @@
       "VALIDATE": "Validate",
       "SUMMARY": "Summary"
     },
-    "DROP_PROMPT": "Drag & drop your CSV file here, or click to browse",
-    "FILE_TYPES": "Supports .csv files up to 10MB",
+    "DROP_PROMPT": "Drag & drop your CSV or Excel file here, or click to browse",
+    "FILE_TYPES": "Supports .csv, .xlsx and .xls files up to 10MB",
     "COLUMNS": {
       "ROW": "Row",
       "PHONE": "Phone Number",
@@ -1453,7 +1480,8 @@
     "DATA_TABLE": "Data Table",
     "SELECT_ALL": "Select all rows",
     "SELECTED_COUNT": "{{selected}} selected",
-    "DISPLAYED_ROWS": "{{from}}–{{to}} of {{total}}"
+    "DISPLAYED_ROWS": "{{from}}–{{to}} of {{total}}",
+    "ROWS_PER_PAGE": "Rows per page:"
   },
   "ASSESSMENTS": {
     "TITLE": "Assessments",
@@ -1590,11 +1618,32 @@
     "IN_REVIEW": "In Review",
     "PUBLISHED": "Published",
     "BLOCKED": "Blocked",
-    "DELETED": "Deleted"
+    "DELETED": "Deleted",
+    "INACTIVE": "Inactive"
   },
   "ERRORS": {
     "PAGE_NOT_FOUND_TITLE": "Page Not Found",
     "PAGE_NOT_FOUND_DESCRIPTION": "The page you are looking for might have been moved, renamed, or is temporarily unavailable.",
     "RETURN_TO_HOME": "Return to Home"
+  },
+  "FILTERS": {
+    "SEARCH": "Search",
+    "STATUS": "Status",
+    "ALL_STATUSES": "All statuses",
+    "CLEAR": "Clear",
+    "ROLE": "Role",
+    "ALL_ROLES": "All roles",
+    "STATE": "State",
+    "ALL_STATES": "All states",
+    "DISTRICT": "District",
+    "ALL_DISTRICTS": "All districts",
+    "BRANCH": "Branch",
+    "ALL_BRANCHES": "All branches",
+    "BLOCK": "Block",
+    "ALL_BLOCKS": "All blocks",
+    "VILLAGE": "Village",
+    "ALL_VILLAGES": "All villages",
+    "PROGRAM": "Program",
+    "ALL_PROGRAMS": "All programs"
   }
 }

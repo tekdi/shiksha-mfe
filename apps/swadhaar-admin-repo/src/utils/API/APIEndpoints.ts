@@ -123,6 +123,7 @@ export const API_ENDPOINTS = {
   lmsModules: `${lmsBase}/modules`,
   lmsModulesSearch: (queryString = '') => `${lmsBase}/modules/search${toQueryString(queryString)}`,
   lmsMediaUpload: `${lmsBase}/media/upload`,
+  lmsMediaUploadVideo: `${lmsBase}/media/upload-video`,
   lmsLessons: (queryString = '') => `${lmsBase}/lessons${toQueryString(queryString)}`,
   lmsLessonById: (lessonId: string) => `${lmsBase}/lessons/${lessonId}`,
   lmsLessonsByModule: (moduleId: string) => `${lmsBase}/lessons/module/${moduleId}`,

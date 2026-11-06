@@ -33,6 +33,7 @@ import CommonButton from '@/components/common/CommonButton';
 import CommonSelect from '@/components/common/CommonSelect';
 import PageHeader from '@/components/common/PageHeader';
 import CommonDialog from '@/components/common/CommonDialog';
+import { deleteLmsLesson } from '@/services/CourseService';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 import {
   searchContentLibrary,
@@ -295,7 +296,12 @@ export default function ContentLibraryPage() {
     if (!itemToDelete) return;
     setDeleteLoading(true);
     try {
-      await retireContent(itemToDelete.identifier);
+      if (activeTab === 'videos' || activeTab === 'pdfs') {
+        // Videos and PDFs are LMS lessons: DELETE /lms-service/v1/lessons/:lessonId?userId=<admin>
+        await deleteLmsLesson(itemToDelete.identifier, localStorage.getItem('userId') || '');
+      } else {
+        await retireContent(itemToDelete.identifier);
+      }
       setContentList((prev) => prev.filter((item) => item.identifier !== itemToDelete.identifier));
       setFeedback({
         open: true,

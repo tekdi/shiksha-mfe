@@ -849,8 +849,9 @@ export interface CreateDocumentLessonPayload {
 }
 
 /**
- * Upload a lesson file (PDF) and return the stored media path
- * POST /lms-service/v1/media/upload (multipart: file, format)
+ * Upload a lesson file and return the stored media path (multipart: file, format).
+ * PDFs: POST /lms-service/v1/media/upload. Videos (MP4/WebM, up to 500MB): POST /lms-service/v1/media/upload-video.
+ * The path plays at {base}/lms-service{path} without a login.
  */
 export const uploadLessonMedia = async (
   file: File,
@@ -863,7 +864,8 @@ export const uploadLessonMedia = async (
     form.append('file', file);
     // The browser sets the multipart boundary itself
     const headers = getServiceHeaders({ 'content-type': 'multipart/form-data', ...customHeaders });
-    const response = await post(API_ENDPOINTS.lmsMediaUpload, form, headers);
+    const url = format === 'video' ? API_ENDPOINTS.lmsMediaUploadVideo : API_ENDPOINTS.lmsMediaUpload;
+    const response = await post(url, form, headers);
     const result = response?.data?.result;
     if (!result?.path) throw new Error('Upload did not return a file path.');
     return { mediaId: result.mediaId, path: result.path };
@@ -955,11 +957,8 @@ export const deleteLmsLesson = async (
 ): Promise<any> => {
   try {
     const headers = getServiceHeaders(customHeaders);
-    const response = await deleteApi(
-      `${API_ENDPOINTS.lmsLessonById(lessonId)}`,
-      undefined,
-      headers
-    );
+    const query = userId ? `?userId=${encodeURIComponent(userId)}` : '';
+    const response = await deleteApi(`${API_ENDPOINTS.lmsLessonById(lessonId)}${query}`, undefined, headers);
     return response?.data;
   } catch (error) {
     console.error(`Error in CourseService.deleteLmsLesson for ${lessonId}:`, error);

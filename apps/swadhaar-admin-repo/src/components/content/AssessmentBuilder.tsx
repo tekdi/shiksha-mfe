@@ -11,7 +11,7 @@ import {
   FormControl,
   Select,
   MenuItem,
-  FormControlLabel,
+  // FormControlLabel,
   Checkbox,
   Radio,
   IconButton,
@@ -30,6 +30,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import { createModule, createTestLesson, getCourseHierarchy, getCourseList, getModuleList } from '@/services/CourseService';
 import AssessmentService from '@/services/AssessmentService';
+// import ChooseGroupsUsersDialog, { AssignTarget } from '@/components/common/ChooseGroupsUsersDialog';
 import { BankQuestion, fetchQuestionBank, mapBankQuestion } from '@/services/ContentLibraryService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
 import {
@@ -454,8 +455,8 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
   const [showExplanations, setShowExplanations] = useState(true);
 
   // Assign to & Notifications
-  const [assignedGroups, setAssignedGroups] = useState<string[]>(['[Group A]']);
-  const [assignedUsersCount, setAssignedUsersCount] = useState<string>('[N]');
+  // const [assignedGroups, setAssignedGroups] = useState<AssignTarget[]>([]);
+  // const [assignedUsers, setAssignedUsers] = useState<AssignTarget[]>([]);
   const [notifyCompletion, setNotifyCompletion] = useState<boolean>(true);
   const [notifyFailure, setNotifyFailure] = useState<boolean>(true);
 
@@ -474,11 +475,6 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
   const [genTag, setGenTag] = useState('Topic: Saving');
   const [genCount, setGenCount] = useState('3');
   const [genDifficulty, setGenDifficulty] = useState('Medium');
-
-  // Assign dialog state
-  const [tempGroupA, setTempGroupA] = useState(true);
-  const [tempGroupB, setTempGroupB] = useState(false);
-  const [tempIndividualCount, setTempIndividualCount] = useState('[N]');
 
   // Loading & feedback
   const [loading, setLoading] = useState(false);
@@ -1520,36 +1516,36 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
             </Paper>
 
             {/* Card 2: Assign to (BRD §8.2) */}
-            <Paper elevation={0} sx={CARD_SX}>
+            {/* <Paper elevation={0} sx={CARD_SX}>
 
 
               <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 1.2, fontSize: '14px' }}>
+                {assignedGroups.length === 0 && assignedUsers.length === 0 && (
+                  <Typography sx={{ fontSize: '14px', color: '#6B7280' }}>No groups or users chosen yet.</Typography>
+                )}
                 {assignedGroups.map((grp) => (
-                  <Typography key={grp} sx={{ fontSize: '14px', color: '#1F1E1C' }}>
-                    {grp}
+                  <Typography key={grp.id} sx={{ fontSize: '14px', color: '#1F1E1C' }}>
+                    {grp.name}
                   </Typography>
                 ))}
-                <Typography sx={{ fontSize: '14px', color: '#1F1E1C' }}>
-                  {assignedUsersCount} individual users
-                </Typography>
+                {assignedUsers.length > 0 && (
+                  <Typography sx={{ fontSize: '14px', color: '#1F1E1C' }}>
+                    {assignedUsers.length} individual {assignedUsers.length === 1 ? 'user' : 'users'}
+                  </Typography>
+                )}
 
                 <Box sx={{ pt: 0.5 }}>
                   <Button
                     variant="outlined"
                     size="small"
-                    onClick={() => {
-                      setTempGroupA(assignedGroups.includes('[Group A]'));
-                      setTempGroupB(assignedGroups.includes('[Group B]'));
-                      setTempIndividualCount(assignedUsersCount);
-                      setAssignDialogOpen(true);
-                    }}
+                    onClick={() => setAssignDialogOpen(true)}
                     sx={SECONDARY_ACTION_BTN_SX}
                   >
                     Choose groups or users
                   </Button>
                 </Box>
               </Box>
-            </Paper>
+            </Paper> */}
 
             {/* Card 3: Notifications (BRD §8.3) */}
             {/* <Paper elevation={0} sx={CARD_SX}>
@@ -1807,93 +1803,17 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
       </Dialog>
 
       {/* Dialog 3: Choose Groups or Users */}
-      <Dialog
+      {/* <ChooseGroupsUsersDialog
         open={assignDialogOpen}
         onClose={() => setAssignDialogOpen(false)}
-        maxWidth="xs"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '10px' } }}
-      >
-        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography sx={{ fontSize: '16px', fontWeight: 600, color: '#1F1E1C' }}>
-            Choose groups or users
-          </Typography>
-          <IconButton size="small" onClick={() => setAssignDialogOpen(false)}>
-            <CloseIcon sx={{ fontSize: 20 }} />
-          </IconButton>
-        </DialogTitle>
-        <DialogContent dividers sx={{ p: 2.5, display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#1F1E1C' }}>
-            Target Groups
-          </Typography>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={tempGroupA}
-                onChange={(e) => setTempGroupA(e.target.checked)}
-                sx={{ '&.Mui-checked': { color: '#E6873C' } }}
-              />
-            }
-            label={<Typography sx={{ fontSize: '14px', color: '#1F1E1C' }}>[Group A] - Field Trainers</Typography>}
-          />
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={tempGroupB}
-                onChange={(e) => setTempGroupB(e.target.checked)}
-                sx={{ '&.Mui-checked': { color: '#E6873C' } }}
-              />
-            }
-            label={<Typography sx={{ fontSize: '14px', color: '#1F1E1C' }}>[Group B] - Branch Staff</Typography>}
-          />
-
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.8, mt: 1 }}>
-            <Typography component="label" sx={{ fontSize: '13px', fontWeight: 600, color: '#1F1E1C' }}>
-              Individual users count / note
-            </Typography>
-            <TextField
-              size="small"
-              value={tempIndividualCount}
-              onChange={(e) => setTempIndividualCount(e.target.value)}
-              placeholder="e.g. [N] or 25"
-              sx={OUTLINED_FIELD_SX}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button
-            variant="outlined"
-            onClick={() => setAssignDialogOpen(false)}
-            sx={{ ...SECONDARY_ACTION_BTN_SX, height: 36 }}
-          >
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => {
-              const groups: string[] = [];
-              if (tempGroupA) groups.push('[Group A]');
-              if (tempGroupB) groups.push('[Group B]');
-              setAssignedGroups(groups.length > 0 ? groups : ['[None]']);
-              setAssignedUsersCount(tempIndividualCount || '[N]');
-              setAssignDialogOpen(false);
-            }}
-            sx={{
-              backgroundColor: '#E6873C',
-              color: '#FFFFFF',
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '13px',
-              borderRadius: '6px',
-              height: 36,
-              px: 2,
-              '&:hover': { backgroundColor: '#C66C23' },
-            }}
-          >
-            Apply
-          </Button>
-        </DialogActions>
-      </Dialog>
+        groups={assignedGroups}
+        users={assignedUsers}
+        onApply={(groups, users) => {
+          setAssignedGroups(groups);
+          setAssignedUsers(users);
+          setAssignDialogOpen(false);
+        }}
+      /> */}
     </Box>
   );
 }

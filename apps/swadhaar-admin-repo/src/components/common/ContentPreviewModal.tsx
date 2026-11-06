@@ -536,7 +536,7 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
                       {q.options.map((opt) => {
                         const isSelected = selectedOptId === opt.id;
                         const isAnswerKey = assessmentMode === 'review';
-                        const showCorrect = isAnswerKey || (submitted && opt.isCorrect);
+                        const showCorrect = opt.isCorrect && (isAnswerKey || submitted);
                         const showIncorrect = submitted && isSelected && !opt.isCorrect;
 
                         return (

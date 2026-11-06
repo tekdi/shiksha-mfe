@@ -125,12 +125,13 @@ const getCourseTarget = (query: Record<string, unknown>) => {
 };
 
 const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
-const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|m4v|mkv|avi|ogv)$/i;
+const VIDEO_EXTENSIONS = /\.(mp4|webm)$/i;
+const VIDEO_MIME_TYPES = ['video/mp4', 'video/webm'];
 
-/** Only video files can be uploaded: by MIME type (or extension when the browser gives none), up to 500MB */
+/** The server takes MP4 and WebM only (by MIME type, or by extension when the browser gives none), up to 500MB */
 const getVideoFileError = (file: File): string | null => {
-  const isVideo = file.type ? file.type.startsWith('video/') : VIDEO_EXTENSIONS.test(file.name);
-  if (!isVideo) return 'Only video files can be uploaded (MP4, WebM, MOV…). Please choose a video file.';
+  const isAllowed = file.type ? VIDEO_MIME_TYPES.includes(file.type) : VIDEO_EXTENSIONS.test(file.name);
+  if (!isAllowed) return 'Only MP4 and WebM videos can be uploaded. Please choose an MP4 or WebM file.';
   if (file.size > MAX_VIDEO_BYTES) return 'The video is larger than 500MB. Please choose a smaller file.';
   return null;
 };
@@ -384,21 +385,21 @@ export default function CreateVideoPage() {
                   />
                 </Grid>
 
-                {/* <Grid item xs={12} sm={6}>
+                <Grid item xs={12} sm={6}>
                   <SourceOption
                     selected={sourceType === 'upload'}
                     onSelect={() => setSourceType('upload')}
                     title="Upload file"
                     subtitle="MP4, WebM formats"
                   />
-                </Grid> */}
+                </Grid>
               </Grid>
 
               {sourceType === 'link' ? (
                 <LabeledTextField label="Video URL *" value={videoUrl} onChange={(v) => setVideoUrl(v.trimStart())} error={videoUrlError} placeholder="https://www.youtube.com/watch?v=..." hint="Paste a YouTube link or a direct link to a video file" />
               ) : (
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {/* <Box
+                  <Box
                     component="label"
                     sx={{
                       border: '2px dashed #BDB9B1',
@@ -427,7 +428,7 @@ export default function CreateVideoPage() {
                     </Typography>
                     <input
                       type="file"
-                      accept="video/*"
+                      accept="video/mp4,video/webm,.mp4,.webm"
                       hidden
                       onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -450,7 +451,7 @@ export default function CreateVideoPage() {
                     <Typography sx={{ fontSize: '13px', color: '#1F1E1C', fontWeight: 500 }}>
                       Selected file: <strong>{fileName}</strong>
                     </Typography>
-                  )} */}
+                  )}
                 </Box>
               )}
             </Box>

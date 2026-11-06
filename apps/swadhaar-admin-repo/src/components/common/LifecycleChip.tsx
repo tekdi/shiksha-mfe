@@ -99,7 +99,7 @@ const getStateConfig = (state: string): StateStyleConfig => {
     };
   }
   if (normalized === 'inactive') {
-    return { rawLabel: 'Inactive', bg: '#FEF3C7', color: '#B45309', dotColor: '#B45309' };
+    return { labelKey: 'LIFECYCLE.INACTIVE', bg: '#FEF3C7', color: '#B45309', dotColor: '#B45309' };
   }
   if (normalized === 'suspended' || normalized === 'blocked' || normalized === 'deleted') {
     return {
