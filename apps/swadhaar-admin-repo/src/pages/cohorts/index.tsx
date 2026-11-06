@@ -14,7 +14,7 @@ import {
 import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
-import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
+import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import SDBVHierarchyFilter, { SDBVFilterValues } from '@/components/common/SDBVHierarchyFilter';
@@ -114,9 +114,9 @@ const extractLocation = (customFields?: any[]) => {
 export default function CohortsPage() {
   const router = useRouter();
   const isGroupsRoute = router.pathname.startsWith('/groups');
-  const itemLabel = isGroupsRoute ? 'groups' : 'cohorts';
-  const basePath = isGroupsRoute ? '/groups' : '/cohorts';
+    const basePath = isGroupsRoute ? '/groups' : '/cohorts';
   const { t } = useTranslation();
+  const itemLabel = t(isGroupsRoute ? 'COHORTS.LIST.ITEM_GROUPS' : 'COHORTS.LIST.ITEM_COHORTS');
   const [cohorts, setCohorts] = useState<CohortItem[]>([]);
   const [totalCount, setTotalCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
@@ -159,8 +159,8 @@ export default function CohortsPage() {
     return () => clearTimeout(timer);
   }, [filters.search]);
 
-  let emptyMessage = `No ${itemLabel} found.`;
-  if (debouncedSearch) emptyMessage = `No ${itemLabel} found for "${debouncedSearch}". Try a different name.`;
+  let emptyMessage = t('COHORTS.LIST.NONE_FOUND', { item: itemLabel });
+  if (debouncedSearch) emptyMessage = t('COHORTS.LIST.NONE_FOUND_FOR', { item: itemLabel, search: debouncedSearch });
 
   const fetchCohorts = useCallback(async () => {
     setLoading(true);
@@ -242,11 +242,11 @@ export default function CohortsPage() {
       // The search answers 404 when nothing matches; that is an empty result, not a failure
       if (err?.response?.status === 404) return;
       console.error('Failed to fetch cohorts:', err);
-      setFetchError('Failed to load cohorts from the server. Please check your connection and try again.');
+      setFetchError(t('COHORTS.LIST.LOAD_FAILED'));
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage, page, filters.status, debouncedSearch]);
+  }, [rowsPerPage, page, filters.status, debouncedSearch, t]);
 
   useEffect(() => {
     fetchCohorts();
@@ -274,7 +274,7 @@ export default function CohortsPage() {
       await deleteCohort(deletingCohort.cohortId);
       setFeedback({
         open: true,
-        message: `Group "${deletingCohort.name}" deleted successfully.`,
+        message: t('COHORTS.LIST.DELETED_SUCCESS', { name: deletingCohort.name }),
         severity: 'success',
       });
       setDeletingCohort(null);
@@ -282,7 +282,7 @@ export default function CohortsPage() {
     } catch (err: any) {
       setFeedback({
         open: true,
-        message: err?.response?.data?.message || err?.message || 'Failed to delete group.',
+        message: err?.response?.data?.message || err?.message || t('COHORTS.LIST.DELETE_FAILED'),
         severity: 'error',
       });
     } finally {
@@ -294,7 +294,7 @@ export default function CohortsPage() {
     () => [
       {
         id: 'name',
-        label: 'GROUP / COHORT NAME',
+        label: t('COHORTS.LIST.COL_NAME'),
         sortable: true,
         render: (row) => (
           <Box
@@ -324,11 +324,11 @@ export default function CohortsPage() {
       },
       {
         id: 'membersCount',
-        label: 'Members',
+        label: t('COHORTS.LIST.COL_MEMBERS'),
         sortable: true,
         render: (row) => (
           <Chip
-            label={`${row.membersCount} Members`}
+            label={t('COHORTS.LIST.MEMBERS_CHIP', { count: row.membersCount })}
             size="small"
             sx={{
               fontWeight: 600,
@@ -343,11 +343,11 @@ export default function CohortsPage() {
       },
       {
         id: 'pathsCount',
-        label: 'LEARNING PATHS',
+        label: t('COHORTS.LIST.COL_PATHS'),
         sortable: true,
         render: (row) => (
           <Chip
-            label={`${row.pathsCount} ${row.pathsCount === 1 ? 'Learning path' : 'Learning paths'}`}
+            label={t(row.pathsCount === 1 ? 'COHORTS.LIST.PATH_ONE' : 'COHORTS.LIST.PATH_OTHER', { count: row.pathsCount })}
             size="small"
             sx={{
               fontWeight: 600,
@@ -362,13 +362,13 @@ export default function CohortsPage() {
       },
       {
         id: 'status',
-        label: 'STATUS',
+        label: t('COHORTS.LIST.COL_STATUS'),
         sortable: true,
         render: (row) => <LifecycleChip state={row.status} />,
       },
       {
         id: 'startDate',
-        label: 'START DATE',
+        label: t('COHORTS.LIST.COL_START_DATE'),
         sortable: true,
         render: (row) => (
           <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '12px' }}>
@@ -382,7 +382,7 @@ export default function CohortsPage() {
         align: 'right',
         render: (row) => (
           <Box sx={{ display: 'flex', justifyContent: 'flex-start', gap: 0.5 }}>
-            <Tooltip title="Add members">
+            <Tooltip title={t('COHORTS.LIST.TOOLTIP_ADD_MEMBERS')}>
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -391,10 +391,10 @@ export default function CohortsPage() {
                 }}
                 sx={{ color: '#4B5563', '&:hover': { color: 'primary.main' } }}
               >
-                <PersonAddOutlinedIcon fontSize="small" />
+                <PersonAddAlt1OutlinedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Edit Group">
+            <Tooltip title={t('COHORTS.EDIT_GROUP')}>
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -406,7 +406,7 @@ export default function CohortsPage() {
                 <EditOutlinedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Delete">
+            <Tooltip title={t('COMMON.DELETE')}>
               <IconButton
                 size="small"
                 onClick={(e) => {
@@ -422,7 +422,7 @@ export default function CohortsPage() {
         ),
       },
     ],
-    [router, basePath]
+    [router, basePath, t]
   );
 
   return (
@@ -440,10 +440,10 @@ export default function CohortsPage() {
       >
         <Box>
           <Typography variant="h5" sx={{ fontWeight: 700, color: '#1F2937', fontSize: '24px' }}>
-            {isGroupsRoute ? 'Groups' : 'Groups & Cohorts'}
+            {isGroupsRoute ? t('COHORTS.LIST.TITLE_GROUPS') : t('COHORTS.TITLE')}
           </Typography>
           <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '13px', mt: 0.3 }}>
-            Manage training batches, beneficiary groups, and field cohorts.
+            {t('COHORTS.LIST.SUBTITLE')}
           </Typography>
         </Box>
 
@@ -462,7 +462,7 @@ export default function CohortsPage() {
             '&:hover': { backgroundColor: '#B85D1A' },
           }}
         >
-          Create Group
+          {t('COHORTS.CREATE_GROUP')}
         </Button>
       </Box>
 
@@ -475,9 +475,13 @@ export default function CohortsPage() {
             setPage(0);
           }}
           showSearch={true}
-          searchPlaceholder="Search by group name or location..."
+          searchPlaceholder={t('COHORTS.LIST.SEARCH_PLACEHOLDER')}
           showStatus={true}
-          statusOptions={['active', 'inactive', 'archived']}
+          statusOptions={[
+            { value: 'active', label: t('LIFECYCLE.ACTIVE') },
+            { value: 'inactive', label: t('LIFECYCLE.INACTIVE') },
+            { value: 'archived', label: t('LIFECYCLE.ARCHIVED') },
+          ]}
           showLocation={false}
           onClear={() => {
             setFilters({
@@ -523,7 +527,7 @@ export default function CohortsPage() {
           onSuccess={() => {
             setFeedback({
               open: true,
-              message: 'Group updated successfully.',
+              message: t('COHORTS.LIST.UPDATED_SUCCESS'),
               severity: 'success',
             });
             fetchCohorts();
@@ -536,16 +540,16 @@ export default function CohortsPage() {
       <CommonDialog
         open={Boolean(deletingCohort)}
         onClose={() => setDeletingCohort(null)}
-        title="Delete Group"
-        subtitle={`Are you sure you want to delete group "${deletingCohort?.name}"?`}
-        confirmLabel={deleteLoading ? 'Deleting...' : 'Delete Group'}
+        title={t('COHORTS.LIST.DELETE_TITLE')}
+        subtitle={t('COHORTS.LIST.DELETE_SUBTITLE', { name: deletingCohort?.name })}
+        confirmLabel={deleteLoading ? t('COHORTS.LIST.DELETING') : t('COHORTS.LIST.DELETE_CONFIRM')}
         confirmVariant="danger"
         confirmDisabled={deleteLoading}
         loading={deleteLoading}
         onConfirm={handleConfirmDelete}
       >
         <Typography sx={{ fontSize: '13.5px', color: '#4B5563' }}>
-          The group will be removed from the list.
+          {t('COHORTS.LIST.DELETE_NOTE')}
         </Typography>
       </CommonDialog>
 

@@ -18,6 +18,7 @@ import {
   TableSortLabel,
   Button,
 } from '@mui/material';
+import { useTranslation } from 'next-i18next';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
@@ -235,6 +236,7 @@ export function SwadhaarDataTable<T extends Record<string, any>>({
   onPageChange,
   onRowsPerPageChange,
 }: Readonly<SwadhaarDataTableProps<T>>) {
+  const { t } = useTranslation();
   // Local state if uncontrolled
   const [localSearch, setLocalSearch] = useState('');
   const [localPage, setLocalPage] = useState(0);
@@ -458,6 +460,10 @@ export function SwadhaarDataTable<T extends Record<string, any>>({
       {/* Pagination */}
       <TablePagination
         rowsPerPageOptions={[10, 25, 50]}
+        labelRowsPerPage={t('TABLE.ROWS_PER_PAGE')}
+        labelDisplayedRows={({ from, to, count }) =>
+          t('TABLE.DISPLAYED_ROWS', { from, to, total: count === -1 ? to : count })
+        }
         component="div"
         count={effectiveTotal}
         rowsPerPage={currentRowsPerPage}

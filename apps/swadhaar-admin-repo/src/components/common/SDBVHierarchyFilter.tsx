@@ -10,6 +10,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import { useTranslation } from 'next-i18next';
 import FilterAltOffIcon from '@mui/icons-material/FilterAltOff';
 import MasterDataService, { LocationOption } from '@/services/MasterDataService';
 
@@ -86,6 +87,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
   roleOptions = [],
   onClear,
 }) => {
+  const { t } = useTranslation();
   const [states, setStates] = useState<LocationOption[]>([]);
   const [districts, setDistricts] = useState<LocationOption[]>([]);
   const [blocks, setBlocks] = useState<LocationOption[]>([]);
@@ -204,7 +206,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
         <Grid container spacing={2.5} alignItems="flex-end" sx={{ mb: showLocation ? 2 : 0 }}>
           <Grid item xs={12} sm={8} md={showStatus ? 9 : 11}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
-              Search
+              {t('FILTERS.SEARCH')}
             </Typography>
             <TextField
               fullWidth
@@ -226,7 +228,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
           {showStatus && (
             <Grid item xs={8} sm={3} md={2.3}>
               <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
-                Status
+                {t('FILTERS.STATUS')}
               </Typography>
               <Select
                 fullWidth
@@ -240,7 +242,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
                   borderColor: '#D1D5DB',
                 }}
               >
-                <MenuItem value="all">All statuses</MenuItem>
+                <MenuItem value="all">{t('FILTERS.ALL_STATUSES')}</MenuItem>
                 {formattedStatuses.map((st) => (
                   <MenuItem key={st.value} value={st.value}>
                     {st.label}
@@ -263,7 +265,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
                 '&:hover': { background: 'none', textDecoration: 'underline' },
               }}
             >
-              Clear
+              {t('FILTERS.CLEAR')}
             </Button>
           </Grid>
         </Grid>
@@ -275,7 +277,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
           {showRole && (
             <Grid item xs={12} sm={6} md={3}>
               <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
-                Role
+                {t('FILTERS.ROLE')}
               </Typography>
               <Select
                 fullWidth
@@ -284,7 +286,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
                 onChange={(e) => onChange({ ...values, role: e.target.value })}
                 sx={{ borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' }}
               >
-                <MenuItem value="all">All roles</MenuItem>
+                <MenuItem value="all">{t('FILTERS.ALL_ROLES')}</MenuItem>
                 {formattedRoles.length > 0 ? (
                   formattedRoles.map((r) => (
                     <MenuItem key={r.value} value={r.value}>
@@ -306,7 +308,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
 
           <Grid item xs={12} sm={6} md={3}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
-              State
+              {t('FILTERS.STATE')}
             </Typography>
             <Select
               fullWidth
@@ -315,7 +317,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
               onChange={(e) => handleStateChange(e.target.value)}
               sx={{ borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' }}
             >
-              <MenuItem value="all">All states</MenuItem>
+              <MenuItem value="all">{t('FILTERS.ALL_STATES')}</MenuItem>
               {states.map((s) => (
                 <MenuItem key={s.value} value={s.value}>
                   {s.label}
@@ -326,7 +328,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
 
           <Grid item xs={12} sm={6} md={3}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
-              District
+              {t('FILTERS.DISTRICT')}
             </Typography>
             <Select
               fullWidth
@@ -335,7 +337,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
               onChange={(e) => handleDistrictChange(e.target.value)}
               sx={{ borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' }}
             >
-              <MenuItem value="all">All districts</MenuItem>
+              <MenuItem value="all">{t('FILTERS.ALL_DISTRICTS')}</MenuItem>
               {districts.map((d) => (
                 <MenuItem key={d.value} value={d.value}>
                   {d.label}
@@ -346,7 +348,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
 
           <Grid item xs={12} sm={6} md={3}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
-              Branch
+              {t('FILTERS.BRANCH')}
             </Typography>
             <Select
               fullWidth
@@ -355,7 +357,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
               onChange={(e) => handleBlockChange(e.target.value)}
               sx={{ borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' }}
             >
-              <MenuItem value="all">All branches</MenuItem>
+              <MenuItem value="all">{t('FILTERS.ALL_BRANCHES')}</MenuItem>
               {blocks.map((b) => (
                 <MenuItem key={b.value} value={b.value}>
                   {b.label}
@@ -388,15 +390,15 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
         {/* State */}
         <Grid item xs={12} sm={6} md={showProgram ? 2.2 : 2.75}>
           <FormControl fullWidth size="small">
-            <InputLabel id="state-select-label">State</InputLabel>
+            <InputLabel id="state-select-label">{t('FILTERS.STATE')}</InputLabel>
             <Select
               labelId="state-select-label"
               value={values.state || ''}
-              label="State"
+              label={t('FILTERS.STATE')}
               onChange={(e) => handleStateChange(e.target.value)}
             >
               <MenuItem value="">
-                <em>All States</em>
+                <em>{t('FILTERS.ALL_STATES')}</em>
               </MenuItem>
               {states.map((s) => (
                 <MenuItem key={s.value} value={s.value}>
@@ -410,15 +412,15 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
         {/* District */}
         <Grid item xs={12} sm={6} md={showProgram ? 2.2 : 2.75}>
           <FormControl fullWidth size="small" disabled={!values.state || values.state === 'all'}>
-            <InputLabel id="district-select-label">District</InputLabel>
+            <InputLabel id="district-select-label">{t('FILTERS.DISTRICT')}</InputLabel>
             <Select
               labelId="district-select-label"
               value={values.district || ''}
-              label="District"
+              label={t('FILTERS.DISTRICT')}
               onChange={(e) => handleDistrictChange(e.target.value)}
             >
               <MenuItem value="">
-                <em>All Districts</em>
+                <em>{t('FILTERS.ALL_DISTRICTS')}</em>
               </MenuItem>
               {districts.map((d) => (
                 <MenuItem key={d.value} value={d.value}>
@@ -432,15 +434,15 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
         {/* Block / Branch */}
         <Grid item xs={12} sm={6} md={showProgram ? 2.2 : 2.75}>
           <FormControl fullWidth size="small" disabled={!values.district || values.district === 'all'}>
-            <InputLabel id="block-select-label">{showBranch ? 'Branch' : 'Block'}</InputLabel>
+            <InputLabel id="block-select-label">{showBranch ? t('FILTERS.BRANCH') : t('FILTERS.BLOCK')}</InputLabel>
             <Select
               labelId="block-select-label"
               value={values.branch || values.block || ''}
-              label={showBranch ? 'Branch' : 'Block'}
+              label={showBranch ? t('FILTERS.BRANCH') : t('FILTERS.BLOCK')}
               onChange={(e) => handleBlockChange(e.target.value)}
             >
               <MenuItem value="">
-                <em>{showBranch ? 'All Branches' : 'All Blocks'}</em>
+                <em>{showBranch ? t('FILTERS.ALL_BRANCHES') : t('FILTERS.ALL_BLOCKS')}</em>
               </MenuItem>
               {blocks.map((b) => (
                 <MenuItem key={b.value} value={b.value}>
@@ -455,15 +457,15 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
         {showVillage && !showBranch && (
           <Grid item xs={12} sm={6} md={showProgram ? 2.2 : 2.75}>
             <FormControl fullWidth size="small" disabled={!values.block || values.block === 'all'}>
-              <InputLabel id="village-select-label">Village</InputLabel>
+              <InputLabel id="village-select-label">{t('FILTERS.VILLAGE')}</InputLabel>
               <Select
                 labelId="village-select-label"
                 value={values.village || ''}
-                label="Village"
+                label={t('FILTERS.VILLAGE')}
                 onChange={(e) => handleVillageChange(e.target.value)}
               >
                 <MenuItem value="">
-                  <em>All Villages</em>
+                  <em>{t('FILTERS.ALL_VILLAGES')}</em>
                 </MenuItem>
                 {villages.map((v) => (
                   <MenuItem key={v.value} value={v.value}>
@@ -479,15 +481,15 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
         {showProgram && (
           <Grid item xs={12} sm={6} md={2.2}>
             <FormControl fullWidth size="small">
-              <InputLabel id="program-select-label">Program</InputLabel>
+              <InputLabel id="program-select-label">{t('FILTERS.PROGRAM')}</InputLabel>
               <Select
                 labelId="program-select-label"
                 value={values.program || ''}
-                label="Program"
+                label={t('FILTERS.PROGRAM')}
                 onChange={(e) => handleProgramChange(e.target.value)}
               >
                 <MenuItem value="">
-                  <em>All Programs</em>
+                  <em>{t('FILTERS.ALL_PROGRAMS')}</em>
                 </MenuItem>
                 {programs.map((p) => (
                   <MenuItem key={p.value} value={p.value}>
@@ -510,7 +512,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
             startIcon={<FilterAltOffIcon />}
             sx={{ minWidth: 'auto', px: 1, textTransform: 'none', fontSize: '12px' }}
           >
-            Clear
+            {t('FILTERS.CLEAR')}
           </Button>
         </Grid>
       </Grid>

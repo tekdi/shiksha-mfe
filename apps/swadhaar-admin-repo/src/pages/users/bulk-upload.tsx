@@ -30,6 +30,7 @@ import nextI18NextConfig from '../../../next-i18next.config.js';
 import { bulkImportUsers, getTenantRoles, TenantRole } from '@/services/UserService';
 import { getCohortSearch } from '@/services/CohortService';
 import { apiErrorMessage } from '@/utils/concurrency';
+import { readXlsxRows } from '@/utils/readXlsx';
 import { NEUTRAL } from '@/styles/customTheme';
 
 interface FailedRowItem {
@@ -45,9 +46,45 @@ interface GroupOption {
 }
 
 // Columns of the import file
-const MANDATORY_COLUMNS = ['firstName', 'lastName', 'email', 'mobile', 'gender'];
-const TEMPLATE_CSV = `${MANDATORY_COLUMNS.join(',')}\nRohan,Deshmukh,rohan.deshmukh@example.com,9876543212,male\n`;
-const TRAINER_ROLE_TITLE = 'trainer';
+const MANDATORY_COLUMNS = ['full_name', 'email', 'phone', 'gender', 'state', 'district', 'branch', 'role'];
+// full_name holds the first and last name together; it is quoted so spreadsheet apps keep it in one cell
+const TEMPLATE_CSV = `${MANDATORY_COLUMNS.join(',')}\n"Rohan Deshmukh",rohan.deshmukh@example.com,9876543212,male,Maharashtra,Pune,Pune,Trainer\n`;
+
+// The server decides the file type from its MIME type, so an Excel or CSV file the browser did not label is labelled here
+const FILE_MIME_TYPES: Record<string, string> = {
+  csv: 'text/csv',
+  xls: 'application/vnd.ms-excel',
+  xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+const fileExtension = (name: string): string => name.split('.').pop()?.toLowerCase() || '';
+const isExcelFile = (file: File | null): boolean => ['xls', 'xlsx'].includes(fileExtension(file?.name || ''));
+/**
+ * The import API reads firstName, lastName, email and mobile ("Missing required fields (email, firstName, lastName)"),
+ * while the template has full_name and phone. A CSV row is rewritten to the API's columns before it is sent:
+ * full_name is split into first and last name, and phone becomes mobile. Other columns pass through.
+ */
+const toApiRow = (row: Record<string, string>): Record<string, string> => {
+  const out: Record<string, string> = {};
+  Object.entries(row).forEach(([key, value]) => {
+    out[key.trim()] = typeof value === 'string' ? value.trim() : value;
+  });
+  if (out.full_name !== undefined) {
+    const [first = '', ...rest] = out.full_name.split(/\s+/).filter(Boolean);
+    out.firstName = out.firstName || first;
+    out.lastName = out.lastName || rest.join(' ');
+    delete out.full_name;
+  }
+  if (out.phone !== undefined) {
+    out.mobile = out.mobile || out.phone;
+    delete out.phone;
+  }
+  return out;
+};
+
+const withMimeType = (file: File): File => {
+  const type = FILE_MIME_TYPES[fileExtension(file.name)];
+  return type && file.type !== type ? new File([file], file.name, { type }) : file;
+};
 
 const EMPTY_VALUE = '-';
 const WHITE = '#FFFFFF';
@@ -166,26 +203,55 @@ export default function BulkUploadUsersPage() {
         setGroups(list.map((g: any) => ({ id: g.cohortId, name: g.name })));
       })
       .catch(() => setGroups([]));
-    getTenantRoles().then((tenantRoles) => {
-      setRoles(tenantRoles);
-      const trainer = tenantRoles.find((r) => r.name.toLowerCase() === TRAINER_ROLE_TITLE);
-      if (trainer) setRoleId((current) => current || trainer.id);
-    }).catch(() => setRoles([]));
+    getTenantRoles().then(setRoles).catch(() => setRoles([]));
   }, []);
 
   // 1. Template Download Handler
   const handleDownloadTemplate = () => downloadCsv(TEMPLATE_CSV, 'users_bulk_template.csv');
 
   // 2. File Selection Handler (the rows are only counted here; the API validates them)
-  const processUploadedFile = (file: File) => {
+  const processUploadedFile = (chosen: File) => {
     setErrorMsg(null);
+    if (!FILE_MIME_TYPES[fileExtension(chosen.name)]) {
+      setSelectedFile(null);
+      setRowCount(0);
+      setErrorMsg('Upload a CSV or Excel (.xlsx, .xls) file.');
+      return;
+    }
+    const file = withMimeType(chosen);
     setSelectedFile(file);
+    if (fileExtension(file.name) === 'xlsx') {
+      // An .xlsx is read here and sent as a CSV with the columns the API reads
+      readXlsxRows(file)
+        .then((all) => {
+          const rows = all.filter((r) => Object.values(r).some(hasCellValue));
+          setRowCount(rows.length);
+          const csv = Papa.unparse(rows.map(toApiRow));
+          setSelectedFile(new File([csv], file.name.replace(/\.xlsx$/i, '.csv'), { type: FILE_MIME_TYPES.csv }));
+        })
+        .catch((err) => {
+          console.error('Excel parse error:', err);
+          setSelectedFile(null);
+          setRowCount(0);
+          setErrorMsg('Could not read the Excel file. Save it as .xlsx or CSV and try again.');
+        });
+      return;
+    }
+    if (isExcelFile(file)) {
+      // An old .xls cannot be read here; the server reads it, so it needs the API's column names
+      setRowCount(0);
+      return;
+    }
 
     Papa.parse<Record<string, string>>(file, {
       header: true,
       skipEmptyLines: 'greedy',
       complete: (results) => {
-        setRowCount(results.data.filter((r) => Object.values(r).some(hasCellValue)).length);
+        const rows = results.data.filter((r) => Object.values(r).some(hasCellValue));
+        setRowCount(rows.length);
+        // The file that is sent has the columns the API reads
+        const csv = Papa.unparse(rows.map(toApiRow));
+        setSelectedFile(new File([csv], file.name, { type: FILE_MIME_TYPES.csv }));
       },
       error: (err) => {
         console.error('CSV parse error:', err);
@@ -231,12 +297,12 @@ export default function BulkUploadUsersPage() {
 
   // 3. Import: one request creates the users of the file, adds them to the group and gives them the role
   const handleValidateAndCreate = async () => {
-    if (!selectedFile || rowCount === 0) {
+    if (!selectedFile || (!isExcelFile(selectedFile) && rowCount === 0)) {
       setErrorMsg(t('BULK_UPLOAD.ERRORS.NO_RECORDS'));
       return;
     }
-    if (!cohortId || !roleId) {
-      setErrorMsg('Select the group and the role the users are added with.');
+    if (!cohortId) {
+      setErrorMsg('Select the group the users are added to.');
       return;
     }
 
@@ -395,13 +461,18 @@ export default function BulkUploadUsersPage() {
                 </Select>
               </FormControl>
               <FormControl size="small" sx={{ minWidth: 240, flex: 1 }}>
-                <InputLabel id="bulk-role-label">Role</InputLabel>
+                <InputLabel id="bulk-role-label" shrink>Role (optional)</InputLabel>
                 <Select
                   labelId="bulk-role-label"
-                  label="Role"
+                  label="Role (optional)"
                   value={roleId}
+                  displayEmpty
+                  notched
                   onChange={(e) => setRoleId(e.target.value)}
                 >
+                  <MenuItem value="">
+                    <em>Default (Student)</em>
+                  </MenuItem>
                   {roles.map((r) => (
                     <MenuItem key={r.id} value={r.id}>
                       {r.name}
@@ -482,14 +553,14 @@ export default function BulkUploadUsersPage() {
                       color: '#3D3B37',
                     }}
                   >
-                    CSV
+                    {isExcelFile(selectedFile) ? 'XLS' : 'CSV'}
                   </Box>
                   <Box>
                     <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#1F1E1C' }}>
                       {selectedFile.name}
                     </Typography>
                     <Typography sx={{ fontSize: '12px', color: '#6B6862' }}>
-                      {rowCount} rows detected
+                      {isExcelFile(selectedFile) ? 'Excel file · rows are checked when you upload' : `${rowCount} rows detected`}
                     </Typography>
                   </Box>
                 </Box>
@@ -656,7 +727,7 @@ export default function BulkUploadUsersPage() {
                   Rows in file
                 </Typography>
                 <Typography sx={{ fontSize: '30px', fontWeight: 700, color: '#1F1E1C' }}>
-                  {rowCount}
+                  {isExcelFile(selectedFile) ? createdCount + failedRows.length : rowCount}
                 </Typography>
                 <Typography sx={{ fontSize: '12px', color: '#6B6862' }}>
                   Total records detected in file
@@ -894,7 +965,7 @@ export default function BulkUploadUsersPage() {
             </Button>
             <Button
               variant="contained"
-              disabled={!selectedFile || rowCount === 0 || !cohortId || !roleId}
+              disabled={!selectedFile || (!isExcelFile(selectedFile) && rowCount === 0) || !cohortId}
               onClick={handleValidateAndCreate}
               sx={{
                 backgroundColor: '#E6873C',
