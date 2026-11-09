@@ -65,6 +65,8 @@ export interface VerifyOTPResult {
   verified: boolean;
   access_token?: string;
   refresh_token?: string;
+  /** The admin who verified the OTP (the tokens are the service account's) */
+  profile?: { userId: string; firstName: string; lastName: string } | null;
   message?: string;
 }
 

@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
-import { get, post, patch } from './RestClient';
+import { get, post, patch, deleteApi } from './RestClient';
 import { getServiceHeaders, getSessionTenantId } from '@/utils/API/serviceHeaders';
 import { SWADHAAR_TENANT_ID } from '@/utils/app.constant';
 
@@ -137,21 +137,15 @@ export const updateUserAccount = async (
 };
 
 /**
- * Changes a user's tenant role: PATCH /user/v1/update/:userId with the new role in `tenantCohortRoleMapping`
- * (the same shape the create call uses).
+ * Changes a user's role in two steps, because assigning a role adds a row instead of replacing the old one:
+ * 1. DELETE /user/v1/rbac/usersRoles/:userId { userId, roleId: [oldRoleId] } removes the old role.
+ * 2. POST /user/v1/rbac/usersRoles { tenantId, userId, roleId: [newRoleId] } assigns the new one.
  */
-export const updateUserRole = async (userId: string, roleId: string): Promise<any> => {
-  try {
-    const response = await patch(
-      API_ENDPOINTS.userUpdate(userId),
-      { userData: {}, tenantCohortRoleMapping: [{ tenantId: getSessionTenantId() || SWADHAAR_TENANT_ID, roleId }] },
-      getServiceHeaders()
-    );
-    return response?.data;
-  } catch (error) {
-    console.error('Error in updateUserRole:', error);
-    throw error;
-  }
+export const changeUserRole = async (userId: string, oldRoleId: string, newRoleId: string): Promise<void> => {
+  const headers = getServiceHeaders();
+  const tenantId = getSessionTenantId() || SWADHAAR_TENANT_ID;
+  await deleteApi(API_ENDPOINTS.userRolesOfUser(userId), { userId, roleId: [oldRoleId] }, headers);
+  await post(API_ENDPOINTS.userRolesAssign, { tenantId, userId, roleId: [newRoleId] }, headers);
 };
 
 /** Blocking sets the user inactive with a reason (PATCH /user/v1/update/:userId) */

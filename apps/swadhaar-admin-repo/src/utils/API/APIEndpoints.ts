@@ -68,6 +68,8 @@ export const API_ENDPOINTS = {
   // User Management
   adminUserList: `${swadhaarMiddlewareUrl}/user/v1/list`,
   userList: `${baseurl}/user/v1/list`,
+  userRolesAssign: `${baseurl}/user/v1/rbac/usersRoles`,
+  userRolesOfUser: (userId: string) => `${baseurl}/user/v1/rbac/usersRoles/${userId}`,
   userRolesList: `${baseurl}/user/v1/rbac/roles/list/roles`,
   userCreate: `${baseurl}/user/v1/create`,
   userBulkImport: `${baseurl}/user/v1/bulk-import/users`,

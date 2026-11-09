@@ -243,7 +243,10 @@ export default function LoginPage() {
         authData?.userId || authData?.sub || authData?.id;
       const firstName = authData?.firstName || authData?.given_name || '';
       const lastName = authData?.lastName || authData?.family_name || '';
+      // The session token is the service account's, so the name and id shown come from the admin who signed in
+      const signedIn = verifyResp.profile;
       const fullName =
+        `${signedIn?.firstName || ''} ${signedIn?.lastName || ''}`.trim() ||
         `${firstName} ${lastName}`.trim() ||
         authData?.name ||
         authData?.preferred_username ||
@@ -274,7 +277,7 @@ export default function LoginPage() {
       localStorage.setItem(
         'adminInfo',
         JSON.stringify({
-          userId: userId || 'admin-01',
+          userId: signedIn?.userId || userId || 'admin-01',
           name: fullName,
           username: trimmed,
           role: userRole,

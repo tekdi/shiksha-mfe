@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { getTenantRoles, TenantRole, updateUserRole } from '@/services/UserService';
+import { getTenantRoles, TenantRole, changeUserRole } from '@/services/UserService';
 import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { useRouter } from 'next/router';
 import {
@@ -377,7 +377,7 @@ export default function GroupDetailsPage() {
     }
   };
 
-  // Action: set the chosen tenant role on every selected member (PATCH /user/v1/update/:userId)
+  // Action: set the chosen tenant role on every selected member (remove the old role, then assign the new one)
   const handleConfirmChangeRole = async () => {
     const role = tenantRoles.find((r) => r.id === newRoleId);
     if (selectedIds.length === 0 || !role) return;
@@ -385,15 +385,19 @@ export default function GroupDetailsPage() {
     let failed = 0;
     let firstError = '';
     const succeeded: string[] = [];
-    await runWithConcurrency(selectedIds, 5, (userId) =>
-      updateUserRole(userId, role.id).then(
-        () => { succeeded.push(userId); },
-        (err: any) => {
-          failed += 1;
-          firstError = firstError || apiErrorMessage(err);
-        }
-      )
-    );
+    // Each member's current role is removed, then the new one assigned (a member who already has it is left as is)
+    await runWithConcurrency(selectedIds, 5, async (userId) => {
+      try {
+        const currentName = (members.find((m) => m.userId === userId)?.role || '').trim().toLowerCase();
+        const oldRole = tenantRoles.find((r) => r.id === currentName || r.name.toLowerCase() === currentName);
+        if (!oldRole) throw new Error('Could not find the current role of this member.');
+        if (oldRole.id !== role.id) await changeUserRole(userId, oldRole.id, role.id);
+        succeeded.push(userId);
+      } catch (err: any) {
+        failed += 1;
+        firstError = firstError || apiErrorMessage(err);
+      }
+    });
     const updated = selectedIds.length - failed;
     if (failed === 0) {
       setFeedback({ open: true, message: `Role changed to ${role.name} for ${updated} member(s).`, severity: 'success' });
