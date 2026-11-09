@@ -10,9 +10,8 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import UnfoldMoreRoundedIcon from '@mui/icons-material/UnfoldMoreRounded';
 import UnfoldLessRoundedIcon from '@mui/icons-material/UnfoldLessRounded';
-import { issueCertificate } from '@shared-lib-v2/utils/CertificateService/coursesCertificates';
-import { getCourseCertificateTemplateId } from '@learner/utils/API/SwadhaarService';
-import { CertificateModal, useTranslation } from '@shared-lib';
+import { SwadhaarCertificateModal } from '@learner/components/Swadhaar/SwadhaarCertificateModal';
+import { useTranslation } from '@shared-lib';
 import { CircularProgress } from '@mui/material';
 
 const PRIMARY = '#E6873C';
@@ -93,30 +92,9 @@ const SwadhaarDesktopCompletionModal: React.FC<CompletionModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [certOpen, setCertOpen] = React.useState(false);
-  const [certId, setCertId] = React.useState('');
-  const [certLoading, setCertLoading] = React.useState(false);
 
-  const handleDownloadCert = async () => {
-    if (!courseId) return;
-    try {
-      setCertLoading(true);
-      const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
-      const firstName = typeof window !== 'undefined' ? localStorage.getItem('firstName') || localStorage.getItem('name') || 'Learner' : 'Learner';
-      const lastName = typeof window !== 'undefined' ? localStorage.getItem('lastName') || '' : '';
-      const templateId = await getCourseCertificateTemplateId(courseId || '');
-      const result = await issueCertificate({
-        userId, courseId, courseName: levelName || 'Course',
-        issuanceDate: new Date().toISOString(),
-        expirationDate: new Date(new Date().setFullYear(new Date().getFullYear() + 20)).toISOString(),
-        credentialId: templateId, firstName, middleName: '', lastName,
-      });
-      setCertId(result?.credential?.id || 'temp');
-      setCertOpen(true);
-    } catch (e) {
-      console.error('Cert error:', e);
-    } finally {
-      setCertLoading(false);
-    }
+  const handleDownloadCert = () => {
+    if (courseId) setCertOpen(true);
   };
 
   const title = mode === 'course' ? t('LEARNER_APP.LEARN.CONGRATULATIONS') : (mode === 'module' ? t('LEARNER_APP.MODULE_COMPLETE') : t('LEARNER_APP.LEARN.SUBTOPIC_COMPLETE'));
@@ -309,7 +287,7 @@ const SwadhaarDesktopCompletionModal: React.FC<CompletionModalProps> = ({
               {mode === 'course' ? (
                 <Box sx={{ display: 'flex', gap: 1.5 }}>
                   <Button
-                    variant="outlined" fullWidth disabled={certLoading} onClick={handleDownloadCert}
+                    variant="outlined" fullWidth onClick={handleDownloadCert}
                     sx={{ borderColor: PRIMARY, color: PRIMARY, borderRadius: '12px', fontWeight: 800, textTransform: 'none', py: 1.4, fontSize: 13.5, '&:hover': { borderColor: PRIMARY, bgcolor: 'rgba(230,135,60,0.04)' } }}
                   >
                     {t('LEARNER_APP.LEARN.DOWNLOAD_CERTIFICATE')}
@@ -335,11 +313,7 @@ const SwadhaarDesktopCompletionModal: React.FC<CompletionModalProps> = ({
       </Dialog>
 
       {certOpen && (
-        <CertificateModal
-          open={certOpen} setOpen={setCertOpen} certificateId={certId}
-          userName={typeof window !== 'undefined' ? (localStorage.getItem('firstName') || localStorage.getItem('name') || '') : ''}
-          courseName={levelName || ''}
-        />
+        <SwadhaarCertificateModal open={certOpen} onClose={() => setCertOpen(false)} courseId={courseId || ''} courseName={levelName || 'Course'} />
       )}
     </>
   );

@@ -143,6 +143,14 @@ export default function SwadhaarLoginPage() {
       // Handle nested userData if present
       const userData = userResp?.userData || userResp;
 console.log("USER data---",userData)
+      // The Swadhaar learner app is for trainers
+      const roleCode = userData?.tenantData?.[0]?.roleCode;
+      if (roleCode && roleCode !== 'trainer') {
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
+        showToastMessage('This account is not allowed to use the learner app.', 'error');
+        return;
+      }
       const userRole = userData?.tenantData?.[0]?.roleName;
       const userId = userData?.userId;
       const tenantId = userData?.tenantData?.[0]?.tenantId;

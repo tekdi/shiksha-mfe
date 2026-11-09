@@ -65,10 +65,12 @@ const COMPLETED_LESSON_STATUSES = ['completed', 'submitted'];
 const toLessonStatus = (lesson: any) => {
   const tracking = lesson?.tracking;
   const percentage = tracking?.completionPercentage ?? 0;
-  const completed = COMPLETED_LESSON_STATUSES.includes(tracking?.status);
+  // A test the learner submitted without passing is 'submitted' but not done: it stays open for a retake
+  const failedTest = lesson?.format === 'test' && tracking?.status === 'submitted';
+  const completed = !failedTest && COMPLETED_LESSON_STATUSES.includes(tracking?.status);
   return {
     contentId: lesson.lessonId,
-    status: completed ? 2 : percentage > 0 ? 1 : 0,
+    status: completed ? 2 : percentage > 0 || failedTest ? 1 : 0,
     completionPercentage: completed ? 100 : percentage,
   };
 };
@@ -237,7 +239,7 @@ export const startSwadhaarLessonAttempt = async (lessonId: string, courseId: str
   const response = await axios.post(
     `${SWADHAAR_BASE_URL}/lms-service/v1/tracking/lesson/attempt/${lessonId}`,
     { courseId, moduleId },
-    { headers: { ...lmsHeaders(), 'Content-Type': 'application/json' } }
+    { params: { userId: localStorage.getItem('userId') }, headers: { ...lmsHeaders(), 'Content-Type': 'application/json' } }
   );
   return response?.data?.result;
 };
@@ -248,12 +250,20 @@ export const startSwadhaarLessonAttempt = async (lessonId: string, courseId: str
  */
 export const updateSwadhaarAttemptProgress = async (
   attemptId: string,
-  body: { status: 'completed' | 'incomplete'; lessonId: string; totalContent: number; currentPosition: number; timeSpent: number }
+  body: {
+    status: 'completed' | 'incomplete';
+    lessonId: string;
+    totalContent: number;
+    currentPosition: number;
+    timeSpent: number;
+    completionPercentage?: number;
+    score?: number;
+  }
 ): Promise<any> => {
   const response = await axios.patch(
     `${SWADHAAR_BASE_URL}/lms-service/v1/tracking/attempts/progress/${attemptId}`,
     body,
-    { headers: { ...lmsHeaders(), 'Content-Type': 'application/json' } }
+    { params: { userId: localStorage.getItem('userId') }, headers: { ...lmsHeaders(), 'Content-Type': 'application/json' } }
   );
   return response?.data?.result;
 };
@@ -295,14 +305,27 @@ export const startSwadhaarTestAttempt = async (testId: string): Promise<any> => 
   return response?.data?.result;
 };
 
-/** Answers a learner gave in a finished attempt; falls back to the resume view when the list endpoint is missing. */
+/**
+ * Answer sheet of a finished attempt (GET assessment/v1/attempts/:attemptId/answersheet?userId=):
+ * { attempt: { score, result, ... }, answers: [{ questionId, userAnswer: { selectedOptions }, isCorrect }] }.
+ */
 export const fetchSwadhaarAttemptAnswers = async (attemptId: string): Promise<any> => {
-  try {
-    const response = await axios.get(`${ASSESSMENT_BASE}/attempts/${attemptId}/answers`, { headers: assessmentHeaders() });
-    return response?.data?.result;
-  } catch {
-    return resumeSwadhaarTestAttempt(attemptId);
-  }
+  const response = await axios.get(`${ASSESSMENT_BASE}/attempts/${attemptId}/answersheet`, {
+    params: { userId: localStorage.getItem('userId') },
+    headers: assessmentHeaders(),
+  });
+  return response?.data?.result;
+};
+
+/** A clear message for the errors the Swadhaar middleware answers with (401, 403, 404, 400 max attempts). */
+export const swadhaarErrorMessage = (err: any): string => {
+  const status = err?.response?.status;
+  const apiMessage: string = err?.response?.data?.params?.errmsg || err?.response?.data?.message || '';
+  if (status === 401) return 'Your session has expired. Please log in again.';
+  if (status === 403) return 'You are not allowed to do this.';
+  if (status === 404 && /course not found/i.test(apiMessage)) return 'This course is not published yet.';
+  if (/max attempts reached/i.test(apiMessage)) return 'You have no attempts left for this lesson.';
+  return apiMessage || err?.message || 'Something went wrong. Please try again.';
 };
 
 export interface SwadhaarTestAnswer {
@@ -441,23 +464,95 @@ export const getCourseHierarchy = async (courseId: string): Promise<any> => {
   }
 };
 
+/** Template used when the admin has not linked one to the course. */
+export const SWADHAAR_DEFAULT_CERTIFICATE_TEMPLATE_ID = 'cmw42kbhz0002qe0j6of0uzy3';
+
 /**
  * Certificate template attached to a course by the admin (stored as `params.certificateTemplateId`);
- * falls back to the tenant-wide template saved at login when the course has none.
+ * falls back to the Swadhaar default template when the course has none.
  * GET lms-service/v1/courses/:courseId
  */
 export const getCourseCertificateTemplateId = async (courseId: string): Promise<string> => {
-  const fallback =
-    (typeof window !== 'undefined' && localStorage.getItem('templtateId')) || 'temp';
   try {
     const response = await axios.get(`${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}`, {
       headers: lmsHeaders(),
     });
-    return response?.data?.result?.params?.certificateTemplateId || fallback;
+    return response?.data?.result?.params?.certificateTemplateId || SWADHAAR_DEFAULT_CERTIFICATE_TEMPLATE_ID;
   } catch (error) {
     console.error(`Error fetching certificate template for course ${courseId}:`, error);
-    return fallback;
+    return SWADHAAR_DEFAULT_CERTIFICATE_TEMPLATE_ID;
   }
+};
+
+const CERTIFICATE_BASE = `${SWADHAAR_BASE_URL}/lms-service/v1/certificate`;
+const certificateHeaders = () => ({ ...lmsHeaders(), 'Content-Type': 'application/json' });
+
+/** The credential id (did:rcw:...) of a certificate row or issue result. */
+const credentialIdOf = (value: any): string | undefined =>
+  value?.certificateId || value?.credentialId || value?.credential?.id || value?.id;
+
+/** The learner's certificate for a course, or null (POST lms-service/v1/certificate/user-certificates). */
+export const getSwadhaarCourseCertificate = async (courseId: string): Promise<{ credentialId: string } | null> => {
+  const response = await axios.post(
+    `${CERTIFICATE_BASE}/user-certificates`,
+    { userIds: [localStorage.getItem('userId')], courseIds: [courseId], page: 1, limit: 10 },
+    { headers: certificateHeaders() }
+  );
+  const result = response?.data?.result;
+  const rows: any[] = Array.isArray(result) ? result : result?.certificates || result?.data || result?.rows || [];
+  const row = rows.find((r) => r?.contextId === courseId) || rows[0];
+  const credentialId = credentialIdOf(row);
+  return credentialId ? { credentialId } : null;
+};
+
+/**
+ * Issues the certificate of a completed course (POST lms-service/v1/certificate/issue). The LMS takes the
+ * template from the course's linked certificate template and answers with the credential id.
+ */
+export const issueSwadhaarCertificate = async (courseId: string, courseName: string): Promise<string | undefined> => {
+  const now = new Date();
+  const response = await axios.post(
+    `${CERTIFICATE_BASE}/issue`,
+    {
+      userId: localStorage.getItem('userId') || '',
+      courseId,
+      courseName,
+      firstName: localStorage.getItem('firstName') || localStorage.getItem('name') || 'Learner',
+      middleName: '',
+      lastName: localStorage.getItem('lastName') || '',
+      issuanceDate: now.toISOString(),
+      expirationDate: new Date(new Date(now).setFullYear(now.getFullYear() + 20)).toISOString(),
+    },
+    { headers: certificateHeaders() }
+  );
+  return credentialIdOf(response?.data?.result);
+};
+
+/** The credential id of the learner's certificate for a course: the existing one, or a newly issued one. */
+export const ensureSwadhaarCertificate = async (courseId: string, courseName: string): Promise<string> => {
+  const existing = await getSwadhaarCourseCertificate(courseId);
+  if (existing) return existing.credentialId;
+  const issued = await issueSwadhaarCertificate(courseId, courseName);
+  const credentialId = issued || (await getSwadhaarCourseCertificate(courseId))?.credentialId;
+  if (!credentialId) throw new Error('The certificate could not be issued.');
+  return credentialId;
+};
+
+/** The certificate as HTML (POST lms-service/v1/certificate/render). */
+export const renderSwadhaarCertificate = async (credentialId: string, templateId: string): Promise<string> => {
+  const response = await axios.post(`${CERTIFICATE_BASE}/render`, { credentialId, templateId }, { headers: certificateHeaders() });
+  const data = response?.data;
+  return typeof data === 'string' ? data : data?.result || '';
+};
+
+/** The certificate as a PDF (POST lms-service/v1/certificate/render-PDF). */
+export const downloadSwadhaarCertificatePdf = async (credentialId: string, templateId: string): Promise<Blob> => {
+  const response = await axios.post(
+    `${CERTIFICATE_BASE}/render-PDF`,
+    { credentialId, templateId },
+    { headers: { ...certificateHeaders(), Accept: 'application/pdf' }, responseType: 'blob' }
+  );
+  return response.data;
 };
 
 export const getQuestions = async (ids: string[]): Promise<any[]> => {

@@ -24,10 +24,10 @@ import {
   fetchSwadhaarLevelCourses,
   getCourseCertificateTemplateId,
 } from '@learner/utils/API/SwadhaarService';
-import { issueCertificate, downloadCertificate } from '@shared-lib-v2/utils/CertificateService/coursesCertificates';
+import { SwadhaarCertificateModal } from '@learner/components/Swadhaar/SwadhaarCertificateModal';
 import { sendCourseCompleteNotification } from '@learner/utils/API/NotificationService';
 import { useTenant } from '@learner/context/TenantContext';
-import { CertificateModal, useTranslation } from '@shared-lib';
+import { useTranslation } from '@shared-lib';
 import { telemetryFactory } from '@learner/utils/telemtery';
 import { addAlert, getUnreadCount } from '@learner/utils/alertsStore';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
@@ -58,13 +58,11 @@ export default function SubtopicDetailsPage() {
   const [nextLevel, setNextLevel] = useState<any>(null);
   const [nextModuleStatus, setNextModuleStatus] = useState<any[]>([]);
 
-  const [certLoading, setCertLoading] = useState(false);
   const [isLevelComplete, setIsLevelComplete] = useState(false);
   const [courseModules, setCourseModules] = useState<any[]>([]);
   const [certSnackbar, setCertSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' }>({ open: false, message: '', severity: 'info' });
   const [expandedSubtopicId, setExpandedSubtopicId] = useState<string | null>(null);
   const [showCertificate, setShowCertificate] = useState(false);
-  const [certId, setCertId] = useState('');
   const searchParams = useSearchParams();
   const isCFL = searchParams.get('isCFL') === 'true';
   const view = searchParams.get('view');
@@ -420,19 +418,8 @@ export default function SubtopicDetailsPage() {
           <Box sx={{ position: 'fixed', bottom: 65, left: 0, right: 0, px: 2, py: 1.5, bgcolor: '#fff', borderTop: '1px solid #F3F4F6', zIndex: 10 }}>
             {effectiveView === 'course_completion' ? (
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <Button variant="outlined" fullWidth disabled={certLoading} onClick={async () => {
-                  try {
-                    setCertLoading(true);
-                    const userId = localStorage.getItem('userId') || '';
-                    const firstName = localStorage.getItem('firstName') || localStorage.getItem('name') || 'Learner';
-                    const lastName = localStorage.getItem('lastName') || '';
-                    const templateId = await getCourseCertificateTemplateId(courseId);
-                    const issueResult = await issueCertificate({ userId, courseId, courseName, issuanceDate: new Date().toISOString(), expirationDate: new Date(new Date().setFullYear(new Date().getFullYear() + 20)).toISOString(), credentialId: templateId, firstName, middleName: '', lastName });
-                    setCertId(issueResult?.credential?.id || 'temp');
-                    setShowCertificate(true);
-                  } catch (err) { console.error('Cert error:', err); } finally { setCertLoading(false); }
-                }} sx={{ fontFamily: 'Open sans', borderColor: PRIMARY, color: PRIMARY, borderRadius: '12px', fontWeight: 600, textTransform: 'none', py: 1.5, fontSize: 15 }}>
-                  {certLoading ? <CircularProgress size={20} /> : t('LEARNER_APP.LEARN.DOWNLOAD_CERTIFICATE')}
+                <Button variant="outlined" fullWidth onClick={() => setShowCertificate(true)} sx={{ fontFamily: 'Open sans', borderColor: PRIMARY, color: PRIMARY, borderRadius: '12px', fontWeight: 600, textTransform: 'none', py: 1.5, fontSize: 15 }}>
+                  {t('LEARNER_APP.LEARN.DOWNLOAD_CERTIFICATE')}
                 </Button>
                 <Button variant="contained" fullWidth onClick={() => {
                   if (nextLevel) {
@@ -469,13 +456,7 @@ export default function SubtopicDetailsPage() {
         );
       })()}
 
-      <CertificateModal
-        open={showCertificate}
-        setOpen={setShowCertificate}
-        certificateId={certId}
-        userName={typeof window !== 'undefined' ? (localStorage.getItem('firstName') || localStorage.getItem('name') || '') : ''}
-        courseName={courseName}
-      />
+      <SwadhaarCertificateModal open={showCertificate} onClose={() => setShowCertificate(false)} courseId={courseId} courseName={courseName} />
 
       {!isCFL && <SwadhaarBottomNav />}
 
