@@ -29,6 +29,7 @@ import { getCohortSearch, getCohortLearnerIds } from '@/services/CohortService';
 import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
 import {
   assignPathwayToUser,
+  addPathwayUsers,
   enrolLearnerInCourses,
   getPathwayCourseIds,
   addPathwayCohorts,
@@ -312,6 +313,11 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
         // Users are assigned the path: POST /user/v1/pathway/assign
         await runWithConcurrency(selectedUserIds, ENROL_CONCURRENCY, (userId) =>
           assignPathwayToUser(userId, pathwayId).then(() => undefined)
+        );
+        // Remember the users so the builder and the learning path list can show them again
+        const pathCourseIds = courseIds?.length ? courseIds : await getPathwayCourseIds(pathwayId);
+        await addPathwayUsers(pathCourseIds, selectedUserIds).catch((err) =>
+          console.error('Could not record enrolled users:', err)
         );
       }
     } catch (err: any) {

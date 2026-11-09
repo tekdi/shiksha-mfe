@@ -180,6 +180,17 @@ export default function LearningPathBuilderPage() {
         linkedCourseIds.current = linked.map((c) => c.identifier);
         const savedTemplateId = linked.find((c) => c.params?.certificateTemplateId)?.params?.certificateTemplateId;
         if (savedTemplateId) setCertificateTemplate(savedTemplateId);
+        // The groups and users enrolled earlier are recorded on the path's courses
+        const groupIds = new Set<string>();
+        const userIds = new Set<string>();
+        linked.forEach((c) => {
+          (c.params?.enrolledCohortIds || []).forEach((id: string) => groupIds.add(id));
+          (c.params?.enrolledUserIds || []).forEach((id: string) => userIds.add(id));
+        });
+        setEnrolledSummary({
+          groups: groupIds.size ? `${groupIds.size} groups enrolled` : 'No groups enrolled yet',
+          users: userIds.size ? `${userIds.size} individual users enrolled` : 'No individual users enrolled yet',
+        });
         setSequence(
           renumber(
             linked.map((course, idx) => ({
@@ -459,7 +470,7 @@ export default function LearningPathBuilderPage() {
               },
             }}
           >
-            Enrol users or groups
+            Enroll users or groups
           </Button>
 
           <Button
@@ -807,7 +818,7 @@ export default function LearningPathBuilderPage() {
                 <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#1F1E1C' }}>
                   Enrolled
                 </Typography>
-                <Tooltip title="Enrol users or groups">
+                <Tooltip title="Enroll users or groups">
                   <IconButton
                     size="small"
                     onClick={() => setIsEnrolModalOpen(true)}
@@ -909,15 +920,15 @@ export default function LearningPathBuilderPage() {
               </MenuItem>
               {addTab === 'course'
                 ? coursesList.map((c) => (
-                    <MenuItem key={c.identifier} value={c.identifier}>
-                      {c.cleanTitle || c.name}
-                    </MenuItem>
-                  ))
+                  <MenuItem key={c.identifier} value={c.identifier}>
+                    {c.cleanTitle || c.name}
+                  </MenuItem>
+                ))
                 : assessmentsList.map((a) => (
-                    <MenuItem key={a.identifier} value={`${ASSESSMENT_PREFIX}${a.identifier}`}>
-                      {a.name}
-                    </MenuItem>
-                  ))}
+                  <MenuItem key={a.identifier} value={`${ASSESSMENT_PREFIX}${a.identifier}`}>
+                    {a.name}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
         </DialogContent>

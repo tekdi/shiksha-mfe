@@ -366,7 +366,11 @@ export const getCourseHierarchy = async (courseId: string): Promise<CourseHierar
 
     const title = result.title || result.name || 'Untitled Course';
     const parsed = parseCourseName(title);
-    const rawModules = result.modules || [];
+    const byOrdering = (a: any, b: any) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER);
+    // The service does not return modules and lessons in their saved order, so they are sorted by `ordering` here
+    const rawModules = [...(result.modules || [])]
+      .sort(byOrdering)
+      .map((mod: any) => ({ ...mod, lessons: [...(mod.lessons || [])].sort(byOrdering) }));
 
     // Map modules into sections format expected by CourseDetailsPage
     const mappedChildren: CourseHierarchyChild[] = rawModules.map((mod: any, mIdx: number) => {
@@ -880,6 +884,29 @@ export const createDocumentLesson = async (
   customHeaders?: Record<string, string>
 ): Promise<any> => {
   return createLesson('document', 'pdf', 'createDocumentLesson', payload, customHeaders);
+};
+
+export interface CreateTextLessonPayload {
+  title: string;
+  /** The block's text, as HTML */
+  description: string;
+  courseId: string;
+  moduleId: string;
+  ordering: number;
+  /** text.intro | text.hook | text.concept | text.analysis | text */
+  subFormat: string;
+  status: 'published' | 'unpublished';
+}
+
+/**
+ * Create a text lesson (an Intro, Hook, Concept, Analysis or Text block of a section); it needs no media file
+ * POST /lms-service/v1/lessons  { format: "text_and_media", mediaContentSubFormat: "text.hook", ... }
+ */
+export const createTextLesson = async (
+  { subFormat, ...payload }: CreateTextLessonPayload,
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  return createLesson('text_and_media', subFormat, 'createTextLesson', payload, customHeaders);
 };
 
 /**

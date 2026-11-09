@@ -185,6 +185,23 @@ export const addPathwayCohorts = async (courseIds: string[], cohortIds: string[]
 };
 
 /**
+ * Records the individual users assigned to a path as `params.enrolledUserIds` on each of the path's courses, the way
+ * addPathwayCohorts records groups, so the builder and the list can show them again (pathway/assign has no read API).
+ */
+export const addPathwayUsers = async (courseIds: string[], userIds: string[]): Promise<void> => {
+  const headers = getServiceHeaders();
+  await Promise.all(
+    courseIds.map(async (courseId) => {
+      const courseUrl = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
+      const current = await get(courseUrl, headers);
+      const params = current?.data?.result?.params || {};
+      const merged = Array.from(new Set([...(params.enrolledUserIds || []), ...userIds]));
+      await patch(courseUrl, { params: { ...params, enrolledUserIds: merged } }, headers);
+    })
+  );
+};
+
+/**
  * Links a group to the courses of a learning path: PATCH /lms-service/v1/courses/:courseId with params.cohortId
  * (a course holds one cohortId, so it moves from any group it was linked to). The service takes `params` as a whole,
  * so each course is read first and its other params are sent back. The group is also added to
