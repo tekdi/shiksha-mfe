@@ -8,6 +8,7 @@ import { VideoBlob } from './VideoBlob';
 import { ImageBlob } from './ImageBlob';
 import { TextCardBlob } from './TextCardBlob';
 import { LmsTestBlob } from './LmsTestBlob';
+import { TextLessonBlob } from './TextLessonBlob';
 
 const PRIMARY = '#E6873C';
 const YOUTUBE_ID_REGEX = /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/))([\w-]{11})/;
@@ -151,6 +152,20 @@ export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, courseId
           </Button>
         </Box>
       </>
+    );
+  }
+
+  // text_and_media lessons (Intro, Hook, Concept, Analysis, Text blocks): the text is read in the app
+  if (format === 'text_and_media' || subFormat.toLowerCase().startsWith('text')) {
+    const isMediaFile = IMAGE_EXTENSION_REGEX.test(url) || VIDEO_EXTENSION_REGEX.test(url) || Boolean(embed);
+    return (
+      <TextLessonBlob
+        name={name}
+        html={lesson.description}
+        linkUrl={url && !isMediaFile ? url : undefined}
+        completed={initialProgress >= 100}
+        onComplete={onComplete}
+      />
     );
   }
 
