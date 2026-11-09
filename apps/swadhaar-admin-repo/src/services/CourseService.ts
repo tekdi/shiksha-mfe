@@ -1,5 +1,5 @@
 import { API_ENDPOINTS } from '@/utils/API/APIEndpoints';
-import { get, getBlob, post, put, patch, deleteApi } from './RestClient';
+import { get, getBlob, post, patch, deleteApi } from './RestClient';
 import { getServiceHeaders } from '@/utils/API/serviceHeaders';
 
 export interface CourseItem {
@@ -551,7 +551,7 @@ export const createCourse = async (
 
 /**
  * Update course status (draft or published) in Aspire LMS service
- * PATCH or PUT /lms-service/v1/courses/{courseId}
+ * PATCH /lms-service/v1/courses/{courseId}
  */
 export const updateCourseStatus = async (
   courseId: string,
@@ -561,14 +561,10 @@ export const updateCourseStatus = async (
   try {
     const url = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
     const headers = getServiceHeaders(customHeaders);
-    const payload = { status };
-    try {
-      const response = await patch(url, payload, headers);
-      return response?.data;
-    } catch {
-      const response = await put(url, payload, headers);
-      return response?.data;
-    }
+    // A draft course is saved with the status 'unpublished'
+    const payload = { status: status === 'draft' ? 'unpublished' : status };
+    const response = await patch(url, payload, headers);
+    return response?.data;
   } catch (error) {
     console.error('Error in CourseService.updateCourseStatus:', error);
     throw error;

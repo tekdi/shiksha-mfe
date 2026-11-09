@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
+import { useTranslation } from 'next-i18next';
 import {
   Box,
   Typography,
@@ -263,6 +264,7 @@ const UserActionDialog: React.FC<UserActionDialogProps> = ({
 
 export default function UserDetailsPage() {
   const router = useRouter();
+  const { t } = useTranslation('common');
   const { id } = router.query;
   const userId = getQueryParam(id);
 
@@ -416,14 +418,14 @@ export default function UserDetailsPage() {
 
   const handleAddToGroup = async (groups: UserGroup[]) => {
     await bulkCreateCohortMembers({ userId: [userId], cohortId: groups.map((g) => g.cohortId), role: 'Student', status: 'active' });
-    setFeedback({ open: true, message: `${parsedUser.fullName} added to ${groups.map((g) => g.name).join(', ')}.`, severity: 'success' });
+    setFeedback({ open: true, message: t('USERS.DETAIL.MSG_ADDED', { name: parsedUser.fullName, groups: groups.map((g) => g.name).join(', ') }), severity: 'success' });
     setAddGroupOpen(false);
     loadGroups();
   };
 
   const handleRemoveFromGroup = async (group: UserGroup) => {
     await removeUsersFromCohorts([userId], [group.cohortId]);
-    setFeedback({ open: true, message: `${parsedUser.fullName} removed from ${group.name}.`, severity: 'success' });
+    setFeedback({ open: true, message: t('USERS.DETAIL.MSG_REMOVED', { name: parsedUser.fullName, group: group.name }), severity: 'success' });
     loadGroups();
   };
 
@@ -433,11 +435,11 @@ export default function UserDetailsPage() {
     try {
       await (status === 'blocked' ? blockUser(userId) : unblockUser(userId));
       setUserData((prev: any) => ({ ...prev, status: status === 'blocked' ? 'inactive' : status }));
-      setFeedback({ open: true, message: `${parsedUser.fullName} has been ${verb}ed.`, severity: 'success' });
+      setFeedback({ open: true, message: verb === 'block' ? t('USERS.DETAIL.MSG_BLOCKED', { name: parsedUser.fullName }) : t('USERS.DETAIL.MSG_UNBLOCKED', { name: parsedUser.fullName }), severity: 'success' });
       fetchUserDetails();
     } catch (e) {
       console.error(`Failed to ${verb} user:`, e);
-      setFeedback({ open: true, message: `Failed to ${verb} user. Please try again.`, severity: 'error' });
+      setFeedback({ open: true, message: verb === 'block' ? t('USERS.DETAIL.MSG_BLOCK_FAILED') : t('USERS.DETAIL.MSG_UNBLOCK_FAILED'), severity: 'error' });
     }
     setDialogType(null);
   };
@@ -445,21 +447,24 @@ export default function UserDetailsPage() {
   const handleDeleteUser = async () => {
     try {
       await deleteUser(parsedUser.email);
-      setFeedback({ open: true, message: `${parsedUser.fullName} has been deleted.`, severity: 'success' });
+      setFeedback({ open: true, message: t('USERS.DETAIL.MSG_DELETED', { name: parsedUser.fullName }), severity: 'success' });
       router.push('/users');
     } catch (e) {
       console.error('Failed to delete user:', e);
       const reason = apiErrorMessage(e);
-      setFeedback({ open: true, message: reason ? `Failed to delete user: ${reason}` : 'Failed to delete user. Please try again.', severity: 'error' });
+      setFeedback({ open: true, message: reason ? t('USERS.DETAIL.MSG_DELETE_FAILED_REASON', { reason }) : t('USERS.DETAIL.MSG_DELETE_FAILED'), severity: 'error' });
     }
     setDialogType(null);
   };
+
+  const genderKey = parsedUser.gender.toLowerCase();
+  const genderLabel = ['male', 'female'].includes(genderKey) ? t(`USERS.FORM.GENDER_${genderKey.toUpperCase()}`) : parsedUser.gender;
 
   if (loading) {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: 12 }}>
         <CircularProgress size={36} sx={{ color: 'primary.main', mb: 2 }} />
-        <Typography sx={{ fontSize: '14px', color: '#6B7280' }}>Loading user details...</Typography>
+        <Typography sx={{ fontSize: '14px', color: '#6B7280' }}>{t('USERS.DETAIL.LOADING')}</Typography>
       </Box>
     );
   }
@@ -479,7 +484,7 @@ export default function UserDetailsPage() {
       >
         <Breadcrumbs
           separator={<NavigateNextIcon fontSize="small" sx={{ color: '#9CA3AF' }} />}
-          aria-label="breadcrumb"
+          aria-label={t('USERS.DETAIL.BREADCRUMB_ARIA')}
           sx={{ fontSize: '13px' }}
         >
           <MuiLink
@@ -488,7 +493,7 @@ export default function UserDetailsPage() {
             onClick={() => router.push('/users')}
             sx={{ cursor: 'pointer', color: '#6B7280', '&:hover': { color: 'primary.main' } }}
           >
-            People
+            {t('USERS.DETAIL.BREADCRUMB_PEOPLE')}
           </MuiLink>
           <MuiLink
             underline="hover"
@@ -496,7 +501,7 @@ export default function UserDetailsPage() {
             onClick={() => router.push('/users')}
             sx={{ cursor: 'pointer', color: '#6B7280', '&:hover': { color: 'primary.main' } }}
           >
-            Users
+            {t('USERS.DETAIL.BREADCRUMB_USERS')}
           </MuiLink>
           <Typography sx={{ color: '#111827', fontWeight: 600, fontSize: '13px' }}>
             {parsedUser.email}
@@ -591,7 +596,7 @@ export default function UserDetailsPage() {
                 </Typography>
 
                 <Chip
-                  label={parsedUser.status === 'active' ? 'Active' : parsedUser.status.toUpperCase()}
+                  label={parsedUser.status === 'active' ? t('USERS.DETAIL.STATUS_ACTIVE') : parsedUser.status.toUpperCase()}
                   size="small"
                   sx={{
                     backgroundColor: parsedUser.status === 'active' ? '#ECFDF5' : '#F3F4F6',
@@ -640,7 +645,7 @@ export default function UserDetailsPage() {
                 '&:hover': { backgroundColor: '#F9FAFB', borderColor: '#9CA3AF' },
               }}
             >
-              Edit
+              {t('USERS.DETAIL.BTN_EDIT')}
             </Button>
 
             {parsedUser.status === 'blocked' || parsedUser.status === 'inactive' ? (
@@ -659,7 +664,7 @@ export default function UserDetailsPage() {
                   '&:hover': { backgroundColor: '#F9FAFB', borderColor: '#9CA3AF' },
                 }}
               >
-                Restore
+                {t('USERS.DETAIL.BTN_RESTORE')}
               </Button>
             ) : (
               <Button
@@ -677,7 +682,7 @@ export default function UserDetailsPage() {
                   '&:hover': { backgroundColor: '#F9FAFB', borderColor: '#9CA3AF' },
                 }}
               >
-                Archive
+                {t('USERS.DETAIL.BTN_ARCHIVE')}
               </Button>
             )}
 
@@ -719,27 +724,27 @@ export default function UserDetailsPage() {
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-                Profile
+                {t('USERS.DETAIL.CARD_PROFILE')}
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.8 }}>
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Full name</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.LBL_FULL_NAME')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.fullName}
                 </Typography>
               </Box>
 
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Email (login ID)</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.LBL_EMAIL')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.email}
                 </Typography>
               </Box>
 
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Phone</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.LBL_PHONE')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.phone}
                 </Typography>
@@ -753,9 +758,9 @@ export default function UserDetailsPage() {
               </Box> */}
 
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Gender</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.GENDER')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
-                  {parsedUser.gender}
+                  {genderLabel}
                 </Typography>
               </Box>
             </Box>
@@ -774,28 +779,28 @@ export default function UserDetailsPage() {
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-                Location and program
+                {t('USERS.DETAIL.CARD_LOCATION')}
               </Typography>
 
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.8 }}>
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>State</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.STATE')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.state}
                 </Typography>
               </Box>
 
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>District</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.DISTRICT')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.district}
                 </Typography>
               </Box>
 
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Branch</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.BRANCH')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.branch}
                 </Typography>
@@ -822,14 +827,14 @@ export default function UserDetailsPage() {
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-                Role
+                {t('USERS.DETAIL.CARD_ROLE')}
               </Typography>
 
             </Box>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.8 }}>
               <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Role</Typography>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.ROLE')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.role}
                 </Typography>
@@ -855,7 +860,7 @@ export default function UserDetailsPage() {
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-                Groups
+                {t('USERS.DETAIL.CARD_GROUPS')}
               </Typography>
               <Button
                 size="small"
@@ -869,7 +874,7 @@ export default function UserDetailsPage() {
                   color: '#374151',
                 }}
               >
-                Add to group
+                {t('USERS.DETAIL.BTN_ADD_TO_GROUP')}
               </Button>
             </Box>
 
@@ -896,19 +901,19 @@ export default function UserDetailsPage() {
                       }}
                       onClick={() => router.push(`/cohorts/${c.cohortId}`)}
                     >
-                      {c.name || c.cohortName || 'Group'}
+                      {c.name || c.cohortName || t('USERS.DETAIL.GROUP')}
                     </Typography>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Chip
-                        label={c.role || 'Learner'}
+                        label={c.role || t('USERS.DETAIL.LEARNER')}
                         size="small"
                         sx={{ backgroundColor: '#F3F4F6', color: '#4B5563', fontSize: '11px', height: '22px' }}
                       />
-                      <Tooltip title="Remove">
+                      <Tooltip title={t('USERS.DETAIL.REMOVE')}>
                         <IconButton
                           size="small"
-                          aria-label={`Remove from ${c.name || 'group'}`}
+                          aria-label={t('USERS.DETAIL.REMOVE_FROM_ARIA', { name: c.name || t('USERS.DETAIL.GROUP') })}
                           onClick={() => setGroupToRemove(c)}
                           sx={{ color: '#9CA3AF', p: 0.3 }}
                         >
@@ -920,7 +925,7 @@ export default function UserDetailsPage() {
                 ))
               ) : (
                 <Typography sx={{ fontSize: '13px', color: '#6B7280', py: 1 }}>
-                  Not enrolled in any group yet.
+                  {t('USERS.DETAIL.NO_GROUPS')}
                 </Typography>
               )}
 
@@ -1011,12 +1016,12 @@ export default function UserDetailsPage() {
             }}
           >
             <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827', mb: 2 }}>
-              Learning progress
+              {t('USERS.DETAIL.CARD_PROGRESS')}
             </Typography>
 
             {progressLoading && <CircularProgress size={20} sx={{ color: 'primary.main', mb: 2 }} />}
             {!progressLoading && courseProgress.length === 0 && (
-              <Typography sx={{ fontSize: '13px', color: '#6B7280', mb: 2 }}>Not enrolled in any course yet.</Typography>
+              <Typography sx={{ fontSize: '13px', color: '#6B7280', mb: 2 }}>{t('USERS.DETAIL.NO_COURSES')}</Typography>
             )}
             {courseProgress.map((c) => (
               <Box key={c.courseId} sx={{ mb: 2 }}>
@@ -1059,41 +1064,40 @@ export default function UserDetailsPage() {
       <UserActionDialog
         open={dialogType === 'block'}
         onClose={() => setDialogType(null)}
-        title={`Archive ${parsedUser.fullName}?`}
-        confirmLabel="Archive user"
+        title={t('USERS.DETAIL.ARCHIVE_TITLE', { name: parsedUser.fullName })}
+        confirmLabel={t('USERS.DETAIL.ARCHIVE_CONFIRM')}
         confirmColors={DARK_CONFIRM_COLORS}
         onConfirm={() => handleStatusChange('blocked', 'block')}
       >
         <DialogText mb={2}>
-          Their platform access is revoked immediately. The account and its data are not deleted, and
-          you can restore them at any time.
+          {t('USERS.DETAIL.ARCHIVE_BODY1')}
         </DialogText>
-        <DialogText mb={3}>They will see a message when they try to log in.</DialogText>
+        <DialogText mb={3}>{t('USERS.DETAIL.ARCHIVE_BODY2')}</DialogText>
       </UserActionDialog>
 
       <UserActionDialog
         open={dialogType === 'unblock'}
         onClose={() => setDialogType(null)}
-        title={`Restore ${parsedUser.fullName}?`}
-        confirmLabel="Restore user"
+        title={t('USERS.DETAIL.RESTORE_TITLE', { name: parsedUser.fullName })}
+        confirmLabel={t('USERS.DETAIL.RESTORE_CONFIRM')}
         confirmColors={DARK_CONFIRM_COLORS}
         onConfirm={() => handleStatusChange('active', 'unblock')}
       >
         <DialogText mb={3}>
-          Their platform access is restored immediately with their existing roles, groups and progress.
+          {t('USERS.DETAIL.RESTORE_BODY')}
         </DialogText>
       </UserActionDialog>
 
       <UserActionDialog
         open={dialogType === 'delete'}
         onClose={() => setDialogType(null)}
-        title={`Delete ${parsedUser.fullName}?`}
+        title={t('USERS.DETAIL.DELETE_TITLE', { name: parsedUser.fullName })}
         titleMb={1.5}
-        confirmLabel="Delete user"
+        confirmLabel={t('USERS.DETAIL.DELETE_CONFIRM')}
         confirmColors={DANGER_CONFIRM_COLORS}
         onConfirm={handleDeleteUser}
       >
-        <DialogText mb={2}>The user can no longer log in. Their record is kept for audit.</DialogText>
+        <DialogText mb={2}>{t('USERS.DETAIL.DELETE_BODY')}</DialogText>
         {/* Shaded gray retention box */}
         <Box
           sx={{
@@ -1106,7 +1110,7 @@ export default function UserDetailsPage() {
           }}
         >
           <Typography sx={{ fontSize: '13.5px', color: '#52525B' }}>
-            Retention period and access to retained data
+            {t('USERS.DETAIL.RETENTION')}
           </Typography>
         </Box>
       </UserActionDialog>
@@ -1131,7 +1135,7 @@ export default function UserDetailsPage() {
             onClick={() => setConfirmDialog((prev) => ({ ...prev, open: false }))}
             sx={{ textTransform: 'none', color: '#6B7280' }}
           >
-            Cancel
+            {t('USERS.DETAIL.CANCEL')}
           </Button>
           <Button
             size="small"
@@ -1141,13 +1145,13 @@ export default function UserDetailsPage() {
               setConfirmDialog((prev) => ({ ...prev, open: false }));
               setFeedback({
                 open: true,
-                message: `Action executed: ${confirmDialog.title}`,
+                message: t('USERS.DETAIL.ACTION_EXECUTED_NAMED', { title: confirmDialog.title }),
                 severity: 'success',
               });
             }}
             sx={{ textTransform: 'none', borderRadius: '6px' }}
           >
-            Confirm
+            {t('USERS.DETAIL.CONFIRM')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1172,14 +1176,14 @@ export default function UserDetailsPage() {
         }}
       />
       <Dialog open={Boolean(groupToRemove)} onClose={() => setGroupToRemove(null)}>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '16px' }}>Remove from {groupToRemove?.name}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '16px' }}>{t('USERS.DETAIL.REMOVE_FROM_TITLE', { group: groupToRemove?.name })}</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: '13.5px', color: '#4B5563' }}>
-            Remove {parsedUser.fullName} from {groupToRemove?.name}?
+            {t('USERS.DETAIL.REMOVE_FROM_BODY', { name: parsedUser.fullName, group: groupToRemove?.name })}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setGroupToRemove(null)}>Cancel</Button>
+          <Button onClick={() => setGroupToRemove(null)}>{t('USERS.DETAIL.CANCEL')}</Button>
           <Button
             variant="contained"
             onClick={async () => {
@@ -1189,24 +1193,24 @@ export default function UserDetailsPage() {
               try {
                 await handleRemoveFromGroup(g);
               } catch (e) {
-                setFeedback({ open: true, message: apiErrorMessage(e) || 'Failed to remove from group.', severity: 'error' });
+                setFeedback({ open: true, message: apiErrorMessage(e) || t('USERS.DETAIL.MSG_REMOVE_GROUP_FAILED'), severity: 'error' });
               }
             }}
           >
-            Remove
+            {t('USERS.DETAIL.REMOVE')}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog open={Boolean(reviewToRemove)} onClose={() => setReviewToRemove(null)}>
-        <DialogTitle sx={{ fontWeight: 700, fontSize: '16px' }}>Remove reviewer</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 700, fontSize: '16px' }}>{t('USERS.DETAIL.REMOVE_REVIEWER')}</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: '13.5px', color: '#4B5563' }}>
-            Remove {reviewToRemove?.name} as a reviewer of {parsedUser.fullName}?
+            {t('USERS.DETAIL.REMOVE_REVIEWER_BODY', { user: reviewToRemove?.name, name: parsedUser.fullName })}
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setReviewToRemove(null)}>Cancel</Button>
+          <Button onClick={() => setReviewToRemove(null)}>{t('USERS.DETAIL.CANCEL')}</Button>
           <Button
             variant="contained"
             onClick={() => {
@@ -1214,10 +1218,10 @@ export default function UserDetailsPage() {
               setReviewToRemove(null);
               if (!r) return;
               setIndividualReviews((prev) => prev.filter((x) => x.id !== r.id));
-              setFeedback({ open: true, message: `${r.name} removed from reviewers.`, severity: 'success' });
+              setFeedback({ open: true, message: t('USERS.DETAIL.MSG_REVIEWER_REMOVED', { user: r.name }), severity: 'success' });
             }}
           >
-            Remove
+            {t('USERS.DETAIL.REMOVE')}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Alert } from '@mui/material';
+import { useTranslation } from 'next-i18next';
 import CommonDialog from './CommonDialog';
 import CommonTextField from './CommonTextField';
 import CommonSelect from './CommonSelect';
@@ -45,6 +46,7 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
   onSuccess,
   cohort,
 }) => {
+  const { t } = useTranslation('common');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [status, setStatus] = useState('active');
@@ -84,12 +86,12 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
   const handleSubmit = async () => {
     if (!cohort?.cohortId) return;
     if (!name.trim()) {
-      setError('Group name is required.');
+      setError(t('COHORTS.EDIT.ERROR_NAME_REQUIRED'));
       return;
     }
 
     if (startDate && endDate && endDate < startDate) {
-      setError('End date cannot be before the start date.');
+      setError(t('COHORTS.EDIT.ERROR_END_BEFORE_START'));
       return;
     }
 
@@ -120,7 +122,7 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Failed to update cohort:', err);
-      setError(err?.response?.data?.message || err?.message || 'Failed to update group. Please try again.');
+      setError(err?.response?.data?.message || err?.message || t('COHORTS.EDIT.ERROR_UPDATE_FAILED'));
     } finally {
       setLoading(false);
     }
@@ -130,10 +132,10 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
     <CommonDialog
       open={open}
       onClose={onClose}
-      title="Edit Group"
-      subtitle="Update group details and lifecycle status"
+      title={t('COHORTS.EDIT.TITLE')}
+      subtitle={t('COHORTS.EDIT.SUBTITLE')}
       onConfirm={handleSubmit}
-      confirmLabel={loading ? 'Saving...' : 'Save Changes'}
+      confirmLabel={loading ? t('COHORTS.EDIT.SAVING') : t('COHORTS.EDIT.SAVE')}
       confirmDisabled={loading || !name.trim()}
       loading={loading}
       maxWidth="sm"
@@ -147,19 +149,19 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
 
         <CommonTextField
           id="cohort-edit-name"
-          label="Group Name"
+          label={t('COHORTS.EDIT.GROUP_NAME')}
           required
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Pune Batch A - Financial Literacy"
+          placeholder={t('COHORTS.EDIT.GROUP_NAME_PLACEHOLDER')}
         />
 
         <CommonTextField
           id="cohort-edit-description"
-          label="Description"
+          label={t('COHORTS.EDIT.DESCRIPTION')}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Brief summary of this group's objective or target beneficiaries..."
+          placeholder={t('COHORTS.EDIT.DESCRIPTION_PLACEHOLDER')}
           multiline
           rows={3}
           disabled
@@ -168,7 +170,7 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
         <Box sx={{ display: 'flex', gap: 2 }}>
           <CommonTextField
             id="cohort-edit-start-date"
-            label="Start Date"
+            label={t('COHORTS.EDIT.START_DATE')}
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
@@ -176,7 +178,7 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
           />
           <CommonTextField
             id="cohort-edit-end-date"
-            label="End Date"
+            label={t('COHORTS.EDIT.END_DATE')}
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
@@ -187,13 +189,13 @@ export const EditCohortModal: React.FC<EditCohortModalProps> = ({
 
         <CommonSelect
           id="cohort-edit-status"
-          label="Lifecycle Status"
+          label={t('COHORTS.EDIT.LIFECYCLE_STATUS')}
           value={status}
           onChange={(val) => setStatus(val)}
           options={[
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Inactive' },
-            { value: 'archived', label: 'Archived' },
+            { value: 'active', label: t('LIFECYCLE.ACTIVE') },
+            { value: 'inactive', label: t('LIFECYCLE.INACTIVE') },
+            { value: 'archived', label: t('LIFECYCLE.ARCHIVED') },
           ]}
         />
       </Box>
