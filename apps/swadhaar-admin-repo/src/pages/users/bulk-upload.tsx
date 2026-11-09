@@ -31,6 +31,7 @@ import { bulkImportUsers, getTenantRoles, TenantRole } from '@/services/UserServ
 import { getCohortSearch } from '@/services/CohortService';
 import { apiErrorMessage } from '@/utils/concurrency';
 import { readXlsxRows } from '@/utils/readXlsx';
+import { DEFAULT_ROLE_ID_MAP } from '@/utils/userPayloadBuilder';
 import { NEUTRAL } from '@/styles/customTheme';
 
 interface FailedRowItem {
@@ -195,6 +196,10 @@ export default function BulkUploadUsersPage() {
   const [createdCount, setCreatedCount] = useState<number>(0);
   const [failedRows, setFailedRows] = useState<FailedRowItem[]>([]);
 
+  // Without a chosen role the users are created as Trainers
+  const defaultRoleId =
+    roles.find((r) => r.name.toLowerCase() === 'trainer')?.id || DEFAULT_ROLE_ID_MAP.trainer;
+
   // Groups and roles to import into
   useEffect(() => {
     getCohortSearch({ limit: 100, offset: 0, sort: ['name', 'asc'], filters: { status: ['active'] } })
@@ -301,15 +306,11 @@ export default function BulkUploadUsersPage() {
       setErrorMsg(t('BULK_UPLOAD.ERRORS.NO_RECORDS'));
       return;
     }
-    if (!cohortId) {
-      setErrorMsg('Select the group the users are added to.');
-      return;
-    }
 
     setStep(2);
     setErrorMsg(null);
     try {
-      const result = await bulkImportUsers(selectedFile, cohortId, roleId);
+      const result = await bulkImportUsers(selectedFile, cohortId, roleId || defaultRoleId);
       setCreatedCount(result?.successCount ?? 0);
       setFailedRows((result?.failures || []).map((row: any, index: number) => toFailedRow(row, index)));
       setStep(3); // Go to summary
@@ -446,13 +447,18 @@ export default function BulkUploadUsersPage() {
             {/* Group and role the users are imported into */}
             <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
               <FormControl size="small" sx={{ minWidth: 240, flex: 1 }}>
-                <InputLabel id="bulk-group-label">Group</InputLabel>
+                <InputLabel id="bulk-group-label" shrink>Group (optional)</InputLabel>
                 <Select
                   labelId="bulk-group-label"
-                  label="Group"
+                  label="Group (optional)"
                   value={cohortId}
+                  displayEmpty
+                  notched
                   onChange={(e) => setCohortId(e.target.value)}
                 >
+                  <MenuItem value="">
+                    <em>No group</em>
+                  </MenuItem>
                   {groups.map((g) => (
                     <MenuItem key={g.id} value={g.id}>
                       {g.name}
@@ -460,7 +466,7 @@ export default function BulkUploadUsersPage() {
                   ))}
                 </Select>
               </FormControl>
-              <FormControl size="small" sx={{ minWidth: 240, flex: 1 }}>
+              {/* <FormControl size="small" sx={{ minWidth: 240, flex: 1 }}>
                 <InputLabel id="bulk-role-label" shrink>Role (optional)</InputLabel>
                 <Select
                   labelId="bulk-role-label"
@@ -471,7 +477,7 @@ export default function BulkUploadUsersPage() {
                   onChange={(e) => setRoleId(e.target.value)}
                 >
                   <MenuItem value="">
-                    <em>Default (Student)</em>
+                    <em>Default (Trainer)</em>
                   </MenuItem>
                   {roles.map((r) => (
                     <MenuItem key={r.id} value={r.id}>
@@ -479,7 +485,7 @@ export default function BulkUploadUsersPage() {
                     </MenuItem>
                   ))}
                 </Select>
-              </FormControl>
+              </FormControl> */}
             </Box>
 
             {/* Dropzone Box */}
@@ -965,7 +971,7 @@ export default function BulkUploadUsersPage() {
             </Button>
             <Button
               variant="contained"
-              disabled={!selectedFile || (!isExcelFile(selectedFile) && rowCount === 0) || !cohortId}
+              disabled={!selectedFile || (!isExcelFile(selectedFile) && rowCount === 0)}
               onClick={handleValidateAndCreate}
               sx={{
                 backgroundColor: '#E6873C',

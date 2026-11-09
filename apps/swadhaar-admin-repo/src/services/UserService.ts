@@ -90,13 +90,13 @@ export interface BulkImportResult {
 
 /**
  * Creates the users of a CSV/Excel file in one request and adds them to a group with a role
- * POST /user/v1/bulk-import/users (multipart: file, cohortId, optional roleId)
+ * POST /user/v1/bulk-import/users (multipart: file, optional cohortId, optional roleId)
  */
-export const bulkImportUsers = async (file: File, cohortId: string, roleId?: string): Promise<BulkImportResult> => {
+export const bulkImportUsers = async (file: File, cohortId?: string, roleId?: string): Promise<BulkImportResult> => {
   const form = new FormData();
   form.append('file', file);
-  form.append('cohortId', cohortId);
-  // Without a roleId the server gives the users the student role
+  // Group and role are optional: without a cohortId the users join no group
+  if (cohortId) form.append('cohortId', cohortId);
   if (roleId) form.append('roleId', roleId);
   // multipart/form-data lets the browser add the boundary
   const response = await post(API_ENDPOINTS.userBulkImport, form, getServiceHeaders({ 'content-type': 'multipart/form-data' }));
