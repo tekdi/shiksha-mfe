@@ -303,6 +303,8 @@ export default function ContentLibraryPage() {
         await retireContent(itemToDelete.identifier);
       }
       setContentList((prev) => prev.filter((item) => item.identifier !== itemToDelete.identifier));
+      // The pagination count below the list drops straight away, without a refresh
+      setTotalCount((prev) => Math.max(0, prev - 1));
       setFeedback({
         open: true,
         message: 'Content deleted successfully.',
