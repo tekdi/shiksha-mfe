@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { SWADHAAR_TENANT_ID } from '@/utils/app.constant';
-import { loginServiceAccount, middlewareUrl } from '@/utils/server/swadhaarServiceAuth';
+import { findAdminByMobile, loginServiceAccount, middlewareUrl } from '@/utils/server/swadhaarServiceAuth';
 
 /**
  * Verifies the OTP with /user/v1/verify-otp (which only answers { success: true }) and, only when it
@@ -41,10 +41,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const session = await loginServiceAccount();
+    // The tokens belong to the service account, so the admin who verified the OTP is looked up by mobile
+    const profile = await findAdminByMobile(String(mobile), tenantId).catch(() => null);
     return res.status(200).json({
       verified: true,
       access_token: session.access_token,
       refresh_token: session.refresh_token || '',
+      profile,
     });
   } catch {
     return res.status(502).json({ verified: false, message: 'Unable to verify the OTP. Please try again.' });

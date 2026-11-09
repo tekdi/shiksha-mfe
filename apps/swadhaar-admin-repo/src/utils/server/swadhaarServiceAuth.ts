@@ -39,3 +39,30 @@ export const getServiceToken = async (forceRefresh = false): Promise<string> => 
   cachedToken = { value: result.access_token, expiresAt: Date.now() + ttlMs };
   return result.access_token;
 };
+
+export interface AdminProfile {
+  userId: string;
+  firstName: string;
+  lastName: string;
+}
+
+/**
+ * The Admin user who owns a mobile number (POST /user/v1/list), or null. The session tokens come from the shared
+ * service account, so this is what tells the portal who actually signed in.
+ */
+export const findAdminByMobile = async (mobile: string, tenantId: string): Promise<AdminProfile | null> => {
+  const list = (token: string) =>
+    fetch(`${middlewareUrl()}/user/v1/list`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, tenantid: tenantId },
+      body: JSON.stringify({ limit: 10, offset: 0, filters: { role: 'Admin', mobile }, sort: ['firstName', 'asc'] }),
+    });
+  let resp = await list(await getServiceToken());
+  if (resp.status === 401) resp = await list(await getServiceToken(true));
+  if (!resp.ok) return null;
+  const result = (await resp.json())?.result;
+  const users: any[] = result?.getUserDetails || result?.users || result?.userData || [];
+  const user = Array.isArray(users) ? users[0] : null;
+  if (!user?.userId) return null;
+  return { userId: user.userId, firstName: user.firstName || '', lastName: user.lastName || '' };
+};
