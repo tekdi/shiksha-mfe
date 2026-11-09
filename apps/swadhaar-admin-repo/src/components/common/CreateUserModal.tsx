@@ -3,7 +3,7 @@ import { Box, Typography, Grid } from '@mui/material';
 import { useTranslation } from 'next-i18next';
 import MasterDataService, { LocationOption } from '@/services/MasterDataService';
 import { getSessionTenantId } from '@/utils/API/serviceHeaders';
-import { createUserAccount, updateUserAccount, getUserDetailsInfo, getTenantRoles, TenantRole } from '@/services/UserService';
+import { createUserAccount, updateUserAccount, getUserDetailsInfo, getTenantRoles, changeUserRole, TenantRole } from '@/services/UserService';
 import { showToastMessage } from '@/components/Toastify';
 import { NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
@@ -219,6 +219,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const [formData, setFormData] = useState<FormState>(initialFormState);
   // Email the user had when the dialog opened; an unchanged email is not sent on edit
   const originalEmailRef = useRef('');
+  // Role (name or id) the user had when the dialog opened, to tell whether the admin changed it
+  const originalRoleRef = useRef('');
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -305,6 +307,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     }
     const initialForm = formStateFromInitialData(initialData);
     originalEmailRef.current = initialForm.email;
+    originalRoleRef.current = initialForm.role;
     setFormData(initialForm);
 
     // Call getUserDetailsInfo to fetch complete profile data from server
@@ -318,6 +321,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             const merged = mergeServerUserIntoForm(prev, user);
             // Only count the server's email as the original while the admin has not edited it
             if (prev.email === originalEmailRef.current) originalEmailRef.current = merged.email;
+            if (prev.role === originalRoleRef.current) originalRoleRef.current = merged.role;
             return merged;
           });
         }
@@ -457,6 +461,14 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       email: emailChanged ? inputFields.email : undefined,
     });
     const response = await updateUserAccount(targetUserId, updatePayload);
+
+    // A changed role is a separate call: the old role is removed, then the new one assigned
+    const originalRole = originalRoleRef.current.trim().toLowerCase();
+    const oldRole = tenantRoles.find((r) => r.id === originalRoleRef.current || r.name.toLowerCase() === originalRole);
+    const roleChanged = Boolean(formData.role) && formData.role !== '-' && (oldRole ? oldRole.id !== formData.role : false);
+    if (isSuccessfulUpdate(response) && roleChanged && oldRole) {
+      await changeUserRole(targetUserId, oldRole.id, formData.role);
+    }
 
     if (isSuccessfulUpdate(response)) {
       showToastMessage(response?.params?.successmessage || t('USERS.FORM.UPDATE_SUCCESS'), 'success');

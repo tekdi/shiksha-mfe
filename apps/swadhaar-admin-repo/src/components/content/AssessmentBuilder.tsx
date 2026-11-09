@@ -1452,7 +1452,12 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                   <TextField
                     size="small"
                     value={passMark}
-                    onChange={(e) => setPassMark(e.target.value)}
+                    // Digits only, as a percentage from 0 to 100
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 3);
+                      setPassMark(Number(digits) > 100 ? '100' : digits);
+                    }}
+                    inputProps={{ inputMode: 'numeric', maxLength: 3 }}
                     sx={OUTLINED_FIELD_SX}
                   />
                 </Box>
@@ -1474,7 +1479,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                         '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#E6873C' },
                       }}
                     >
-                      <MenuItem value="[N]">[N]</MenuItem>
+                      {/* <MenuItem value="[N]">[N]</MenuItem> */}
                       <MenuItem value="Unlimited">Unlimited</MenuItem>
                       <MenuItem value="3">3 attempts</MenuItem>
                       <MenuItem value="2">2 attempts</MenuItem>

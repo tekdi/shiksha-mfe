@@ -41,6 +41,9 @@ import {
   createCohort,
   bulkCreateCohortMembers,
   getCohortById,
+  getCohortMemberListApplication,
+  getMemberRows,
+  isCurrentMember,
 } from '@/services/CohortService';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
 import LifecycleChip from '@/components/common/LifecycleChip';
@@ -295,6 +298,30 @@ export default function CreateCohortPage() {
     }
   }, [targetCohortId]);
 
+  // Users already in the group (any role): they are listed ticked and greyed out, and cannot be added again
+  const [existingMemberIds, setExistingMemberIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    if (!targetCohortId) return;
+    let cancelled = false;
+    (async () => {
+      const ids = new Set<string>();
+      const PAGE = 100;
+      for (let offset = 0; ; offset += PAGE) {
+        const res = await getCohortMemberListApplication({ limit: PAGE, offset, filters: { cohortId: [targetCohortId] } });
+        const rows = getMemberRows(res);
+        rows.filter(isCurrentMember).forEach((row: any) => {
+          const id = row.userId || row.id;
+          if (id) ids.add(id);
+        });
+        if (rows.length < PAGE) break;
+      }
+      if (!cancelled) setExistingMemberIds(ids);
+    })().catch((err) => console.error('Failed to load the members of the group:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [targetCohortId]);
+
   // Role filter options: titles from the tenant roles API
   useEffect(() => {
     getTenantRoles()
@@ -340,6 +367,7 @@ export default function CreateCohortPage() {
 
   // Selection toggle handler
   const handleToggleUser = (user: UserRow) => {
+    if (existingMemberIds.has(user.userId)) return;
     setSelectedMembers((prev) => {
       const next = new Map(prev);
       if (next.has(user.userId)) {
@@ -363,7 +391,7 @@ export default function CreateCohortPage() {
       const next = new Map(prev);
       if (event.target.checked) {
         users.forEach((u) => {
-          if (!next.has(u.userId)) {
+          if (!next.has(u.userId) && !existingMemberIds.has(u.userId)) {
             next.set(u.userId, {
               userId: u.userId,
               name: u.name,
@@ -382,16 +410,22 @@ export default function CreateCohortPage() {
     });
   };
 
+  // Members already in the group are not part of the selection
+  const selectableUsers = useMemo(
+    () => users.filter((u) => !existingMemberIds.has(u.userId)),
+    [users, existingMemberIds]
+  );
+
   const isAllCurrentPageSelected = useMemo(() => {
-    if (users.length === 0) return false;
-    return users.every((u) => selectedMembers.has(u.userId));
-  }, [users, selectedMembers]);
+    if (selectableUsers.length === 0) return false;
+    return selectableUsers.every((u) => selectedMembers.has(u.userId));
+  }, [selectableUsers, selectedMembers]);
 
   const isSomeCurrentPageSelected = useMemo(() => {
-    if (users.length === 0) return false;
-    const count = users.filter((u) => selectedMembers.has(u.userId)).length;
-    return count > 0 && count < users.length;
-  }, [users, selectedMembers]);
+    if (selectableUsers.length === 0) return false;
+    const count = selectableUsers.filter((u) => selectedMembers.has(u.userId)).length;
+    return count > 0 && count < selectableUsers.length;
+  }, [selectableUsers, selectedMembers]);
 
   // Update member role in group
   const handleChangeRole = (userId: string, newRole: 'Learner' | 'Reviewer') => {
@@ -497,28 +531,32 @@ export default function CreateCohortPage() {
       );
     }
     return users.map((row) => {
-      const isSelected = selectedMembers.has(row.userId);
+      const isExisting = existingMemberIds.has(row.userId);
+      const isSelected = isExisting || selectedMembers.has(row.userId);
       return (
         <TableRow
           key={row.userId}
-          hover
-          selected={isSelected}
+          hover={!isExisting}
+          selected={isSelected && !isExisting}
           onClick={() => handleToggleUser(row)}
           sx={{
-            cursor: 'pointer',
+            cursor: isExisting ? 'default' : 'pointer',
             '&.Mui-selected': { backgroundColor: 'primary.50' },
             '&:last-child td': { border: 0 },
+            ...(isExisting && { backgroundColor: '#F3F4F6', opacity: 0.6 }),
           }}
         >
           <TableCell padding="checkbox" sx={{ borderBottom: '1px solid #F3F4F6' }}>
             <Checkbox
               size="small"
               checked={isSelected}
+              disabled={isExisting}
               onChange={() => handleToggleUser(row)}
               onClick={(e) => e.stopPropagation()}
               sx={{
                 color: '#9CA3AF',
                 '&.Mui-checked': { color: 'primary.main' },
+                '&.Mui-disabled.Mui-checked': { color: '#9CA3AF' },
               }}
             />
           </TableCell>
