@@ -9,26 +9,40 @@ import ClientLayout from "./ClientLayout";
 import GoogleAnalyticsTracker from "@learner/components/GoogleAnalyticsTracker/GoogleAnalyticsTracker";
 import { TenantProvider } from "@learner/context/TenantContext";
 import TenantThemeUpdater from "./TenantThemeUpdater";
+import { headers } from "next/headers";
+
 const DEFAULT_TITLE = "Welcome to shiksha-app";
 const DEFAULT_DESCRIPTION =
   "Shiksha-app is a platform for users to learn and grow by consuming educational content";
 const DEFAULT_ICON = "/logo.png";
 
-export const metadata = {
-  title: DEFAULT_TITLE,
-  description: DEFAULT_DESCRIPTION,
-  openGraph: {
-    title: DEFAULT_TITLE,
-    description: DEFAULT_DESCRIPTION,
-    images: [{ url: DEFAULT_ICON }],
-    type: "website",
-  },
-  icons: {
-    icon: DEFAULT_ICON,
-    shortcut: DEFAULT_ICON,
-    apple: DEFAULT_ICON,
-  },
-};
+export async function generateMetadata() {
+  const host = headers().get('host') || '';
+  const isSwadhaar = host.includes('swadhaar') || host.includes('localhost');
+  
+  const title = isSwadhaar ? "Swadhaar Learner" : DEFAULT_TITLE;
+  const description = isSwadhaar ? "Swadhaar Learner Application" : DEFAULT_DESCRIPTION;
+  const icon = isSwadhaar ? "/images/swadhar_logo.png" : DEFAULT_ICON;
+  const themeColor = isSwadhaar ? "#E6873C" : "#1976d2";
+
+  return {
+    title,
+    description,
+    viewport: "width=device-width, initial-scale=1",
+    themeColor,
+    icons: {
+      icon,
+      shortcut: icon,
+      apple: icon,
+    },
+    openGraph: {
+      title,
+      description,
+      images: [{ url: icon }],
+      type: "website",
+    },
+  }
+}
 
 export default function RootLayout({
   children,
@@ -38,15 +52,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#1976d2" />
-        <link rel="icon" href={DEFAULT_ICON} />
-        <link rel="shortcut icon" href={DEFAULT_ICON} />
-        <link rel="apple-touch-icon" href={DEFAULT_ICON} />
         <link
           href="https://fonts.googleapis.com/icon?family=Material+Icons"
           rel="stylesheet"
         />
+
         <script
           dangerouslySetInnerHTML={{
             __html: `

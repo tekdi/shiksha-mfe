@@ -48,7 +48,7 @@ table {
 }
 
 .ps-content {
-  font-family: NotoSans, sans-serif;
+  /* font-family: NotoSans, sans-serif; */
   display: -webkit-box;
   display: -ms-flexbox;
   display: flex;

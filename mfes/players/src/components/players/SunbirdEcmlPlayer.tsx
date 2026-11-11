@@ -3,11 +3,13 @@ interface PlayerProps {
   playerConfig: any;
   relatedData?: any;
   configFunctionality?: boolean;
+  mode?: string;
 }
 const SunbirdEcmlPlayer = ({
   playerConfig,
   relatedData,
   configFunctionality,
+  mode,
 }: PlayerProps) => {
   // const iframeUrl = `${process.env.NEXT_PUBLIC_ECML_PLAYER_URL}?identifier=${playerConfig.context.contentId}.zip`;
   const iframeUrl = `${process.env.NEXT_PUBLIC_ECML_PLAYER_URL}?identifier=${playerConfig.context.contentId}`;

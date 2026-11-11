@@ -15,7 +15,6 @@ export default function ClientLayout({
 }) {
   useEffect(() => {
     telemetryFactory.init();
-console.log("Telemetry initialized");
     // Set userId in cookies for cross-port access
     const currentUserId = localStorage.getItem("userId");
    
@@ -35,10 +34,11 @@ console.log("Telemetry initialized");
 
     // Listen for force logout events from other tabs
     const handleForceLogout = (event: CustomEvent) => {
-      console.log("Force logout event received:", event.detail);
-
       // Clear all storage
       try {
+        const role = localStorage.getItem("userRole")?.trim().toUpperCase();
+        const redirectPath = (role === "CFL" || role === "DI") ? "/swadhaar-login" : "/login";
+
         localStorage.clear();
         sessionStorage.clear();
 
@@ -52,10 +52,8 @@ console.log("Telemetry initialized");
             );
         });
 
-        console.log("All sessions cleared due to force logout event");
-
         // Redirect to login page
-        window.location.href = "/login";
+        window.location.href = redirectPath;
       } catch (error) {
         console.error("Error during force logout:", error);
         // Fallback redirect

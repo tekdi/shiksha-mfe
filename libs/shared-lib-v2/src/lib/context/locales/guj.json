@@ -166,7 +166,9 @@
       "ABOUT_PRATHAM_TITLE": "Shiksha વિશે",
       "ABOUT_PRATHAM_DESC": "Shiksha શિક્ષણ સિસ્ટમોમાં ખોટોને નવીન, ઓછી કિંમતે, પુનરાવર્તનક્ષમ હસ્તક્ષેપો દ્વારા પૂરી કરે છે જે વયસ્પેક્ટ્રમમાં ફેલાયેલી છે. “પ્રત્યક્ષ” કાર્યમાં, Shiksha પ્રદર્દે બાળકો સાથે શાળા અથવા સમુદાયમાં કામ કરે છે, જ્યારે “ભાગીદારી” મોડેલમાં Shiksha ટિમો રાજ્ય, જિલ્લા અથવા શહેર સ્તરે સરકારે ટીમ સાથે મળી કાર્યક્રમોની રचना અને અમલ કરે છે. શિક્ષણમાં સુધારા માટે Shiksha નું દૃષ્ટિકોણ ભારત અને વિદેશમાં એક મોડેલ તરીકે કાર્ય કરે છે.",
       "OUR_PROGRAMS": "અમારા કાર્યક્રમો",
-      "SIGN_UP": "સાઇન અપ કરો"
+      "SIGN_UP": "સાઇન અપ કરો",
+      "TITLE": "મુખ્ય પૃષ્ઠ",
+      "PROGRESS_TEXT": "પ્રગતિ: {{percent}}% પૂર્ણ"
     },
     "LOGIN": {
       "welcome_title": "Shiksha myLearning માં આપનું સ્વાગત છે!",
@@ -324,6 +326,21 @@
       "SEARCH_TEXT": "શોધો",
       "APP_NAME": "Shiksha myLearning",
       "ON_PLAYSTORE": "પ્લેસ્ટોર પર"
+    },
+    "LEARN": {
+      "PAGE_TITLE": "Your Learning Path",
+      "LEVEL_PROGRESS": "Continue Learning",
+      "SUBTOPIC_PROGRESS": "Subtopic Progress",
+      "COMPLETED_LESSONS": "Completed {{completed}}/{{total}} Lessons",
+      "COMPLETED_SUBTOPICS": "Completed {{completed}}/{{total}} Subtopics",
+      "COMPLETED_MODULES": "Completed {{completed}}/{{total}} Modules",
+      "LESSONS_TITLE": "Lessons",
+      "START_LEARNING": "Start Learning",
+      "COMPLETED": "Completed",
+      "BACK_TO_LEARNING": "Back to Learning"
+    },
+    "ALERTS": {
+      "TITLE": "Alerts"
     }
   },
   "LOGIN_PAGE": {

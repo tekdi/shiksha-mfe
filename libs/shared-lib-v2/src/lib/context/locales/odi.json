@@ -166,7 +166,9 @@
       "ABOUT_PRATHAM_TITLE": "Shiksha ବିଷୟରେ",
       "ABOUT_PRATHAM_DESC": "Shiksha ଶିକ୍ଷା ପ୍ରଣାଳୀରେ ଥିବା ଖାଲିକୁ ପ୍ରତିଷ୍ଠିତ କରିବା ପାଇଁ ନବୀନ, କମ୍ ଖର୍ଚ୍ଚର, ପୁଣିରାବର୍ତ୍ତନ ଯୋଗ୍ୟ ହସ୍ତକ୍ଷେପ ବ୍ୟବହାର କରେ, ଯାହା ଜୀବନକାଳ ଜୁড়ে ପ୍ରସାରିତ ଅଛି। “ପ୍ରତ୍ୟକ୍ଷ” କାର୍ଯ୍ୟରେ, Shiksha ଶିକ୍ଷକ ଶିଶୁଙ୍କ ସହିତ ଶିକ୍ଷାଳୟ କିମ୍ବା ସମୁଦାୟରେ କାମ କରନ୍ତି, ଯେଉଁଠାରେ “ସହଯୋଗ” ମୋଡେଲରେ Shiksha ଟୀମ୍ ରାଜ୍ୟ, ଜିଲ୍ଲା କିମ୍ବା ସହର ସ୍ତରରେ ସରକାରୀ ଟୀମ୍ ସହିତ ମିଶି କାର୍ଯ୍ୟକ୍ରମ ରୂପରେ ଆୟୋଜନ ଏବଂ ଚାଳନା କରେ। ଶିକ୍ଷାର ପରିଣାମରେ ସୁଧାରଣା ନିମିତ୍ତ Shiksha ଙ୍କ ଦୃଷ୍ଟିକୋଣ ଭାରତ ଏବଂ ବିଦେଶରେ ଏକ ମଡେଲ୍ ହିସାବରେ କାର୍ଯ୍ୟ କରେ।",
       "OUR_PROGRAMS": "ଆମର କାର୍ଯ୍ୟକ୍ରମ",
-      "SIGN_UP": "ସାଇନ୍-ଅପ୍ କରନ୍ତୁ"
+      "SIGN_UP": "ସାଇନ୍-ଅପ୍ କରନ୍ତୁ",
+      "TITLE": "ମୁଖ୍ୟ ପୃଷ୍ଠ",
+      "PROGRESS_TEXT": "ଅଗ୍ରଗତି: {{percent}}% ସଂପୂର୍ଣ୍ଣ"
     },
     "LOGIN": {
       "welcome_title": "Shiksha myLearning କୁ ସ୍ବାଗତ!",
@@ -323,6 +325,21 @@
       "SEARCH_TEXT": "ଖୋଜନ୍ତୁ",
       "APP_NAME": "Shiksha myLearning",
       "ON_PLAYSTORE": "ପ୍ଲେସ୍ଟୋର୍ରେ"
+    },
+    "LEARN": {
+      "PAGE_TITLE": "Your Learning Path",
+      "LEVEL_PROGRESS": "Continue Learning",
+      "SUBTOPIC_PROGRESS": "Subtopic Progress",
+      "COMPLETED_LESSONS": "Completed {{completed}}/{{total}} Lessons",
+      "COMPLETED_SUBTOPICS": "Completed {{completed}}/{{total}} Subtopics",
+      "COMPLETED_MODULES": "Completed {{completed}}/{{total}} Modules",
+      "LESSONS_TITLE": "Lessons",
+      "START_LEARNING": "Start Learning",
+      "COMPLETED": "Completed",
+      "BACK_TO_LEARNING": "Back to Learning"
+    },
+    "ALERTS": {
+      "TITLE": "Alerts"
     }
   },
   "LOGIN_PAGE": {

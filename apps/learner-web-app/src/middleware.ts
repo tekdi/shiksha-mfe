@@ -14,6 +14,14 @@ const publicRoutes = [
   "/faqs",
   "/explore",
   "/unauthorized",
+  // Swadhaar onboarding routes (public — auth checked client-side)
+  "/splash",
+  "/language-selection",
+  "/swadhaar-login",
+  "/swadhaar-home",
+  "/learn",
+  "/alerts",
+  "/swadhar-profile",
   // POS routes (public)
   "/pos",
   "/pos/about-us",

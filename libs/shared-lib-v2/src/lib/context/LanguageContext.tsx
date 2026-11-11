@@ -48,7 +48,7 @@ const rtlLanguages = ["ur"];
 export type LanguageContextType = {
   language: string;
   setLanguage: (lang: string) => void;
-  t: (key: string, options?: { defaultValue?: string }) => string;
+  t: (key: string, options?: { [key: string]: any; defaultValue?: string }) => string;
   rtlLanguages: string[];
 };
 
@@ -87,7 +87,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
 
   // Translate function
   const t = useMemo(() => {
-    return (key: string, options?: { defaultValue?: string }): string => {
+    return (key: string, options?: { [key: string]: any; defaultValue?: string }): string => {
       const getNestedValue = (lang: string) => {
         const keys = key?.split(".");
         let result: any = translations[lang];
@@ -104,16 +104,28 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({
 
       // Try the current language first
       const currentLangValue = getNestedValue(language);
+      let translated = currentLangValue;
 
       // Fallback to English if not found
-      if (currentLangValue !== undefined) {
-        return currentLangValue;
+      if (translated === undefined) {
+        translated = getNestedValue("en");
       }
 
-      const fallbackValue = getNestedValue("en");
+      if (translated === undefined) {
+        return options?.defaultValue ?? key;
+      }
 
-      // Return fallback or options.defaultValue or key itself
-      return fallbackValue ?? options?.defaultValue ?? key;
+      // Handle interpolation {{key}}
+      if (options) {
+        Object.keys(options).forEach((optKey) => {
+          if (optKey !== 'defaultValue') {
+            const regex = new RegExp(`{{${optKey}}}`, 'g');
+            translated = (translated as string).replace(regex, options[optKey]);
+          }
+        });
+      }
+
+      return translated as string;
     };
   }, [language]);
 

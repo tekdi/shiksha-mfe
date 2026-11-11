@@ -1,5 +1,6 @@
 export const baseurl = process.env.NEXT_PUBLIC_MIDDLEWARE_URL;
 export const telemetryUrl = process.env.NEXT_PUBLIC_TELEMETRY_URL;
+export const notificationUrl = process.env.NEXT_PUBLIC_NOTIFICATION_URL;
 export const API_ENDPOINTS = {
   accountCreate: `${baseurl}/account/create`,
   accountLogin: `${baseurl}/account/login`,
@@ -15,7 +16,7 @@ export const API_ENDPOINTS = {
     `${baseurl}/form/read?context=${context}&contextType=${contextType}`,
   issueCertificate: `${baseurl}/tracking/certificate/issue`,
   renderCertificate: `${baseurl}/tracking/certificate/render`,
-  downloadCertificate: `${baseurl}/tracking/certificate/render`,
+  downloadCertificate: `${baseurl}/tracking/certificate/render-PDF`,
   userCheck: `${baseurl}/user/check`,
   sendOTP: `${baseurl}/user/send-otp`,
   verifyOTP: `${baseurl}/user/verify-otp`,
@@ -39,6 +40,20 @@ export const API_ENDPOINTS = {
     `${baseurl}/cohort/cohortHierarchy/${cohortId}`,
   myCohorts: (userId: string) => `${baseurl}/cohort/mycohorts/${userId}`,
   telemetry: `${telemetryUrl}/telemetry`,
+  compositeSearch: `${baseurl}/action/composite/v3/search`,
+  courseHierarchy: (courseId: string) =>
+    `${baseurl}/api/course/v1/hierarchy/${courseId}`,
+  questionList: `${baseurl}/api/question/v2/list`,
+  userCertStatusGet: `${baseurl}/tracking/user_certificate/status/get`,
+  userCertStatusCreate: `${baseurl}/tracking/user_certificate/status/create`,
+  contentCourseStatus: `${baseurl}/tracking/content/course/status`,
+  contentCourseStatusUpdate: `${baseurl}/tracking/user_certificate/status/update`,
+  userUpdatePatch: `${baseurl}/user/update`,
+  inAppNotifications: `${notificationUrl}/notification/inApp`,
+  inAppMarkRead: `${notificationUrl}/notification/inApp/mark-read`,
+  presignedUrl: `${baseurl}/user/presigned-url`,
+  contentCreateSunbird: `${baseurl}/action/content/v3/create`,
+  contentUploadUrlSunbird: (identifier: string) => `${baseurl}/action/content/v3/upload/url/${identifier}`,
 };
 
 // Interface API endpoints

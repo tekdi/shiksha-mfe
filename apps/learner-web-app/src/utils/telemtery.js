@@ -25,6 +25,7 @@ const telemetryConfig = {
     id: 'shiksha-learner',
     pid: 'learner',
     ver: '0.0.1',
+    time: new Date().toISOString(),
   },
   env: 'prod',
   channel: tenantName,
@@ -50,12 +51,10 @@ export const telemetryFactory = {
     if (typeof window !== 'undefined' && !CsTelemetryModule.instance.isInitialised) {
       // Check if device ID already exists in localStorage
       const deviceId = localStorage.getItem('did');
-
       if (deviceId && deviceId !== 'pending-device-id') {
         // Use existing device ID
         telemetryConfig.did = deviceId;
         console.log('Telemetry Device ID (did):', deviceId);
-
         // Initialize telemetry with existing device ID
         CsTelemetryModule.instance.init({});
         CsTelemetryModule.instance.telemetryService.initTelemetry({

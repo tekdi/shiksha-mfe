@@ -15,6 +15,7 @@ interface ContentCardGridProps {
  handleLoadMore: (e: any) => void;
  isLoadingMoreData: boolean;
  isHideEmptyDataMessage?: boolean;
+ bookmarks?: string[];
 }
 
 
@@ -68,6 +69,7 @@ const ContentCardGrid = memo((props: ContentCardGridProps) => {
               isExpanded={isExpanded}
               onToggle={handleToggleCard}
               cardId={cardId}
+              isLiked={props.bookmarks?.some((b) => String(b) === String(item.identifier))}
             />
           </Grid>
         );

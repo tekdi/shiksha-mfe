@@ -1,18 +1,29 @@
 import React from 'react';
-import dynamic from 'next/dynamic';
-
-const Player = dynamic(() => import('@players'), {
-  ssr: false,
-});
 
 interface SunbirdPlayerProps {
   identifier: string;
+  playerConfig?: any;
+  fromShortVideo?: boolean;
+  PlayerComponent?: React.ComponentType<any>;
 }
 
-export const SunbirdPlayer: React.FC<SunbirdPlayerProps> = ({ identifier }) => {
+export const SunbirdPlayer: React.FC<SunbirdPlayerProps> = ({ 
+  identifier, 
+  playerConfig, 
+  fromShortVideo, 
+  PlayerComponent 
+}) => {
+  if (!PlayerComponent) {
+    return (
+      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        No Player Component provided
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <Player identifier={identifier} />
+    <div style={{ height: '100%' }}>
+      <PlayerComponent identifier={identifier} playerConfig={playerConfig} fromShortVideo={fromShortVideo} />
     </div>
   );
 };

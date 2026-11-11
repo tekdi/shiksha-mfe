@@ -1,6 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import { CheckboxProps } from "@mui/material/Checkbox";
+
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   Modal,
   Box,
@@ -13,411 +13,483 @@ import {
 import DownloadIcon from "@mui/icons-material/Download";
 import CloseIcon from "@mui/icons-material/Close";
 import ShareIcon from "@mui/icons-material/Share";
+
 import {
   downloadCertificate,
   renderCertificate,
 } from "../../utils/CertificateService/coursesCertificates";
+import { getSwadhaarTemplate } from "./templateFuction";
+
+declare const html2pdf: any;
+
+const DEFAULT_TEMPLATE_ID = "cm7nbogii000moc3gth63l863";
 
 const style = {
-  position: "absolute" as const,
-  top: "50%",
-  left: "50%",
-  transform: "translate(-50%, -50%)",
-  width: { xs: "90vw", sm: "85vw", md: "80vw", lg: 900 },
-  maxHeight: "90vh",
+  position: "fixed" as const,
+  inset: 0,
+
+  margin: "auto",
+
+  width: {
+    xs: "98vw",
+    sm: "95vw",
+    md: "92vw",
+    lg: "90vw",
+  },
+
+  height: "fit-content",
+
+  maxWidth: "1600px",
+  maxHeight: "96vh",
+
   bgcolor: "background.paper",
-  borderRadius: 2,
+  borderRadius: "16px",
   boxShadow: 24,
-  p: { xs: 2, sm: 3 },
+  p: 2,
+
   display: "flex",
   flexDirection: "column",
 };
-interface CommonCheckboxProps extends CheckboxProps {
-  label: string;
-  required?: boolean;
-  disabled?: boolean;
-}
 
 interface CertificateModalProps {
   certificateId?: string;
-  open: any;
-  setOpen: any;
+  userName?: string;
+  courseName?: string;
+  open: boolean;
+  setOpen: (open: boolean) => void;
 }
+
+const CertificatePage = React.memo<{
+  htmlContent: string;
+}>(({ htmlContent }) => {
+  const encodedHtml = encodeURIComponent(htmlContent);
+  const dataUri = `data:text/html;charset=utf-8,${encodedHtml}`;
+
+  return (
+    <Box
+      sx={{
+        width: "100%",
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Box
+        sx={{
+          width: "100%",
+          maxWidth: "1400px",
+
+          aspectRatio: "16 / 9",
+
+          borderRadius: "12px",
+
+          overflow: "hidden",
+
+          background: "#fff",
+
+          boxShadow:
+            "0 6px 20px rgba(0,0,0,0.12)",
+        }}
+      >
+        <iframe
+          src={dataUri}
+          title="Certificate Preview"
+          style={{
+            width: "100%",
+            height: "100%",
+            border: "none",
+            display: "block",
+          }}
+        />
+      </Box>
+    </Box>
+  );
+});
 
 export const CertificateModal: React.FC<CertificateModalProps> = ({
   certificateId,
+  userName,
+  courseName,
   open,
   setOpen,
 }) => {
-  // certificateId = 'did:rcw:20f5fe82-4912-401a-a33a-09b46413b9cf'; // temporaory hardcoded
-  const handleCloseCertificate = async () => {};
   const [certificateHtml, setCertificateHtml] = useState("");
-  const [showShareOptions, setShowShareOptions] = useState(false);
-  const [certificateSite, setCertificateSite] = useState("");
-  const [deviceType, setDeviceType] = useState<"mobile" | "desktop">("desktop");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchCertificate = async () => {
-      if (!certificateId) {
-        console.log("No certificateId provided");
-        return;
-      }
+      if (!certificateId) return;
 
       try {
         setLoading(true);
-        console.log("Fetching certificate with ID:", certificateId);
-        const templateId = localStorage.getItem("templtateId") || "";
-        console.log("Using template ID:", templateId);
+
+        const templateId =
+          localStorage.getItem("templateId") ||
+          localStorage.getItem("templtateId") ||
+          DEFAULT_TEMPLATE_ID;
 
         const response = await renderCertificate({
           credentialId: certificateId,
-          templateId: templateId,
+          templateId,
         });
-        console.log("Certificate response:", response);
-        setCertificateHtml(response);
+
+        const isSwadhaar =
+          typeof window !== "undefined" &&
+          (window.location.hostname.includes("swadhaar") ||
+            localStorage
+              .getItem("tenantName")
+              ?.toLowerCase()
+              .includes("swadhaar") ||
+            localStorage
+              .getItem("userProgram")
+              ?.toLowerCase()
+              .includes("swadhaar"));
+
+        if (isSwadhaar) {
+          const isValid = (val: any) => {
+            if (!val) return false;
+            const s = val.toString().trim();
+            return (
+              s !== "" &&
+              s !== "null" &&
+              s !== "undefined"
+            );
+          };
+
+          const lFirstName = typeof window !== "undefined" ? localStorage.getItem("firstName") : null;
+          const lLastName = typeof window !== "undefined" ? localStorage.getItem("lastName") : null;
+          const lName = typeof window !== "undefined" ? localStorage.getItem("name") : null;
+
+          const firstName = isValid(lFirstName) ? lFirstName!.toString().trim() : "";
+          const lastName = isValid(lLastName) ? lLastName!.toString().trim() : "";
+
+          let holderName = "Learner";
+          if (firstName || lastName) {
+            holderName = `${firstName} ${lastName}`.trim();
+          } else if (isValid(userName)) {
+            holderName = userName!.toString().trim();
+          } else if (isValid(lName)) {
+            holderName = lName!.toString().trim();
+          }
+
+          let levelName = "Swadhaar Course";
+          if (isValid(courseName)) {
+            levelName = courseName!.toString().trim();
+          }
+
+          const logoUrl = typeof window !== "undefined"
+              ? window.location.origin + "/images/swadhar_logo.png"
+              : "/images/swadhar_logo.png";
+
+          const logoBase64 = await new Promise<string>((resolve) => {
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            img.src = logoUrl;
+            img.onload = () => {
+              const canvas = document.createElement("canvas");
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext("2d");
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL("image/png"));
+              } else {
+                resolve("");
+              }
+            };
+            img.onerror = () => resolve("");
+            setTimeout(() => resolve(""), 2000);
+          });
+
+          const swadhaarTemplate = getSwadhaarTemplate({
+            holderName,
+            levelName,
+            logoBase64,
+            isPdf: false,
+          });
+          setCertificateHtml(swadhaarTemplate);
+        } else {
+          setCertificateHtml(response);
+        }
       } catch (e) {
         console.error("Error fetching certificate:", e);
-        // Show a fallback certificate if rendering fails
-        setCertificateHtml(`
-          <div style="font-family: 'Segoe UI', sans-serif; text-align: center; padding: 40px; background: linear-gradient(to bottom, #fff, #f9f9f9); border: 2px solid #0b3d91; border-radius: 12px; width: 600px; margin: auto;">
-            <h1 style="color: #0b3d91; margin-bottom: 0;">CERTIFICATE</h1>
-            <h2 style="color: #1565c0; margin-top: 5px;">OF COMPLETION</h2>
-            <p style="margin-top: 40px; font-size: 18px;">This Certificate is presented to</p>
-            <h2 style="color: #8b0000; font-family: cursive; margin: 16px 0;">Certificate Holder</h2>
-            <hr style="width: 60%; margin: 20px auto; border: 1px solid #ccc;" />
-            <p style="font-size: 14px; color: #555;">
-              for successfully completing the course requirements
-            </p>
-            <div style="margin-top: 40px;">
-              <p style="font-size: 12px; color: #666;">Certificate ID: ${certificateId}</p>
-            </div>
-          </div>
-        `);
       } finally {
         setLoading(false);
       }
     };
 
     fetchCertificate();
-  }, [certificateId]);
+  }, [certificateId, userName, courseName]);
 
-  useEffect(() => {
-    const userAgent = navigator.userAgent.toLowerCase();
+interface CertificateActionsProps {
+  certificateHtml: string;
+  courseName?: string;
+  userName?: string;
+}
 
-    // Check for mobile or tablet in the userAgent string
-    if (/mobile|android|touch|webos|iphone|ipad|ipod/i.test(userAgent)) {
-      setDeviceType("mobile");
-    } else {
-      setDeviceType("desktop");
-    }
-  }, []);
+const CertificateActions: React.FC<CertificateActionsProps> = ({
+  certificateHtml,
+  courseName,
+  userName,
+}) => {
+  const [actionLoading, setActionLoading] = useState(false);
 
-  const CertificatePage: React.FC<{ htmlContent: string }> = ({
-    htmlContent,
-  }) => {
-    const encodedHtml = encodeURIComponent(htmlContent);
-    const dataUri = `data:text/html;charset=utf-8,${encodedHtml}`;
-    setCertificateSite(dataUri);
-    return (
-      <Box sx={{ width: "100%", height: "100%", display: "flex" }}>
-        <iframe
-          src={dataUri}
-          style={{
-            width: "100%",
-            height: "1200px",
-            // minHeight: '800px',
-            border: "none",
-          }}
-        />
-      </Box>
-    );
-  };
-  const handleViewCertificate = async (rowData: any) => {
+  const generatePdf = async () => {
+    let wrapper: HTMLDivElement | null = null;
     try {
-      const response = await renderCertificate({
-        credentialId: rowData.certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
+      const loadScript = (src: string) =>
+        new Promise<void>((resolve, reject) => {
+          if (document.querySelector(`script[src="${src}"]`)) {
+            resolve();
+            return;
+          }
+          const script = document.createElement("script");
+          script.src = src;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
+          document.body.appendChild(script);
+        });
+
+      await Promise.all([
+        loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),
+        loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"),
+      ]);
+
+      const html2canvas = (window as any).html2canvas;
+      const jsPDF = (window as any).jspdf.jsPDF;
+
+      const isValid = (val: any) => {
+        if (!val) return false;
+        const s = val.toString().trim();
+        return s !== "" && s !== "null" && s !== "undefined";
+      };
+
+      const lFirstName = localStorage.getItem("firstName");
+      const lLastName = localStorage.getItem("lastName");
+      const lName = localStorage.getItem("name");
+
+      const firstName = isValid(lFirstName) ? lFirstName!.toString().trim() : "";
+      const lastName = isValid(lLastName) ? lLastName!.toString().trim() : "";
+
+      let holderName = "Learner";
+      if (firstName || lastName) {
+        holderName = `${firstName} ${lastName}`.trim();
+      } else if (isValid(userName)) {
+        holderName = userName!.toString().trim();
+      } else if (isValid(lName)) {
+        holderName = lName!.toString().trim();
+      }
+
+      const safeName = holderName.replace(/\s+/g, "_");
+
+      const logoUrl = `${window.location.origin}/images/swadhar_logo.png`;
+      const logoBase64 = await new Promise<string>((resolve) => {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        img.src = logoUrl;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0);
+            resolve(canvas.toDataURL("image/png"));
+          } else {
+            resolve("");
+          }
+        };
+        img.onerror = () => resolve("");
       });
-      // setCertificateHtml(response);
-      // setShowCertificate(true);
-    } catch (e) {
-      // if (selectedRowData.courseStatus === Status.ISSUED) {
-      //   showToastMessage(t('CERTIFICATES.RENDER_CERTIFICATE_FAILED'), 'error');
-      // }
+
+      const html = getSwadhaarTemplate({
+        holderName,
+        levelName: courseName || "Swadhaar Course",
+        logoBase64,
+        isPdf: true,
+      });
+
+      wrapper = document.createElement("div");
+      wrapper.style.position = "fixed";
+      wrapper.style.top = "0";
+      wrapper.style.left = "0";
+      wrapper.style.width = "1px";
+      wrapper.style.height = "1px";
+      wrapper.style.overflow = "hidden";
+      wrapper.style.zIndex = "-9999";
+      wrapper.style.opacity = "0";
+      wrapper.style.pointerEvents = "none";
+
+      const renderRoot = document.createElement("div");
+      renderRoot.style.width = "1600px";
+      renderRoot.style.height = "900px";
+      renderRoot.innerHTML = html;
+      wrapper.appendChild(renderRoot);
+      document.body.appendChild(wrapper);
+
+      await document.fonts.ready;
+      await new Promise((r) => setTimeout(r, 1000));
+
+      const element = renderRoot.querySelector("#certificate-pdf") as HTMLElement;
+      if (!element) throw new Error("Certificate element not found");
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: "#ffffff",
+        logging: true,
+        width: 1600,
+        height: 900,
+        onclone: (clonedDoc:any) => {
+          const clonedElement = clonedDoc.querySelector("#certificate-pdf") as HTMLElement;
+          if (clonedElement) {
+            clonedElement.style.visibility = "visible";
+            clonedElement.style.opacity = "1";
+          }
+        }
+      });
+
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "px",
+        format: [1600, 900],
+        compress: true
+      });
+
+      pdf.addImage(imgData, "JPEG", 0, 0, 1600, 900);
+      const pdfBlob = pdf.output("blob");
+
+      return { pdf, pdfBlob, safeName };
+    } finally {
+      if (wrapper && wrapper.parentNode) {
+        document.body.removeChild(wrapper);
+      }
     }
   };
+
   const onDownloadCertificate = async () => {
     try {
-      const response = await downloadCertificate({
-        credentialId: certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
-      });
-
-      if (!response) {
-        throw new Error("No response from server");
-      }
-
-      const blob = new Blob([response], { type: "application/pdf" });
-
-      const url = window.URL.createObjectURL(blob);
-
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `certificate_${certificateId}.pdf`; // Set filename
-      document.body.appendChild(a);
-      a.click();
-
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      //  showToastMessage(
-      //   t('CERTIFICATES.DOWNLOAD_CERTIFICATE_SUCCESSFULLY'),
-      //   'success'
-      // );
+      setActionLoading(true);
+      const { pdf, safeName } = await generatePdf();
+      pdf.save(`Swadhaar_Certificate_${safeName}.pdf`);
     } catch (e) {
-      // if (rowData.courseStatus === Status.ISSUED)
-      {
-        // showToastMessage(t('CERTIFICATES.RENDER_CERTIFICATE_FAILED'), 'error');
-      }
-      console.error("Error downloading certificate:", e);
+      console.error("Download Error:", e);
+      alert("Failed to download certificate.");
+    } finally {
+      setActionLoading(false);
     }
   };
-  // const [open, setOpen] = useState(true);
-  const handleOpen = () => setOpen(true);
-  const handleClose = () => setOpen(false);
-  const onDownload = () => {
-    console.log("Download clicked");
-  };
 
-  const onClose = () => {
-    console.log("Close clicked");
-  };
-
-  // const onShare = () => {
-  //   console.log('Share clicked');
-  // };
   const onShare = async () => {
     try {
-      const response = await downloadCertificate({
-        credentialId: certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
-      });
+      setActionLoading(true);
+      const { pdfBlob, safeName } = await generatePdf();
+      const fileName = `Swadhaar_Certificate_${safeName}.pdf`;
+      const file = new File([pdfBlob], fileName, { type: "application/pdf" });
 
-      const blob = new Blob([response], { type: "application/pdf" });
-      const file = new File([blob], `certificate_${certificateId}.pdf`, {
-        type: "application/pdf",
-      });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
-          title: "Certificate of Completion",
-          text: "Here is your certificate!",
+          title: "My Certificate of Completion",
+          text: `I just completed ${courseName || "the course"}!`,
           files: [file],
         });
       } else {
-        // fallback
-        //   const url = window.URL.createObjectURL(blob);
-        //   await navigator.clipboard.writeText(url);
-        //   alert('Link to certificate copied! Direct sharing not supported.');
-        //
-        setShowShareOptions(true);
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
       }
-    } catch (error) {
-      console.error("Sharing failed:", error);
-      alert("Unable to share certificate.");
-    }
-  };
-  const handleNativeShare = async () => {
-    setShowShareOptions(false);
-    try {
-      const response = await downloadCertificate({
-        credentialId: certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
-      });
-
-      const blob = new Blob([response], { type: "application/pdf" });
-      const file = new File([blob], `certificate_${certificateId}.pdf`, {
-        type: "application/pdf",
-      });
-
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          title: "Certificate",
-          text: "Here is your certificate!",
-          files: [file],
-        });
-      } else {
-        alert("Your browser does not support file sharing.");
+    } catch (e) {
+      if ((e as any).name !== "AbortError") {
+        console.error("Share Error:", e);
+        alert("Failed to share certificate.");
       }
-    } catch (error) {
-      console.error("Native sharing failed:", error);
-      alert("Unable to share.");
+    } finally {
+      setActionLoading(false);
     }
   };
-  const shareViaEmail = async () => {
-    try {
-      // Fetching the certificate PDF
-      const response = await downloadCertificate({
-        credentialId: certificateId,
-        templateId: localStorage.getItem("templtateId") || "",
-      });
-
-      const blob = new Blob([response], { type: "application/pdf" });
-      const file = new File([blob], `certificate_${certificateId}.pdf`, {
-        type: "application/pdf",
-      });
-
-      // Create a downloadable URL for the PDF
-      const fileUrl = URL.createObjectURL(file);
-
-      // Generate a mailto link with the PDF link as the body
-      const subject = encodeURIComponent("Certificate of Completion");
-      const body = encodeURIComponent(`Here is your certificate: ${fileUrl}`);
-
-      window.open(`mailto:?subject=${subject}&body=${body}`);
-    } catch (error) {
-      console.error("Error generating certificate:", error);
-      alert("Unable to share certificate via email.");
-    }
-  };
-
-  const handleCopyLink = async () => {
-    setShowShareOptions(false);
-    const url = `https://example.com/certificate/${certificateId}`;
-    await navigator.clipboard.writeText(url);
-    alert("Certificate link copied to clipboard!");
-  };
-
-  const handleShareWhatsApp = () => {
-    setShowShareOptions(false);
-    const url = `https://example.com/certificate/${certificateId}`;
-    const whatsappUrl = `https://wa.me/?text=Check%20this%20certificate:%20${encodeURIComponent(
-      url
-    )}`;
-    window.open(whatsappUrl, "_blank");
-  };
-
-  //   const certificateHtml = `
-  //   <div style="font-family: 'Segoe UI', sans-serif; text-align: center; padding: 40px; background: linear-gradient(to bottom, #fff, #f9f9f9); border: 2px solid #0b3d91; border-radius: 12px; width: 600px; margin: auto;">
-  //     <h1 style="color: #0b3d91; margin-bottom: 0;">CERTIFICATE</h1>
-  //     <h2 style="color: #1565c0; margin-top: 5px;">OF COMPLETION</h2>
-  //     <p style="margin-top: 40px; font-size: 18px;">This Certificate is presented to</p>
-  //     <h2 style="color: #8b0000; font-family: cursive; margin: 16px 0;">Lorem Ipsum Dola</h2>
-  //     <hr style="width: 60%; margin: 20px auto; border: 1px solid #ccc;" />
-  //     <p style="font-size: 14px; color: #555;">
-  //       on the occasion of Lorem Ipsum Dolor held on 00th November 2023 at the Lorem Ipsum Dolor
-  //     </p>
-
-  //     <div style="display: flex; justify-content: space-between; margin-top: 60px; padding: 0 40px;">
-  //       <div>
-  //         <div style="border-top: 1px solid #000; width: 120px; margin: auto;"></div>
-  //         <p style="margin: 5px 0;">Principal</p>
-  //       </div>
-  //       <div>
-  //         <div style="border-top: 1px solid #000; width: 120px; margin: auto;"></div>
-  //         <p style="margin: 5px 0;">Director</p>
-  //       </div>
-  //     </div>
-
-  //     <div style="position: absolute; bottom: 20px; left: 20px;">
-  //       <div style="width: 60px; height: 60px; border-radius: 50%; background: radial-gradient(circle, #1976d2, #0b3d91); border: 4px solid gold;"></div>
-  //     </div>
-  //   </div>
-  // `;
 
   return (
-    <>
-      {/* <Button variant="contained" onClick={handleOpen}>
-        Open Modal
-      </Button> */}
-      <Modal open={open} onClose={handleClose}>
-        <Box
-          sx={{
-            ...style,
-            overflow: "auto",
-            // display: 'flex',
-            // flexDirection: 'column',
-          }}
+    <Stack direction="row" spacing={1}>
+      <Tooltip title="Download">
+        <IconButton
+          onClick={onDownloadCertificate}
+          disabled={actionLoading}
+          sx={{ color: actionLoading ? 'text.disabled' : 'inherit' }}
         >
-          <Stack
-            direction="row"
-            justifyContent="space-between"
-            alignItems="center"
-            mb={2}
-          >
-            <Typography variant="h6">Certificate</Typography>
-            <Stack direction="row" spacing={1}>
-              <Tooltip title="Download">
-                <IconButton onClick={onDownloadCertificate}>
-                  <DownloadIcon />
-                </IconButton>
-              </Tooltip>
-              {deviceType === "mobile" && (
-                <Tooltip title="Share">
-                  <IconButton onClick={onShare}>
-                    <ShareIcon />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Tooltip title="Close">
-                <IconButton onClick={handleClose}>
-                  <CloseIcon />
-                </IconButton>
-              </Tooltip>
-            </Stack>
-          </Stack>
-
-          <Box sx={{ maxHeight: "80vh", overflowY: "auto" }}>
-            {loading ? (
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  height: "400px",
-                }}
-              >
-                <Typography variant="h6">Loading Certificate...</Typography>
-              </Box>
-            ) : certificateHtml ? (
-              <CertificatePage htmlContent={certificateHtml} />
-            ) : (
-              <Box
-                sx={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  height: "400px",
-                }}
-              >
-                <Typography variant="h6" color="text.secondary">
-                  Certificate not available
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </Box>
-      </Modal>
-      {/* <Dialog
-        open={showShareOptions}
-        onClose={() => setShowShareOptions(false)}
-      >
-        <DialogTitle>Select Share Option</DialogTitle>
-        <DialogContent>
-          <List>
-            <ListItemButton onClick={shareViaEmail}>
-              <ListItemText primary="Share via Email" />
-            </ListItemButton>
-            <ListItemButton onClick={handleCopyLink}>
-              <ListItemText primary="Copy Link" />
-            </ListItemButton>
-            <ListItemButton onClick={handleShareWhatsApp}>
-              <ListItemText primary="WhatsApp" />
-            </ListItemButton>
-          </List>
-        </DialogContent>
-      </Dialog> */}
-    </>
+          <DownloadIcon />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Share">
+        <IconButton
+          onClick={onShare}
+          disabled={actionLoading}
+          sx={{ color: actionLoading ? 'text.disabled' : 'inherit' }}
+        >
+          <ShareIcon />
+        </IconButton>
+      </Tooltip>
+    </Stack>
   );
 };
+
+  const handleClose = () => setOpen(false);
+
+  return (
+    <Modal
+      open={open}
+      disableScrollLock
+      onClose={(event, reason) => {
+        if (reason !== "backdropClick" && reason !== "escapeKeyDown") {
+          handleClose();
+        }
+      }}
+    >
+      <Box sx={style}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="h6" fontWeight={700}>
+            Certificate
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            {certificateHtml && (
+              <CertificateActions
+                certificateHtml={certificateHtml}
+                courseName={courseName}
+                userName={userName}
+              />
+            )}
+            <Tooltip title="Close">
+              <IconButton onClick={handleClose}>
+                <CloseIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        </Stack>
+
+        <Box sx={{ width: "100%", flex: 1, overflow: "hidden", display: "flex", justifyContent: "center", alignItems: "center",minHeight: 0, }}>
+          {loading ? (
+            <Box sx={{ height: "400px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+              <Typography variant="h6">Processing...</Typography>
+            </Box>
+          ) : certificateHtml ? (
+            <Box sx={{ width: "100%", height: "100%" }}>
+              <CertificatePage htmlContent={certificateHtml} />
+            </Box>
+          ) : (
+            <Box sx={{ height: "400px", display: "flex", justifyContent: "center", alignItems: "center" }}>
+              <Typography variant="h6" color="text.secondary">
+                Certificate not available
+              </Typography>
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Modal>
+  );
+};
+
 export default CertificateModal;

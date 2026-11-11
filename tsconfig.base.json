@@ -42,6 +42,8 @@
       "@ContentDetails": ["mfes/content/src/pages/details/[identifier].tsx"],
       "@ContentPlayer": ["mfes/content/src/pages/player/[identifier].tsx"],
       "@shared-lib-v2/*": ["libs/shared-lib-v2/src/*"],
+      "@shiksha/plugin-like": ["libs/plugin-like/src/index.ts"],
+      "@shiksha/plugin-download": ["libs/plugin-download/src/index.ts"]
 
     }
   },

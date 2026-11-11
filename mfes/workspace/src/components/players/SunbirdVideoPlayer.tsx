@@ -1,6 +1,5 @@
 /* eslint-disable @nx/enforce-module-boundaries */
 import { getTelemetryEvents, handleExitEvent } from '@workspace/utils/Helper';
-import { Height } from '@mui/icons-material';
 import React, { useEffect, useRef, useState } from 'react';
 import styles from './SunbirdVideoPlayer.module.css';
 

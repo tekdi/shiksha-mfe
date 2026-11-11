@@ -96,6 +96,10 @@ const nextConfig = {
   async rewrites() {
     return [
       {
+        source: "/interface/:path*",
+        destination: "https://shiksha-dev-interface.tekdinext.com/interface/:path*",
+      },
+      {
         source: "/data/v3/telemetry",
         destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
       },
@@ -120,9 +124,17 @@ const nextConfig = {
   },
 };
 
+const withPWA = require("next-pwa")({
+  dest: "public",
+  disable: process.env.NODE_ENV === "development",
+  register: true,
+  skipWaiting: true,
+});
+
 const plugins = [
   // Add more Next.js plugins to this list if needed.
   withNx,
+  withPWA,
 ];
 
 module.exports = composePlugins(...plugins)(nextConfig);

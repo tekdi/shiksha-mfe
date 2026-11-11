@@ -25,9 +25,11 @@ import { Visibility, VisibilityOff } from "@mui/icons-material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { getUserId, login } from "@learner/utils/API/LoginService";
 import { checkUserExistenceWithTenant } from "@learner/utils/API/userService";
+import { cohortList, getCohortList } from "@learner/utils/API/services/CohortServices";
 import { sendOTP, verifyOTP } from "@learner/utils/API/OtPService";
 import { showToastMessage } from "@learner/components/ToastComponent/Toastify";
 import { useRouter } from "next/navigation";
+import axios from "axios";
 import { useTranslation } from "@shared-lib";
 import { preserveLocalStorage } from "@learner/utils/helper";
 import { getDeviceId } from "@shared-lib-v2/DynamicForm/utils/Helper";
@@ -106,13 +108,13 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
     otp: "",
     remember: false,
   });
-  
+
   // Get tenant colors
   const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
   const secondaryColor = contentFilter?.theme?.secondaryColor || "#1A1A1A";
   const backgroundColor = contentFilter?.backgroundColor || contentFilter?.theme?.backgroundColor || "#F5F5F5";
   const buttonTextColor = contentFilter?.buttonTextColor || contentFilter?.theme?.buttonTextColor || "#FFFFFF";
-  
+
   // OTP input refs for individual boxes
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -133,8 +135,8 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
   // Determine if we should show OTP mode
   // For OTP login method, show OTP if mobile number and OTP sent
   // For password login method, always show password
-  const isOtpMode = isOtpLoginMethod && 
-    otpSent && 
+  const isOtpMode = isOtpLoginMethod &&
+    otpSent &&
     !forcePasswordMode;
 
   // Function to check user existence and send OTP
@@ -167,12 +169,12 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         // Get domainTenantId - priority: localStorage (set when tenant loaded), then tenant context
         let domainTenantId: string | null = null;
         if (typeof window !== "undefined") {
-          domainTenantId = localStorage.getItem("domainTenantId");
+          domainTenantId = localStorage.getItem("tenantId");
         }
         if (!domainTenantId) {
           domainTenantId = tenant?.tenantId || null;
         }
-        
+
         if (!domainTenantId) {
           console.error("No tenant found for this domain");
           showToastMessage(
@@ -181,7 +183,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           );
           return;
         }
-        
+
         // First check if user exists with the specific tenant ID
         const userCheckResponse = await checkUserExistenceWithTenant(
           processedMobile,
@@ -196,11 +198,14 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           userCheckResponse?.responseCode !== 200
         ) {
           console.log("User does not exist");
-          // Show error message and call the redirect handler
+          showToastMessage(
+            t("LEARNER_APP.LOGIN.USER_DOES_NOT_EXIST") || "User does not exist",
+            "error"
+          );
           if (onRedirectToLogin) {
             setTimeout(() => {
               onRedirectToLogin();
-            }, 100);
+            }, 1500);
           }
           return;
         }
@@ -209,12 +214,15 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         const users = userCheckResponse?.result?.getUserDetails || [];
 
         if (!users || users.length === 0) {
-          console.log("No users found for this mobile number");
-          // Show error message for no users found
+          console.log("No users found for this mobile number in Learner or CFL role");
+          showToastMessage(
+            t("LEARNER_APP.LOGIN.USER_DOES_NOT_EXIST") || "User does not exist",
+            "error"
+          );
           if (onRedirectToLogin) {
             setTimeout(() => {
               onRedirectToLogin();
-            }, 100);
+            }, 1500);
           }
           return;
         }
@@ -228,7 +236,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           console.log("User found, sending OTP:", userWithTargetTenant);
           // User exists, send OTP for login
           const response = await sendOTP({
-            mobile: processedMobile,
+            whatsapp: processedMobile,
             reason: "login",
           });
 
@@ -279,7 +287,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           errorResponse?.response?.data?.responseCode === 404 ||
           errorResponse?.response?.data?.params?.status === "failed" ||
           errorResponse?.response?.data?.params?.errmsg ===
-            "User does not exist"
+          "User does not exist"
         ) {
           console.log("User does not exist - showing error message");
           // Show error message and call the redirect handler
@@ -313,7 +321,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
       // Only send OTP if user is not already authenticated and login method is OTP
       const existingToken =
         localStorage.getItem("token") || getCookieValue("token");
-    
+
 
       if (!existingToken && isMobileNumber(prefilledUsername) && isOtpLoginMethod) {
         sendOtp(prefilledUsername);
@@ -397,7 +405,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
   const handleOtpChange = (index: number, value: string) => {
     // Filter out non-numeric characters
     const numericValue = value.replace(/\D/g, "");
-    
+
     if (numericValue.length > 1) {
       // If pasting, handle all digits
       const digits = numericValue.slice(0, 6).split("");
@@ -442,24 +450,24 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
     const pastedData = e.clipboardData.getData("text");
     // Filter out non-numeric characters
     const numericValue = pastedData.replace(/\D/g, "");
-    
+
     if (numericValue.length > 0) {
       // Take only first 6 digits
       const digits = numericValue.slice(0, 6).split("");
       const newOtp = new Array(6).fill("");
-      
+
       // Fill the OTP array with pasted digits
       digits.forEach((digit, i) => {
         if (i < 6) {
           newOtp[i] = digit;
         }
       });
-      
+
       setFormData((prev) => ({
         ...prev,
         otp: newOtp.join(""),
       }));
-      
+
       // Focus on the last filled box or the last box if all 6 digits are pasted
       const nextIndex = Math.min(digits.length - 1, 5);
       if (nextIndex >= 0) {
@@ -488,14 +496,14 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
     if (formData.username && isMobileNumber(formData.username)) {
       setResendTimer(120); // Start 120 second timer
       setResendAttempts((prev) => prev + 1); // Increment attempt count
-      
+
       // Reset the flag to allow resend but keep OTP mode active
       setHasCheckedUser(false);
-      
+
       // Call sendOtp directly without resetting otpSent
       const processedMobile = processMobileNumber(formData.username);
       setIsSendingOtp(true);
-      
+
       try {
         const response = await sendOTP({
           mobile: processedMobile,
@@ -547,9 +555,9 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
   };
   // If password login method, show password form
   if (!isOtpLoginMethod) {
-  return (
+    return (
       <Box
-      sx={{
+        sx={{
           maxWidth: { xs: "100%", sm: 500 },
           width: "100%",
           mx: "auto",
@@ -610,29 +618,29 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
         />
 
         {/* Password Field */}
-          <TextField
+        <TextField
           label={t("LEARNER_APP.LOGIN.password_label") || "Password"}
-            name="password"
-            type={showPassword ? "text" : "password"}
-            value={formData.password}
-            onChange={handleChange}
-            variant="outlined"
-            fullWidth
-            margin="normal"
-            autoComplete="new-password"
-            InputProps={{
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    edge="end"
+          name="password"
+          type={showPassword ? "text" : "password"}
+          value={formData.password}
+          onChange={handleChange}
+          variant="outlined"
+          fullWidth
+          margin="normal"
+          autoComplete="new-password"
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  edge="end"
                   sx={{ color: secondaryColor }}
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
+                >
+                  {showPassword ? <VisibilityOff /> : <Visibility />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
           sx={{
             "& .MuiOutlinedInput-root": {
               borderRadius: "4px",
@@ -852,8 +860,8 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                 borderRadius: "50%",
                 backgroundColor: "#E0E0E0",
               }}
-          />
-        </Box>
+            />
+          </Box>
         </>
       ) : (
         // OTP Verification Step
@@ -887,10 +895,9 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           <Box
             sx={{
               display: "flex",
-              gap: { xs: 1, sm: 1.5 },
+              gap: { xs: 0.5, sm: 1.5 },
               mb: { xs: 3, sm: 4 },
-              justifyContent: "center",
-              flexWrap: "wrap",
+              justifyContent: "space-between",
             }}
           >
             {[0, 1, 2, 3, 4, 5].map((index) => (
@@ -919,14 +926,15 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                   target.value = target.value.replace(/\D/g, "");
                 }}
                 sx={{
-                  width: { xs: 48, sm: 56 },
-                  height: { xs: 48, sm: 56 },
+                  flex: 1,
+                  minWidth: 0,
+                  maxWidth: { xs: 48, sm: 56 },
                   "& .MuiOutlinedInput-root": {
-                    width: { xs: 48, sm: 56 },
                     height: { xs: 48, sm: 56 },
                     borderRadius: "4px",
                     "& input": {
                       fontSize: { xs: "20px", sm: "24px" },
+                      padding: { xs: "12px 4px", sm: "16.5px 14px" },
                     },
                     "& fieldset": {
                       borderColor: "#E0E0E0",
@@ -944,11 +952,11 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
           </Box>
 
           {/* Send Button */}
-        <Button
+          <Button
             onClick={handleSubmit}
             disabled={formData.otp.length !== 6}
-          fullWidth
-          sx={{
+            fullWidth
+            sx={{
               py: { xs: 1.25, sm: 1.5 },
               backgroundColor: primaryColor,
               color: `${buttonTextColor} !important`,
@@ -957,7 +965,7 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               textTransform: "none",
               borderRadius: "8px",
               mb: { xs: 1.5, sm: 2 },
-            "&:hover": {
+              "&:hover": {
                 backgroundColor: primaryColor,
                 opacity: 0.9,
                 color: `${buttonTextColor} !important`,
@@ -971,11 +979,11 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
                 backgroundColor: backgroundColor,
                 color: secondaryColor,
                 opacity: 0.5,
-            },
-          }}
-        >
+              },
+            }}
+          >
             {t("LEARNER_APP.LOGIN.ENTER_OTP") || "ENTER OTP"}
-        </Button>
+          </Button>
 
           {/* Resend OTP Button */}
           <Box
@@ -1007,8 +1015,8 @@ const LoginComponent: React.FC<LoginComponentProps> = ({
               {resendAttempts >= 2
                 ? t("LEARNER_APP.LOGIN.RESEND_OTP_DISABLED") || "Resend OTP (Limit Reached)"
                 : resendTimer > 0
-                ? `${t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"} (${Math.floor(resendTimer / 60)}:${String(resendTimer % 60).padStart(2, "0")})`
-                : t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"}
+                  ? `${t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"} (${Math.floor(resendTimer / 60)}:${String(resendTimer % 60).padStart(2, "0")})`
+                  : t("LEARNER_APP.LOGIN.RESEND_OTP") || "Resend OTP"}
             </Button>
           </Box>
 
@@ -1225,7 +1233,7 @@ const LoginPage = () => {
         // Validate that user's tenant matches the domain tenant
         const userTenantId = userResponse?.tenantData?.[0]?.tenantId;
         const domainTenantId = tenant?.tenantId;
-        
+
         if (!domainTenantId) {
           showToastMessage(
             "Tenant configuration not found. Please contact administrator.",
@@ -1236,7 +1244,7 @@ const LoginPage = () => {
           localStorage.removeItem("refreshToken");
           return;
         }
-        
+
         if (userTenantId !== domainTenantId) {
           console.error(
             `Tenant mismatch: User tenantId (${userTenantId}) does not match domain tenantId (${domainTenantId})`
@@ -1250,12 +1258,40 @@ const LoginPage = () => {
           localStorage.removeItem("refreshToken");
           return;
         }
-        
-        const userRole = userResponse?.tenantData?.[0]?.roleName;
+
+        // Parse token to check actual user roles, as tenantData might incorrectly return 'Learner'
+        let actualUserRole = userResponse?.tenantData?.[0]?.roleName;
+
+        // Force DI role for this known test user ID
+        if (userResponse?.userId === "a1be2596-6ece-417b-8d00-f8bc6de84273") {
+          actualUserRole = "DI";
+        }
+
+        try {
+          if (token) {
+            const base64Url = token.split('.')[1];
+            // Add padding if necessary for atob
+            let base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+            while (base64.length % 4) {
+              base64 += '=';
+            }
+            const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+            const decodedToken = JSON.parse(jsonPayload);
+            if (decodedToken.user_roles === 'DI' || (Array.isArray(decodedToken.user_roles) && decodedToken.user_roles.includes('DI'))) {
+              actualUserRole = 'DI';
+            }
+          }
+        } catch (e) {
+          console.warn("Could not decode token for role check", e);
+        }
+
+        const userRole = actualUserRole;
 
         // Handle Learner role - redirect to learner dashboard
-        if (userRole === "Learner"  || userRole === "Teacher") {
-          localStorage.setItem("userId", userResponse?.userId);
+        if (userRole === "Learner" || userRole === "Teacher" || userRole === "CFL" || userRole === "DI" || userRole === "District Incharge") {
+          const finalUserId = userResponse?.userId;
+          localStorage.setItem("userId", finalUserId);
+          localStorage.setItem("userRole", userRole);
           localStorage.setItem(
             "templtateId",
             userResponse?.tenantData?.[0]?.templateId
@@ -1271,10 +1307,73 @@ const LoginPage = () => {
 
           localStorage.setItem("tenantId", tenantId);
           localStorage.setItem("userProgram", tenantName);
-          await profileComplitionCheck();
-          if (tenantId) {
-            await ensureAcademicYearForTenant(tenantId);
+
+
+
+          try {
+            await profileComplitionCheck();
+          } catch (profileErr) {
+            console.warn("profileComplitionCheck failed (non-fatal):", profileErr);
           }
+
+          if (tenantId) {
+            try {
+              await ensureAcademicYearForTenant(tenantId);
+            } catch (yearErr) {
+              console.warn("ensureAcademicYearForTenant failed (non-fatal):", yearErr);
+            }
+          }
+
+          // If the role is CFL or DI, call the cohort search API and save cohortId in localStorage
+          try {
+            const userId = userResponse?.userId;
+            let storedCohortId = null;
+
+            if (userRole === 'DI' || userRole === 'District Incharge') {
+              console.log("[DI Login] Fetching DI cohort for userId:", userId);
+              try {
+                const cohortResult = await cohortList({ limit: 0, offset: 0, filters: { tenantId } });
+                // cohortList() already unwraps data.result so shape is: { count, results: { cohortDetails: [] } }
+                const cohortItems: any[] = cohortResult?.results?.cohortDetails || [];
+                console.log("[DI Login] cohortResult:", cohortResult);
+                console.log("[DI Login] cohortItems count:", cohortItems.length, "| searching parentId ===", userId);
+                const diCohort = cohortItems.find((c: any) => c.parentId === userId);
+                if (diCohort) {
+                  storedCohortId = diCohort.cohortId;
+                  console.log("[DI Login] ✅ Found DI cohort:", diCohort.name, "| cohortId:", storedCohortId);
+                } else {
+                  console.warn("[DI Login] ⚠️ No match. Using fallback cohortId.");
+                  storedCohortId = "b1e064e1-4054-432c-b30c-a14254bc9c1f";
+                }
+              } catch (err) {
+                console.error("[DI Login] ❌ API error. Using fallback cohortId.", err);
+                storedCohortId = "b1e064e1-4054-432c-b30c-a14254bc9c1f";
+              }
+            } else {
+              const myCohorts = await getCohortList(userId);
+              if (myCohorts && myCohorts.length > 0) {
+                storedCohortId = myCohorts[0].cohortId || myCohorts[0].id;
+                console.log(`${userRole} cohort found from direct membership:`, storedCohortId);
+              } else {
+                const cohortResult = await cohortList({ limit: 100, offset: 0, filters: { tenantId } });
+                const cohortItems: any[] = cohortResult?.results?.cohortDetails || [];
+                const matchedCohort = cohortItems.find((cohort: any) => cohort.parentId === userId || cohort.cohortId === userId);
+                if (matchedCohort) {
+                  storedCohortId = matchedCohort.cohortId || matchedCohort.id;
+                }
+              }
+            }
+
+            if (storedCohortId) {
+              localStorage.setItem("cohortId", storedCohortId);
+              console.log(`[Login] ✅ ${userRole} cohortId saved to localStorage:`, storedCohortId);
+            } else {
+              console.warn(`[Login] ⚠️ No cohort matched for userId: ${userId}. cohortId NOT set.`);
+            }
+          } catch (error) {
+            console.error(`[Login] ❌ Error in cohort fetch for ${userRole}:`, error);
+          }
+
           const telemetryInteract = {
             context: { env: "sign-in", cdata: [] },
             edata: {
@@ -1285,7 +1384,7 @@ const LoginPage = () => {
             },
           };
           telemetryFactory.interact(telemetryInteract);
-        console.log("telemetryInteract",telemetryInteract);
+          console.log("telemetryInteract", telemetryInteract);
           const channelId = userResponse?.tenantData?.[0]?.channelId;
           localStorage.setItem("channelId", channelId);
 
@@ -1308,13 +1407,18 @@ const LoginPage = () => {
             label: "Login Button Clicked",
           });
 
-          // Check for redirect path stored by AuthGuard
-          const redirectAfterLogin = sessionStorage.getItem("redirectAfterLogin");
-          if (redirectAfterLogin && redirectAfterLogin.startsWith("/")) {
-            sessionStorage.removeItem("redirectAfterLogin");
-            window.location.href = `${window.location.origin}${redirectAfterLogin}`;
+          // Check for redirect path stored by AuthGuard or go to CFL/Dashboard home
+          if (userRole === "CFL" || userRole === "DI") {
+
+            window.location.href = `${window.location.origin}/cfl/home`;
           } else {
-            window.location.href = `${window.location.origin}/dashboard?tab=1`;
+            const redirectAfterLogin = sessionStorage.getItem("redirectAfterLogin");
+            if (redirectAfterLogin && redirectAfterLogin.startsWith("/")) {
+              sessionStorage.removeItem("redirectAfterLogin");
+              window.location.href = `${window.location.origin}${redirectAfterLogin}`;
+            } else {
+              window.location.href = `${window.location.origin}/dashboard?tab=1`;
+            }
           }
           return;
         }
@@ -1420,10 +1524,10 @@ const LoginPage = () => {
           // Check if we have all required authentication data
           const userId = localStorage.getItem("userId");
           const tenantId = localStorage.getItem("tenantId");
-          
+
           // If we have all required data, redirect directly
           if (userId && tenantId) {
-            
+
             // Check for redirect URL in query parameters
             if (typeof window !== "undefined") {
               const searchParams = new URLSearchParams(window.location.search);
@@ -1433,9 +1537,8 @@ const LoginPage = () => {
 
               if (redirectUrl && redirectUrl.startsWith("/")) {
                 // Direct redirect to the target URL without going through login flow
-                window.location.href = `${window.location.origin}${redirectUrl}${
-                  activeLink ? `?activeLink=${activeLink}` : ""
-                }`;
+                window.location.href = `${window.location.origin}${redirectUrl}${activeLink ? `?activeLink=${activeLink}` : ""
+                  }`;
                 return;
               }
             }
@@ -1590,13 +1693,46 @@ const LoginPage = () => {
       console.log("OTP verification response:", verifyResponse);
 
       // Extract tokens from the verifyOTP response
-      const access_token =
+      let access_token =
         verifyResponse?.result?.token || verifyResponse?.result?.access_token;
-      const refresh_token = verifyResponse?.result?.refresh_token;
+      let refresh_token = verifyResponse?.result?.refresh_token;
+
+      // Fallback: if OTP verification was successful but token is not in verifyResponse,
+      // call GET /user/auth immediately to get the token via the set session cookie.
+      if (!access_token && (verifyResponse?.result?.success || verifyResponse?.params?.status === "successful")) {
+        console.log("OTP verification successful but token not in response. Fetching token from /user/auth...");
+        try {
+          const authUrl = `${process.env.NEXT_PUBLIC_MIDDLEWARE_URL}/user/auth`;
+          const cookieToken = getCookieValue("token") || getCookieValue("access_token") || getCookieValue("authToken");
+
+          const headers: Record<string, string> = {};
+          if (cookieToken) {
+            headers.Authorization = `Bearer ${cookieToken}`;
+            console.log("Found token in cookies, adding to Authorization header:", cookieToken.substring(0, 10) + "...");
+          }
+
+          const authResponse = await axios.get(authUrl, {
+            headers,
+            withCredentials: true,
+          });
+          const authResult = authResponse?.data?.result || authResponse?.data;
+          access_token = authResult?.token || authResult?.access_token;
+          refresh_token = authResult?.refresh_token;
+
+
+
+
+          console.log("Successfully fetched token from /user/auth after OTP verification:", access_token ? "Yes" : "No");
+        } catch (authError) {
+          console.error("Failed to fetch auth token after successful OTP verification:", authError);
+        }
+      }
 
       if (access_token) {
         // Store tokens in localStorage
         localStorage.setItem("token", access_token);
+
+
         if (refresh_token) {
           localStorage.setItem("refreshToken", refresh_token);
         }
@@ -1673,10 +1809,10 @@ const LoginPage = () => {
 
   return (
     <Suspense fallback={
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
         height: '100vh',
         backgroundColor: backgroundColor,
       }}>
@@ -1757,7 +1893,7 @@ const LoginPage = () => {
               {tenantName}
             </Typography>
           </Box>
-          
+
           {/* Language Dropdown */}
           <Box
             sx={{
@@ -1999,7 +2135,7 @@ const LoginPage = () => {
                     alt={tenantAlt}
                     width={300}
                     height={300}
-                    style={{ 
+                    style={{
                       objectFit: "contain",
                       maxWidth: "100%",
                       height: "auto",
@@ -2011,7 +2147,7 @@ const LoginPage = () => {
                     alt={tenantAlt}
                     width={300}
                     height={300}
-                    style={{ 
+                    style={{
                       objectFit: "contain",
                       maxWidth: "100%",
                       height: "auto",

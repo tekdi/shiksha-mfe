@@ -183,7 +183,9 @@
       "ABOUT_PRATHAM_TITLE": "பிரதம் பற்றி",
       "ABOUT_PRATHAM_DESC": "பிரதம் கல்வி முறைகளில் உள்ள இடைவெளிகளை புதுமையான, குறைந்த செலவில், மீண்டும் பயன்படுத்தக்கூடிய தலையீடுகளுடன் நிரப்புகிறது, இது வயது வரம்பு முழுவதையும் உள்ளடக்கியது. நேரடியாகவும், அரசு முறைகள் மூலமாகவும் செயல்படும் இந்த திட்டங்கள் ஒவ்வொரு ஆண்டும் மில்லியன் கணக்கான குழந்தைகளையும் ஆயிரக்கணக்கான பள்ளி இடைநிற்றவர்களையும் சென்றடைகின்றன. 'நேரடி' பணியில், ஒரு பிரதம் பயிற்றுவிப்பாளர் குழந்தைகளுடன் பள்ளியிலோ அல்லது சமூகத்திலோ பணியாற்றுகிறார், அதேசமயம் 'கூட்டு' மாதிரியில் பிரதம் குழுக்கள் மாநில, மாவட்ட அல்லது நகர அளவில் அரசு குழுக்களுடன் இணைந்து திட்டங்களை வடிவமைத்து செயல்படுத்துகின்றன. பிரதம் கற்றல் முடிவுகளை மேம்படுத்துவதற்கான அணுகுமுறை இந்தியாவிலும் அதற்கு அப்பாலும் ஒரு மாதிரியாக தொடர்கிறது.",
       "OUR_PROGRAMS": "எங்கள் திட்டங்கள்",
-      "SIGN_UP": "பதிவு செய்"
+      "SIGN_UP": "பதிவு செய்",
+      "TITLE": "முகப்பு",
+      "PROGRESS_TEXT": "முன்னேற்றம்: {{percent}}% முடிந்தது"
     },
     "LOGIN": {
       "welcome_title": "பிரதம் மைலேர்னிங்கிற்கு வரவேற்கிறோம்!",
@@ -340,6 +342,21 @@
       "SEARCH_TEXT": "தேடு",
       "APP_NAME": "பிரதம் மைலேர்னிங்",
       "ON_PLAYSTORE": "Playstore இல்"
+    },
+    "LEARN": {
+      "PAGE_TITLE": "Your Learning Path",
+      "LEVEL_PROGRESS": "Continue Learning",
+      "SUBTOPIC_PROGRESS": "Subtopic Progress",
+      "COMPLETED_LESSONS": "Completed {{completed}}/{{total}} Lessons",
+      "COMPLETED_SUBTOPICS": "Completed {{completed}}/{{total}} Subtopics",
+      "COMPLETED_MODULES": "Completed {{completed}}/{{total}} Modules",
+      "LESSONS_TITLE": "Lessons",
+      "START_LEARNING": "Start Learning",
+      "COMPLETED": "Completed",
+      "BACK_TO_LEARNING": "Back to Learning"
+    },
+    "ALERTS": {
+      "TITLE": "Alerts"
     }
   },
   "LOGIN_PAGE": {

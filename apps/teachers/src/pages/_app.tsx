@@ -115,9 +115,9 @@ function CustomApp({ Component, pageProps }: AppProps) {
   return (
     <>
       <style jsx global>{`
-        html {
-          font-family: ${poppins.style.fontFamily} !important;
-        }
+        // html {
+        //   font-family: ${poppins.style.fontFamily} !important;
+        // }
       `}</style>
       <Head>
         <title>{metaTags?.title}</title>

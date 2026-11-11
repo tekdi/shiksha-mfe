@@ -7,4 +7,5 @@ export default {
   },
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx'],
   coverageDirectory: '../../coverage/apps/learner-web-app',
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
 };

@@ -166,7 +166,9 @@
       "ABOUT_PRATHAM_TITLE": "Shiksha ಕುರಿತಾಗಿ",
       "ABOUT_PRATHAM_DESC": "Shiksha ಶಿಕ್ಷಣ ವ್ಯವಸ್ಥೆಗಳಲ್ಲಿ ಇರುವ ಅಂತರವನ್ನು ಬಜೆಟ್‌ಗೆ ತಕ್ಕ, ಪ್ರತಿಕ್ರಿಯಾಶೀಲ, ಪುನರಾವೃತ್ತಿಸಬಲ್ಲ ಹัส್ತಕ್ಷೇಪಗಳ ಮೂಲಕ ತುಂಬುತ್ತದೆ, ಅವುಗಳು ವಯೋಮಾನದತ್ತ ವ್ಯಾಪಿಸಿದಿರುತ್ತವೆ. “ನೇರ” ಕಾರ್ಯದಲ್ಲಿ, Shiksha ತರಬೇತುದಾರರು ಮಕ್ಕಳೊಂದಿಗೆ ಶಾಲೆ ಅಥವಾ ಸಮುದಾಯದಲ್ಲಿ ಕೆಲಸ ಮಾಡುತ್ತಾರೆ, ಮತ್ತು “ಭಾಗಿಧಾರೆ” ಮಾದರಿಯಲ್ಲಿ Shiksha ತಂಡಗಳು ರಾಜ್ಯ, ಜಿಲ್ಲೆ ಅಥವಾ ನಗರದ ಮಟ್ಟದಲ್ಲಿ ಸರಕಾರದ ತಂಡಗಳೊಂದಿಗೆ ಸೇರಿ ಕಾರ್ಯಕ್ರಮಗಳನ್ನು ವಿನ್ಯಾಸಗೊಳಿಸಿ ನಿರ್ವಹಿಸುತ್ತವೆ. ಶಿಕ್ಷಣ ಫಲಿತಾಂಶಗಳ ಸುಧಾರಣೆಗೆ Shiksha ನ ದೃಷ್ಟಿಕೋಣವು ಭಾರತದಲ್ಲೇ ಅಲ್ಲದೆ ವಿದೇಶದಲ್ಲಿಯೂ ಮಾದರಿಯಾಗಿರುತ್ತದೆ.",
       "OUR_PROGRAMS": "ನಮ್ಮ ಕಾರ್ಯಕ್ರಮಗಳು",
-      "SIGN_UP": "ಸೈನ್ ಅಪ್ ಮಾಡಿ"
+      "SIGN_UP": "ಸೈನ್ ಅಪ್ ಮಾಡಿ",
+      "TITLE": "ಮುಖಪುಟ",
+      "PROGRESS_TEXT": "ಪ್ರಗತಿ: {{percent}}% ಪೂರ್ಣ"
     },
     "LOGIN": {
       "welcome_title": "Shiksha myLearningಗೆ ಸ್ವಾಗತ!",
@@ -323,6 +325,21 @@
       "SEARCH_TEXT": "ಹುಡುಕಿ",
       "APP_NAME": "Shiksha myLearning",
       "ON_PLAYSTORE": "ಪ್ಲೇಸ್ಟೋರ್‌ನಲ್ಲಿ"
+    },
+    "LEARN": {
+      "PAGE_TITLE": "Your Learning Path",
+      "LEVEL_PROGRESS": "Continue Learning",
+      "SUBTOPIC_PROGRESS": "Subtopic Progress",
+      "COMPLETED_LESSONS": "Completed {{completed}}/{{total}} Lessons",
+      "COMPLETED_SUBTOPICS": "Completed {{completed}}/{{total}} Subtopics",
+      "COMPLETED_MODULES": "Completed {{completed}}/{{total}} Modules",
+      "LESSONS_TITLE": "Lessons",
+      "START_LEARNING": "Start Learning",
+      "COMPLETED": "Completed",
+      "BACK_TO_LEARNING": "Back to Learning"
+    },
+    "ALERTS": {
+      "TITLE": "Alerts"
     }
   },
   "LOGIN_PAGE": {

@@ -5,6 +5,7 @@ interface PlayerProps {
   playerConfig: any;
   relatedData?: any;
   configFunctionality?: boolean;
+  mode?: string;
 }
 
 const basePath = process.env.NEXT_PUBLIC_ASSETS_CONTENT || "/sbplayer";
@@ -13,6 +14,7 @@ const V1Player = ({
   playerConfig,
   relatedData: { courseId, unitId, userId },
   configFunctionality,
+  mode,
 }: PlayerProps) => {
   const previewRef = useRef<HTMLIFrameElement | null>(null);
   console.log("V1Player playerConfig", playerConfig);

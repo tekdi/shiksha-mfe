@@ -77,7 +77,7 @@ body {
     min-height: 700px;
     margin: 0;
     padding: 20px;
-    font-family: sans-serif;
+    /* font-family: sans-serif; */
     text-align: center;
     background-color: paleturquoise;
   }
@@ -90,7 +90,7 @@ body {
 
 .icon {
   display: inline-block;
-  font-family: 'Material Icons', serif;
+  /* font-family: 'Material Icons', serif; */
   font-style: normal;
   line-height: 1;
   direction: ltr;
@@ -398,7 +398,7 @@ main {
 /* This is for react-calender month view and classes are from library */
 .react-calendar {
   width: 100% !important;
-  font-family: Poppins, sans-serif !important;
+  /* font-family: Poppins, sans-serif !important; */
 }
 
 .react-calendar_month-viewdays_day {
@@ -423,12 +423,12 @@ main {
 
 .react-calendar button abbr {
   color: #1f1b13;
-  font-family: Poppins, sans-serif !important;
+   Poppins, sans-serif !important;
 }
 
 .react-calendar__month-view__weekdays__weekday abbr {
   color: #1f1b13;
-  font-family: Poppins, sans-serif !important;
+  /* font-family: Poppins, sans-serif !important; */
 }
 
 .present-marker {
@@ -1193,7 +1193,7 @@ mat-radio-group.mat-mdc-radio-group {
 /* Observation Component Overrides */
 
 .custom-font {
-  font-family: 'Poppins', sans-serif !important;
+  /* font-family: 'Poppins', sans-serif !important; */
 }
 
 .activeCard {

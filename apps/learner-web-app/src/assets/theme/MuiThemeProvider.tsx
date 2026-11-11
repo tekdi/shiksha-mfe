@@ -4,7 +4,7 @@
 import { createTheme, ThemeProvider, alpha } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import React, { useMemo } from 'react';
-import { LanguageProvider } from '@shared-lib';
+import { LanguageProvider } from '@shared-lib-v2/lib/context/LanguageContext';
 import FontSizeTheme from '../../context/FontSizeTheme';
 import { SpeechProvider } from '@shared-lib-v2/lib/context/SpeechContext';
 import { ColorInversionProvider } from '../../context/ColorInversionContext';
@@ -210,6 +210,7 @@ export const theme = createTheme({
     },
     info: {
       main: '#064471',
+      primary:'#1C2B4A',
       light: '#D6EEFF',
       contrastText: '#EFC570',
     },

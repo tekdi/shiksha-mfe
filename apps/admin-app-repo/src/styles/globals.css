@@ -17,7 +17,7 @@
 body {
   margin: 0;
   padding: 0;
-  font-family: Poppins, sans-serif !important;
+  /* font-family: Poppins, sans-serif !important; */
   background: #fff !important;
   overflow-y: auto !important;
   height: 100vh !important;
@@ -153,7 +153,7 @@ h4,
 h5,
 h6,
 p .css-1ydl6z0-MuiTypography-root .css-b7ovn5-MuiTypography-root .menu-list-content {
-  font-family: Poppins, sans-serif !important;
+  /* font-family: Poppins, sans-serif !important; */
 }
 
 
@@ -291,7 +291,7 @@ lib-editor .h-100vh {
 
 .content-main {
   padding: 10px;
-  font-family: Arial, sans-serif;
+  /* font-family: Arial, sans-serif; */
   font-size: 16px;
   line-height: 1.5;
   color: #333;

@@ -8,7 +8,6 @@ import {
   Button,
   Typography,
   Box,
-  CircularProgress,
 } from "@mui/material";
 import { alpha } from "@mui/material/styles";
 import CloseSharpIcon from "@mui/icons-material/CloseSharp";
@@ -26,7 +25,6 @@ interface ModalProps {
   secondaryBtnText?: string;
   handleSecondaryAction?: () => void;
   selectedDate?: Date;
-  isLoading?: boolean;
 }
 
 const ModalComponent: React.FC<ModalProps> = ({
@@ -39,7 +37,6 @@ const ModalComponent: React.FC<ModalProps> = ({
   handlePrimaryAction,
   secondaryBtnText = "Back",
   handleSecondaryAction,
-  isLoading = false,
 }) => {
   const { contentFilter } = useTenant();
   const primaryColor = contentFilter?.theme?.primaryColor || "#E6873C";
@@ -94,7 +91,6 @@ const ModalComponent: React.FC<ModalProps> = ({
           <Button
             variant="outlined"
             onClick={handleSecondaryAction ?? onClose}
-            disabled={isLoading}
             sx={{
               borderColor: alpha(secondaryColor, 0.3),
               color: secondaryColor,
@@ -105,10 +101,6 @@ const ModalComponent: React.FC<ModalProps> = ({
                 borderColor: secondaryColor,
                 backgroundColor: alpha(secondaryColor, 0.05),
               },
-              "&:disabled": {
-                borderColor: alpha(secondaryColor, 0.2),
-                color: alpha(secondaryColor, 0.5),
-              },
             }}
           >
             {secondaryBtnText}
@@ -117,7 +109,6 @@ const ModalComponent: React.FC<ModalProps> = ({
         <Button 
           variant="contained" 
           onClick={handlePrimaryAction}
-          disabled={isLoading}
           sx={{
             backgroundColor: primaryColor,
             color: "#FFFFFF",
@@ -130,21 +121,9 @@ const ModalComponent: React.FC<ModalProps> = ({
               boxShadow: `0 6px 16px ${alpha(primaryColor, 0.5)}`,
               opacity: 0.9,
             },
-            "&:disabled": {
-              backgroundColor: alpha(primaryColor, 0.6),
-              color: "#FFFFFF",
-              opacity: 0.7,
-            },
           }}
         >
-          {isLoading ? (
-            <Box display="flex" alignItems="center" gap={1}>
-              <CircularProgress size={20} sx={{ color: "#FFFFFF" }} />
-              <span>Marking...</span>
-            </Box>
-          ) : (
-            btnText
-          )}
+          {btnText}
         </Button>
       </DialogActions>
     </Dialog>

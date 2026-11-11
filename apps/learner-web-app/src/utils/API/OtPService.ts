@@ -2,7 +2,7 @@ import { API_ENDPOINTS, INTERFACE_API_ENDPOINTS } from "./EndUrls";
 import { post } from "./RestClient";
 
 interface SendOTPParams {
-  mobile: string;
+  whatsapp: string;
   reason: string;
 }
 interface VerifyOTPParams {
@@ -24,7 +24,7 @@ interface SendOtpInterfaceParams {
 }
 
 export const sendOTP = async ({
-  mobile,
+  whatsapp,
   reason,
 }: SendOTPParams): Promise<any> => {
   const apiUrl: string = API_ENDPOINTS.sendOTP;

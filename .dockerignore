@@ -1,0 +1,16 @@
+**/node_modules
+**/.next
+**/.nx
+.git
+**/dist
+**/tmp
+.vscode
+scratch
+*.log
+.DS_Store
+
+# never bake env files into images
+.env
+.env.*
+**/.env
+**/.env.*

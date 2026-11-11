@@ -114,6 +114,7 @@ const EditProfile = ({ completeProfile }: EditProfileProps) => {
           setuserData(useInfo?.result?.userData);
           const mappedData = mapUserData(useInfo?.result?.userData);
           console.log(mappedData);
+          const allowNameUpdate = searchParams.get('updateName') === 'true' || mappedData?.firstName === mappedData?.mobile;
           if (isUnderEighteen(useInfo?.result?.userData?.dob)) {
             delete responseForm?.schema.properties.mobile;
           }
@@ -124,12 +125,34 @@ const EditProfile = ({ completeProfile }: EditProfileProps) => {
           );
           console.log(updatedSchema);
 
-          setUserFormData(mappedData);
-          //unit name is missing from required so handled from frotnend
           let alterSchema = completeProfile
             ? updatedSchema
             : responseForm?.schema;
           let alterUISchema = responseForm?.uiSchema;
+
+          if (alterSchema?.properties?.firstName) {
+            alterSchema.properties.name = {
+              type: 'string',
+              title: t('LEARNER_APP.EDIT_PROFILE.NAME_LABEL', { defaultValue: 'Full Name' }),
+            };
+            if (alterSchema.required) {
+               alterSchema.required = alterSchema.required.filter((r: string) => r !== 'firstName' && r !== 'lastName');
+               if (!alterSchema.required.includes('name')) {
+                 alterSchema.required.push('name');
+               }
+            }
+            delete alterSchema.properties.firstName;
+            delete alterSchema.properties.lastName;
+            
+            alterUISchema.name = {
+              'ui:options': { grid: { xs: 12, sm: 12, md: 12 } }
+            };
+            
+            mappedData.name = `${mappedData.firstName || ''} ${mappedData.lastName || ''}`.trim();
+          }
+
+          setUserFormData(mappedData);
+          //unit name is missing from required so handled from frotnend
 
           //set 2 grid layout
           alterUISchema = enhanceUiSchemaWithGrid(alterUISchema);
@@ -137,16 +160,12 @@ const EditProfile = ({ completeProfile }: EditProfileProps) => {
           if (!completeProfile) {
             alterUISchema = {
               ...alterUISchema,
-              firstName: {
-                ...alterUISchema.firstName,
-                'ui:disabled': true,
+              name: {
+                ...(alterUISchema.name || {}),
+                'ui:disabled': !allowNameUpdate,
               },
               dob: {
-                ...alterUISchema.dob,
-                'ui:disabled': true,
-              },
-              lastName: {
-                ...alterUISchema.lastName,
+                ...(alterUISchema.dob || {}),
                 'ui:disabled': true,
               },
             };
@@ -197,8 +216,24 @@ const EditProfile = ({ completeProfile }: EditProfileProps) => {
     if (userFormData.email == payload.email) {
       delete payload.email;
     }
+
+    if (payload.name) {
+      const nameParts = payload.name.trim().split(/\s+/);
+      payload.firstName = nameParts[0] || '';
+      payload.lastName = nameParts.slice(1).join(' ') || '';
+      delete payload.name;
+    }
+
     console.log('payload', payload);
     const { userData, customFields } = splitUserData(payload);
+    
+    if (userData.firstName) {
+      localStorage.setItem('firstName', userData.firstName);
+      localStorage.setItem('name', userData.firstName);
+    }
+    if (userData.lastName) {
+      localStorage.setItem('lastName', userData.lastName);
+    }
 
     const parentPhoneField = customFields.find(
       (field: any) => field.value === formData.parent_phone

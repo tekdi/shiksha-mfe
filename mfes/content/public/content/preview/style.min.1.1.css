@@ -26,7 +26,7 @@
 */
 
 @font-face {
-    font-family: "Ionicons";
+    /* font-family: "Ionicons"; */
     /* src: url("../fonts/ionicons.eot?v=2.0.1");
     src: url("../fonts/ionicons.eot?v=2.0.1#iefix") format("embedded-opentype"), url("../fonts/ionicons.ttf?v=2.0.1") format("truetype"), url("../fonts/ionicons.woff?v=2.0.1") format("woff"), url("../fonts/ionicons.woff") format("woff"), url("../fonts/ionicons.svg?v=2.0.1#Ionicons") format("svg"); */
     font-weight: normal;
@@ -769,7 +769,7 @@
 .ion-wrench:before,
 .ion-xbox:before {
     display: inline-block;
-    font-family: "Ionicons";
+    /* font-family: "Ionicons"; */
     speak: none;
     font-style: normal;
     font-weight: normal;
@@ -3878,7 +3878,7 @@ html {
     -moz-user-select: none;
     -ms-user-select: none;
     user-select: none;
-    font-family: sans-serif;
+    /* font-family: sans-serif; */
     /* 1 */
     -webkit-text-size-adjust: 100%;
     -ms-text-size-adjust: 100%;
@@ -3972,7 +3972,7 @@ kbd,
 pre,
 samp {
     font-size: 1em;
-    font-family: monospace, serif;
+    /* font-family: monospace, serif; */
 }
 
 
@@ -4065,7 +4065,7 @@ textarea {
     /* 3 */
     font-size: 100%;
     /* 2 */
-    font-family: inherit;
+    /* font-family: inherit; */
     /* 1 */
     outline-offset: 0;
     /* 4 */
@@ -4246,7 +4246,7 @@ body,
     color: #000;
     word-wrap: break-word;
     font-size: 14px;
-    font-family: "Helvetica Neue", "Roboto", "Segoe UI", sans-serif;
+    /* font-family: "Helvetica Neue", "Roboto", "Segoe UI", sans-serif; */
     line-height: 20px;
     text-rendering: optimizeLegibility;
     -webkit-backface-visibility: hidden;

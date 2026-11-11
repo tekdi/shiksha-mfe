@@ -7,6 +7,8 @@ export interface ContentCreate {
   contentMime: string;
   lastAccessOn: string;
   detailsObject: any[];
+  status?: number;
+  completionPercentage?: number;
 }
 
 export enum ContentType {
@@ -34,4 +36,6 @@ export interface ContentCreate {
   contentMime: string;
   lastAccessOn: string;
   detailsObject: any[];
+  status?: number;
+  completionPercentage?: number;
 }
