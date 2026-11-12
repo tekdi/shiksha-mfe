@@ -91,7 +91,7 @@ const nextConfig = {
         source: '/app/telemetry', // Match telemetry route
         destination: '/api/telemetry', // Redirect to telemetry proxy
       },
-    ];
+    ].filter((r) => !String(r.destination).startsWith("undefined"));
   },
 };
 

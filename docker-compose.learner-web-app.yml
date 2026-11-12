@@ -8,7 +8,6 @@ services:
         - env
     ports:
       - '3003:3003'
-      - '4108:4108'
     env_file:
       - .env
     environment:

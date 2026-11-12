@@ -95,8 +95,8 @@ export const uploadProfilePhoto = async (
   file: File
 ): Promise<string> => {
   try {
-    const channelIdFromStorage = localStorage.getItem('channelId') || process.env.NEXT_PUBLIC_CHANNEL_ID || 'atree-channel';
-    const frameworkId = process.env.NEXT_PUBLIC_FRAMEWORK_ID || 'shiksha-fw';
+    const channelIdFromStorage = localStorage.getItem('channelId') || 'atree-channel';
+    const frameworkId = 'shiksha-fw';
     const userName = localStorage.getItem('firstName') || localStorage.getItem('name') || 'User';
     const headers = {
       'X-Channel-Id': channelIdFromStorage
