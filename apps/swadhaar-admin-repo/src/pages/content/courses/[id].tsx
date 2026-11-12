@@ -150,7 +150,7 @@ const pruneCustomSections = (
     apiSections.flatMap((s: any) => [s.moduleId, s.identifier, s.id].filter(Boolean))
   );
   const pendingCustom = customSections.filter(
-    (c: any) => !apiIds.has(c.moduleId) && !apiIds.has(c.identifier)
+    (c: any) => isLmsId(c.moduleId) && !apiIds.has(c.moduleId) && !apiIds.has(c.identifier)
   );
   if (typeof window !== 'undefined' && pendingCustom.length !== customSections.length) {
     try {
