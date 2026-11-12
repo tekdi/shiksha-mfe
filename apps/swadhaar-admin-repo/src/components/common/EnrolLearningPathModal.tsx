@@ -126,6 +126,34 @@ const enrolGroups = async (pathwayId: string, groupIds: string[], courseIds?: st
   await addPathwayCohorts(courses, groupIds).catch((err) => console.error('Could not record enrolled groups:', err));
 };
 
+/**
+ * Individual users: the path is assigned to each user (POST /user/v1/pathway/assign) and each user is enrolled in the
+ * path's courses (POST /lms-service/v1/enrollments). The learner app lists only LMS enrollments, so without the
+ * enrollment the courses never show for the user. Courses a user is already enrolled in are skipped by the LMS.
+ */
+const enrolUsers = async (pathwayId: string, userIds: string[], courseIds?: string[]): Promise<void> => {
+  const courses = courseIds?.length ? courseIds : await getPathwayCourseIds(pathwayId);
+  if (courses.length === 0) {
+    throw new Error('This learning path has no courses yet. Add courses before enrolling users.');
+  }
+  let failed = 0;
+  let firstError = '';
+  await runWithConcurrency(userIds, ENROL_CONCURRENCY, (userId) =>
+    Promise.all([assignPathwayToUser(userId, pathwayId), enrolLearnerInCourses(userId, courses)]).then(
+      () => undefined,
+      (err: any) => {
+        failed += 1;
+        firstError = firstError || apiErrorMessage(err);
+      }
+    )
+  );
+  // Remember the users so the builder and the learning path list can show them again
+  await addPathwayUsers(courses, userIds).catch((err) => console.error('Could not record enrolled users:', err));
+  if (failed > 0) {
+    const reason = firstError ? `: ${firstError}` : '';
+    throw new Error(`${failed} of ${userIds.length} user(s) could not be enrolled${reason}`);
+  }
+};
 export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
   open,
   onClose,
@@ -310,15 +338,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
       if (isGroupsTab) {
         await enrolGroups(pathwayId, selectedGroupIds, courseIds);
       } else {
-        // Users are assigned the path: POST /user/v1/pathway/assign
-        await runWithConcurrency(selectedUserIds, ENROL_CONCURRENCY, (userId) =>
-          assignPathwayToUser(userId, pathwayId).then(() => undefined)
-        );
-        // Remember the users so the builder and the learning path list can show them again
-        const pathCourseIds = courseIds?.length ? courseIds : await getPathwayCourseIds(pathwayId);
-        await addPathwayUsers(pathCourseIds, selectedUserIds).catch((err) =>
-          console.error('Could not record enrolled users:', err)
-        );
+         await enrolUsers(pathwayId, selectedUserIds, courseIds);
       }
     } catch (err: any) {
       setErrorMessage(err?.response?.data?.params?.errmsg || err?.response?.data?.message || err?.message || 'Enrolment failed.');
