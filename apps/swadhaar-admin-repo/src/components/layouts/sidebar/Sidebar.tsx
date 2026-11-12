@@ -17,6 +17,8 @@ import HubIcon from '@mui/icons-material/Hub';
 import MenuBookIcon from '@mui/icons-material/MenuBook';
 import FolderSpecialIcon from '@mui/icons-material/FolderSpecial';
 import AltRouteIcon from '@mui/icons-material/AltRoute';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SecurityIcon from '@mui/icons-material/Security';
@@ -33,6 +35,9 @@ interface SidebarProps {
 }
 
 type MenuGroup = 'people' | 'learning';
+
+/** External analytics dashboard, opened in a new tab. */
+const DASHBOARD_URL = 'https://bot-dev.tekdinext.com/dashboard/auth/login?redirect=%2F';
 
 const HOVER_BG = 'rgba(0, 0, 0, 0.04)';
 const ACTIVE_COLOR = 'primary.main';
@@ -108,6 +113,41 @@ const MainMenuButton: React.FC<MainMenuButtonProps> = ({ label, icon, expanded, 
     ) : (
       <ArrowRightIcon sx={{ color: 'text.secondary', fontSize: 22 }} />
     )}
+  </ListItemButton>
+);
+
+interface ExternalMenuLinkProps {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  onClick?: () => void;
+}
+
+/** Top-level menu entry that opens an external site in a new tab (no sub-menu). */
+const ExternalMenuLink: React.FC<ExternalMenuLinkProps> = ({ href, label, icon, onClick }) => (
+  <ListItemButton
+    component="a"
+    href={href}
+    target="_blank"
+    rel="noopener noreferrer"
+    onClick={onClick}
+    sx={{
+      borderRadius: '8px',
+      mb: 0.5,
+      py: 1,
+      px: 1.5,
+      color: 'text.primary',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      ...getHoverStyles(false),
+    }}
+  >
+    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+      <ListItemIcon sx={{ minWidth: 34, color: 'text.secondary' }}>{icon}</ListItemIcon>
+      <ListItemText primary={label} primaryTypographyProps={{ fontSize: '13px', fontWeight: 600 }} />
+    </Box>
+    <OpenInNewIcon sx={{ color: 'text.secondary', fontSize: 16 }} />
   </ListItemButton>
 );
 
@@ -332,7 +372,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </Collapse>
         </Box>
 
-        {/* ==================== 3. LATER ITEMS ==================== */}
+        {/* ==================== 3. DASHBOARD (EXTERNAL LINK) ==================== */}
+        <Box sx={{ mb: 1 }}>
+          <ExternalMenuLink
+            href={DASHBOARD_URL}
+            label={t('SIDEBAR.DASHBOARD')}
+            icon={<DashboardIcon fontSize="small" />}
+            onClick={onSidebarClose}
+          />
+        </Box>
+
+        {/* ==================== 4. LATER ITEMS ==================== */}
         {/* <LaterMenuItem
           label={t('SIDEBAR.NOTIFICATIONS')}
           badge={laterLabel}
