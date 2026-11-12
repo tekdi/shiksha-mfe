@@ -42,6 +42,7 @@ export interface SDBVHierarchyFilterProps {
   statusOptions?: (string | OptionItem)[];
   showRole?: boolean;
   roleOptions?: (string | OptionItem)[];
+   showLocation?: boolean;
   onClear?: () => void;
 }
 
@@ -81,6 +82,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
   statusOptions = [],
   showRole = false,
   roleOptions = [],
+  showLocation = true,
   onClear,
 }) => {
   const [states, setStates] = useState<LocationOption[]>([]);
@@ -299,6 +301,8 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
             </Grid>
           )}
 
+     {showLocation && (
+          <>
           <Grid item xs={12} sm={6} md={3}>
             <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
               State
@@ -358,8 +362,8 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
               ))}
             </Select>
           </Grid>
-
-
+          </>
+          )}
         </Grid>
       </Box>
     );
