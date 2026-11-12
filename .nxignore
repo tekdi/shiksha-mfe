@@ -1,3 +1,11 @@
 mfes/players/public/libs/sunbird-content-player/preview
 mfes/players/public/libs/sunbird-quml-player
 mfes/workspace/public/content-editor
+
+# Build output and Nx cache. The Docker build does not copy .gitignore, so Nx
+# would otherwise scan these and treat cached .next/package.json as a project.
+.nx/cache
+.nx/workspace-data
+**/.next
+dist
+tmp
