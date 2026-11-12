@@ -424,9 +424,9 @@ const getSaveSuccessMessage = (title: string, status: string, failedAttach: numb
     : `Section "${title}" published successfully!`;
 };
 
-const getSaveErrorMessage = (err: any, status: string): string => {
+const getSaveErrorMessage = (err: any): string => {
   if (err?.response?.status === 401) {
-    return `Section saved locally as ${status} (API token expired on QA server).`;
+    return 'Your session has expired. Please log in again and save the section.';
   }
   return (
     err?.response?.data?.params?.errmsg ||
@@ -703,7 +703,10 @@ const createOrUpdateModule = async (
     ...getModuleDates(),
   };
   const res = await createModule(payload);
-  return res?.result?.moduleId || `mod-${Date.now()}`;
+  const moduleId = res?.result?.moduleId;
+  // Without an LMS id the module cannot be edited or have lessons linked, so treat it as a failed save
+  if (!moduleId) throw new Error('Failed to create section: no module id returned.');
+  return moduleId;
 };
 
 /**
@@ -790,26 +793,7 @@ const saveSection = async (ctx: SaveContext, status: 'draft' | 'published') => {
   } catch (err: any) {
     console.error('Error in handleSave:', err);
 
-    // Graceful offline/token-fallback for a new section only; an edit must not spawn a blank module
-    if (!ctx.editingModuleId) saveModuleLocally(
-      courseId,
-      {
-        moduleId: `mod-${Date.now()}`,
-        identifier: `mod-${Date.now()}`,
-        name: effectiveTitle,
-        title: effectiveTitle,
-        description: `<p>${effectiveTitle}</p>`,
-        ordering: (course?.modules?.length || 0) + 1,
-        status,
-        children: [],
-      },
-      () => {
-        // ignore
-      }
-    );
-
-    ctx.notify(err?.response?.status === 401 ? 'info' : 'error', getSaveErrorMessage(err, status));
-    ctx.redirect(1500);
+  ctx.notify('error', getSaveErrorMessage(err));
   }
 };
 
