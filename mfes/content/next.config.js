@@ -87,7 +87,7 @@ const nextConfig = {
         source: routes.API.GENERAL.CONTENT_PLUGINS,
         destination: `${PORTAL_BASE_URL}${routes.API.GENERAL.CONTENT_PLUGINS}`, // Proxy to portal
       },
-    ];
+    ].filter((r) => !String(r.destination).startsWith("undefined"));
   },
 };
 

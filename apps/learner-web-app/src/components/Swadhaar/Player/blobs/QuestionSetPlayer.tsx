@@ -326,7 +326,7 @@ const QuestionScreen: React.FC<{
       });
     }
 
-    const fallbackBaseUrl = process.env.NEXT_PUBLIC_BASE_URL_READ || 'https://interface.tekdinext.com';
+    const fallbackBaseUrl = 'https://interface.tekdinext.com';
     processed = processed.replace(/src="\/assets\//g, `src="${fallbackBaseUrl}/assets/`);
     processed = processed.replace(/src="\/content\/assets\//g, `src="${fallbackBaseUrl}/content/assets/`);
 

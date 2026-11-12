@@ -99,22 +99,6 @@ const nextConfig = {
         source: "/interface/:path*",
         destination: "https://shiksha-dev-interface.tekdinext.com/interface/:path*",
       },
-      {
-        source: "/data/v3/telemetry",
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: "/v1/telemetry",
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: "/data/v3/telemetry",
-        destination: `${process.env.NEXT_PUBLIC_TELEMETRY_URL}/v1/telemetry`,
-      },
-      {
-        source: "/assets/public/:path*", // Match any URL starting with /assets/public/
-        destination: `${process.env.NEXT_PUBLIC_CLOUD_STORAGE_URL}/:path*`, // Forward to S3, stripping "/assets/public"
-      },
       //for player content v1
       {
         source: routes.API.GENERAL.CONTENT_PREVIEW,

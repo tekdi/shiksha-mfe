@@ -29,10 +29,8 @@ RUN node patch-nx.js
 # Build apps (the .env secret is mounted only for this step, never baked into the image),
 # clean build caches, and give the non-root user ownership
 RUN --mount=type=secret,id=env,target=/workspace/.env \
-    ./node_modules/.bin/nx run-many --target=build --projects=learner-web-app,players,forget-password && \
+    ./node_modules/.bin/nx run-many --target=build --projects=learner-web-app && \
     rm -rf apps/learner-web-app/.next/cache \
-           mfes/players/.next/cache \
-           mfes/forget-password/.next/cache \
            .nx/cache \
            /tmp/.npm && \
     find /workspace -path /workspace/.env -prune -o -exec chown node:node {} +
@@ -40,7 +38,7 @@ RUN --mount=type=secret,id=env,target=/workspace/.env \
 # Switch to non-root user provided by node base image
 USER node
 
-# learner-web-app, players, forget-password
-EXPOSE 3003 4108 4109
+# learner-web-app
+EXPOSE 3003
 
 CMD ["pm2-runtime", "ecosystem.learner-web-app.config.js"]

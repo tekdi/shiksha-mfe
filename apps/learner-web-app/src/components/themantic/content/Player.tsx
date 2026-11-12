@@ -33,11 +33,7 @@ const getSbPlayerBaseUrl = () => {
     const origin = window.location.origin.replace(/\/$/, "");
     return `${origin}/sbplayer`;
   }
-  const fallback = process.env.NEXT_PUBLIC_LEARNER_SBPLAYER || "";
-  if (!fallback) return "/sbplayer";
-  return fallback.endsWith("/sbplayer")
-    ? fallback
-    : `${fallback.replace(/\/$/, "")}/sbplayer`;
+  return "/sbplayer";
 };
 
 const App = ({

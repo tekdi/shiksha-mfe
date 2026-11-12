@@ -1,5 +1,4 @@
 export const baseurl = process.env.NEXT_PUBLIC_MIDDLEWARE_URL;
-export const telemetryUrl = process.env.NEXT_PUBLIC_TELEMETRY_URL;
 export const notificationUrl = process.env.NEXT_PUBLIC_NOTIFICATION_URL;
 export const API_ENDPOINTS = {
   accountCreate: `${baseurl}/account/create`,
@@ -39,7 +38,6 @@ export const API_ENDPOINTS = {
   cohortHierarchy: (cohortId: string) =>
     `${baseurl}/cohort/cohortHierarchy/${cohortId}`,
   myCohorts: (userId: string) => `${baseurl}/cohort/mycohorts/${userId}`,
-  telemetry: `${telemetryUrl}/telemetry`,
   compositeSearch: `${baseurl}/action/composite/v3/search`,
   courseHierarchy: (courseId: string) =>
     `${baseurl}/api/course/v1/hierarchy/${courseId}`,
@@ -61,7 +59,5 @@ export const INTERFACE_API_ENDPOINTS = {
   sendOtp: `${baseurl}/user/send-otp`,
 };
 
-export const COURSE_L2_ENDPOINTS = `${process.env.NEXT_PUBLIC_BASE_URL}/prathamservice/v1/save-user-salesforce`;
-export const COURSE_PLANNER_UPLOAD_ENDPOINTS = `${process.env.NEXT_PUBLIC_BASE_URL}/prathamservice/v1/course-planner/upload`;
 
 export const TARGET_SOLUTION_ENDPOINTS = `${process.env.NEXT_PUBLIC_COURSE_PLANNER_API_URL}/solutions/targetedSolutions?type=improvementProject&currentScopeOnly=true`;
