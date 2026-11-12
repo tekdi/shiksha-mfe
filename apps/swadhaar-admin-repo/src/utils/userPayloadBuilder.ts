@@ -114,7 +114,13 @@ export const buildCreateUserPayload = (
   // The create dialog passes the chosen roleId; bulk upload may name a role per row; otherwise the default role applies.
   const roleId = input.role ? resolveRoleId(input.role) : DEFAULT_ROLE_ID_MAP.student;
   const gender = sanitizeGender(input.gender);
-  const password = providedPassword || (input.password || '').trim() || generateSecureTemporaryPassword();
+  const isAdmin = /admin/i.test(input.roleName || input.role || '') || input.role === DEFAULT_ROLE_ID_MAP.admin;
+  // Learners sign in to the learner app with mobile OTP, which then logs in with the shared learner password
+  // (NEXT_PUBLIC_SWADHAAR_LEARNER_PASSWORD, same value as the learner app). So a learner created without a typed
+  // password gets that one; a random password would make OTP sign-in fail. Admins keep a random temporary password.
+  const learnerPassword = isAdmin ? '' : process.env.NEXT_PUBLIC_SWADHAAR_LEARNER_PASSWORD || '';
+  const password =
+    providedPassword || (input.password || '').trim() || learnerPassword || generateSecureTemporaryPassword();
   const username = (input.username || '').trim() || employeeId || mobile || email;
   const customFields = buildLocationCustomFields(input);
 
@@ -126,7 +132,7 @@ export const buildCreateUserPayload = (
     lastName,
     email,
     mobile,
-    type: /admin/i.test(input.roleName || input.role || '') || input.role === DEFAULT_ROLE_ID_MAP.admin ? 'Admin' : 'Student',
+    type: isAdmin ? 'Admin' : 'Student',
     tenantCohortRoleMapping: [
       {
         tenantId: targetTenantId,
