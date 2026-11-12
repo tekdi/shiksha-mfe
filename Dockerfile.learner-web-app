@@ -1,38 +1,46 @@
 # syntax=docker/dockerfile:1
-FROM node:20
+FROM node:20-slim
 
-# Set the working directory
 WORKDIR /workspace
 
-# Set npm configuration to handle memory issues
 ENV NODE_OPTIONS="--max-old-space-size=8192"
+ENV CYPRESS_INSTALL_BINARY=0
+ENV PUPPETEER_SKIP_DOWNLOAD=true
 ENV npm_config_cache="/tmp/.npm"
-ENV npm_config_prefer-offline=true
-ENV npm_config_fetch_retries=3
-ENV npm_config_fetch_retry_mintimeout=5000
-ENV npm_config_fetch_retry_maxtimeout=60000
 
-# Copy package.json and package-lock.json to the working directory
+# Copy package manifests
 COPY package*.json ./
 
-# Install dependencies in stages to avoid memory issues
-RUN npm install --legacy-peer-deps --no-audit --no-fund --cache /tmp/.npm --prefer-offline --ignore-scripts
+# Install PM2 and dependencies using locked versions with scripts ignored
+RUN npm install -g pm2@6.0.8 --ignore-scripts && \
+    npm ci --legacy-peer-deps --no-audit --no-fund --ignore-scripts && \
+    npm cache clean --force
 
-# Copy the entire NX workspace
-COPY . .
+# Copy only the workspace config and sources needed to build learner-web-app
+COPY nx.json tsconfig.base.json tsconfig.learner.json jest.preset.js eslint.config.js patch-nx.js .nxignore ./
+COPY ecosystem.learner-web-app.config.js ./
+COPY libs ./libs
+COPY mfes ./mfes
+COPY apps/learner-web-app ./apps/learner-web-app
 
-# Run the patch script to fix Nx lockfile parsing bug and clean package-lock.json
+# Fix Nx lockfile parsing bug
 RUN node patch-nx.js
 
-# Build Specific Application
-# Build only specific applications
+# Build apps (the .env secret is mounted only for this step, never baked into the image),
+# clean build caches, and give the non-root user ownership
 RUN --mount=type=secret,id=env,target=/workspace/.env \
-    npx nx run-many --target=build --projects=learner-web-app,players,forget-password --verbose
+    ./node_modules/.bin/nx run-many --target=build --projects=learner-web-app,players,forget-password && \
+    rm -rf apps/learner-web-app/.next/cache \
+           mfes/players/.next/cache \
+           mfes/forget-password/.next/cache \
+           .nx/cache \
+           /tmp/.npm && \
+    find /workspace -path /workspace/.env -prune -o -exec chown node:node {} +
 
-# Install PM2 to manage multiple apps
-RUN npm install -g pm2@6.0.8
-# Expose the ports for all apps
+# Switch to non-root user provided by node base image
+USER node
+
+# learner-web-app, players, forget-password
 EXPOSE 3003 4108 4109
 
-# Command to run all apps using PM2
 CMD ["pm2-runtime", "ecosystem.learner-web-app.config.js"]
