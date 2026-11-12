@@ -35,6 +35,8 @@ import {
   parseCourseName,
   updateCourseStatus,
   deleteLmsLesson,
+  updateModule,
+  updateLmsLesson,
 } from '@/services/CourseService';
 import { getCoursePathway } from '@/services/PathwayService';
 import LifecycleChip from '@/components/common/LifecycleChip';
@@ -160,6 +162,36 @@ const pruneCustomSections = (
     }
   }
   return pendingCustom;
+};
+
+/** Swap an item with its neighbour; null when the move is out of range */
+const swapItems = <T,>(list: T[], index: number, direction: 'up' | 'down'): T[] | null => {
+  const targetIndex = direction === 'up' ? index - 1 : index + 1;
+  if (targetIndex < 0 || targetIndex >= list.length) return null;
+  const next = [...list];
+  [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+  return next;
+};
+
+// Only modules and lessons that exist in the LMS (UUIDs) can be reordered there; locally cached ones are skipped
+const isLmsId = (id?: string): id is string => !!id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+
+/**
+ * Store ordering = position (1, 2, 3...) for every item, so ties and gaps left by older data are fixed too.
+ * Returns the items with their new ordering.
+ */
+const saveOrdering = async (
+  items: CourseHierarchyChild[],
+  getId: (item: CourseHierarchyChild) => string | undefined,
+  update: (id: string, ordering: number) => Promise<unknown>
+): Promise<CourseHierarchyChild[]> => {
+  await Promise.all(
+    items.map((item, i) => {
+      const id = getId(item);
+      return isLmsId(id) ? update(id, i + 1) : null;
+    })
+  );
+  return items.map((item, i) => ({ ...item, ordering: i + 1 }));
 };
 
 const EMPTY_COURSE_LEVEL_VALUES: CourseLevelValues = { faqs: [], summary: '', transition: '' };
@@ -292,16 +324,47 @@ export default function CourseDetailsPage() {
     fetchHierarchy();
   }, [fetchHierarchy]);
 
-  // Handle section reordering (visual demo)
-  const handleMoveSection = (index: number, direction: 'up' | 'down') => {
-    const targetIndex = direction === 'up' ? index - 1 : index + 1;
-    if (targetIndex < 0 || targetIndex >= sections.length) return;
+  // A move is saved to the LMS straight away; arrows are disabled until it finishes
+  const [reordering, setReordering] = useState(false);
 
-    const newSections = [...sections];
-    const temp = newSections[index];
-    newSections[index] = newSections[targetIndex];
-    newSections[targetIndex] = temp;
-    setSections(newSections);
+  const runReorder = async (optimistic: CourseHierarchyChild[], save: () => Promise<CourseHierarchyChild[]>) => {
+    setSections(optimistic);
+    setReordering(true);
+    try {
+      setSections(await save());
+      setToastSeverity('success');
+      setToastMessage(t('COURSES.DETAIL.ORDER_SAVED', 'Order saved'));
+    } catch (err: any) {
+      console.error('Failed to save the new order:', err);
+      setToastSeverity('error');
+      setToastMessage(
+        err?.response?.data?.params?.errmsg || t('COURSES.DETAIL.ORDER_SAVE_ERROR', 'Could not save the new order')
+      );
+      // Some updates may have gone through: show what the LMS actually has
+      fetchHierarchy();
+    } finally {
+      setReordering(false);
+    }
+  };
+
+  // Move a section (module) up or down: PATCH /lms-service/v1/modules/:moduleId { ordering }
+  const handleMoveSection = (index: number, direction: 'up' | 'down') => {
+    const moved = swapItems(sections, index, direction);
+    if (!moved || reordering) return;
+    runReorder(moved, () =>
+      saveOrdering(moved, (s) => s.moduleId, (id, ordering) => updateModule(id, { ordering }))
+    );
+  };
+
+  // Move a lesson inside its section: PATCH /lms-service/v1/lessons/:lessonId { ordering }
+  const handleMoveLesson = (sectionIndex: number, lessonIndex: number, direction: 'up' | 'down') => {
+    const moved = swapItems(sections[sectionIndex]?.children || [], lessonIndex, direction);
+    if (!moved || reordering) return;
+    const withChildren = (children: CourseHierarchyChild[]) =>
+      sections.map((s, i) => (i === sectionIndex ? { ...s, children } : s));
+    runReorder(withChildren(moved), async () =>
+      withChildren(await saveOrdering(moved, (l) => l.lessonId, (id, ordering) => updateLmsLesson(id, { ordering })))
+    );
   };
 
   const handleToggleExpand = (sectionId: string) => {
@@ -483,7 +546,7 @@ export default function CourseDetailsPage() {
                 <IconButton
                   size="small"
                   aria-label={t('COURSES.DETAIL.MOVE_SECTION_UP', { position: idx + 1 })}
-                  disabled={idx === 0}
+                  disabled={idx === 0 || reordering}
                   onClick={() => handleMoveSection(idx, 'up')}
                   sx={REORDER_BUTTON_SX}
                 >
@@ -492,7 +555,7 @@ export default function CourseDetailsPage() {
                 <IconButton
                   size="small"
                   aria-label={t('COURSES.DETAIL.MOVE_SECTION_DOWN', { position: idx + 1 })}
-                  disabled={idx === sections.length - 1}
+                  disabled={idx === sections.length - 1 || reordering}
                   onClick={() => handleMoveSection(idx, 'down')}
                   sx={REORDER_BUTTON_SX}
                 >
@@ -638,6 +701,28 @@ export default function CourseDetailsPage() {
                               </Box>
                             </Box>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {childUnits.length > 1 && (
+                                <>
+                                  <IconButton
+                                    size="small"
+                                    aria-label={t('COURSES.DETAIL.MOVE_LESSON_UP', 'Move lesson up')}
+                                    disabled={uIdx === 0 || reordering}
+                                    onClick={() => handleMoveLesson(idx, uIdx, 'up')}
+                                    sx={REORDER_BUTTON_SX}
+                                  >
+                                    <KeyboardArrowUpIcon sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    aria-label={t('COURSES.DETAIL.MOVE_LESSON_DOWN', 'Move lesson down')}
+                                    disabled={uIdx === childUnits.length - 1 || reordering}
+                                    onClick={() => handleMoveLesson(idx, uIdx, 'down')}
+                                    sx={REORDER_BUTTON_SX}
+                                  >
+                                    <KeyboardArrowDownIcon sx={{ fontSize: 16 }} />
+                                  </IconButton>
+                                </>
+                              )}
                               <Chip
                                 label={unit.status || t('COMMON.ACTIVE')}
                                 size="small"

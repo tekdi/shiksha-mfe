@@ -71,6 +71,7 @@ export default function LearningPathsListPage() {
       // A course belongs to a path through its params.pathwayId (the pathway's own total_items counts videos/resources)
       const courseCounts = new Map<string, number>();
       const cohortIds = new Map<string, Set<string>>();
+      const userIds = new Map<string, Set<string>>();
       courses.forEach((course) => {
         const pathwayId = course.params?.pathwayId;
         if (!pathwayId) return;
@@ -78,6 +79,9 @@ export default function LearningPathsListPage() {
         const enrolled = cohortIds.get(pathwayId) || new Set<string>();
         (course.params?.enrolledCohortIds || []).forEach((id: string) => enrolled.add(id));
         cohortIds.set(pathwayId, enrolled);
+        const users = userIds.get(pathwayId) || new Set<string>();
+        (course.params?.enrolledUserIds || []).forEach((id: string) => users.add(id));
+        userIds.set(pathwayId, users);
       });
       setLearningPaths(
         pathways.map((p) => {
@@ -88,7 +92,13 @@ export default function LearningPathsListPage() {
             codeRange: count > 0 ? t('LEARNING_PATHS.COURSES_RANGE', { from: 0, to: count - 1 }) : p.key,
             steps: t('LEARNING_PATHS.STEPS_COURSES_ASSESSMENTS', { n: count }),
             coursesCount: count,
-            enrolled: cohortIds.get(p.id)?.size ? `${cohortIds.get(p.id)?.size} cohorts` : NO_VALUE,
+            enrolled:
+              [
+                cohortIds.get(p.id)?.size ? `${cohortIds.get(p.id)?.size} cohorts` : '',
+                userIds.get(p.id)?.size ? `${userIds.get(p.id)?.size} individual users` : '',
+              ]
+                .filter(Boolean)
+                .join(', ') || NO_VALUE,
             startDate: NO_VALUE,
             endDate: NO_VALUE,
             certificate: NO_VALUE,
@@ -114,15 +124,8 @@ export default function LearningPathsListPage() {
   };
 
   const handleEnrolSuccess = (count: number, type: 'groups' | 'users') => {
-    if (type === 'groups') {
-      // The saved list of enrolled groups is the source for the column
-      fetchLearningPaths();
-      return;
-    }
-    const enrolled = `${count} individual users`;
-    setLearningPaths((prev) =>
-      prev.map((item) => (item.id === activePath?.id ? { ...item, enrolled } : item))
-    );
+    // The saved lists of enrolled groups and users are the source for the column
+    fetchLearningPaths();
   };
 
   const columns: ColumnDef<LearningPathItem>[] = useMemo(

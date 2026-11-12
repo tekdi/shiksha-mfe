@@ -34,6 +34,7 @@ import {
   createModule,
   updateModule,
   updateLmsLesson,
+  createTextLesson,
   CreateModulePayload,
   CourseHierarchy,
   getLmsLessons,
@@ -193,6 +194,7 @@ const buildPdfBlock = (l: any, lIdx: number): SectionBlock => ({
 
 const buildImageBlock = (l: any, lIdx: number): SectionBlock => ({
   id: l.lessonId || `blk-img-${lIdx}-${Date.now()}`,
+  lessonId: l.lessonId,
   type: 'IMAGE',
   mediaName: l.title || 'Image Illustration',
   mediaUrl: l.media?.url || l.mediaUrl || l.downloadUrl || '',
@@ -213,6 +215,7 @@ const buildTextBlock = (l: any, lIdx: number, fmt: string): SectionBlock => {
   const prefix = match ? match[2] : 'txt';
   return {
     id: l.lessonId || `blk-${prefix}-${lIdx}-${Date.now()}`,
+    lessonId: l.lessonId,
     type,
     text: l.description || l.title || '',
   };
@@ -256,7 +259,10 @@ const mergeWithFallback = (apiItems: ContentMediaItem[], fallback: ContentMediaI
 
 // State derived from an existing module that is opened for editing
 const getEditModuleState = (targetModule: any) => {
-  const lessons: any[] = targetModule.lessons || [];
+  // Lessons are listed in their saved order
+  const lessons: any[] = [...(targetModule.lessons || [])].sort(
+    (a, b) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER)
+  );
   return {
     title: targetModule.title || '',
     duration: targetModule.duration ? String(targetModule.duration) : '',
@@ -430,11 +436,30 @@ const getSaveErrorMessage = (err: any, status: string): string => {
   );
 };
 
-// Lessons picked in the blocks that are not attached to the module yet
-const collectNewLessonIds = (blocks: SectionBlock[], attached: Set<string>): string[] =>
+// Lessons the blocks point to, in block order
+const collectBlockLessonIds = (blocks: SectionBlock[]): string[] =>
   blocks
     .flatMap((b) => (b.type === 'VIDEO WATCH' ? (b.videos || []).map((v) => v.lessonId) : [b.lessonId]))
-    .filter((lessonId): lessonId is string => Boolean(lessonId) && !attached.has(lessonId as string));
+    .filter((lessonId): lessonId is string => Boolean(lessonId));
+
+// Subformat of the text lesson each text block is saved as (the editor reads the block type back from it)
+const TEXT_BLOCK_SUBFORMATS: Partial<Record<SectionBlock['type'], string>> = {
+  INTRO: 'text.intro',
+  HOOK: 'text.hook',
+  CONCEPT: 'text.concept',
+  ANALYSIS: 'text.analysis',
+  TEXT: 'text',
+};
+
+const BLOCK_TITLES: Partial<Record<SectionBlock['type'], string>> = {
+  INTRO: 'Intro',
+  HOOK: 'Hook',
+  CONCEPT: 'Concept',
+  ANALYSIS: 'Analysis',
+  TEXT: 'Text',
+};
+
+const toLessonHtml = (text: string): string => (text.trim().startsWith('<') ? text : `<p>${text}</p>`);
 
 // Dates formatted as YYYY-MM-DDT00:00:00Z matching Aspire LMS standard
 const getModuleDates = () => {
@@ -544,7 +569,7 @@ const applyCourseHierarchy = (data: CourseHierarchy, moduleId: unknown, setters:
 
   // If hierarchy modules is empty (e.g. modules: []), show ONLY ONE block default
   if (rawModules.length === 0) {
-    setters.setBlocks([{ id: 'blk-intro', type: 'INTRO', text: DEFAULT_INTRO_TEXT }]);
+    setters.setBlocks([{ id: 'blk-text', type: 'TEXT', text: DEFAULT_INTRO_TEXT }]);
     setters.setSectionPrefix('1.1');
     setters.setTitle('');
     setters.setDuration('');
@@ -681,13 +706,51 @@ const createOrUpdateModule = async (
   return res?.result?.moduleId || `mod-${Date.now()}`;
 };
 
-// Put the picked videos and PDFs into the module: PATCH /lms-service/v1/lessons/:id { courseId, moduleId }
-const attachLessonsToModule = async (ctx: SaveContext, moduleId: string): Promise<number> => {
-  const lessonIds = collectNewLessonIds(ctx.blocks, ctx.attachedLessonIds);
-  const attachResults = await Promise.allSettled(
-    lessonIds.map((lessonId, idx) => updateLmsLesson(lessonId, { courseId: ctx.courseId, moduleId, ordering: idx + 1 }))
-  );
-  return attachResults.filter((r) => r.status === 'rejected').length;
+/**
+ * Saves the blocks as the lessons of the module, in block order (ordering = position + 1):
+ * a text block becomes a text lesson (POST /lessons, or PATCH when it already is one), a video, PDF or image block
+ * is linked to the module and given its position, and a lesson whose block was removed is unlinked from the module.
+ * Returns how many lessons could not be saved.
+ */
+const syncBlocksToModule = async (
+  ctx: SaveContext,
+  moduleId: string,
+  status: 'draft' | 'published'
+): Promise<number> => {
+  const apiStatus = status === 'draft' ? 'unpublished' : 'published';
+  const link = { courseId: ctx.courseId, moduleId };
+  let position = 0;
+  const tasks: Array<() => Promise<unknown>> = [];
+
+  ctx.blocks.forEach((block) => {
+    const subFormat = TEXT_BLOCK_SUBFORMATS[block.type];
+    if (subFormat) {
+      const ordering = ++position;
+      const description = toLessonHtml(block.text || '');
+      const title = `${BLOCK_TITLES[block.type] || 'Text'} ${ordering}`;
+      if (block.lessonId) {
+        tasks.push(() => updateLmsLesson(block.lessonId as string, { ...link, title, description, ordering, status: apiStatus }));
+      } else {
+        tasks.push(() => createTextLesson({ ...link, title, description, ordering, subFormat, status: apiStatus }));
+      }
+      return;
+    }
+    const lessonIds = block.type === 'VIDEO WATCH' ? (block.videos || []).map((v) => v.lessonId) : [block.lessonId];
+    lessonIds.forEach((lessonId) => {
+      if (!lessonId) return;
+      const ordering = ++position;
+      tasks.push(() => updateLmsLesson(lessonId, { ...link, ordering }));
+    });
+  });
+
+  const results = await Promise.allSettled(tasks.map((task) => task()));
+  const failed = results.filter((r) => r.status === 'rejected').length;
+
+  // Blocks removed in the editor: take their lessons out of the module (best effort, not counted as a failure)
+  const kept = new Set(collectBlockLessonIds(ctx.blocks));
+  const removed = Array.from(ctx.attachedLessonIds).filter((lessonId) => !kept.has(lessonId));
+  await Promise.allSettled(removed.map((lessonId) => updateLmsLesson(lessonId, { courseId: ctx.courseId, moduleId: null })));
+  return failed;
 };
 
 // API Integration: Save section / module via POST /lms-service/v1/modules
@@ -695,15 +758,14 @@ const saveSection = async (ctx: SaveContext, status: 'draft' | 'published') => {
   const { courseId, blocks, course } = ctx;
   const effectiveTitle = ctx.title.trim() || `${ctx.sectionPrefix} Section`;
   try {
-    // Description from first block text or title
-    const firstBlockText = blocks[0]?.text?.trim();
-    const descHtml = firstBlockText ? `<p>${firstBlockText}</p>` : `<p>${effectiveTitle}</p>`;
+    // The blocks are saved as lessons, so the module description is only its title
+    const descHtml = `<p>${effectiveTitle}</p>`;
 
     // Compute numeric ordering from section prefix (e.g. "1.2" -> 2)
     const ordering = computeOrdering(ctx.sectionPrefix, course?.modules?.length || 0);
 
     const moduleId = await createOrUpdateModule(ctx, status, effectiveTitle, descHtml, ordering);
-    const failedAttach = await attachLessonsToModule(ctx, moduleId);
+    const failedAttach = await syncBlocksToModule(ctx, moduleId, status);
 
     // Persist module to localStorage so it is immediately visible in Course Details page
     saveModuleLocally(
@@ -2179,11 +2241,11 @@ export default function CreateSectionPage() {
   const [duration, setDuration] = useState<string>('');
   const [sectionPrefix, setSectionPrefix] = useState<string>('1.1');
 
-  // Blocks in Section (Default: single intro block)
+  // Blocks in Section (Default: single text block)
   const [blocks, setBlocks] = useState<SectionBlock[]>([
     {
-      id: 'blk-intro',
-      type: 'INTRO',
+      id: 'blk-text',
+      type: 'TEXT',
       text: DEFAULT_INTRO_TEXT,
     },
   ]);

@@ -1081,7 +1081,7 @@
       "COURSE_LEVEL_ITEMS": "Course-Level Items",
       "COURSE_NAME": "Course Name",
       "COURSE_OVERVIEW_PREVIEW": "Course overview and lessons structure preview.",
-      "DEFAULT_AUDIENCE": "All Staff",
+      "DEFAULT_AUDIENCE": "Trainer",
       "EDITING_CONTENT_FOR": "Editing content for: {{name}}",
       "EDIT_CONTENT": "Edit Content",
       "EDIT_DIALOG_TITLE": "Edit Course Details",
@@ -1262,7 +1262,8 @@
       "BELOW_PASS": "You did not achieve the passing score. Please review the material and try again.",
       "TRY_AGAIN": "Try Again",
       "SUBMIT_ASSESSMENT": "Submit Assessment",
-      "FOOTER_NOTE": "In-app content viewer powered natively by Swadhaar Admin."
+      "FOOTER_NOTE": "In-app content viewer powered natively by Swadhaar Admin.",
+      "SUBTITLE_TEXT": "Text lesson preview"
     }
   },
   "USERS": {

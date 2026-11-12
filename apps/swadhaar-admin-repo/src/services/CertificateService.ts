@@ -116,10 +116,14 @@ export interface CertificateTemplate {
  * List the certificate templates available to the tenant
  * POST /lms-service/v1/certificate/templates-list
  */
+/** Certificate template every Swadhaar course uses unless another one is picked. */
+export const DEFAULT_CERTIFICATE_TEMPLATE_ID: string =
+  process.env.NEXT_PUBLIC_CERTIFICATE_TEMPLATE_ID || 'cmw42kbhz0002qe0j6of0uzy3';
+
 export const getCertificateTemplates = async (): Promise<CertificateTemplate[]> => {
   const response = await post<any>(
     API_ENDPOINTS.certificateTemplatesList,
-    { templateType: 'certificate', isAllocated: false, limit: 100, offset: 0 },
+     { templateType: 'certificate', limit: 100, offset: 0 },
     getServiceHeaders()
   );
   const list: any[] = response?.data?.result?.templates || [];

@@ -28,7 +28,12 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import RemoveCircleOutlineIcon from '@mui/icons-material/RemoveCircleOutline';
 import PersonAddAlt1OutlinedIcon from '@mui/icons-material/PersonAddAlt1Outlined';
 import Link from 'next/link';
-import { getCertificateTemplates, attachCourseTemplate, CertificateTemplate } from '@/services/CertificateService';
+import {
+  getCertificateTemplates,
+  attachCourseTemplate,
+  CertificateTemplate,
+  DEFAULT_CERTIFICATE_TEMPLATE_ID,
+} from '@/services/CertificateService';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import { getCourseList, CourseItem } from '@/services/CourseService';
@@ -180,6 +185,17 @@ export default function LearningPathBuilderPage() {
         linkedCourseIds.current = linked.map((c) => c.identifier);
         const savedTemplateId = linked.find((c) => c.params?.certificateTemplateId)?.params?.certificateTemplateId;
         if (savedTemplateId) setCertificateTemplate(savedTemplateId);
+        // The groups and users enrolled earlier are recorded on the path's courses
+        const groupIds = new Set<string>();
+        const userIds = new Set<string>();
+        linked.forEach((c) => {
+          (c.params?.enrolledCohortIds || []).forEach((id: string) => groupIds.add(id));
+          (c.params?.enrolledUserIds || []).forEach((id: string) => userIds.add(id));
+        });
+        setEnrolledSummary({
+          groups: groupIds.size ? `${groupIds.size} groups enrolled` : 'No groups enrolled yet',
+          users: userIds.size ? `${userIds.size} individual users enrolled` : 'No individual users enrolled yet',
+        });
         setSequence(
           renumber(
             linked.map((course, idx) => ({
@@ -212,7 +228,14 @@ export default function LearningPathBuilderPage() {
     getCertificateTemplates()
       .then((templates) => {
         setCertificateTemplates(templates);
-        setCertificateTemplate((current) => current || templates[0]?.templateId || '');
+        setCertificateTemplate(
+          (current) =>
+            current ||
+            (templates.some((t) => t.templateId === DEFAULT_CERTIFICATE_TEMPLATE_ID)
+              ? DEFAULT_CERTIFICATE_TEMPLATE_ID
+              : templates[0]?.templateId) ||
+            DEFAULT_CERTIFICATE_TEMPLATE_ID
+        );
       })
       .catch((err) => console.error('Failed to load certificate templates:', err));
   }, []);
@@ -345,15 +368,18 @@ export default function LearningPathBuilderPage() {
         throw new Error('The learning path was created but its id was not returned, so the courses were not linked.');
       }
       const removed = linkedCourseIds.current.filter((id) => !courseIds.includes(id));
+         // Never save a course without a template: fall back to the shared default
+      const templateToAttach = certificateTemplate || DEFAULT_CERTIFICATE_TEMPLATE_ID;
       await Promise.all([
-        ...courseIds.map((id) => setCoursePathway(id, savedPathwayId, generateCertificate ? certificateTemplate : '')),
+        ...courseIds.map((id) => setCoursePathway(id, savedPathwayId, generateCertificate ? templateToAttach : '')),
         ...removed.map((id) => setCoursePathway(id, null)),
       ]);
       linkedCourseIds.current = courseIds;
 
       // Attach the selected certificate template to the path's courses
-      if (generateCertificate && certificateTemplate) {
-        await attachCourseTemplate(certificateTemplate, courseIds);
+       // Attach the certificate template to the path's courses
+      if (generateCertificate && templateToAttach) {
+        await attachCourseTemplate(templateToAttach, courseIds);
       }
 
       setIsDirty(false);
@@ -459,7 +485,7 @@ export default function LearningPathBuilderPage() {
               },
             }}
           >
-            Enrol users or groups
+            Enroll users or groups
           </Button>
 
           <Button
@@ -807,7 +833,7 @@ export default function LearningPathBuilderPage() {
                 <Typography sx={{ fontSize: '15px', fontWeight: 600, color: '#1F1E1C' }}>
                   Enrolled
                 </Typography>
-                <Tooltip title="Enrol users or groups">
+                <Tooltip title="Enroll users or groups">
                   <IconButton
                     size="small"
                     onClick={() => setIsEnrolModalOpen(true)}
@@ -909,15 +935,15 @@ export default function LearningPathBuilderPage() {
               </MenuItem>
               {addTab === 'course'
                 ? coursesList.map((c) => (
-                    <MenuItem key={c.identifier} value={c.identifier}>
-                      {c.cleanTitle || c.name}
-                    </MenuItem>
-                  ))
+                  <MenuItem key={c.identifier} value={c.identifier}>
+                    {c.cleanTitle || c.name}
+                  </MenuItem>
+                ))
                 : assessmentsList.map((a) => (
-                    <MenuItem key={a.identifier} value={`${ASSESSMENT_PREFIX}${a.identifier}`}>
-                      {a.name}
-                    </MenuItem>
-                  ))}
+                  <MenuItem key={a.identifier} value={`${ASSESSMENT_PREFIX}${a.identifier}`}>
+                    {a.name}
+                  </MenuItem>
+                ))}
             </Select>
           </FormControl>
         </DialogContent>

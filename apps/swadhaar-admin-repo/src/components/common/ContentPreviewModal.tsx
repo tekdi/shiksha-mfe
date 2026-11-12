@@ -18,6 +18,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import PictureAsPdfOutlinedIcon from '@mui/icons-material/PictureAsPdfOutlined';
 import QuizOutlinedIcon from '@mui/icons-material/QuizOutlined';
+import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { useTranslation } from 'next-i18next';
 import CommonButton from './CommonButton';
@@ -30,7 +31,11 @@ export interface PreviewContentData {
   testId?: string;
   name?: string;
   title?: string;
-  type?: string; // 'video' | 'pdf' | 'assessment' | 'document' | 'test'
+  type?: string; // 'video' | 'pdf' | 'assessment' | 'document' | 'test' | 'text_and_media'
+  /** Lesson subformat, e.g. text.hook */
+  subType?: string;
+  /** Body of a text lesson, as HTML */
+  html?: string;
   mimeType?: string;
   artifactUrl?: string;
   streamingUrl?: string;
@@ -105,7 +110,8 @@ function getOptionColors(showCorrect: boolean, showIncorrect: boolean, isSelecte
   return { borderColor: '#E5E7EB', backgroundColor: '#FFFFFF' };
 }
 
-function getSubtitleKey(isVideo: boolean, isPdf: boolean): string {
+function getSubtitleKey(isVideo: boolean, isPdf: boolean, isText = false): string {
+  if (isText) return 'CONTENT.PREVIEW.SUBTITLE_TEXT';
   if (isVideo) return 'CONTENT.PREVIEW.SUBTITLE_VIDEO';
   if (isPdf) return 'CONTENT.PREVIEW.SUBTITLE_PDF';
   return 'CONTENT.PREVIEW.SUBTITLE_ASSESSMENT';
@@ -129,14 +135,18 @@ const detectPreviewKind = (content: PreviewContentData) => {
     mime === 'application/pdf' ||
     artifactUrl.toLowerCase().endsWith('.pdf');
 
-  const isAssessment =
-    rawType === 'assessment' ||
-    rawType === 'test' ||
-    rawType.includes('quiz') ||
-    mime.includes('questionset') ||
-    (!isVideo && !isPdf);
+  // Intro, Hook, Concept, Analysis and Text blocks are text lessons
+  const isText = !isVideo && !isPdf && (rawType.includes('text') || (content.subType || '').toLowerCase().startsWith('text'));
 
-  return { isVideo, isPdf, isAssessment };
+  const isAssessment =
+    !isText &&
+    (rawType === 'assessment' ||
+      rawType === 'test' ||
+      rawType.includes('quiz') ||
+      mime.includes('questionset') ||
+      (!isVideo && !isPdf));
+
+  return { isVideo, isPdf, isAssessment, isText };
 };
 
 interface FetchedAssessment {
@@ -201,7 +211,7 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
 
   if (!content) return null;
 
-  const { isVideo, isPdf, isAssessment } = detectPreviewKind(content);
+  const { isVideo, isPdf, isAssessment, isText } = detectPreviewKind(content);
 
   const displayTitle = content.name || content.title || t('CONTENT.PREVIEW.DEFAULT_TITLE');
   const rawUrl = content.artifactUrl || content.streamingUrl || content.downloadUrl || '';
@@ -297,6 +307,7 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
           {isVideo && <PlayCircleOutlineIcon sx={headerIconSx} />}
           {isPdf && <PictureAsPdfOutlinedIcon sx={headerIconSx} />}
           {isAssessment && <QuizOutlinedIcon sx={headerIconSx} />}
+          {isText && <ArticleOutlinedIcon sx={headerIconSx} />}
           <Box sx={{ minWidth: 0 }}>
             <Typography
               sx={{
@@ -311,7 +322,7 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
               {displayTitle}
             </Typography>
             <Typography sx={{ fontSize: '11px', color: '#B0B8C4' }}>
-              {t(getSubtitleKey(isVideo, isPdf))}
+              {t(getSubtitleKey(isVideo, isPdf, isText))}
               {content.duration ? ` · ${content.duration}` : ''}
               {timeLimit ? ` · ${t('CONTENT.PREVIEW.TIME', { value: withoutMinutesUnit(timeLimit) })}` : ''}
             </Typography>
@@ -416,6 +427,24 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
                 </CommonButton>
               </Paper>
             )}
+          </Box>
+        )}
+
+        {/* Text lesson: the block's text, shown in a sandboxed frame so its HTML cannot run scripts */}
+        {isText && (
+          <Box sx={{ p: 2.5 }}>
+            <Box
+              sx={{ backgroundColor: '#FFFFFF', border: '1px solid #E5E7EB', borderRadius: '8px', overflow: 'hidden' }}
+            >
+              <iframe
+                title={displayTitle}
+                sandbox=""
+                srcDoc={`<style>body{font-family:sans-serif;font-size:15px;line-height:1.6;color:#1F2937;margin:16px}</style>${
+                  content.html || content.description || ''
+                }`}
+                style={{ width: '100%', height: '320px', border: 'none', display: 'block' }}
+              />
+            </Box>
           </Box>
         )}
 
