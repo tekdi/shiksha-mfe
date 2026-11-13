@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Typography } from '@mui/material';
 
 const PRIMARY = '#E6873C';
@@ -44,6 +44,11 @@ interface TextLessonBlobProps {
  */
 export const TextLessonBlob: React.FC<TextLessonBlobProps> = ({ html, linkUrl, completed = false, onComplete }) => {
   const [done, setDone] = useState(completed);
+  // The saved completion can arrive after the first render, and the same blob can be reused for the next lesson:
+  // follow the prop so a lesson already completed shows "Completed" without a click
+  useEffect(() => {
+    setDone(completed);
+  }, [completed, html]);
   const body = useMemo(() => sanitizeHtml(html || ''), [html]);
 
   const handleComplete = () => {

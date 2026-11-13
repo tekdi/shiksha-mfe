@@ -66,6 +66,42 @@ const NoticeCard: React.FC<{ message: string; actionLabel?: string; href?: strin
   </Box>
 );
 
+/** A PDF lesson: shown in a frame; the button reads "Completed" once the lesson is done (saved earlier or just now). */
+const DocumentLesson: React.FC<{ name: string; url: string; completed: boolean; onComplete: () => void }> = ({
+  name,
+  url,
+  completed,
+  onComplete,
+}) => {
+  const [done, setDone] = useState(completed);
+  // The saved completion can arrive after the first render, and the blob is reused for the next lesson
+  useEffect(() => {
+    setDone(completed);
+  }, [completed, url]);
+  const complete = () => {
+    setDone(true);
+    onComplete();
+  };
+  return (
+    <>
+      <Frame title={name} src={url} height={520} onLoad={complete} />
+      <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fff' }}>
+        <Button href={url} target="_blank" rel="noopener noreferrer" onClick={complete} sx={{ textTransform: 'none', color: PRIMARY }}>
+          Open in new tab
+        </Button>
+        <Button
+          variant="contained"
+          disabled={done}
+          onClick={complete}
+          sx={{ bgcolor: PRIMARY, textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+        >
+          {done ? 'Completed' : 'Mark as read'}
+        </Button>
+      </Box>
+    </>
+  );
+};
+
 /**
  * Plays an LMS lesson. The lesson (GET lms-service/v1/lessons/:id) names its media by format/subFormat:
  * YouTube or file video, PDF documents, links and text. Quizzes and assessments need their own
@@ -111,7 +147,10 @@ export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, courseId
     : (lesson.media?.source || '').trim();
   const format: string = lesson.format;
   const subFormat: string = lesson.subFormat || '';
-  const initialProgress = attempt?.completionPercentage ?? 0;
+  // Completed lessons are saved with status 'completed' (or a submitted test); the percentage alone may be missing
+  const initialProgress = ['completed', 'submitted'].includes(String(attempt?.status ?? '').toLowerCase())
+    ? 100
+    : attempt?.completionPercentage ?? 0;
   const embed = youtubeEmbedUrl(url);
 
   if (format === 'test') {
@@ -136,23 +175,7 @@ export const LmsLessonBlob: React.FC<LmsLessonBlobProps> = ({ lessonId, courseId
 
   if (format === 'document' || subFormat === 'pdf') {
     if (!url) return <NoticeCard message="This document has no file attached." />;
-    return (
-      <>
-        <Frame title={name} src={url} height={520} onLoad={() => onComplete()} />
-        <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fff' }}>
-          <Button href={url} target="_blank" rel="noopener noreferrer" onClick={() => onComplete()} sx={{ textTransform: 'none', color: PRIMARY }}>
-            Open in new tab
-          </Button>
-          <Button
-            variant="contained"
-            onClick={() => onComplete()}
-            sx={{ bgcolor: PRIMARY, textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
-          >
-            Mark as read
-          </Button>
-        </Box>
-      </>
-    );
+    return <DocumentLesson name={name} url={url} completed={initialProgress >= 100} onComplete={onComplete} />;
   }
 
   // text_and_media lessons (Intro, Hook, Concept, Analysis, Text blocks): the text is read in the app

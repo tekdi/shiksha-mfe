@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Box, Typography, Badge, Select, MenuItem, FormControl, SelectChangeEvent } from '@mui/material';
+import { Box, Typography, Badge, Tooltip, Select, MenuItem, FormControl, SelectChangeEvent } from '@mui/material';
 import Image from 'next/image';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
@@ -126,23 +126,22 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
           </Select>
         </FormControl>
 
-        {/* Alerts */}
+        {/* Alerts — not available yet: shown with a "Coming soon" tooltip and no action */}
+        {/* <Tooltip title={t('COMMON.COMING_SOON', { defaultValue: 'Coming soon' })} arrow>
         <Box
           id="swadhaar-header-alerts-btn"
-          onClick={onAlertsClick}
+          aria-disabled="true"
           sx={{
             display: 'flex',
             alignItems: 'center',
             gap: 0.75,
-            cursor: 'pointer',
+            cursor: 'not-allowed',
+            opacity: 0.6,
             px: 1.5,
             py: 0.5,
             borderRadius: '8px',
             transition: 'background 0.15s',
-            bgcolor: alertsPanelOpen || unreadCount > 0
-              ? 'rgba(230,135,60,0.12)'
-              : 'transparent',
-            '&:hover': { bgcolor: 'rgba(230,135,60,0.18)' },
+            bgcolor: 'transparent',
           }}
         >
           <Badge
@@ -174,6 +173,7 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
             {t('LEARNER_APP.ALERTS.TITLE')}
           </Typography>
         </Box>
+        </Tooltip> */}
 
         {/* Profile — with dropdown */}
         <Box ref={menuRef} sx={{ position: 'relative' }}>

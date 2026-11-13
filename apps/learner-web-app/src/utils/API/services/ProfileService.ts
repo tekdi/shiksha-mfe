@@ -2,7 +2,13 @@
 
 import axios from "axios";
 import { get, patch, post } from "../RestClient";
-import { isSwadhaarSession, swadhaarUserReadUrl, SWADHAAR_ORGANISATION_ID } from '@learner/utils/API/SwadhaarAuthService';
+import {
+  isSwadhaarSession,
+  swadhaarUserReadUrl,
+  swadhaarUserUpdateUrl,
+  swadhaarSessionHeaders,
+  SWADHAAR_ORGANISATION_ID,
+} from '@learner/utils/API/SwadhaarAuthService';
 import { API_ENDPOINTS } from "../EndUrls";
 
 export const getUserId = async (): Promise<any> => {
@@ -31,9 +37,13 @@ export const editEditUser = async (
   userId: string | string[],
   userDetails?: object
 ): Promise<any> => {
-  const apiUrl: string = API_ENDPOINTS.userUpdate(userId as string);
+  // Swadhaar users live on the Swadhaar backend: its own update URL and tenant / organisation headers
+  const isSwadhaar = isSwadhaarSession();
+  const apiUrl: string = isSwadhaar
+    ? swadhaarUserUpdateUrl(userId as string)
+    : API_ENDPOINTS.userUpdate(userId as string);
   try {
-    const response = await patch(apiUrl, { userData: userDetails });
+    const response = await patch(apiUrl, { userData: userDetails }, isSwadhaar ? swadhaarSessionHeaders() : {});
     return response?.data;
   } catch (error) {
     console.error("error in fetching user details", error);

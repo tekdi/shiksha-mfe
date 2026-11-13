@@ -79,7 +79,6 @@ const DesktopModuleCard: React.FC<{
         transition: 'all 0.15s ease',
         '&:hover': {
           boxShadow: isLocked ? 'none' : '0 4px 12px rgba(230,135,60,0.15)',
-          transform: isLocked ? 'none' : 'translateY(-1px)',
         },
         display: 'flex',
         flexDirection: 'column',
@@ -227,7 +226,8 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
 }) => {
   const { t } = useTranslation();
   const isLocked = !isUnlocked;
-  const isCompletedLevel = completionPercentage >= 70; // 70% = level done
+  // Done only when every module is done: a module added later keeps the course in progress
+  const isCompletedLevel = completionPercentage >= 70 && totalModules > 0 && completedModules >= totalModules;
 
   const statusMap = useMemo(() => buildStatusMap(statusData), [statusData]);
   const completionCache = useMemo(
@@ -420,7 +420,7 @@ const SwadhaarDesktopLevelAccordion: React.FC<SwadhaarDesktopLevelAccordionProps
         <Box
           sx={{
             px: 2.5,
-            pt: 0,
+            pt: 1, // room above the first row so a hovered card's top border and shadow are not clipped
             pb: 4,  // extra bottom padding so cards sit above the border pill
             display: 'grid',
             gridTemplateColumns: 'repeat(3, 1fr)',

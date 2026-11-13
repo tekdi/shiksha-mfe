@@ -18,6 +18,7 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@shared-lib";
 import { getUserDetails, editEditUser, uploadProfilePhoto } from "../../utils/API/services/ProfileService";
 import { updateLanguageInProfile } from "../../utils/API/userService";
+import { getProfileLocation, getProfileRole } from "../../utils/swadhaarProfile";
 import { showToastMessage } from "../../components/ToastComponent/Toastify";
 import ProfileAvatar from "../../components/Profile/ProfileAvatar";
 import ProfileField from "../../components/Profile/ProfileField";
@@ -38,6 +39,8 @@ const ProfilePage = () => {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [uploading, setUploading] = useState(false);
+  // Photo just uploaded: shown at once, since the profile read may not return the new photo
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -151,7 +154,11 @@ const ProfilePage = () => {
     try {
       const userId = localStorage.getItem("userId");
       if (userId) {
-        await uploadProfilePhoto(userId, file);
+        const photoUrl = await uploadProfilePhoto(userId, file);
+        if (photoUrl) {
+          setUploadedPhotoUrl(photoUrl);
+          localStorage.setItem("profilePicture", photoUrl);
+        }
         showToastMessage(t("LEARNER_APP.PROFILE.PHOTO_UPLOADED_SUCCESS"), "success");
         fetchProfile();
       }
@@ -207,10 +214,15 @@ const ProfilePage = () => {
     return field ? field.value : "";
   };
 
-  const cflLocation = getCustomFieldValue("cflLocation") || "CFL Jharkhand - Torpa";
+  const cflLocation = getCustomFieldValue("cflLocation") || getProfileLocation(profileData);
   const joiningDate = profileData?.createdAt
     ? new Date(profileData.createdAt).toLocaleDateString("en-GB")
-    : "12/03/2026";
+    : "";
+
+  // The photo URL is kept in the profile's `name`; `name` can also be a plain display name, so only a URL counts
+  const isUrl = (v: any): v is string => typeof v === "string" && /^https?:\/\//i.test(v);
+  const profilePhoto =
+    [uploadedPhotoUrl, profileData?.name, profileData?.basicDetails?.image, typeof window !== "undefined" ? localStorage.getItem("profilePicture") : null].find(isUrl) || null;
 
   const getDisplayRole = (role: string) => {
     if (!role) return t("CFL_DASHBOARD.TRAINER");
@@ -299,7 +311,7 @@ const ProfilePage = () => {
             <Box sx={{ mb: 3 }}>
               <ProfileAvatar
                 initials={getInitials(fullName)}
-                imageUrl={profileData?.name || profileData?.basicDetails?.image || null}
+                imageUrl={profilePhoto}
                 size={120}
               />
             </Box>
@@ -387,7 +399,7 @@ const ProfilePage = () => {
               />
             )}
 
-            <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={getDisplayRole(profileData?.role)} />
+            <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={getDisplayRole(getProfileRole(profileData))} />
             <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_CFL_LOCATION')} value={cflLocation} />
             <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_MOBILE')} value={profileData?.mobile || ""} />
             <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_EMAIL')} value={profileData?.email || ""} />

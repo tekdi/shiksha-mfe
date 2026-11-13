@@ -1,5 +1,6 @@
 "use client";
 
+import { getProfileLocation, getProfileRole } from '@learner/utils/swadhaarProfile';
 import React, { useEffect, useState } from "react";
 import {
   Box,
@@ -148,8 +149,8 @@ const ProfilePage = () => {
     return field ? field.value : "";
   };
 
-  const cflLocation = getCustomFieldValue("cflLocation") || "CFL Jharkhand - Torpa";
-  const joiningDate = profileData?.createdOn ? new Date(profileData.createdOn).toLocaleDateString("en-GB") : "12/03/2026";
+  const cflLocation = getCustomFieldValue("cflLocation") || getProfileLocation(profileData);
+  const joiningDate = (profileData?.createdAt || profileData?.createdOn) ? new Date(profileData.createdAt || profileData.createdOn).toLocaleDateString("en-GB") : "";
 
   const getDisplayRole = (role: string) => {
     if (!role) return t("CFL_DASHBOARD.TRAINER");
@@ -305,7 +306,7 @@ const ProfilePage = () => {
               />
             )}
 
-            <ProfileField label="Designation" value={getDisplayRole(profileData?.role)} />
+            <ProfileField label="Designation" value={getDisplayRole(getProfileRole(profileData))} />
             <ProfileField label="CFL Location" value={cflLocation} />
             <ProfileField label="Mobile Number" value={profileData?.mobile || ""} />
             <ProfileField label="Email" value={profileData?.email || ""} />
