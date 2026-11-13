@@ -33,6 +33,7 @@ import {
   enrolLearnerInCourses,
   getPathwayCourseIds,
   addPathwayCohorts,
+  getPathwayEnrolled,
 } from '@/services/PathwayService';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
@@ -178,6 +179,10 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
   const [userSearch, setUserSearch] = useState('');
   const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
 
+  // Groups and users already enrolled in this path (shown checked and disabled)
+  const [enrolledGroupIds, setEnrolledGroupIds] = useState<string[]>([]);
+  const [enrolledUserIds, setEnrolledUserIds] = useState<string[]>([]);
+
   // Feedback state
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -263,10 +268,22 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
     if (open) {
       fetchGroups();
       fetchUsers();
+      setSelectedGroupIds([]);
+      setSelectedUserIds([]);
+      setEnrolledGroupIds([]);
+      setEnrolledUserIds([]);
+      if (pathwayId) {
+        getPathwayEnrolled(pathwayId)
+          .then(({ groupIds, userIds }) => {
+            setEnrolledGroupIds(groupIds);
+            setEnrolledUserIds(userIds);
+          })
+          .catch((err) => console.warn('Could not load enrolled groups and users:', err));
+      }
       setFeedbackMessage(null);
       setErrorMessage(null);
     }
-  }, [open, fetchGroups, fetchUsers]);
+  }, [open, pathwayId, fetchGroups, fetchUsers]);
 
   // Filtered lists
   const filteredGroups = useMemo(() => {
@@ -280,37 +297,52 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
     return users.filter((u) => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
   }, [users, userSearch]);
 
+  const selectableGroups = useMemo(
+    () => filteredGroups.filter((g) => !enrolledGroupIds.includes(g.id)),
+    [filteredGroups, enrolledGroupIds]
+  );
+  const selectableUsers = useMemo(
+    () => filteredUsers.filter((u) => !enrolledUserIds.includes(u.id)),
+    [filteredUsers, enrolledUserIds]
+  );
+
   // Selection handlers
   const handleToggleGroup = (id: string) => {
+    if (enrolledGroupIds.includes(id)) return;
     setSelectedGroupIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
   const handleSelectAllGroups = () => {
-    if (selectedGroupIds.length === filteredGroups.length) {
+    if (selectedGroupIds.length === selectableGroups.length) {
       setSelectedGroupIds([]);
     } else {
-      setSelectedGroupIds(filteredGroups.map((g) => g.id));
+      setSelectedGroupIds(selectableGroups.map((g) => g.id));
     }
   };
 
   const handleToggleUser = (id: string) => {
+    if (enrolledUserIds.includes(id)) return;
     setSelectedUserIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
     );
   };
 
   const handleSelectAllUsers = () => {
-    if (selectedUserIds.length === filteredUsers.length) {
+    if (selectedUserIds.length === selectableUsers.length) {
       setSelectedUserIds([]);
     } else {
-      setSelectedUserIds(filteredUsers.map((u) => u.id));
+      setSelectedUserIds(selectableUsers.map((u) => u.id));
     }
   };
 
   const isGroupsTab = activeTab === 'groups';
   const currentSelectionCount = isGroupsTab ? selectedGroupIds.length : selectedUserIds.length;
+  const enrolledInList = isGroupsTab
+    ? groups.filter((g) => enrolledGroupIds.includes(g.id)).length
+    : users.filter((u) => enrolledUserIds.includes(u.id)).length;
+  const displayedSelectedCount = currentSelectionCount + enrolledInList;
   const currentTotalFound = isGroupsTab ? filteredGroups.length : filteredUsers.length;
   const currentSearch = isGroupsTab ? groupSearch : userSearch;
 
@@ -370,8 +402,9 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
           <TableCell padding="checkbox" sx={{ backgroundColor: NEUTRAL.canvas }}>
             <Checkbox
               size="small"
-              checked={filteredGroups.length > 0 && selectedGroupIds.length === filteredGroups.length}
-              indeterminate={selectedGroupIds.length > 0 && selectedGroupIds.length < filteredGroups.length}
+              disabled={selectableGroups.length === 0}
+              checked={selectableGroups.length > 0 && selectedGroupIds.length === selectableGroups.length}
+              indeterminate={selectedGroupIds.length > 0 && selectedGroupIds.length < selectableGroups.length}
               onChange={handleSelectAllGroups}
               sx={CHECKBOX_SX}
             />
@@ -383,20 +416,25 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
       </TableHead>
       <TableBody>
         {filteredGroups.map((g) => {
-          const isSelected = selectedGroupIds.includes(g.id);
+          const isEnrolled = enrolledGroupIds.includes(g.id);
+          const isSelected = isEnrolled || selectedGroupIds.includes(g.id);
           return (
             <TableRow
               key={g.id}
-              hover
+              hover={!isEnrolled}
               onClick={() => handleToggleGroup(g.id)}
-              sx={{ cursor: 'pointer', backgroundColor: isSelected ? BRAND.primarySoft : 'inherit' }}
+              sx={{
+                cursor: isEnrolled ? 'default' : 'pointer',
+                backgroundColor: isSelected ? BRAND.primarySoft : 'inherit',
+                opacity: isEnrolled ? 0.7 : 1,
+              }}
             >
               <TableCell padding="checkbox">
-                <Checkbox size="small" checked={isSelected} sx={CHECKBOX_SX} />
+                <Checkbox size="small" checked={isSelected} disabled={isEnrolled} sx={CHECKBOX_SX} />
               </TableCell>
               <TableCell sx={{ fontWeight: 600, fontSize: '13px', color: NEUTRAL.ink }}>{g.name}</TableCell>
               <TableCell sx={MUTED_CELL_SX}>{g.members}</TableCell>
-              <TableCell sx={MUTED_CELL_SX}>{formatEnrolled(g.alreadyEnrolled)}</TableCell>
+              <TableCell sx={MUTED_CELL_SX}>{formatEnrolled(enrolledGroupIds.includes(g.id) ? ENROLLED_MARKER : g.alreadyEnrolled)}</TableCell>
             </TableRow>
           );
         })}
@@ -418,8 +456,9 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
           <TableCell padding="checkbox" sx={{ backgroundColor: NEUTRAL.canvas }}>
             <Checkbox
               size="small"
-              checked={filteredUsers.length > 0 && selectedUserIds.length === filteredUsers.length}
-              indeterminate={selectedUserIds.length > 0 && selectedUserIds.length < filteredUsers.length}
+              disabled={selectableUsers.length === 0}
+              checked={selectableUsers.length > 0 && selectedUserIds.length === selectableUsers.length}
+              indeterminate={selectedUserIds.length > 0 && selectedUserIds.length < selectableUsers.length}
               onChange={handleSelectAllUsers}
               sx={CHECKBOX_SX}
             />
@@ -431,16 +470,21 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
       </TableHead>
       <TableBody>
         {filteredUsers.map((u) => {
-          const isSelected = selectedUserIds.includes(u.id);
+          const isEnrolled = enrolledUserIds.includes(u.id);
+          const isSelected = isEnrolled || selectedUserIds.includes(u.id);
           return (
             <TableRow
               key={u.id}
-              hover
+              hover={!isEnrolled}
               onClick={() => handleToggleUser(u.id)}
-              sx={{ cursor: 'pointer', backgroundColor: isSelected ? BRAND.primarySoft : 'inherit' }}
+              sx={{
+                cursor: isEnrolled ? 'default' : 'pointer',
+                backgroundColor: isSelected ? BRAND.primarySoft : 'inherit',
+                opacity: isEnrolled ? 0.7 : 1,
+              }}
             >
               <TableCell padding="checkbox">
-                <Checkbox size="small" checked={isSelected} sx={CHECKBOX_SX} />
+                <Checkbox size="small" checked={isSelected} disabled={isEnrolled} sx={CHECKBOX_SX} />
               </TableCell>
               <TableCell>
                 <Box sx={{ display: 'flex', flexDirection: 'column' }}>
@@ -463,7 +507,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
                   }}
                 />
               </TableCell>
-              <TableCell sx={MUTED_CELL_SX}>{formatEnrolled(u.alreadyEnrolled)}</TableCell>
+              <TableCell sx={MUTED_CELL_SX}>{formatEnrolled(enrolledUserIds.includes(u.id) ? ENROLLED_MARKER : u.alreadyEnrolled)}</TableCell>
             </TableRow>
           );
         })}
@@ -587,7 +631,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
           <Typography variant="body2" sx={{ color: NEUTRAL.muted, fontSize: '13px' }}>
             {t('ENROL_LEARNING_PATH.FOUND', { count: currentTotalFound })} ·{' '}
             <strong style={{ color: NEUTRAL.ink }}>
-              {t('ENROL_LEARNING_PATH.SELECTED', { count: currentSelectionCount })}
+              {t('ENROL_LEARNING_PATH.SELECTED', { count: displayedSelectedCount })}
             </strong>
           </Typography>
         </Box>

@@ -44,6 +44,7 @@ import {
   updatePathway,
   setCoursePathway,
   pathwayIdFromResponse,
+  getPathwayEnrolled,
 } from '@/services/PathwayService';
 import EnrolLearningPathModal from '@/components/common/EnrolLearningPathModal';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
@@ -875,18 +876,19 @@ export default function LearningPathBuilderPage() {
         learningPathTitle={pathTitle}
         pathwayId={pathwayId}
         courseIds={sequence.map((item) => item.courseId).filter(Boolean) as string[]}
-        onEnrolSuccess={(count, type) => {
-          if (type === 'groups') {
-            setEnrolledSummary((prev) => ({
-              ...prev,
-              groups: `${count} groups enrolled`,
-            }));
-          } else {
-            setEnrolledSummary((prev) => ({
-              ...prev,
-              users: `${count} individual users enrolled`,
-            }));
-          }
+        onEnrolSuccess={() => {
+          // Show the total enrolled (earlier plus new), not only the latest selection
+          if (!pathwayId) return;
+          getPathwayEnrolled(pathwayId)
+            .then(({ groupIds, userIds }) =>
+              setEnrolledSummary({
+                groups: groupIds.length ? `${groupIds.length} groups enrolled` : 'No groups enrolled yet',
+                users: userIds.length
+                  ? `${userIds.length} individual users enrolled`
+                  : 'No individual users enrolled yet',
+              })
+            )
+            .catch((err) => console.error('Could not refresh enrolled summary:', err));
         }}
       />
 
@@ -934,16 +936,24 @@ export default function LearningPathBuilderPage() {
                 {addTab === 'course' ? 'Select course' : 'Select assessment'}
               </MenuItem>
               {addTab === 'course'
-                ? coursesList.map((c) => (
-                  <MenuItem key={c.identifier} value={c.identifier}>
-                    {c.cleanTitle || c.name}
-                  </MenuItem>
-                ))
-                : assessmentsList.map((a) => (
-                  <MenuItem key={a.identifier} value={`${ASSESSMENT_PREFIX}${a.identifier}`}>
-                    {a.name}
-                  </MenuItem>
-                ))}
+                ? coursesList.map((c) => {
+                  const added = sequence.some((item) => item.courseId === c.identifier);
+                  return (
+                    <MenuItem key={c.identifier} value={c.identifier} disabled={added}>
+                      <Checkbox size="small" checked={added} disabled sx={{ p: 0, mr: 1 }} />
+                      {c.cleanTitle || c.name}
+                    </MenuItem>
+                  );
+                })
+                : assessmentsList.map((a) => {
+                  const added = sequence.some((item) => item.testId === a.identifier);
+                  return (
+                    <MenuItem key={a.identifier} value={`${ASSESSMENT_PREFIX}${a.identifier}`} disabled={added}>
+                      <Checkbox size="small" checked={added} disabled sx={{ p: 0, mr: 1 }} />
+                      {a.name}
+                    </MenuItem>
+                  );
+                })}
             </Select>
           </FormControl>
         </DialogContent>

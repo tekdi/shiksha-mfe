@@ -84,7 +84,13 @@ export default function LearningPathsListPage() {
         userIds.set(pathwayId, users);
       });
       setLearningPaths(
-        pathways.map((p) => {
+        // Latest created first: by creation time, falling back to display order when it is missing
+        [...pathways]
+          .sort((a, b) => {
+            const diff = (Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0);
+            return diff || (Number(b.display_order) || 0) - (Number(a.display_order) || 0);
+          })
+          .map((p) => {
           const count = courseCounts.get(p.id) || 0;
           return {
             id: p.id,
