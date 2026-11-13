@@ -410,11 +410,10 @@ export const readHierarchyQuestions = (res: any): { questions: AssessmentQuestio
   return { questions, sectionId: sections[0]?.sectionId || sections[0]?.id };
 };
 
-/** Maps a loaded assessment name to the linked-course option shown in edit mode. */
-const FINAL_ASSESSMENT_MODULE = 'Final Assessment';
 const MAX_MODULE_TITLE_ATTEMPTS = 5;
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Maps a loaded assessment name to the linked-course option shown in edit mode. */
 const linkedContentFromName = (assessmentName?: string): string | null => {
   if (assessmentName?.includes('Course 0')) return 'Course 0 · Introduction to Swadhaar FinAccess';
   if (assessmentName?.includes('Course 1')) return 'Course 1 · Introduction to Saving';
@@ -675,25 +674,70 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
     (bq) => !questions.some((q) => q.questionId === bq.questionId)
   );
 
-  // Question bank dialog: published questions from the assessment service, searched on the server
+  // Question bank dialog: newest questions first, 50 at a time; the next 50 load when the list is scrolled
+  // to its end. Search runs on the server, so it covers every question, not just the loaded ones.
+  const bankPageSize = 50;
+  const bankTotal = useRef<number | undefined>(undefined);
+  const bankSeen = useRef<Record<string, BankQuestion>>({});
+  const bankRequest = useRef(0);
+  const [bankLoadingMore, setBankLoadingMore] = useState(false);
+
+  const loadBankPage = (reset: boolean) => {
+    const request = ++bankRequest.current;
+    const loaded = reset ? 0 : bankQuestions.length;
+    reset ? setBankLoading(true) : setBankLoadingMore(true);
+    fetchQuestionBank({
+      search: bankSearch,
+      limit: bankPageSize,
+      loaded,
+      total: reset ? undefined : bankTotal.current,
+    })
+      .then(({ questions: found, count }) => {
+        if (request !== bankRequest.current) return;
+        bankTotal.current = count;
+        found.forEach((q) => {
+          bankSeen.current[q.questionId] = q;
+        });
+        setBankQuestions((prev) => (reset ? found : [...prev, ...found]));
+      })
+      .catch((err) => {
+        if (request !== bankRequest.current) return;
+        console.error('Failed to load question bank:', err);
+        if (reset) setBankQuestions([]);
+      })
+      .finally(() => {
+        if (request !== bankRequest.current) return;
+        setBankLoading(false);
+        setBankLoadingMore(false);
+      });
+  };
+
   useEffect(() => {
     if (!bankDialogOpen) return;
-    const timer = setTimeout(() => {
-      setBankLoading(true);
-      fetchQuestionBank({ search: bankSearch, limit: 50, offset: 0 })
-        .then(({ questions: found }) => setBankQuestions(found))
-        .catch((err) => {
-          console.error('Failed to load question bank:', err);
-          setBankQuestions([]);
-        })
-        .finally(() => setBankLoading(false));
-    }, 350);
+    const timer = setTimeout(() => loadBankPage(true), 350);
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bankDialogOpen, bankSearch]);
+
+  // Questions already in the assessment are hidden, so a short list can't be scrolled: fetch the next page
+  useEffect(() => {
+    const hasMore = bankTotal.current !== undefined && bankQuestions.length < bankTotal.current;
+    if (bankDialogOpen && hasMore && !bankLoading && !bankLoadingMore && availableBankQuestions.length < 6) {
+      loadBankPage(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bankQuestions, bankDialogOpen]);
+
+  const handleBankScroll = (e: React.UIEvent<HTMLElement>) => {
+    const el = e.currentTarget;
+    const atEnd = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+    const hasMore = bankTotal.current !== undefined && bankQuestions.length < bankTotal.current;
+    if (atEnd && hasMore && !bankLoading && !bankLoadingMore) loadBankPage(false);
+  };
 
   // Add from question bank dialog handler
   const handleConfirmAddFromBank = async () => {
-    const picked = bankQuestions.filter((bq) => selectedBankQuestionIds.includes(bq.questionId));
+    const picked = selectedBankQuestionIds.map((id) => bankSeen.current[id]).filter(Boolean);
     if (picked.length > 0) {
       // The list may omit options; read those questions individually
       const full = await Promise.all(
@@ -761,15 +805,15 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
 
   // Module titles are unique per course, and a deleted module keeps its title. Reuse a module that
   // already has the title, and when the title is still taken, create the module under a numbered title.
-  const createFinalAssessmentModule = async (courseId: string, ordering: number): Promise<string | undefined> => {
+  const createAssessmentModule = async (courseId: string, baseTitle: string, ordering: number): Promise<string | undefined> => {
     for (let attempt = 1; attempt <= MAX_MODULE_TITLE_ATTEMPTS; attempt++) {
-      const title = attempt === 1 ? FINAL_ASSESSMENT_MODULE : `${FINAL_ASSESSMENT_MODULE} ${attempt}`;
+      const title = attempt === 1 ? baseTitle : `${baseTitle} ${attempt}`;
       try {
         const created = await createModule({
           title,
           alias: title.toLowerCase().replace(/\s+/g, '-'),
           courseId,
-          description: '<p>End-of-course knowledge check</p>',
+          description: `<p>${baseTitle}</p>`,
           image: '/uploads/module/default.png',
           ordering,
           status: 'published',
@@ -779,23 +823,36 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
         if (err?.response?.status !== 409) throw err;
       }
     }
-    return undefined;
+    // Every numbered title is held by a deleted module: use a unique suffix so the save never dead-ends
+    const title = `${baseTitle} ${Date.now().toString(36)}`;
+    const created = await createModule({
+      title,
+      alias: title.toLowerCase().replace(/\s+/g, '-'),
+      courseId,
+      description: `<p>${baseTitle}</p>`,
+      image: '/uploads/module/default.png',
+      ordering,
+      status: 'published',
+    });
+    return created?.result?.moduleId;
   };
 
-  // The course hierarchy only lists lessons module by module, so the test goes into a "Final Assessment" module
+  // The course hierarchy only lists lessons module by module, so each assessment goes into its own section (module) named after it
   const addTestToCourse = async (courseId: string, testId: string) => {
     const hierarchy = await getCourseHierarchy(courseId);
     const modules = hierarchy?.children || [];
-    const isFinal = (title?: string) => title?.trim().toLowerCase() === FINAL_ASSESSMENT_MODULE.toLowerCase();
+    // The assessment becomes its own section in the course, named after the assessment
+    const sectionTitle = name.trim();
+    const isFinal = (title?: string) => title?.trim().toLowerCase() === sectionTitle.toLowerCase();
     const existing = modules.find((m) => isFinal(m.name));
     let moduleId: string | undefined = existing?.identifier;
     if (!moduleId || !UUID_REGEX.test(moduleId)) {
-      const found = (await getModuleList(courseId, { query: FINAL_ASSESSMENT_MODULE, limit: 50 })).modules.find((m) =>
+      const found = (await getModuleList(courseId, { query: sectionTitle, limit: 50 })).modules.find((m) =>
         isFinal(m.title)
       );
-      moduleId = found?.moduleId || (await createFinalAssessmentModule(courseId, modules.length + 1));
+      moduleId = found?.moduleId || (await createAssessmentModule(courseId, sectionTitle, modules.length + 1));
     }
-    if (!moduleId) throw new Error('The Final Assessment module could not be created.');
+    if (!moduleId) throw new Error('The assessment section could not be created in the course.');
 
     await createTestLesson({
       title: name.trim(),
@@ -1639,7 +1696,7 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
             sx={{ ...OUTLINED_FIELD_SX, mb: 2 }}
           />
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2, maxHeight: 380, overflowY: 'auto' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2, maxHeight: 380, overflowY: 'auto' }} onScroll={handleBankScroll}>
             {bankLoading && (
               <Typography sx={{ fontSize: '13px', color: '#6B6862' }}>Loading questions…</Typography>
             )}
@@ -1688,6 +1745,9 @@ export function AssessmentBuilder({ assessmentId }: Readonly<AssessmentBuilderPr
                 </Box>
               );
             })}
+            {bankLoadingMore && (
+              <Typography sx={{ fontSize: '13px', color: '#6B6862', textAlign: 'center' }}>Loading more…</Typography>
+            )}
           </Box>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
