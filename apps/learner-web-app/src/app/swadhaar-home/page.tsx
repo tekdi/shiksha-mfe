@@ -539,7 +539,8 @@ export default function SwadhaarHomePage() {
   }
 
   const renderMobileLevelCard = (level: any) => {
-    const isCompleted = level.completionPercentage >= 70;
+    const isCompleted =
+      level.completionPercentage >= 70 && level.totalModules > 0 && level.completedModules >= level.totalModules;
     const isLocked = !level.isUnlocked;
     const perc = Math.round(level.completionPercentage);
     return (

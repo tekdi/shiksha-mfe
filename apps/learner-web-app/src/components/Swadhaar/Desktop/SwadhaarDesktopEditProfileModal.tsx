@@ -1,5 +1,6 @@
 'use client';
 
+import { getProfileLocation, getProfileRole } from '@learner/utils/swadhaarProfile';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Box, Typography, Button, CircularProgress,
@@ -80,10 +81,10 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
     return field ? field.value : '';
   };
 
-  const cflLocation = getCustomFieldValue('cflLocation') || 'CFL Jharkhand - Torpa';
+  const cflLocation = getCustomFieldValue('cflLocation') || getProfileLocation(profileData);
   const joiningDate = profileData?.createdAt
     ? new Date(profileData.createdAt).toLocaleDateString('en-GB')
-    : '12/03/2026';
+    : '';
 
   const getDisplayRole = (role: string) => {
     if (!role) return t("CFL_DASHBOARD.TRAINER");
@@ -338,7 +339,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
                 />
               )}
 
-              <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={getDisplayRole(profileData?.role)} />
+              <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={getDisplayRole(getProfileRole(profileData))} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_CFL_LOCATION')} value={cflLocation} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_MOBILE')} value={profileData?.mobile || ''} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_EMAIL')} value={profileData?.email || ''} />

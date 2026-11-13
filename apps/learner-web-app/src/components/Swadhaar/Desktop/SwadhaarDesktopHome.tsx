@@ -350,7 +350,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
                 </Typography>
 
                 {/* ── Congratulations banners for completed courses (>= 70%) ── */}
-                {levels.filter(l => l.completionPercentage >= 70).map(level => (
+                {levels.filter(l => l.completionPercentage >= 70 && l.totalModules > 0 && l.completedModules >= l.totalModules).map(level => (
                   <Box key={`congrats-${level.id}`} sx={{
                     mb: 2.5, borderRadius: '16px', overflow: 'hidden',
                     background: 'linear-gradient(135deg, #1C2B4A 0%, #2D4270 60%, #1C2B4A 100%)',

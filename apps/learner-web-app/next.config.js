@@ -19,6 +19,8 @@ const routes = {
  * @type {import('@nx/next/plugins/with-nx').WithNxOptions}
  **/
 const nextConfig = {
+  // Traces only the files the server needs into .next/standalone, which keeps the Docker image small
+  output: "standalone",
   nx: {
     // Set this to true if you would like to use SVGR
     // See: https://github.com/gregberge/svgr
