@@ -24,7 +24,7 @@ COPY apps/swadhaar-admin-repo ./apps/swadhaar-admin-repo
 # Build application (the .env secret is mounted only for this step so NEXT_PUBLIC_* vars
 # get inlined, never baked into the image), cleanup build caches, and set permissions
 RUN --mount=type=secret,id=env,target=/workspace/.env \
-    ./node_modules/.bin/nx build swadhaar-admin-repo && \
+    NODE_ENV=production ./node_modules/.bin/nx build swadhaar-admin-repo && \
     rm -rf apps/swadhaar-admin-repo/.next/cache \
            .nx/cache \
            /tmp/.npm && \
