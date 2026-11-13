@@ -537,6 +537,8 @@ export const mapBankQuestion = (q: any): BankQuestion => ({
 export const fetchQuestionBank = async (params: {
   search?: string;
   limit?: number;
+  /** Plain offset paging in API order (table views); the newest-first paging below is used when it is omitted */
+  offset?: number;
   loaded?: number;
   total?: number;
 }): Promise<{ questions: BankQuestion[]; count: number }> => {
@@ -556,6 +558,11 @@ export const fetchQuestionBank = async (params: {
     const count = Number(result?.totalElements ?? result?.totalCount ?? result?.count ?? result?.total ?? list.length) || list.length;
     return { list, count };
   };
+
+  if (params.offset !== undefined) {
+    const { list, count } = await read(params.offset, limit);
+    return { questions: list.map(mapBankQuestion), count };
+  }
 
   const total = params.total ?? (await read(0, 1)).count;
   const remaining = total - (params.loaded ?? 0);
