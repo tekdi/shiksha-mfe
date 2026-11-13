@@ -529,23 +529,41 @@ export const mapBankQuestion = (q: any): BankQuestion => ({
     .map((opt: any) => ({ text: opt.text || '', isCorrect: Boolean(opt.isCorrect), position: opt.position })),
 });
 
-/** Published questions across all tests; the list sits under `result`, under a key that varies by deployment */
+/**
+ * One page of published questions, newest first. The API lists oldest first, so pages are read from the end:
+ * `loaded` is how many questions earlier pages returned and `total` the count from the first page.
+ * The list sits under `result`, under a key that varies by deployment.
+ */
 export const fetchQuestionBank = async (params: {
   search?: string;
   limit?: number;
-  offset?: number;
+  loaded?: number;
+  total?: number;
 }): Promise<{ questions: BankQuestion[]; count: number }> => {
-  const res = await AssessmentService.getAllQuestions({
-    status: 'published',
-    search: params.search?.trim() || undefined,
-    limit: params.limit ?? 20,
-    offset: params.offset ?? 0,
-  });
-  const result = res?.result ?? res?.data ?? res;
-  const list: any[] = Array.isArray(result)
-    ? result
-    : result?.questions || result?.data || result?.items || result?.rows ||
-      (Object.values(result || {}).find(Array.isArray) as any[] | undefined) || [];
-  const count = Number(result?.totalElements ?? result?.totalCount ?? result?.count ?? result?.total ?? list.length) || list.length;
-  return { questions: list.map(mapBankQuestion), count };
+  const limit = params.limit ?? 50;
+  const read = async (offset: number, size: number) => {
+    const res = await AssessmentService.getAllQuestions({
+      status: 'published',
+      search: params.search?.trim() || undefined,
+      limit: size,
+      offset,
+    });
+    const result = res?.result ?? res?.data ?? res;
+    const list: any[] = Array.isArray(result)
+      ? result
+      : result?.questions || result?.data || result?.items || result?.rows ||
+        (Object.values(result || {}).find(Array.isArray) as any[] | undefined) || [];
+    const count = Number(result?.totalElements ?? result?.totalCount ?? result?.count ?? result?.total ?? list.length) || list.length;
+    return { list, count };
+  };
+
+  const total = params.total ?? (await read(0, 1)).count;
+  const remaining = total - (params.loaded ?? 0);
+  if (remaining <= 0) return { questions: [], count: total };
+
+  const size = Math.min(limit, remaining);
+  const { list } = await read(remaining - size, size);
+  const time = (q: any) => Date.parse(q.createdAt || q.created_at || '') || 0;
+  const sorted = list.some(time) ? [...list].sort((a, b) => time(b) - time(a)) : [...list].reverse();
+  return { questions: sorted.map(mapBankQuestion), count: total };
 };
