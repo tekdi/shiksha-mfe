@@ -138,6 +138,29 @@ export const getPathwayCourseIds = async (pathwayId: string): Promise<string[]> 
 };
 
 /**
+ * A PATCH of a course's params must carry its current status back, otherwise the LMS can reset a published course
+ * to unpublished and the admin has to publish it again.
+ */
+const statusOf = (current: any): { status?: string } => {
+  const status = current?.data?.result?.status;
+  return status ? { status } : {};
+};
+
+/** Groups and individual users already enrolled in a path (recorded on its courses' params) */
+export const getPathwayEnrolled = async (pathwayId: string): Promise<{ groupIds: string[]; userIds: string[] }> => {
+  const { content } = await getCourseList({ limit: 100 });
+  const groupIds = new Set<string>();
+  const userIds = new Set<string>();
+  content
+    .filter((course) => course.params?.pathwayId === pathwayId)
+    .forEach((course) => {
+      (course.params?.enrolledCohortIds || []).forEach((id: string) => groupIds.add(id));
+      (course.params?.enrolledUserIds || []).forEach((id: string) => userIds.add(id));
+    });
+  return { groupIds: Array.from(groupIds), userIds: Array.from(userIds) };
+};
+
+/**
  * Puts a course in a learning path (or takes it out with `null`) through the course's `params.pathwayId`:
  * PATCH /lms-service/v1/courses/:courseId (no userId query). The service replaces `params` as a whole, so the course is read first
  * and its other params are sent back with pathwayId added or removed. The path's selected certificate template is stored
@@ -160,7 +183,7 @@ export const setCoursePathway = async (
     const params: Record<string, any> = { ...otherParams };
     if (pathwayId) params.pathwayId = pathwayId;
     if (nextTemplateId) params.certificateTemplateId = nextTemplateId;
-    await patch(courseUrl, { params }, headers);
+    await patch(courseUrl, { params, ...statusOf(current) }, headers);
   } catch (error) {
     console.error(`Error in PathwayService.setCoursePathway for ${courseId}:`, error);
     throw error;
@@ -179,7 +202,7 @@ export const addPathwayCohorts = async (courseIds: string[], cohortIds: string[]
       const current = await get(courseUrl, headers);
       const params = current?.data?.result?.params || {};
       const merged = Array.from(new Set([...(params.enrolledCohortIds || []), ...cohortIds]));
-      await patch(courseUrl, { params: { ...params, enrolledCohortIds: merged } }, headers);
+      await patch(courseUrl, { params: { ...params, enrolledCohortIds: merged }, ...statusOf(current) }, headers);
     })
   );
 };
@@ -196,7 +219,7 @@ export const addPathwayUsers = async (courseIds: string[], userIds: string[]): P
       const current = await get(courseUrl, headers);
       const params = current?.data?.result?.params || {};
       const merged = Array.from(new Set([...(params.enrolledUserIds || []), ...userIds]));
-      await patch(courseUrl, { params: { ...params, enrolledUserIds: merged } }, headers);
+      await patch(courseUrl, { params: { ...params, enrolledUserIds: merged }, ...statusOf(current) }, headers);
     })
   );
 };
@@ -215,7 +238,7 @@ export const assignCohortToCourses = async (courseIds: string[], cohortId: strin
       const current = await get(courseUrl, headers);
       const params = current?.data?.result?.params || {};
       const enrolled = Array.from(new Set([...(params.enrolledCohortIds || []), cohortId]));
-      await patch(courseUrl, { params: { ...params, cohortId, enrolledCohortIds: enrolled } }, headers);
+      await patch(courseUrl, { params: { ...params, cohortId, enrolledCohortIds: enrolled }, ...statusOf(current) }, headers);
     })
   );
 };
