@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { useTranslation } from "@shared-lib";
 import { getUserDetails, editEditUser, uploadProfilePhoto } from "../../utils/API/services/ProfileService";
 import { updateLanguageInProfile } from "../../utils/API/userService";
-import { getProfileLocation, getProfileRole } from "../../utils/swadhaarProfile";
+import { getProfileLocation, getProfileRole, getProfilePhotoUrl } from "../../utils/swadhaarProfile";
 import { showToastMessage } from "../../components/ToastComponent/Toastify";
 import ProfileAvatar from "../../components/Profile/ProfileAvatar";
 import ProfileField from "../../components/Profile/ProfileField";

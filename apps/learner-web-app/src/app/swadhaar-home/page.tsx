@@ -1,5 +1,6 @@
 'use client';
 
+import { getProfilePhotoUrl } from '@learner/utils/swadhaarProfile';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Box, Typography, CircularProgress, Badge, Collapse, Button, useMediaQuery, useTheme, Modal, LinearProgress
@@ -212,8 +213,8 @@ export default function SwadhaarHomePage() {
             setLocalStorageFromCustomFields(profileData.customFields);
           }
           // The photo URL is stored in the `name` field by the uploadProfilePhoto flow
-          const freshImageUrl = profileData?.name || null;
-          setProfileImageUrl(freshImageUrl);
+          // The profile read may not return the photo, so the URL saved at upload time is the fallback
+          setProfileImageUrl(getProfilePhotoUrl(profileData));
           if (profileData?.firstName) {
             const fnStr = String(profileData.firstName);
             setUserName(fnStr);
