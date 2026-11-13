@@ -489,7 +489,12 @@ const certificateHeaders = () => ({ ...lmsHeaders(), 'Content-Type': 'applicatio
 
 /** The credential id (did:rcw:...) of a certificate row or issue result. */
 const credentialIdOf = (value: any): string | undefined =>
-  value?.certificateId || value?.credentialId || value?.credential?.id || value?.id;
+  value?.certificateId ||
+  value?.credentialId ||
+  // issue answers { credential: { credential: { id: 'did:rcw:...' }, credentialSchemaId, ... }, certificates, summary }
+  value?.credential?.credential?.id ||
+  value?.credential?.id ||
+  value?.id;
 
 /** The learner's certificate for a course, or null (POST lms-service/v1/certificate/user-certificates). */
 export const getSwadhaarCourseCertificate = async (courseId: string): Promise<{ credentialId: string } | null> => {

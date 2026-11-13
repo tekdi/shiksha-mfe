@@ -1,6 +1,6 @@
 'use client';
 
-import { getProfileLocation, getProfileRole } from '@learner/utils/swadhaarProfile';
+import { getProfileLocation, getProfileRole, getProfilePhotoUrl } from '@learner/utils/swadhaarProfile';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Box, Typography, Button, CircularProgress,
@@ -38,6 +38,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
   const [uploading, setUploading] = useState(false);
   const [profileData, setProfileData] = useState<any>(null);
   const [isEditingName, setIsEditingName] = useState(false);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   /* Fetch profile when modal opens */
@@ -161,6 +162,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
         const imageUrl = await uploadProfilePhoto(userId, file);
         if (imageUrl) {
           localStorage.setItem('profilePicture', imageUrl);
+          setUploadedPhotoUrl(imageUrl);
         }
         showToastMessage(t('LEARNER_APP.PROFILE.PHOTO_UPLOADED_SUCCESS'), 'success');
         fetchProfile();
@@ -244,7 +246,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 2.5 }}>
               <ProfileAvatar
                 initials={getInitials(fullName)}
-                imageUrl={profileData?.name || profileData?.basicDetails?.image || null}
+                imageUrl={getProfilePhotoUrl(profileData, uploadedPhotoUrl)}
                 size={72}
                 primaryColor={PRIMARY}
               />
