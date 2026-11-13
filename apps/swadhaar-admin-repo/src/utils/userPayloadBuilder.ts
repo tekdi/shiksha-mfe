@@ -119,9 +119,16 @@ export const buildCreateUserPayload = (
   // (NEXT_PUBLIC_SWADHAAR_LEARNER_PASSWORD, same value as the learner app). So a learner created without a typed
   // password gets that one; a random password would make OTP sign-in fail. Admins keep a random temporary password.
   const learnerPassword = isAdmin ? '' : process.env.NEXT_PUBLIC_SWADHAAR_LEARNER_PASSWORD || '';
-  const password =
-    providedPassword || (input.password || '').trim() || learnerPassword || generateSecureTemporaryPassword();
-  const username = (input.username || '').trim() || employeeId || mobile || email;
+ if (!isAdmin && !learnerPassword) {
+    // Fail loudly instead of silently creating a learner who can never sign in
+    throw new Error('NEXT_PUBLIC_SWADHAAR_LEARNER_PASSWORD is not set in the admin build; learners cannot be created.');
+  }
+  const password = isAdmin
+    ? providedPassword || (input.password || '').trim() || generateSecureTemporaryPassword()
+    : learnerPassword;
+  const username = isAdmin
+    ? (input.username || '').trim() || employeeId || mobile || email
+    : mobile || (input.username || '').trim() || employeeId || email;
   const customFields = buildLocationCustomFields(input);
 
   const payload: CreateUserPayload = {
