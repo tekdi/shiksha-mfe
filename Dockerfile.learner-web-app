@@ -1,24 +1,20 @@
 # syntax=docker/dockerfile:1
-FROM node:20-slim
+
+# ---------- Stage 1: build ----------
+FROM node:20-slim AS builder
 
 WORKDIR /workspace
 
 ENV NODE_OPTIONS="--max-old-space-size=8192"
 ENV CYPRESS_INSTALL_BINARY=0
 ENV PUPPETEER_SKIP_DOWNLOAD=true
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV npm_config_cache="/tmp/.npm"
 
-# Copy package manifests
 COPY package*.json ./
+RUN npm ci --legacy-peer-deps --no-audit --no-fund --ignore-scripts
 
-# Install PM2 and dependencies using locked versions with scripts ignored
-RUN npm install -g pm2@6.0.8 --ignore-scripts && \
-    npm ci --legacy-peer-deps --no-audit --no-fund --ignore-scripts && \
-    npm cache clean --force
-
-# Copy only the workspace config and sources needed to build learner-web-app
 COPY nx.json tsconfig.base.json tsconfig.learner.json jest.preset.js eslint.config.js patch-nx.js .nxignore ./
-COPY ecosystem.learner-web-app.config.js ./
 COPY libs ./libs
 COPY mfes ./mfes
 COPY apps/learner-web-app ./apps/learner-web-app
@@ -26,20 +22,30 @@ COPY apps/learner-web-app ./apps/learner-web-app
 # Fix Nx lockfile parsing bug
 RUN node patch-nx.js
 
-# Build apps (the .env secret is mounted only for this step, never baked into the image),
-# clean build caches, and give the non-root user ownership
+# The .env secret is mounted only for this step, never baked into the image.
+# next.config.js has output: 'standalone' -> .next/standalone holds only the traced runtime files
 RUN --mount=type=secret,id=env,target=/workspace/.env \
-    ./node_modules/.bin/nx run-many --target=build --projects=learner-web-app,players && \
-    rm -rf apps/learner-web-app/.next/cache \
-           mfes/players/.next/cache \
-           .nx/cache \
-           /tmp/.npm && \
-    find /workspace -path /workspace/.env -prune -o -exec chown node:node {} +
+    ./node_modules/.bin/nx run-many --target=build --projects=learner-web-app,players
 
-# Switch to non-root user provided by node base image
+# ---------- Stage 2: runtime (only the standalone output of both apps) ----------
+FROM node:20-slim AS runner
+
+WORKDIR /workspace
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# Both standalone folders hold a root node_modules with what their app needs; copying them over each other merges them
+COPY --from=builder --chown=node:node /workspace/apps/learner-web-app/.next/standalone ./
+COPY --from=builder --chown=node:node /workspace/mfes/players/.next/standalone ./
+COPY --from=builder --chown=node:node /workspace/apps/learner-web-app/.next/static ./apps/learner-web-app/.next/static
+COPY --from=builder --chown=node:node /workspace/apps/learner-web-app/public ./apps/learner-web-app/public
+COPY --from=builder --chown=node:node /workspace/mfes/players/.next/static ./mfes/players/.next/static
+COPY --from=builder --chown=node:node /workspace/mfes/players/public ./mfes/players/public
+COPY --chown=node:node start-learner.sh ./start-learner.sh
+
 USER node
 
 # learner-web-app, players
 EXPOSE 3003 4108
 
-CMD ["pm2-runtime", "ecosystem.learner-web-app.config.js"]
+CMD ["./start-learner.sh"]

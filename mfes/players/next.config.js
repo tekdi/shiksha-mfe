@@ -19,6 +19,8 @@ const routes = {
  * @type {import('@nx/next/plugins/with-nx').WithNxOptions}
  **/
 const nextConfig = {
+  // Traces only the files the server needs into .next/standalone, which keeps the Docker image small
+  output: "standalone",
   trailingSlash: false,
   reactStrictMode: true,
   nx: {
