@@ -200,7 +200,7 @@ export default function SwadhaarHomePage() {
       const storedName = localStorage.getItem('firstName') || localStorage.getItem('name') || 'Trainer';
       const tenantId = localStorage.getItem('tenantId') || tenant?.tenantId || '';
       setUserName(storedName);
-      const role = localStorage.getItem('userRole') || 'Trainer';
+      const role = localStorage.getItem('roleDisplayName') || localStorage.getItem('userRole') || 'Trainer';
 
       setDesignation(role.toLowerCase() === 'learner' ? 'Trainer' : role);
 

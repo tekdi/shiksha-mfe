@@ -80,7 +80,8 @@ export default function SubtopicDetailsPage() {
       const userId = trainerId || localStorage.getItem('userId') || '';
       const tenantId = localStorage.getItem('tenantId') || tenant?.tenantId || '';
 
-      const courseHierarchy = await fetchSwadhaarCourseModules(courseId);
+      // In the CFL/ARM view the modules carry the trainer's progress, not the viewer's
+      const courseHierarchy = await fetchSwadhaarCourseModules(courseId, userId);
       setCourseName(courseHierarchy?.name || '');
       const allModules: any[] = courseHierarchy?.children || [];
       setCourseModules(allModules);
@@ -172,7 +173,8 @@ export default function SubtopicDetailsPage() {
       const next = currentModuleIdx >= 0 && currentModuleIdx < allModules.length - 1 ? allModules[currentModuleIdx + 1] : null;
       setNextModule(next);
 
-      if (!next) {
+      // The next-course button is hidden in the CFL/ARM view, and the viewer's own courses are not the trainer's
+      if (!next && !trainerId) {
         const allLevelCourses: any[] = await fetchSwadhaarLevelCourses();
         const currentLevelIdx = allLevelCourses.findIndex((l: any) => l.identifier === courseId);
         const nextLev = currentLevelIdx >= 0 && currentLevelIdx < allLevelCourses.length - 1 ? allLevelCourses[currentLevelIdx + 1] : null;

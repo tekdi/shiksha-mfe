@@ -14,42 +14,16 @@ import { getAlerts, getUnreadCount, fetchAndSyncAlerts } from '@learner/utils/al
 import { getUserDetails } from '@learner/utils/API/services/ProfileService';
 import { useTranslation } from '@shared-lib';
 import {
+  buildSwadhaarLevels,
   fetchSwadhaarLevelCourses,
-  getContentCourseStatus,
+  fetchSwadhaarModuleLessons,
+  SWADHAAR_DONE_PERCENT,
   trackCourseClick,
+  type SwadhaarGroupCourse,
 } from '@learner/utils/API/SwadhaarService';
 
 const PRIMARY = '#E6873C';
 const DARK_NAV = '#1C2B4A';
-
-// ── Helper: recursively build completion cache (same as SwadhaarDesktopLevelAccordion) ──
-const buildStatusMap = (statusList: any[]): Map<string, any> => {
-  const map = new Map<string, any>();
-  for (const item of statusList) if (item.contentId) map.set(item.contentId, item);
-  return map;
-};
-
-const calculateNodeLessons = (node: any, statusList: any[]): { total: number; completed: number } => {
-  const id = node.identifier || node.id;
-  if (!node.children || node.children.length === 0) {
-    const s = statusList.find((d: any) => d.contentId === id);
-    const perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
-    return { total: 1, completed: perc / 100 };
-  }
-  let total = 0;
-  let completed = 0;
-  node.children.forEach((child: any) => {
-    const res = calculateNodeLessons(child, statusList);
-    total += res.total;
-    completed += res.completed;
-  });
-  return { total, completed };
-};
-
-const calculateNodeCompletion = (node: any, statusList: any[]): number => {
-  const { total, completed } = calculateNodeLessons(node, statusList);
-  return total > 0 ? (completed / total) * 100 : 0;
-};
 
 interface Trainer {
   id: string;
@@ -126,42 +100,19 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
   }, []);
 
   // ── Load CFL own learning progress (same logic as swadhaar-home/page.tsx) ──
-  const loadCFLLearningProgress = useCallback(async () => {
+  const loadCFLLearningProgress = useCallback(async (groupCourses: SwadhaarGroupCourse[]) => {
     try {
       setCflLevelsLoading(true);
-      const uid = localStorage.getItem('userId') || '';
-      const tenantId = localStorage.getItem('tenantId') || '';
 
-      const levelCourses = await fetchSwadhaarLevelCourses();
+      // The District Incharge's own enrolled courses, with module progress, from the Swadhaar LMS
+      // plus every course the trainers in the same group are on, so the CFL sees the same course list
+      const levelCourses = await fetchSwadhaarLevelCourses(undefined, groupCourses);
       if (!levelCourses || levelCourses.length === 0) {
         setCflLevelsLoading(false);
         return;
       }
 
-      // Collect all hierarchy IDs for status fetch
-      const allHierarchyIds: string[] = [];
-      levelCourses.forEach((level: any) => {
-        allHierarchyIds.push(level.identifier);
-        (level.children || []).forEach((mod: any) => {
-          allHierarchyIds.push(mod.identifier);
-          (mod.children || []).forEach((sub: any) => {
-            allHierarchyIds.push(sub.identifier);
-            (sub.children || []).forEach((lesson: any) => {
-              allHierarchyIds.push(lesson.identifier);
-            });
-          });
-        });
-      });
-
-      let status: any[] = [];
-      if (uid && allHierarchyIds.length && tenantId) {
-        const batchSize = 100;
-        for (let i = 0; i < allHierarchyIds.length; i += batchSize) {
-          const batch = allHierarchyIds.slice(i, i + batchSize);
-          const batchStatus = await getContentCourseStatus([uid], batch, tenantId).catch(() => []);
-          status = [...status, ...batchStatus];
-        }
-      }
+      let status: any[] = levelCourses.flatMap((level: any) => level.trackingStatus || []);
 
       // Apply sessionStorage progress guard (same guard as learner home)
       try {
@@ -178,65 +129,14 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
 
       setCflStatusData(status);
 
-      // Filter empty nodes
-      const filterHierarchy = (items: any[], isTopLevel = true): any[] => {
-        return items
-          .map((item) => {
-            if (item.children && item.children.length > 0) {
-              const filteredChildren = filterHierarchy(item.children, false);
-              return { ...item, children: filteredChildren };
-            }
-            return item;
-          })
-          .filter((item) => {
-            const isContainer =
-              item.mimeType === 'application/vnd.ekstep.content-collection' ||
-              item.contentType === 'CourseUnit' ||
-              item.contentType === 'TextBookUnit';
-            if (item.children) {
-              if (item.children.length > 0 || isTopLevel) return true;
-              return false;
-            }
-            return !isContainer;
-          });
-      };
-
-      const filteredLevelCourses = filterHierarchy(levelCourses);
-
-      const levelDataList = filteredLevelCourses.map((course: any, idx: number, filteredLevels: any[]) => {
-        const children = course?.children || [];
-        const moduleDetails = children.map((m: any) => {
-          const modulePerc = calculateNodeCompletion(m, status);
-          return { isModuleComplete: Math.round(modulePerc) >= 70, modulePerc };
-        });
-
-        const levelStats = calculateNodeLessons(course, status);
-        const levelPerc = levelStats.total > 0 ? (levelStats.completed / levelStats.total) * 100 : 0;
-        (course as any).calculatedCompletion = levelPerc;
-
-        const previousCompleted = idx === 0 || Math.round((filteredLevels[idx - 1] as any)?.calculatedCompletion || 0) >= 70;
-        const isUnlocked = previousCompleted;
-        const completedModulesCount = isUnlocked ? moduleDetails.filter((md: any) => md.isModuleComplete).length : 0;
-        const displayPerc = isUnlocked ? Math.round(levelPerc) : 0;
-
-        return {
-          id: course.identifier,
-          name: course.name,
-          description: course.description,
-          completedModules: completedModulesCount,
-          totalModules: children.length,
-          completionPercentage: displayPerc,
-          isUnlocked,
-          rawChildren: children,
-        };
-      });
+      const levelDataList = buildSwadhaarLevels(levelCourses, status);
 
       setCflLevels(levelDataList);
 
       // Initialize expanded state — expand the active (in-progress) level
       const initExpanded: Record<string, boolean> = {};
       levelDataList.forEach((l) => {
-        initExpanded[l.id] = l.isUnlocked && l.completionPercentage < 70;
+        initExpanded[l.id] = l.isUnlocked && l.completionPercentage < SWADHAAR_DONE_PERCENT;
       });
       setExpandedLevels(initExpanded);
     } catch (err) {
@@ -246,9 +146,24 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
     }
   }, []);
 
+  // Courses of the trainers in this CFL's group (the table's columns), so both see the same courses
+  const groupCourses: SwadhaarGroupCourse[] = React.useMemo(() => {
+    const seen = new Map<string, SwadhaarGroupCourse>();
+    trainers.forEach((tr) =>
+      (tr.courses || []).forEach((c: any) => {
+        if (c?.id && !seen.has(c.id)) seen.set(c.id, { courseId: c.id, name: c.name, ordering: c.ordering });
+      })
+    );
+    return Array.from(seen.values());
+  }, [trainers]);
+  const groupCoursesKey = groupCourses.map((c) => c.courseId).sort().join(',');
+
   useEffect(() => {
-    loadCFLLearningProgress();
-  }, [loadCFLLearningProgress]);
+    // wait for the trainers so the group's courses are known
+    if (loading) return;
+    loadCFLLearningProgress(groupCourses);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadCFLLearningProgress, groupCoursesKey, loading]);
 
   const handleCloseAlertsPanel = () => {
     setAlertsPanelOpen(false);
@@ -265,7 +180,7 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
   const detailedTrainers = trainers.map(t => {
     const inProgressCourse = t.courses?.find((c: any) => c.status === 'in-progress');
     const lockedCourse = t.courses?.find((c: any) => c.status === 'locked');
-    let dynamicCurrentLevel = 'Completed All';
+    let dynamicCurrentLevel = t.courses && t.courses.length > 0 ? 'Completed All' : '-';
     if (inProgressCourse) {
       dynamicCurrentLevel = inProgressCourse.name;
     } else if (lockedCourse) {
@@ -274,8 +189,21 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
     return { ...t, currentLevel: dynamicCurrentLevel };
   });
 
-  // Derive dynamic courses from trainer data (for Trainer Progress table)
-  const dynamicCourses: any[] = trainers.length > 0 ? trainers[0].courses!.map((course: any) => {
+  // Table columns: every course any trainer is enrolled in (Swadhaar LMS), in course order.
+  // Trainers can be in different learning paths, so the first trainer's courses are not enough.
+  const courseColumns: any[] = [];
+  const seenCourseIds = new Set<string>();
+  trainers.forEach((tr) =>
+    (tr.courses || []).forEach((course: any) => {
+      if (!seenCourseIds.has(course.id)) {
+        seenCourseIds.add(course.id);
+        courseColumns.push(course);
+      }
+    })
+  );
+  courseColumns.sort((a, b) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER));
+
+  const dynamicCourses: any[] = courseColumns.map((course: any) => {
     const completedTrainers = trainers.filter(t =>
       (t as any).courses?.find((c: any) => c.id === course.id)?.status === 'completed'
     ).length;
@@ -295,7 +223,7 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
       totalCount: trainers.length,
       status: overallStatus,
     };
-  }) : [];
+  });
 
   // ── Module click handler (same logic as SwadhaarDesktopHome.handleModuleClick) ──
   const handleModuleClick = useCallback((levelId: string, moduleId: string) => {
@@ -303,6 +231,28 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
 
     const targetLevel = cflLevels.find((l) => l.id === levelId);
     const module = targetLevel?.rawChildren?.find((m: any) => m.identifier === moduleId);
+
+    // Swadhaar modules are listed without lessons: load them and open the first one still to do in the player
+    if (module && !(module.children || []).length) {
+      (async () => {
+        try {
+          const detail = await fetchSwadhaarModuleLessons(levelId, moduleId);
+          const lessons = detail.children || [];
+          const done = new Set(
+            (detail.trackingStatus || []).filter((s: any) => s.status === 2).map((s: any) => s.contentId)
+          );
+          const next = lessons.find((l: any) => !done.has(l.identifier)) || lessons[0];
+          router.push(
+            next
+              ? `/learn/${levelId}/${moduleId}/${moduleId}/${next.identifier}`
+              : `/learn/${levelId}/${moduleId}`
+          );
+        } catch {
+          router.push(`/learn/${levelId}/${moduleId}`);
+        }
+      })();
+      return;
+    }
 
     if (module) {
       const statusMap = new Map<string, any>();

@@ -1,7 +1,11 @@
 import { post, get } from '@shared-lib';
 import { Trainer, CourseProgress, AlertFeedback } from '../types';
 import axios from 'axios';
-import { getContentCourseStatus } from '@learner/utils/API/SwadhaarService';
+import {
+  fetchSwadhaarUserCourseProgress,
+  type SwadhaarUserCourseProgress,
+  type SwadhaarGroupCourse,
+} from '@learner/utils/API/SwadhaarService';
 import {
   SWADHAAR_BASE_URL,
   SWADHAAR_ACADEMIC_YEAR_ID,
@@ -182,165 +186,41 @@ export const cfllearnerlist = async (
       });
     }
 
-    const searchUrl = `${BASE_URL}/action/composite/v3/search`;
-    let liveCourses: any[] = [];
-    try {
-      const searchPayload = {
-        request: {
-          filters: {
-            primaryCategory: ['Course'],
-            status: ['live'],
-            channel: "swadhaar-channel"
-          },
-          limit: 10,
-          offset: 0,
-        }
-      };
-      const searchResponse = await axios.post(searchUrl, searchPayload, { headers });
-      liveCourses = searchResponse?.data?.result?.content || [];
-      // Sort exactly as learner's fetchSwadhaarLevelCourses does:
-      // 1st priority: se_Sequence / index, 2nd: createdOn ascending
-      liveCourses.sort((a: any, b: any) => {
-        const seqA = a.se_Sequence ?? a.index;
-        const seqB = b.se_Sequence ?? b.index;
-        if (seqA != null && seqB != null) return seqA - seqB;
-        if (seqA != null) return -1;
-        if (seqB != null) return 1;
-        const dateA = new Date(a.createdOn || 0).getTime();
-        const dateB = new Date(b.createdOn || 0).getTime();
-        return dateA - dateB;
-      });
-    } catch (e) {
-      console.warn("Search API fetch failed", e);
-    }
-
-    const trainerIds = userDetails.map((u: any) => u.userId);
-    const courseIds = liveCourses.map((c: any) => c.identifier);
-
-    // ── Step 1: Fetch full hierarchy for each course ONCE (shared across all trainers) ──
-    // This is the same approach as fetchSwadhaarLevelCourses + swadhaar-home's loadData:
-    // we need the full tree of modules → subtopics → lessons to compute accurate progress.
-    const courseHierarchies: any[] = [];
-    const allHierarchyIds: string[] = [];
-
-    for (const course of liveCourses) {
-      try {
-        const hierarchyUrl = `${BASE_URL}/action/content/v3/hierarchy/${course.identifier}`;
-        const hierarchyResp = await axios.get(hierarchyUrl, { headers: { tenantId: finalTenantId } });
-        const courseData = hierarchyResp.data?.result?.content;
-        if (courseData) {
-          courseHierarchies.push(courseData);
-          // Collect ALL IDs in the hierarchy (course + modules + subtopics + lessons)
-          const collectIds = (node: any) => {
-            allHierarchyIds.push(node.identifier);
-            (node.children || []).forEach((child: any) => collectIds(child));
-          };
-          collectIds(courseData);
-        } else {
-          courseHierarchies.push({ ...course, children: [] });
-          allHierarchyIds.push(course.identifier);
-        }
-      } catch (e) {
-        console.warn(`[CFL] Hierarchy fetch failed for ${course.identifier}`, e);
-        courseHierarchies.push({ ...course, children: [] });
-        allHierarchyIds.push(course.identifier);
-      }
-    }
-
-    // ── Step 2: Fetch leaf-level status for each trainer ──
-    // Uses getContentCourseStatus with ALL hierarchy IDs (not just course-level IDs).
-    // This returns per-lesson completion, which we then aggregate from leaf nodes up
-    // using calculateNodeLessons — identical to the learner home page.
-    const perUserStatusMap: Record<string, any[]> = {};
-    if (trainerIds.length > 0 && allHierarchyIds.length > 0) {
-      await Promise.all(
-        trainerIds.map(async (uid: string) => {
-          try {
-            // Batch fetch (100 IDs per call) — same as learner home
-            let status: any[] = [];
-            const batchSize = 100;
-            for (let i = 0; i < allHierarchyIds.length; i += batchSize) {
-              const batch = allHierarchyIds.slice(i, i + batchSize);
-              const batchStatus = await getContentCourseStatus([uid], batch, finalTenantId).catch(() => []);
-              status = [...status, ...batchStatus];
-            }
-            perUserStatusMap[uid] = status;
-          } catch (e) {
-            console.warn(`[CFL] getContentCourseStatus failed for ${uid}`, e);
-            perUserStatusMap[uid] = [];
-          }
-        })
-      );
-    }
-
-    // ── Helper: recursive lesson-based completion (same as swadhaar-home) ──
-    const calcNodeLessons = (node: any, statusList: any[]): { total: number; completed: number } => {
-      const id = node.identifier || node.id;
-      if (!node.children || node.children.length === 0) {
-        const s = statusList.find((d: any) => d.contentId === id);
-        const perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
-        return { total: 1, completed: perc / 100 };
-      }
-      let total = 0;
-      let completed = 0;
-      node.children.forEach((child: any) => {
-        const res = calcNodeLessons(child, statusList);
-        total += res.total;
-        completed += res.completed;
-      });
-      return { total, completed };
-    };
+    // ── Course progress of each trainer, from the Swadhaar LMS ──
+    // The courses a trainer is enrolled in (enrollments/users-courses?userId=) and their module
+    // tracking (courses/:courseId/hierarchy/tracking/:userId) — the same data the trainer's own
+    // home screen shows.
+    const progressByUser: Record<string, SwadhaarUserCourseProgress[]> = {};
+    await Promise.all(
+      userDetails.map(async (u: any) => {
+        progressByUser[u.userId] = await fetchSwadhaarUserCourseProgress(u.userId).catch((e) => {
+          console.warn(`[CFL] Course progress failed for ${u.userId}`, e);
+          return [];
+        });
+      })
+    );
 
     const trainers = userDetails.map((user: any) => {
       const stateField = user.customField?.find((field: any) => field.label === 'STATE' || field.fieldId === 'state')?.value || 'Jharkhand';
       const districtField = user.customField?.find((field: any) => field.label === 'DISTRICT' || field.fieldId === 'district')?.value || 'Torpa';
 
-      const userStatusList = perUserStatusMap[user.userId] || [];
+      const courses = (progressByUser[user.userId] || []).map((c) => ({
+        id: c.courseId,
+        name: c.name,
+        ordering: c.ordering,
+        status: c.status,
+        completionPercentage: c.progress,
+        completionCount: c.completedModules,
+        totalCount: c.totalModules,
+      }));
 
-      // ── Step 3: Compute per-course completion from leaf lessons (same as learner) ──
-      const courses = courseHierarchies.map((courseHierarchy: any, idx: number) => {
-        const { total, completed } = calcNodeLessons(courseHierarchy, userStatusList);
-        const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-        let status = 'locked';
-        if (completionPct >= 70) {
-          status = 'completed';
-        } else if (completionPct > 0) {
-          status = 'in-progress';
-        } else {
-          // Check if any lesson has been started at all
-          const courseItem = userStatusList.find((s: any) => s.contentId === courseHierarchy.identifier);
-          if (courseItem && (courseItem.status >= 1 || courseItem.completionPercentage > 0)) {
-            status = 'in-progress';
-          }
-        }
-
-        return {
-          id: courseHierarchy.identifier,
-          name: courseHierarchy.name || liveCourses[idx]?.name,
-          status,
-          completionPercentage: completionPct,
-          completionCount: status === 'completed' ? 4 : (status === 'in-progress' ? Math.max(1, Math.round((completionPct / 100) * 4)) : 0),
-          totalCount: 4
-        };
-      });
-
-      // Calculate overall progress as the average completionPercentage across all courses
+      // Overall progress is the average of the courses the trainer is enrolled in
       const totalPct = courses.reduce((sum, c) => sum + (c.completionPercentage || 0), 0);
       const progressPercent = courses.length > 0 ? Math.floor(totalPct / courses.length) : 0;
 
-      console.log(`[CFL] User ${user.firstName} — courses:`, courses.map(c => `${c.name}: ${c.status} (${c.completionPercentage}%)`), '→ overall:', progressPercent + '%');
-
-      const actualCourses = courses.length > 0 ? courses : [
-        { id: '1', name: 'Beginner Level', status: 'completed', completionPercentage: 100, completionCount: 4, totalCount: 4 },
-        { id: '2', name: 'Intermediate Level', status: 'in-progress', completionPercentage: 25, completionCount: 1, totalCount: 4 },
-      ];
-
-      const inProgressCourse = actualCourses.find((c: any) => c.status === 'in-progress') 
-                            || actualCourses.find((c: any) => c.status === 'locked') 
-                            || actualCourses[actualCourses.length - 1];
-
-      const currentCourseName = inProgressCourse?.name || user.currentLevel || 'Beginner Level';
+      // Current level: the course in progress, else the next one to start
+      const currentCourse = courses.find((c) => c.status === 'in-progress') || courses.find((c) => c.status === 'locked');
+      const currentCourseName = currentCourse?.name || (courses.length > 0 ? 'Completed All' : '-');
 
       return {
         id: user.userId,
@@ -350,7 +230,7 @@ export const cfllearnerlist = async (
         location: `CFL: ${stateField} - ${districtField}`,
         progress: progressPercent,
         designation: user.role && (String(user.role).toLowerCase() === 'district incharge' || String(user.role).toLowerCase() === 'cfl' || String(user.role).toLowerCase() === 'cfl incharge' || String(user.role).toLowerCase() === 'di') ? 'District Incharge' : 'Trainer/CFL Incharge',
-        courses: actualCourses
+        courses
       };
     });
 
@@ -922,4 +802,32 @@ export const getAlerts = async (userId: string, tenantId: string, token: string)
     console.error('Error fetching alerts:', error);
     return [];
   }
+};
+
+
+/**
+ * Courses the trainers a CFL/ARM oversees are on, so the CFL's own Learn list matches their group's.
+ * Empty for any other role.
+ */
+export const getCFLGroupCourses = async (): Promise<SwadhaarGroupCourse[]> => {
+  if (typeof window === 'undefined') return [];
+  const roleCode = localStorage.getItem('roleCode')?.trim().toLowerCase();
+  const role = localStorage.getItem('userRole')?.trim().toUpperCase();
+  const isOverseer = roleCode
+    ? ['cfl', 'arm'].includes(roleCode)
+    : role === 'CFL' || role === 'DI' || role === 'ARM';
+  if (!isOverseer) return [];
+
+  const trainers: any[] =
+    role === 'ARM'
+      ? await getDICohorts()
+      : await cfllearnerlist(undefined, undefined, undefined, undefined, true);
+
+  const seen = new Map<string, SwadhaarGroupCourse>();
+  (trainers || []).forEach((trainer: any) =>
+    (trainer.courses || []).forEach((c: any) => {
+      if (c?.id && !seen.has(c.id)) seen.set(c.id, { courseId: c.id, name: c.name, ordering: c.ordering });
+    })
+  );
+  return Array.from(seen.values());
 };

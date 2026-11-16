@@ -154,7 +154,13 @@ console.log("USER data---",userData)
         showToastMessage('This account is not allowed to use the learner app.', 'error');
         return;
       }
-      const userRole = userData?.tenantData?.[0]?.roleName;
+       // Role labels are editable in the Roles table (e.g. cfl -> "District Incharge",
+      // trainer -> "Trainer/CFL Incharge"), but many screens branch on `userRole`
+      // ('CFL' / 'ARM' / 'Trainer'). Derive `userRole` from the stable roleCode so a
+      // rename cannot change behaviour; keep the label for display only.
+      const LEGACY_ROLE_BY_CODE: Record<string, string> = { cfl: 'CFL', arm: 'ARM', trainer: 'Trainer' };
+      const roleDisplayName = userData?.tenantData?.[0]?.roleName || '';
+      const userRole = LEGACY_ROLE_BY_CODE[roleCode] || roleDisplayName;
       const userId = userData?.userId;
       const tenantId = userData?.tenantData?.[0]?.tenantId;
       const tenantName = userData?.tenantData?.[0]?.tenantName;

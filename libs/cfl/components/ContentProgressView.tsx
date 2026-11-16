@@ -79,10 +79,11 @@ const ContentAccordion: React.FC<{ level: any, trainers: Trainer[], router: any 
       </AccordionSummary>
       <AccordionDetails sx={{ pt: 0, px: 2, pb: 2 }}>
         <List sx={{ p: 0 }}>
-          {trainers.map((trainer) => {
+          {/* Only the trainers enrolled in this course (trainers can be on different learning paths) */}
+          {trainers.filter((trainer) => trainer.courses.some(c => c.id === level.id)).map((trainer) => {
             const courseStatus = trainer.courses.find(c => c.id === level.id);
             const status = courseStatus ? courseStatus.status : 'locked';
-            const progress = status === 'completed' ? 100 : (status === 'in-progress' ? (courseStatus?.completionPercentage ?? 25) : 0);
+            const progress = Math.round(courseStatus?.completionPercentage ?? 0);
             const itemBorderColor = status === 'completed' ? '#4CAF50' : (status === 'in-progress' ? '#E6873C' : '#999');
 
             return (
@@ -166,29 +167,35 @@ const ContentAccordion: React.FC<{ level: any, trainers: Trainer[], router: any 
 const ContentProgressView: React.FC<ContentProgressViewProps> = ({ trainers }) => {
   const router = useRouter();
 
-  // Derive levels (courses) dynamically from the first trainer
-  const levels = trainers.length > 0 ? trainers[0].courses.map(course => {
-    // Calculate total completed trainers for this course
-    const completedTrainers = trainers.filter(t => 
+  // Every course any trainer is enrolled in (Swadhaar LMS), in course order
+  const courses: Trainer['courses'] = [];
+  trainers.forEach(t => t.courses.forEach(course => {
+    if (!courses.some(c => c.id === course.id)) courses.push(course);
+  }));
+  courses.sort((a, b) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER));
+
+  const levels = courses.map(course => {
+    const enrolled = trainers.filter(t => t.courses.some(c => c.id === course.id));
+    const completedTrainers = enrolled.filter(t =>
       t.courses.find(c => c.id === course.id)?.status === 'completed'
     ).length;
 
-    const inProgressTrainers = trainers.filter(t =>
+    const inProgressTrainers = enrolled.filter(t =>
       t.courses.find(c => c.id === course.id)?.status === 'in-progress'
     ).length;
 
     let overallStatus = 'locked';
-    if (completedTrainers === trainers.length && trainers.length > 0) overallStatus = 'completed';
+    if (completedTrainers === enrolled.length && enrolled.length > 0) overallStatus = 'completed';
     else if (completedTrainers > 0 || inProgressTrainers > 0) overallStatus = 'in-progress';
 
     return {
       id: course.id,
       name: course.name,
       completed: completedTrainers,
-      total: trainers.length,
+      total: enrolled.length,
       status: overallStatus
     };
-  }) : [];
+  });
 
   return (
     <Box>

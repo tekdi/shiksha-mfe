@@ -111,40 +111,68 @@ const toModuleStatus = (module: any) => {
  * status; lessons are loaded per module by fetchSwadhaarModuleLessons.
  */
 const fetchCourseWithTracking = async (courseId: string, userId: string) => {
-  const response = await axios.get(
-    `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}/hierarchy/tracking/${userId}`,
-    { params: { includeModules: true }, headers: lmsHeaders() }
-  );
-  const modules = [...(response?.data?.result?.modules || [])].sort(byOrdering);
+  const courseUrl = `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}`;
+  let result: any;
+  try {
+    const response = await axios.get(`${courseUrl}/hierarchy/tracking/${userId}`, {
+      params: { includeModules: true },
+      headers: lmsHeaders(),
+    });
+    result = response?.data?.result;
+  } catch (err: any) {
+    // A CFL/ARM can see a course their trainers are on without being enrolled in it themselves; the
+    // tracking call refuses ("User is not enrolled"), so read the plain course structure (no progress).
+    if (err?.response?.status !== 400) throw err;
+    const response = await axios.get(`${courseUrl}/hierarchy`, {
+      params: { includeModules: true },
+      headers: lmsHeaders(),
+    });
+    result = response?.data?.result;
+  }
+  const modules = [...(result?.modules || [])].sort(byOrdering);
   return {
-    name: response?.data?.result?.title as string,
+    name: result?.title as string,
     children: modules.map((module: any) => ({
       identifier: module.moduleId,
       name: module.title,
       description: stripHtml(module.description),
-      totalLessons: module.tracking?.totalLessons,
+      totalLessons: module.tracking?.totalLessons ?? module.lessons?.length,
       children: [],
     })),
     trackingStatus: modules.map(toModuleStatus),
   };
 };
 
-/** A course's modules (without lessons) and the learner's module-level progress. */
-export const fetchSwadhaarCourseModules = async (courseId: string) =>
-  fetchCourseWithTracking(courseId, localStorage.getItem('userId') || '');
+/**
+ * A course's modules (without lessons) and a learner's module-level progress: the signed-in user's,
+ * or, for the CFL/ARM views, the trainer passed as `userId`.
+ */
+export const fetchSwadhaarCourseModules = async (courseId: string, userId?: string) =>
+  fetchCourseWithTracking(courseId, userId || localStorage.getItem('userId') || '');
 
 /**
  * One module's lessons with the learner's tracking
  * (GET lms-service/v1/courses/:courseId/hierarchy/tracking/:userId?includeLessons=true&moduleId=…).
  */
 export const fetchSwadhaarModuleLessons = async (courseId: string, moduleId: string, userId?: string) => {
-  const response = await axios.get(
-    `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}/hierarchy/tracking/${
-      userId || localStorage.getItem('userId')
-    }`,
-    { params: { includeLessons: true, moduleId }, headers: lmsHeaders() }
-  );
-  const module = response?.data?.result || {};
+  const courseUrl = `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}`;
+  let module: any;
+  try {
+    const response = await axios.get(
+      `${courseUrl}/hierarchy/tracking/${userId || localStorage.getItem('userId')}`,
+      { params: { includeLessons: true, moduleId }, headers: lmsHeaders() }
+    );
+    module = response?.data?.result || {};
+  } catch (err: any) {
+    // Not enrolled (a CFL/ARM opening a course their trainers are on): read the plain course structure,
+    // whose modules carry their lessons, without progress.
+    if (err?.response?.status !== 400) throw err;
+    const response = await axios.get(`${courseUrl}/hierarchy`, {
+      params: { includeModules: true },
+      headers: lmsHeaders(),
+    });
+    module = (response?.data?.result?.modules || []).find((m: any) => m.moduleId === moduleId) || {};
+  }
   const lessons = [...(module.lessons || [])].sort(byOrdering);
   return {
     name: module.title as string,
@@ -154,15 +182,8 @@ export const fetchSwadhaarModuleLessons = async (courseId: string, moduleId: str
   };
 };
 
-/**
- * Courses the signed-in learner is enrolled in, from the Swadhaar LMS (enrollments/users-courses),
- * shaped like the course nodes the Swadhaar home screens already render. Each course carries its
- * modules/lessons (`children`) and the learner's lesson tracking (`trackingStatus`).
- */
-export const fetchSwadhaarEnrolledCourses = async (): Promise<any[]> => {
-  const userId = localStorage.getItem('userId');
-  if (!userId) return [];
-
+/** Every course a user is enrolled in (GET lms-service/v1/enrollments/users-courses?userId=), in course order. */
+const fetchUserEnrollments = async (userId: string): Promise<any[]> => {
   const headers = lmsHeaders();
   const courses: any[] = [];
   let offset = 0;
@@ -180,7 +201,178 @@ export const fetchSwadhaarEnrolledCourses = async (): Promise<any[]> => {
     if (page.length === 0) break;
   } while (courses.length < total);
 
-  courses.sort((a, b) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER));
+  return courses.sort(
+    (a, b) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER)
+  );
+};
+
+/** A course or module counts as done at 70%, the same rule that unlocks the next level on the learner home. */
+export const SWADHAAR_DONE_PERCENT = 70;
+
+export type SwadhaarProgressStatus = 'completed' | 'in-progress' | 'locked';
+
+const progressStatus = (percent: number, started = false): SwadhaarProgressStatus =>
+  percent >= SWADHAAR_DONE_PERCENT ? 'completed' : percent > 0 || started ? 'in-progress' : 'locked';
+
+const clampPercent = (value: number) => Math.min(100, Math.max(0, Math.round(value || 0)));
+
+/**
+ * Course progress as the average of its modules' progress — the same figure the trainer sees on
+ * their own home (buildSwadhaarLevels / swadhaar-home), so CFL and trainer screens agree.
+ */
+const progressFromModules = (modules: any[]): number => {
+  if (modules.length === 0) return 0;
+  return clampPercent(modules.reduce((sum, m) => sum + (Number(m.tracking?.progress) || 0), 0) / modules.length);
+};
+
+export interface SwadhaarUserCourseProgress {
+  courseId: string;
+  name: string;
+  ordering: number;
+  /** 0-100 */
+  progress: number;
+  status: SwadhaarProgressStatus;
+  completedModules: number;
+  totalModules: number;
+}
+
+/**
+ * Another user's (e.g. a trainer's) progress in each course they are enrolled in: their enrolments
+ * (enrollments/users-courses?userId=) and each course's module tracking
+ * (courses/:courseId/hierarchy/tracking/:userId?includeModules=true).
+ */
+export const fetchSwadhaarUserCourseProgress = async (userId: string): Promise<SwadhaarUserCourseProgress[]> => {
+  const enrollments = await fetchUserEnrollments(userId);
+  return Promise.all(
+    enrollments.map(async (course, index) => {
+      let modules: any[] = [];
+      let courseTracking: any = null;
+      try {
+        const response = await axios.get(
+          `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${course.courseId}/hierarchy/tracking/${userId}`,
+          { params: { includeModules: true }, headers: lmsHeaders() }
+        );
+        modules = response?.data?.result?.modules || [];
+        courseTracking = response?.data?.result?.tracking;
+      } catch (err) {
+        console.warn(`Failed to load tracking of course ${course.courseId} for user ${userId}`, err);
+      }
+      const progress = progressFromModules(modules);
+      const started = ['started', 'incomplete', 'submitted', 'completed'].includes(courseTracking?.status);
+      return {
+        courseId: course.courseId,
+        name: course.title || course.name || 'Course',
+        ordering: course.ordering ?? index,
+        progress,
+        status: courseTracking?.status === 'completed' ? 'completed' : progressStatus(progress, started),
+        completedModules: modules.filter(
+          (m) => m.tracking?.status === 'completed' || (Number(m.tracking?.progress) || 0) >= SWADHAAR_DONE_PERCENT
+        ).length,
+        totalModules: modules.length,
+      };
+    })
+  );
+};
+
+export interface SwadhaarLessonProgress {
+  lessonId: string;
+  name: string;
+  format?: string;
+  progress: number;
+  status: SwadhaarProgressStatus;
+}
+
+export interface SwadhaarModuleProgress {
+  moduleId: string;
+  name: string;
+  progress: number;
+  status: SwadhaarProgressStatus;
+  lessons: SwadhaarLessonProgress[];
+}
+
+/**
+ * A user's progress through one course, module by module and lesson by lesson
+ * (courses/:courseId/hierarchy/tracking/:userId?includeModules=true&includeLessons=true).
+ */
+export const fetchSwadhaarUserCourseDetail = async (
+  courseId: string,
+  userId: string
+): Promise<SwadhaarModuleProgress[]> => {
+  const url = `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}/hierarchy/tracking/${userId}`;
+  const headers = lmsHeaders();
+
+  // The course-level call lists modules but always returns empty `lessons`; a module's lessons only come
+  // back when that module is requested on its own (moduleId), so fetch each module separately.
+  const courseResponse = await axios.get(url, { params: { includeModules: true }, headers });
+  const modules = [...(courseResponse?.data?.result?.modules || [])].sort(byOrdering);
+
+  return Promise.all(
+    modules.map(async (courseModule: any): Promise<SwadhaarModuleProgress> => {
+      let module = courseModule;
+      try {
+        const moduleResponse = await axios.get(url, {
+          params: { includeLessons: true, moduleId: courseModule.moduleId },
+          headers,
+        });
+        module = moduleResponse?.data?.result || courseModule;
+      } catch (err) {
+        console.warn(`Failed to fetch lessons for module ${courseModule.moduleId}`, err);
+      }
+
+      const lessons: SwadhaarLessonProgress[] = [...(module.lessons || [])].sort(byOrdering).map((lesson: any) => {
+        const lessonStatus = toLessonStatus(lesson);
+        const progress = clampPercent(lessonStatus.completionPercentage);
+        return {
+          lessonId: lesson.lessonId,
+          name: lesson.title,
+          format: lesson.format,
+          progress,
+          status: lessonStatus.status === 2 ? 'completed' : lessonStatus.status === 1 ? 'in-progress' : 'locked',
+        };
+      });
+      const progress =
+        lessons.length > 0
+          ? clampPercent(lessons.reduce((sum, l) => sum + l.progress, 0) / lessons.length)
+          : clampPercent(Number(courseModule.tracking?.progress) || 0);
+      return {
+        moduleId: courseModule.moduleId,
+        name: courseModule.title,
+        progress,
+        status: progressStatus(progress, courseModule.tracking?.status && courseModule.tracking.status !== 'not_started'),
+        lessons,
+      };
+    })
+  );
+};
+
+export interface SwadhaarGroupCourse {
+  courseId: string;
+  name: string;
+  ordering?: number;
+}
+
+/**
+ * Courses a learner is enrolled in, from the Swadhaar LMS (enrollments/users-courses), shaped like the
+ * course nodes the Swadhaar home screens already render. Each course carries its modules (`children`)
+ * and the learner's module tracking (`trackingStatus`). Defaults to the signed-in user; the CFL/ARM
+ * views pass a trainer's `userId`.
+ */
+export const fetchSwadhaarEnrolledCourses = async (
+  forUserId?: string,
+  groupCourses: SwadhaarGroupCourse[] = []
+): Promise<any[]> => {
+  const userId = forUserId || localStorage.getItem('userId');
+  if (!userId) return [];
+
+  const enrolled = await fetchUserEnrollments(userId);
+  // Courses the user's group (e.g. the trainers they oversee) is on but the user is not enrolled in directly
+  const enrolledIds = new Set(enrolled.map((c) => c.courseId));
+  const extras = groupCourses
+    .filter((g) => g.courseId && !enrolledIds.has(g.courseId))
+    .map((g) => ({ courseId: g.courseId, title: g.name, ordering: g.ordering }));
+  const courses = [...enrolled, ...extras].sort(
+    (a, b) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER)
+  );
 
   return Promise.all(
     courses.map(async (course) => {
@@ -207,6 +399,72 @@ export const fetchSwadhaarEnrolledCourses = async (): Promise<any[]> => {
  * modules, then one per module for its lessons. Shaped like the Sunbird hierarchy the lesson screens
  * walk (course → modules → lessons), with `trackingStatus` for the progress of every lesson.
  */
+export interface SwadhaarLevel {
+  id: string;
+  name: string;
+  description?: string;
+  completedModules: number;
+  totalModules: number;
+  completionPercentage: number;
+  isUnlocked: boolean;
+  /** Module nodes for SwadhaarLevelAccordion */
+  rawChildren: any[];
+}
+
+/**
+ * Course cards for the level accordions, built the way the trainer's own home builds them: a node's
+ * progress is the average of its leaves (modules, while their lessons are not loaded), a module or
+ * course is done at 70%, and a course unlocks once the previous one is done.
+ * `status` defaults to the courses' own `trackingStatus`.
+ */
+export const buildSwadhaarLevels = (
+  courses: any[],
+  status: any[] = courses.flatMap((course: any) => course.trackingStatus || [])
+): SwadhaarLevel[] => {
+  const statusById = new Map<string, any>();
+  status.forEach((s: any) => s?.contentId && statusById.set(s.contentId, s));
+
+  const leafTotals = (node: any): { total: number; completed: number } => {
+    const children = node.children || [];
+    if (children.length === 0) {
+      const s = statusById.get(node.identifier || node.id);
+      const perc = s?.completionPercentage ?? (s?.status === 2 ? 100 : 0);
+      return { total: 1, completed: perc / 100 };
+    }
+    return children.reduce(
+      (acc: { total: number; completed: number }, child: any) => {
+        const r = leafTotals(child);
+        return { total: acc.total + r.total, completed: acc.completed + r.completed };
+      },
+      { total: 0, completed: 0 }
+    );
+  };
+  const percentOf = (node: any) => {
+    const { total, completed } = leafTotals(node);
+    return total > 0 ? (completed / total) * 100 : 0;
+  };
+
+  let previousPercent = 100;
+  return courses.map((course: any, idx: number) => {
+    const modules = course.children || [];
+    const percent = percentOf(course);
+    const isUnlocked = idx === 0 || Math.round(previousPercent) >= SWADHAAR_DONE_PERCENT;
+    previousPercent = percent;
+    return {
+      id: course.identifier,
+      name: course.name,
+      description: course.description,
+      completedModules: isUnlocked
+        ? modules.filter((m: any) => Math.round(percentOf(m)) >= SWADHAAR_DONE_PERCENT).length
+        : 0,
+      totalModules: modules.length,
+      completionPercentage: isUnlocked ? Math.round(percent) : 0,
+      isUnlocked,
+      rawChildren: modules,
+    };
+  });
+};
+
 export const fetchSwadhaarCourseTree = async (courseId: string) => {
   const course = await fetchCourseWithTracking(courseId, localStorage.getItem('userId') || '');
   const modules = await Promise.all(
@@ -362,8 +620,11 @@ export const fetchSwadhaarAttempt = async (attemptId: string): Promise<any> => {
   return response?.data?.result;
 };
 
-export const fetchSwadhaarLevelCourses = async (languageOverride?: string): Promise<any[]> => {
-  return fetchSwadhaarEnrolledCourses();
+export const fetchSwadhaarLevelCourses = async (
+  languageOverride?: string,
+  groupCourses?: SwadhaarGroupCourse[]
+): Promise<any[]> => {
+  return fetchSwadhaarEnrolledCourses(undefined, groupCourses);
 };
 
 export const fetchSwadhaarLevelCoursesFromSearch = async (languageOverride?: string): Promise<any[]> => {
