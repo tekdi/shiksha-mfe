@@ -138,11 +138,16 @@ const CFLDesktopTrainerTable: React.FC<CFLDesktopTrainerTableProps> = ({ trainer
                   const courseData = trainer.courses?.find((c: any) => c.id === dynamicCourse.id);
                   return (
                     <TableCell key={dynamicCourse.id} align="center" sx={{ border: '1px solid #E0E0E0' }}>
-                      <ClickablePercent
-                        percent={Math.round(courseData?.completionPercentage || 0)}
-                        trainer={trainer}
-                        course={dynamicCourse}
-                      />
+                      {courseData ? (
+                        <ClickablePercent
+                          percent={Math.round(courseData.completionPercentage || 0)}
+                          trainer={trainer}
+                          course={dynamicCourse}
+                        />
+                      ) : (
+                        // Not enrolled in this course (another learning path)
+                        <Typography sx={{ fontSize: 12, color: '#9CA3AF', fontFamily: 'Open Sans' }}>—</Typography>
+                      )}
                     </TableCell>
                   );
                 })}

@@ -124,7 +124,11 @@ export default function LearnPage() {
       const savedLang = typeof window !== 'undefined'
         ? (localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage') || undefined)
         : undefined;
-      const levelCourses = await fetchSwadhaarLevelCourses(savedLang);
+      // A CFL/ARM also sees the courses of the trainers they oversee (same list as the desktop dashboard)
+      const groupCourses = await import('../../../../../libs/cfl/services/cflService')
+        .then((m) => m.getCFLGroupCourses())
+        .catch(() => []);
+      const levelCourses = await fetchSwadhaarLevelCourses(savedLang, groupCourses);
 
       // Module and lesson progress comes with the course hierarchy from the LMS
       let status: any[] = levelCourses.flatMap((level: any) => level.trackingStatus || []);

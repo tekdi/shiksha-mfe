@@ -68,20 +68,23 @@ const TrainerAccordion: React.FC<TrainerAccordionProps> = ({ trainer }) => {
         {/* Indent the list to align with the trainer's name (avatar is 40px + 16px margin) */}
         <Box sx={{ ml: '56px' }}>
           <Box sx={{ mb: 1 }}>
-            {trainer.courses.map((course) => {
-              let progressStr = '0%';
-              if (course.status === 'completed') progressStr = '100%';
-              else if (course.status === 'in-progress') progressStr = `${course.completionPercentage ?? 25}%`;
-
-              return (
-                <LevelStatusBox 
-                  key={course.id}
-                  name={course.name}
-                  status={course.status}
-                  progressText={t("CFL_DASHBOARD.PROGRESS_PERCENT_COMPLETED").replace("{{percent}}", progressStr.replace("%", ""))}
-                />
-              );
-            })}
+            {trainer.courses.length === 0 && (
+              <Typography sx={{ color: '#999', fontSize: '11px', fontFamily: 'Inter', mb: 1 }}>
+                {t("CFL_DASHBOARD.NO_COURSE_DATA_FOUND_FOR_THIS_TRAINER")}
+              </Typography>
+            )}
+            {trainer.courses.map((course) => (
+              // Course progress from the Swadhaar LMS (same figure the trainer sees on their home)
+              <LevelStatusBox
+                key={course.id}
+                name={course.name}
+                status={course.status}
+                progressText={t("CFL_DASHBOARD.PROGRESS_PERCENT_COMPLETED").replace(
+                  "{{percent}}",
+                  String(Math.round(course.completionPercentage ?? 0))
+                )}
+              />
+            ))}
           </Box>
           <Button
             fullWidth

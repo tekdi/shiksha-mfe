@@ -14,6 +14,9 @@ export interface CourseStats {
   name: string;
   status: 'completed' | 'in-progress' | 'locked';
   completionPercentage?: number;
+  /** Course order in the Swadhaar LMS */
+  ordering?: number;
+  /** Completed modules */
   completionCount: number;
   totalCount: number;
 }
