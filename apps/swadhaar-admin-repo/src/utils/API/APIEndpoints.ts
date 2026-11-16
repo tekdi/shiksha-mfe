@@ -4,6 +4,9 @@ export const swadhaarMiddlewareUrl = trimTrailingSlashes(
   process.env.NEXT_PUBLIC_MIDDLEWARE_URL || 'https://swadhaar-middleware-qa.tekdinext.com'
 );
 const baseurl = swadhaarMiddlewareUrl;
+const notificationBase = trimTrailingSlashes(
+  process.env.NEXT_PUBLIC_NOTIFICATION_URL || 'https://notification.tekdinext.com'
+);
 const cohortBaseUrl = baseurl;
 const lmsBase = `${baseurl}/lms-service/v1`;
 const assessmentBase = trimTrailingSlashes(process.env.NEXT_PUBLIC_ASSESSMENT_SERVICE_URL || `${baseurl}/assessment/v1`);
@@ -105,6 +108,7 @@ export const API_ENDPOINTS = {
 
   // Notifications
   notificationSend: `${baseurl}/notification/send`,
+  notificationInApp: `${notificationBase}/notification/inApp`,
   notificationTemplate: `${baseurl}/notification-templates`,
 
   // Certificates & DID

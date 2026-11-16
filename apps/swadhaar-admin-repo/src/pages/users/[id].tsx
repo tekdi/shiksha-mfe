@@ -29,6 +29,8 @@ import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { getUserCourseProgress, UserCourseProgress } from '@/services/CourseService';
 import { getUserDetailsInfo, blockUser, unblockUser, deleteUser } from '@/services/UserService';
 import CreateUserModal from '@/components/common/CreateUserModal';
+import SendNotificationDialog from '@/components/common/SendNotificationDialog';
+import { sendInAppNotification } from '@/services/NotificationService';
 import { readUserLocation, resolveLocationLabels, UserLocation } from '@/utils/userLocation';
 import { AddToGroupDialog, AddReviewUsersDialog, UserGroup, ReviewUser } from '@/components/common/UserGroupDialogs';
 import {
@@ -271,6 +273,7 @@ export default function UserDetailsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [userData, setUserData] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
+  const [isNotifyOpen, setIsNotifyOpen] = useState<boolean>(false);
 
   // Modal & Feedback states
   const [feedback, setFeedback] = useState<{
@@ -630,6 +633,24 @@ export default function UserDetailsPage() {
 
           {/* Action Buttons matching Image 2 */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => setIsNotifyOpen(true)}
+              sx={{
+                textTransform: 'none',
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 500,
+                color: '#374151',
+                borderColor: '#D1D5DB',
+                backgroundColor: '#FFFFFF',
+                '&:hover': { backgroundColor: '#F9FAFB', borderColor: '#9CA3AF' },
+              }}
+            >
+              {t('USERS.DETAIL.BTN_SEND_NOTIFICATION')}
+            </Button>
+
             <Button
               variant="outlined"
               size="small"
@@ -1255,6 +1276,20 @@ export default function UserDetailsPage() {
           initialData={toEditInitialData(userId, parsedUser)}
         />
       )}
+      <SendNotificationDialog
+        open={isNotifyOpen}
+        userName={parsedUser.fullName}
+        onClose={() => setIsNotifyOpen(false)}
+        onSend={async (title, message) => {
+          const adminId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
+          const adminName = typeof window !== 'undefined'
+            ? [localStorage.getItem('firstName'), localStorage.getItem('lastName')].filter(Boolean).join(' ') || localStorage.getItem('name') || ''
+            : '';
+          await sendInAppNotification({ userId: userId as string, title, message, sender: { id: adminId, name: adminName } });
+          setIsNotifyOpen(false);
+          setFeedback({ open: true, message: t('USERS.DETAIL.NOTIFY_SENT', { name: parsedUser.fullName }), severity: 'success' });
+        }}
+      />
     </Box>
   );
 }
