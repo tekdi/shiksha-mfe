@@ -55,7 +55,7 @@ export const getGroupContent = async (cohortId: string): Promise<GroupContentRes
         'Accept': '*/*',
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'academicyearid': 'edf1d200-21d8-417e-b844-1d04f92435f4',
+        'academicyearid': localStorage.getItem('academicYearId') || 'edf1d200-21d8-417e-b844-1d04f92435f4',
         ...(tenantId && { 'tenantid': tenantId }),
       },
       body: JSON.stringify({
@@ -108,7 +108,7 @@ export const getMyCohorts = async (): Promise<MyCohortsResponse> => {
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Linux"',
         ...(tenantId && { 'tenantid': tenantId }),
-        'academicyearid': 'edf1d200-21d8-417e-b844-1d04f92435f4',
+          'academicyearid': localStorage.getItem('academicYearId') || 'edf1d200-21d8-417e-b844-1d04f92435f4',
       },
     });
 
@@ -193,7 +193,7 @@ export const getGroupContentDetails = async (cohortId: string): Promise<any[]> =
         'Accept': 'application/json, text/plain, */*',
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
-        'academicyearid': 'edf1d200-21d8-417e-b844-1d04f92435f4',
+       'academicyearid': localStorage.getItem('academicYearId') || 'edf1d200-21d8-417e-b844-1d04f92435f4',
         ...(tenantId && { 'tenantid': tenantId }),
         ...(channelId && { 'channelid': channelId }),
       },

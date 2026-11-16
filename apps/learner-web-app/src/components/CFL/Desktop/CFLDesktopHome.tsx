@@ -179,11 +179,11 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
       setCflStatusData(status);
 
       // Filter empty nodes
-      const filterHierarchy = (items: any[]): any[] => {
+      const filterHierarchy = (items: any[], isTopLevel = true): any[] => {
         return items
           .map((item) => {
             if (item.children && item.children.length > 0) {
-              const filteredChildren = filterHierarchy(item.children);
+              const filteredChildren = filterHierarchy(item.children, false);
               return { ...item, children: filteredChildren };
             }
             return item;
@@ -193,7 +193,10 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
               item.mimeType === 'application/vnd.ekstep.content-collection' ||
               item.contentType === 'CourseUnit' ||
               item.contentType === 'TextBookUnit';
-            if (item.children) return item.children.length > 0;
+            if (item.children) {
+              if (item.children.length > 0 || isTopLevel) return true;
+              return false;
+            }
             return !isContainer;
           });
       };

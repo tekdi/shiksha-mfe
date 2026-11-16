@@ -127,7 +127,7 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
         </FormControl>
 
         {/* Alerts — not available yet: shown with a "Coming soon" tooltip and no action */}
-        {/* <Tooltip title={t('COMMON.COMING_SOON', { defaultValue: 'Coming soon' })} arrow>
+        {/* <Tooltip title={t('COMMON.COMING_SOON', { defaultValue: 'Coming soon' })} arrow> */}
         <Box
           id="swadhaar-header-alerts-btn"
           aria-disabled="true"
@@ -173,7 +173,7 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
             {t('LEARNER_APP.ALERTS.TITLE')}
           </Typography>
         </Box>
-        </Tooltip> */}
+        {/* </Tooltip> */}
 
         {/* Profile — with dropdown */}
         <Box ref={menuRef} sx={{ position: 'relative' }}>
