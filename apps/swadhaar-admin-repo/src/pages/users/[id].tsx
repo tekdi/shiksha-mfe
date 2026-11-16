@@ -1279,13 +1279,20 @@ export default function UserDetailsPage() {
       <SendNotificationDialog
         open={isNotifyOpen}
         userName={parsedUser.fullName}
+        role={parsedUser.role}
+        location={[parsedUser.state, parsedUser.district].filter((v) => v && v !== '-').join(' - ')}
         onClose={() => setIsNotifyOpen(false)}
-        onSend={async (title, message) => {
+        onSend={async (message) => {
           const adminId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
           const adminName = typeof window !== 'undefined'
             ? [localStorage.getItem('firstName'), localStorage.getItem('lastName')].filter(Boolean).join(' ') || localStorage.getItem('name') || ''
             : '';
-          await sendInAppNotification({ userId: userId as string, title, message, sender: { id: adminId, name: adminName } });
+          await sendInAppNotification({
+            userId: userId as string,
+            title: t('USERS.DETAIL.NOTIFY_DEFAULT_TITLE'),
+            message,
+            sender: { id: adminId, name: adminName },
+          });
           setIsNotifyOpen(false);
           setFeedback({ open: true, message: t('USERS.DETAIL.NOTIFY_SENT', { name: parsedUser.fullName }), severity: 'success' });
         }}
