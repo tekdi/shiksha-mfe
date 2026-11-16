@@ -108,11 +108,11 @@ export default function TrainerDetailPage() {
       setStatusData(status);
 
       // 4. Filter hierarchy (remove empty containers)
-      const filterHierarchy = (items: any[]): any[] => {
+      const filterHierarchy = (items: any[], isTopLevel = true): any[] => {
         return items
           .map((item) => {
             if (item.children && item.children.length > 0) {
-              const filteredChildren = filterHierarchy(item.children);
+              const filteredChildren = filterHierarchy(item.children, false);
               return { ...item, children: filteredChildren };
             }
             return item;
@@ -122,7 +122,8 @@ export default function TrainerDetailPage() {
               item.contentType === 'CourseUnit' ||
               item.contentType === 'TextBookUnit';
             if (item.children) {
-              return item.children.length > 0;
+              // top-level courses stay even when their modules carry no lessons (loaded lazily)
+              return item.children.length > 0 || isTopLevel;
             }
             return !isContainer;
           });

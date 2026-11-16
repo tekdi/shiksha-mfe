@@ -4,10 +4,9 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Box, Typography, TextField, Button, CircularProgress, useMediaQuery, useTheme, Modal } from '@mui/material';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { checkSwadhaarUserExists, sendSwadhaarOtp, verifySwadhaarOtp, loginSwadhaarLearner, getSwadhaarAuthUser } from '@learner/utils/API/SwadhaarAuthService';
+import { checkSwadhaarUserExists, sendSwadhaarOtp, verifySwadhaarOtp, loginSwadhaarLearner, getSwadhaarAuthUser, SWADHAAR_ACADEMIC_YEAR_ID } from '@learner/utils/API/SwadhaarAuthService';
 import { showToastMessage } from '@learner/components/ToastComponent/Toastify';
 import { profileComplitionCheck, getUserDetails, setLocalStorageFromCustomFields } from '@learner/utils/API/userService';
-import { ensureAcademicYearForTenant } from '@learner/utils/API/ProgramService';
 import { useTenant } from '@learner/context/TenantContext';
 import { useTranslation } from '@shared-lib';
 import { SwadhaarDesktopLogin } from '@learner/components/Swadhaar/Desktop';
@@ -144,8 +143,12 @@ export default function SwadhaarLoginPage() {
       const userData = userResp?.userData || userResp;
 console.log("USER data---",userData)
       // The Swadhaar learner app is for trainers
-      const roleCode = userData?.tenantData?.[0]?.roleCode;
-      if (roleCode && roleCode !== 'trainer') {
+     // Roles with a view in the Swadhaar learner app: trainers get the learner
+      // home, CFL and ARM get the CFL dashboard (see swadhaar-home redirect).
+      // Matched on roleCode so renaming a role's label does not lock users out.
+      const ALLOWED_ROLE_CODES = ['trainer', 'cfl', 'arm'];
+      const roleCode = String(userData?.tenantData?.[0]?.roleCode || '').toLowerCase();
+      if (roleCode && !ALLOWED_ROLE_CODES.includes(roleCode)) {
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         showToastMessage('This account is not allowed to use the learner app.', 'error');
@@ -163,6 +166,7 @@ console.log("USER data---",userData)
       localStorage.setItem('lastName', userData?.lastName || '');
       localStorage.setItem('name', userData?.firstName || '');
       localStorage.setItem('userRole', userRole);
+      localStorage.setItem('roleCode', roleCode);
       localStorage.setItem('tenantId', tenantId);
       localStorage.setItem('userProgram', tenantName);
       localStorage.setItem('mobileNumber', userData?.mobile || trimmed);
@@ -189,7 +193,7 @@ console.log("USER data---",userData)
       document.cookie = `token=${token}; path=/; secure; SameSite=Strict`;
 
       await profileComplitionCheck().catch(() => {});
-      if (tenantId) await ensureAcademicYearForTenant(tenantId).catch(() => {});
+       localStorage.setItem('academicYearId', SWADHAAR_ACADEMIC_YEAR_ID);
 
       window.location.href = `${window.location.origin}/swadhaar-home`;
     } catch (err: any) {

@@ -140,9 +140,14 @@ export default function SwadhaarHomePage() {
       } else {
         console.log("userRole---->", localStorage.getItem("userRole"))
 
-        const role = localStorage.getItem('userRole');
-        const normalizedRole = role?.trim().toUpperCase();
-        if (normalizedRole === 'CFL' || normalizedRole === 'DI') {
+        // Prefer roleCode (stable); fall back to the role label for sessions
+        // that logged in before roleCode was stored.
+        const roleCode = localStorage.getItem('roleCode')?.trim().toLowerCase();
+        const normalizedRole = localStorage.getItem('userRole')?.trim().toUpperCase();
+        const isDashboardRole = roleCode
+          ? ['cfl', 'arm'].includes(roleCode)
+          : normalizedRole === 'CFL' || normalizedRole === 'DI' || normalizedRole === 'ARM';
+        if (isDashboardRole) {
           window.location.replace('/cfl/home');
         }
       }

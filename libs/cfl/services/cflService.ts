@@ -2,14 +2,30 @@ import { post, get } from '@shared-lib';
 import { Trainer, CourseProgress, AlertFeedback } from '../types';
 import axios from 'axios';
 import { getContentCourseStatus } from '@learner/utils/API/SwadhaarService';
+import {
+  SWADHAAR_BASE_URL,
+  SWADHAAR_ACADEMIC_YEAR_ID,
+  SWADHAAR_ORGANISATION_ID,
+  SWADHAAR_TENANT_ID,
+} from '@learner/utils/API/SwadhaarAuthService';
 
-// Direct backend URL - used with @shared-lib post() which injects auth headers via interceptor
-const BACKEND_URL = process.env.NEXT_PUBLIC_INTERFACE_URL || 'https://interface.tekdinext.com/interface/v1';
-// Middleware/proxy URL - used for standard app API calls
+// Users, cohorts and cohort members live in the Swadhaar user service, behind the
+// Swadhaar middleware. The shared NEXT_PUBLIC_MIDDLEWARE_URL points at another
+// tenant's backend, where Swadhaar cohorts "do not exist for this year".
+const USER_SERVICE_URL = `${SWADHAAR_BASE_URL}/user/v1`;
+// Content and tracking calls (composite search, hierarchy, tracking) are not yet
+// exposed by the Swadhaar middleware, so they still use the shared backend.
 const BASE_URL = process.env.NEXT_PUBLIC_MIDDLEWARE_URL || 'https://interface.tekdinext.com/interface/v1';
 
+/** The CFL dashboard is Swadhaar-only, so fall back to Swadhaar's tenant, never another tenant's. */
+const resolveTenantId = (...candidates: (string | undefined)[]) =>
+  candidates.find(Boolean) || SWADHAAR_TENANT_ID;
+/** Swadhaar cohorts are created under Swadhaar's academic year. */
+const resolveAcademicYearId = (...candidates: (string | undefined)[]) =>
+  candidates.find(Boolean) || SWADHAAR_ACADEMIC_YEAR_ID;
+
 export const getTrainerList = async (tenantId: string): Promise<Trainer[]> => {
-  const apiUrl = `${BASE_URL}/user/list`;
+  const apiUrl = `${USER_SERVICE_URL}/list`;
   const payload = {
     limit: 50,
     offset: 0,
@@ -66,8 +82,8 @@ export const cfllearnerlist = async (
   overrideAcademicYearId?: string,
   excludeManagement: boolean = false
 ) => {
-  const apiUrl = `${BACKEND_URL}/cohortmember/list`;
-  
+  const apiUrl = `${USER_SERVICE_URL}/cohortmember/list`;
+
   let storageUserId = '';
   let storageAcademicYearId = '';
   let storageTenantId = '';
@@ -86,19 +102,20 @@ export const cfllearnerlist = async (
 
   let actualCohortId = overrideCohortId;
 
-  const finalAcademicYearId = overrideAcademicYearId || storageAcademicYearId || 'edf1d200-21d8-417e-b844-1d04f92435f4';
-  const finalTenantId = overrideTenantId || storageTenantId || '8cf74da8-392d-4d02-8ac3-ae2204e34c0a';
+  const finalAcademicYearId = resolveAcademicYearId(overrideAcademicYearId, storageAcademicYearId);
+  const finalTenantId = resolveTenantId(overrideTenantId, storageTenantId);
   const finalToken = overrideToken || token;
 
   if (!actualCohortId && storageUserId) {
     try {
       const searchHeaders: Record<string, string> = {
         'tenantid': finalTenantId,
+        'academicyearid': finalAcademicYearId,
+        'organisationid': SWADHAAR_ORGANISATION_ID,
         'accept': 'application/json, text/plain, */*',
         'authorization': finalToken ? `Bearer ${finalToken}` : ''
       };
-      // const searchResp = await get(`${BASE_URL}/cohort/mycohorts/${storageUserId}?customField=true&children=true`, searchHeaders);
-const searchResp = await get(`${BASE_URL}/cohort/mycohorts/${storageUserId}?customField=true&children=true`, searchHeaders);
+      const searchResp = await get(`${USER_SERVICE_URL}/cohort/mycohorts/${storageUserId}?customField=true&children=true`, searchHeaders);
       const data = searchResp?.data?.data || searchResp?.data || searchResp;
       const userCohorts = data?.result || [];
       if (userCohorts.length > 0) {
@@ -129,7 +146,8 @@ const searchResp = await get(`${BASE_URL}/cohort/mycohorts/${storageUserId}?cust
     limit: 0,
     offset: 0,
     filters: {
-      cohortId: finalCohortId,
+      // Swadhaar user service validates cohortId as an array of UUIDs
+      cohortId: [finalCohortId],
       status: ['active'],
     }
   };
@@ -141,14 +159,13 @@ const searchResp = await get(`${BASE_URL}/cohort/mycohorts/${storageUserId}?cust
   const headers: Record<string, string> = {
     'academicyearid': finalAcademicYearId,
     'tenantid': finalTenantId,
+    'organisationid': SWADHAAR_ORGANISATION_ID,
     'accept': 'application/json, text/plain, */*',
     'accept-language': 'en-GB,en;q=0.9'
   };
 
   if (finalToken) {
     headers['authorization'] = `Bearer ${finalToken}`;
-  } else {
-    headers['authorization'] = `Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJxSEJLb1JaSkRVOHUweEROYk95dUF2S3Roelo0TXo2c0l6OHRiSXRWWVBnIn0.eyJleHAiOjE3ODAzNzkzOTcsImlhdCI6MTc4MDI5Mjk5NywianRpIjoiNzM1MjI3Y2MtMGVhMC00M2ZjLWI4Y2ItMDRjODFjNTlmYTdlIiwiaXNzIjoiaHR0cHM6Ly9hZG1pbi5zdW5iaXJkc2Fhcy5jb20vYXV0aC9yZWFsbXMvc2hpa3NoYSIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiJiN2NjMWY3Ny05MGNhLTRmMzMtOTMzYS03NjQ3YjFiMzk1YWMiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJzaGlrc2hhIiwic2Vzc2lvbl9zdGF0ZSI6IjdhYzUxMGU2LWU1MjItNDE2NS05NzNlLWQ0ZjA5ZTEyYzNkMCIsImFjciI6IjEiLCJhbGxvd2VkLW9yaWdpbnMiOlsiaHR0cHM6Ly9kZXYuc25haWxuZXR3b3JrLm9yZyIsImh0dHA6Ly9sb2NhbGhvc3Q6MzAwMyIsImh0dHBzOi8vd3d3LnNuYWlsbmV0d29yay5vcmciLCIqIiwiaHR0cHM6Ly9hZG1pbi5zdW5iaXJkc2Fhcy5jb20iLCJodHRwOi8vbG9jYWxob3N0OjQxMjAiXSwicmVhbG1fYWNjZXNzIjp7InJvbGVzIjpbIm9mZmxpbmVfYWNjZXNzIiwidW1hX2F1dGhvcml6YXRpb24iLCJkZWZhdWx0LXJvbGVzLXByYXRoYW0iXX0sInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJzY29wZSI6ImVtYWlsIHByb2ZpbGUgcHJhdGhhbS1yb2xlIiwic2lkIjoiN2FjNTEwZTYtZTUyMi00MTY1LTk3M2UtZDRmMDllMTJjM2QwIiwidGVuYW50X2lkIjoiMGQ3M2JjZjktYWI2Mi00NGVmLTk0NWUtODhiMWE3N2FiM2MzIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJvcmdfaWQiOiI4Y2Y3NGRhOC0zOTJkLTRkMDItOGFjMy1hZTIyMDRlMzRjMGEiLCJuYW1lIjoiYWRtaW5fb2JsZiBhZG1pbl9vYmxmIiwicHJlZmVycmVkX3VzZXJuYW1lIjoiYWRtaW5fb2JsZiIsImdpdmVuX25hbWUiOiJhZG1pbl9vYmxmIiwiZmFtaWx5X25hbWUiOiJhZG1pbl9vYmxmIiwidXNlcl9yb2xlc190ZXN0IjpbeyJ0aXRsZSI6IkxlYXJuZXIifV19.U9qTOc2k0bHSjob9OS5XsZgIiu1JFswa-ddlHQKv1LGCHf38rMqHkXFyT0ehy-_TCVwfvk6cDIUa4VldAJittTXgrsnvIGudggNZp9VB62hIK6aOVgwUsvxdrGK_Ip73tFDWGXn0LZbmFQQF9pqZchcT4i9m3LHgbuhQAf5BZqAM2z21xgWcaez1LdN6HxtfiIZ-eBW2Vj5oZ8YksQBzK3BlzV5T7x8jPcROBQAT4xHUVlb1MSzJp_xXgcp8I7cnumefhraXEwzxaCRS1HN6-HHLxIwS9JlUtjYPHO_g-aUu6CzHVY7dNyOgr61t4w-QHG7K9gi8eHaEzKmRqu7lJQ`;
   }
 
   try {
@@ -348,7 +365,7 @@ const searchResp = await get(`${BASE_URL}/cohort/mycohorts/${storageUserId}?cust
     // Profile photo URL is stored in userData.name (set by uploadProfilePhoto flow).
     // We run these in parallel and patch avatarUrl on each trainer.
     try {
-      const profileUrl = `${BASE_URL}/user/read`;
+      const profileUrl = `${USER_SERVICE_URL}/read`;
       await Promise.all(
         trainers.map(async (trainer: any) => {
           try {
@@ -358,6 +375,8 @@ const searchResp = await get(`${BASE_URL}/cohort/mycohorts/${storageUserId}?cust
                 headers: {
                   'authorization': finalToken ? `Bearer ${finalToken}` : undefined,
                   'tenantid': finalTenantId,
+                  'academicyearid': finalAcademicYearId,
+                  'organisationid': SWADHAAR_ORGANISATION_ID,
                 } as any
               }
             );
@@ -385,7 +404,7 @@ const searchResp = await get(`${BASE_URL}/cohort/mycohorts/${storageUserId}?cust
 };
 
 export const getDICohorts = async () => {
-  const apiUrl = `${BASE_URL}/cohort/search`;
+  const apiUrl = `${USER_SERVICE_URL}/cohort/search`;
 
   let storageAcademicYearId = '';
   let storageTenantId = '';
@@ -405,8 +424,8 @@ export const getDICohorts = async () => {
   }
 
   const finalCohortId = storageCohortId || "19388f9f-5aca-4bcd-8576-b3254d0ae942";
-  const finalAcademicYearId = storageAcademicYearId || 'edf1d200-21d8-417e-b844-1d04f92435f4';
-  const finalTenantId = storageTenantId || '8cf74da8-392d-4d02-8ac3-ae2204e34c0a';
+  const finalAcademicYearId = resolveAcademicYearId(storageAcademicYearId);
+  const finalTenantId = resolveTenantId(storageTenantId);
 
   // 1. First call: get all cohorts (useful for CFL to find their own details)
   const initialPayload = {
@@ -421,6 +440,7 @@ export const getDICohorts = async () => {
   const headers: Record<string, string> = {
     'academicyearid': finalAcademicYearId,
     'tenantid': finalTenantId,
+    'organisationid': SWADHAAR_ORGANISATION_ID,
     'accept': 'application/json, text/plain, */*',
     'accept-language': 'en-GB,en;q=0.9',
     'content-type': 'application/json'
@@ -441,7 +461,7 @@ export const getDICohorts = async () => {
       // Find the DI cohort dynamically using the mycohorts API
      let diCohortIdToUse = finalCohortId;
       try {
-        const myCohortsResp = await get(`${BASE_URL}/cohort/mycohorts/${storageUserId}?customField=true&children=true`, headers);
+        const myCohortsResp = await get(`${USER_SERVICE_URL}/cohort/mycohorts/${storageUserId}?customField=true&children=true`, headers);
         const mcData = myCohortsResp?.data?.data || myCohortsResp?.data || myCohortsResp;
         const myCohorts = mcData?.result || [];
         if (myCohorts.length > 0) {
@@ -516,7 +536,7 @@ export const getDICohorts = async () => {
 };
 
 export const getDIForCFL = async (): Promise<{ id: string, name: string } | null> => {
-  const apiUrl = `${BACKEND_URL}/cohort/search`;
+  const apiUrl = `${USER_SERVICE_URL}/cohort/search`;
 
   let storageAcademicYearId = '';
   let storageTenantId = '';
@@ -531,12 +551,13 @@ export const getDIForCFL = async (): Promise<{ id: string, name: string } | null
   }
 
   const finalCohortId = storageCohortId || "19388f9f-5aca-4bcd-8576-b3254d0ae942";
-  const finalAcademicYearId = storageAcademicYearId || 'edf1d200-21d8-417e-b844-1d04f92435f4';
-  const finalTenantId = storageTenantId || '8cf74da8-392d-4d02-8ac3-ae2204e34c0a';
+  const finalAcademicYearId = resolveAcademicYearId(storageAcademicYearId);
+  const finalTenantId = resolveTenantId(storageTenantId);
 
   const headers: Record<string, string> = {
     'academicyearid': finalAcademicYearId,
     'tenantid': finalTenantId,
+    'organisationid': SWADHAAR_ORGANISATION_ID,
     'accept': 'application/json, text/plain, */*',
     'accept-language': 'en-GB,en;q=0.9',
     'content-type': 'application/json'
@@ -613,10 +634,10 @@ export const getDIForCFL = async (): Promise<{ id: string, name: string } | null
     if (foundDiCohortId && (!diUserId || diUserId.length < 10)) {
       try {
         console.log(`[getDIForCFL] Fetching members for DI cohort ${foundDiCohortId}...`);
-        const membersResponse = await post(`${BACKEND_URL}/cohortmember/list`, {
+        const membersResponse = await post(`${USER_SERVICE_URL}/cohortmember/list`, {
           limit: 0,
           offset: 0,
-          filters: { cohortId: foundDiCohortId }
+          filters: { cohortId: [foundDiCohortId] }
         }, headers);
         
         const members = membersResponse?.data?.result?.userDetails || [];
@@ -636,8 +657,8 @@ export const getDIForCFL = async (): Promise<{ id: string, name: string } | null
     // Step 4: If we found a DI userId, fetch their user profile for name
     if (diUserId && diUserId.length >= 10) {
       try {
-        const userUrl = `${BACKEND_URL}/user/read/${diUserId}?fieldvalue=false`;
-        const userResponse = await get(userUrl);
+        const userUrl = `${USER_SERVICE_URL}/read/${diUserId}?fieldvalue=false`;
+        const userResponse = await get(userUrl, headers);
         const userData = userResponse?.data || userResponse;
         const userInfo = userData?.result?.response || userData?.result || userData;
         const firstName = userInfo?.firstName || userInfo?.first_name || '';
@@ -671,8 +692,8 @@ export const getDIForCFL = async (): Promise<{ id: string, name: string } | null
       if (!diUidFromCohort || diUidFromCohort.length < 10) {
         try {
           console.log(`[getDIForCFL] Fallback: Fetching members for DI cohort ${diCohort.cohortId}...`);
-          const membersResponse = await post(`${BACKEND_URL}/cohortmember/list`, {
-            limit: 0, offset: 0, filters: { cohortId: diCohort.cohortId }
+          const membersResponse = await post(`${USER_SERVICE_URL}/cohortmember/list`, {
+            limit: 0, offset: 0, filters: { cohortId: [diCohort.cohortId] }
           }, headers);
           
           const members = membersResponse?.data?.result?.userDetails || [];
@@ -698,8 +719,8 @@ export const getDIForCFL = async (): Promise<{ id: string, name: string } | null
       
       // Try to get the real DI name via user/read
       try {
-        const userUrl = `${BACKEND_URL}/user/read/${diUidFromCohort}?fieldvalue=false`;
-        const userResponse = await get(userUrl);
+        const userUrl = `${USER_SERVICE_URL}/read/${diUidFromCohort}?fieldvalue=false`;
+        const userResponse = await get(userUrl, headers);
         const rawResponse = userResponse?.data;
         // Log the FULL raw response so we can see the actual structure
         console.log('[getDIForCFL] user/read RAW response:', JSON.stringify(rawResponse));

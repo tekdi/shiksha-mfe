@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { refresh } from './LoginService';
 import { tenantId } from 'apps/learner-web-app/app.config';
+import { isSwadhaarSession } from './SwadhaarAuthService';
 
 const instance = axios.create();
 
@@ -81,6 +82,12 @@ instance.interceptors.response.use(
       (error?.response?.status === 401 || error?.response?.data?.responseCode === 401) &&
       !originalRequest._retry
     ) {
+      // Swadhaar sessions have no refresh API (the shared refresh endpoint belongs to another
+      // tenant's backend), so don't refresh or force a logout; let the caller handle the 401.
+      if (isSwadhaarSession()) {
+        return Promise.reject(error);
+      }
+
       // Don't try to refresh token for /user/auth endpoint - let getUserId handle it
       if (error?.response?.request?.responseURL.includes('/user/auth')) {
         return Promise.reject(error);

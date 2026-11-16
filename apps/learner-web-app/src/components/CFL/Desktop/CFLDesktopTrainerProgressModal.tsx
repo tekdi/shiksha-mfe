@@ -314,18 +314,21 @@ const CFLDesktopTrainerProgressModal: React.FC<CFLDesktopTrainerProgressModalPro
       setStatusData(status);
 
       // 4. Filter hierarchy
-      const filterHierarchy = (items: any[]): any[] => {
+      const filterHierarchy = (items: any[], isTopLevel = true): any[] => {
         return items
           .map((item) => {
             if (item.children && item.children.length > 0) {
-              return { ...item, children: filterHierarchy(item.children) };
+              return { ...item, children: filterHierarchy(item.children, false) };
             }
             return item;
           })
           .filter((item) => {
             const isContainer = item.mimeType === 'application/vnd.ekstep.content-collection' ||
               item.contentType === 'CourseUnit' || item.contentType === 'TextBookUnit';
-            if (item.children) return item.children.length > 0;
+            if (item.children) {
+              if (item.children.length > 0 || isTopLevel) return true;
+              return false;
+            }
             return !isContainer;
           });
       };
