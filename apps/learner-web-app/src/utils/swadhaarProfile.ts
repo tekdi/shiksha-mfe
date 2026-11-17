@@ -14,6 +14,21 @@ export const getProfileLocation = (profileData: any): string => {
     .join(', ');
 };
 
+/** The location shown on a profile: the admin-set cflLocation field, else "State, Block, City" from the custom fields. */
+export const getDisplayLocation = (profileData: any): string => {
+  const fields: any[] = Array.isArray(profileData?.customFields) ? profileData.customFields : [];
+  const cflLocation = fields.find((f: any) => f?.fieldId === 'cflLocation')?.value;
+  return cflLocation || getProfileLocation(profileData);
+};
+
+/** Label key for a profile's location row: "District Incharge Location", "ARM Location" or "Trainer Location". */
+export const getLocationLabelKey = (role?: string | null): string => {
+  const r = String(role || '').trim().toUpperCase();
+  if (r === 'ARM') return 'LEARNER_APP.PROFILE.FIELD_LOCATION_ARM';
+  if (r === 'CFL' || r === 'DI' || r === 'CFL INCHARGE' || r === 'DISTRICT INCHARGE') return 'LEARNER_APP.PROFILE.FIELD_LOCATION_DI';
+  return 'LEARNER_APP.PROFILE.FIELD_LOCATION_TRAINER';
+};
+
 /** Role of the user in the tenant they log in to (the admin-assigned role), falling back to profile.role */
 export const getProfileRole = (profileData: any): string =>
   profileData?.tenantData?.[0]?.roleName || profileData?.role || localStorage.getItem('userRole') || '';

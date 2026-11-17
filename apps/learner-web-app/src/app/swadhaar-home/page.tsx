@@ -1,6 +1,6 @@
 'use client';
 
-import { getProfilePhotoUrl } from '@learner/utils/swadhaarProfile';
+import { getProfilePhotoUrl, getDisplayLocation, getLocationLabelKey } from '@learner/utils/swadhaarProfile';
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   Box, Typography, CircularProgress, Badge, Collapse, Button, useMediaQuery, useTheme, Modal, LinearProgress
@@ -117,6 +117,7 @@ export default function SwadhaarHomePage() {
   }, []);
   const [userName, setUserName] = useState('');
   const [designation, setDesignation] = useState('');
+  const [location, setLocation] = useState('');
   const [viewMore, setViewMore] = useState(false);
   const [expandedActive, setExpandedActive] = useState(true);
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
@@ -220,6 +221,7 @@ export default function SwadhaarHomePage() {
           // The photo URL is stored in the `name` field by the uploadProfilePhoto flow
           // The profile read may not return the photo, so the URL saved at upload time is the fallback
           setProfileImageUrl(getProfilePhotoUrl(profileData));
+          setLocation(getDisplayLocation(profileData));
           if (profileData?.firstName) {
             const fnStr = String(profileData.firstName);
             setUserName(fnStr);
@@ -501,6 +503,7 @@ export default function SwadhaarHomePage() {
           unreadCount={unreadCount}
           userName={userName}
           designation={designation}
+          location={location}
           profileImageUrl={profileImageUrl}
           isLoading={false}
           error={error}
@@ -669,6 +672,7 @@ export default function SwadhaarHomePage() {
                 </Typography>
                 <Typography sx={{ fontFamily: "Inter", color: '#FFFFFF', fontSize: 11, fontWeight: 400, mt: 0.5 }}>
                   {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {designation}
+                  {location ? ` - ${t(getLocationLabelKey(designation))}: ${location}` : ''}
                 </Typography>
               </Box>
 

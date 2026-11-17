@@ -19,7 +19,6 @@ import {
   fetchSwadhaarModuleLessons,
   SWADHAAR_DONE_PERCENT,
   trackCourseClick,
-  type SwadhaarGroupCourse,
 } from '@learner/utils/API/SwadhaarService';
 
 const PRIMARY = '#E6873C';
@@ -100,13 +99,12 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
   }, []);
 
   // ── Load CFL own learning progress (same logic as swadhaar-home/page.tsx) ──
-  const loadCFLLearningProgress = useCallback(async (groupCourses: SwadhaarGroupCourse[]) => {
+  const loadCFLLearningProgress = useCallback(async () => {
     try {
       setCflLevelsLoading(true);
 
       // The District Incharge's own enrolled courses, with module progress, from the Swadhaar LMS
-      // plus every course the trainers in the same group are on, so the CFL sees the same course list
-      const levelCourses = await fetchSwadhaarLevelCourses(undefined, groupCourses);
+      const levelCourses = await fetchSwadhaarLevelCourses();
       if (!levelCourses || levelCourses.length === 0) {
         setCflLevelsLoading(false);
         return;
@@ -146,24 +144,9 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
     }
   }, []);
 
-  // Courses of the trainers in this CFL's group (the table's columns), so both see the same courses
-  const groupCourses: SwadhaarGroupCourse[] = React.useMemo(() => {
-    const seen = new Map<string, SwadhaarGroupCourse>();
-    trainers.forEach((tr) =>
-      (tr.courses || []).forEach((c: any) => {
-        if (c?.id && !seen.has(c.id)) seen.set(c.id, { courseId: c.id, name: c.name, ordering: c.ordering });
-      })
-    );
-    return Array.from(seen.values());
-  }, [trainers]);
-  const groupCoursesKey = groupCourses.map((c) => c.courseId).sort().join(',');
-
   useEffect(() => {
-    // wait for the trainers so the group's courses are known
-    if (loading) return;
-    loadCFLLearningProgress(groupCourses);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loadCFLLearningProgress, groupCoursesKey, loading]);
+    loadCFLLearningProgress();
+  }, [loadCFLLearningProgress]);
 
   const handleCloseAlertsPanel = () => {
     setAlertsPanelOpen(false);

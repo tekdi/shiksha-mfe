@@ -38,6 +38,7 @@ interface SwadhaarDesktopHomeProps {
   unreadCount: number;
   userName: string;
   designation: string;
+  location?: string;
   profileImageUrl: string | null;
   isLoading: boolean;
   error: string | null;
@@ -84,7 +85,7 @@ function findCurrentLesson(level: LevelData | null, statusData: any[]) {
 /* ─── Component ─────────────────────────────────────────── */
 const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
   levels, activeLevel, statusData, alerts, unreadCount,
-  userName, designation, profileImageUrl,
+  userName, designation, location, profileImageUrl,
   isLoading, error, onAlertClick, onReload,
   externalEditProfileOpen = false, onExternalEditProfileClose,
   onBeforeNavigate, selectedLanguage, onLanguageClick,
@@ -289,6 +290,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
             <SwadhaarDesktopProfileBanner
               userName={userName}
               designation={designation}
+              location={location}
               profileImageUrl={profileImageUrl}
               levels={levels.map((l) => ({
                 id: l.id,

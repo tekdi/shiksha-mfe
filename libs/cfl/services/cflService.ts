@@ -4,7 +4,6 @@ import axios from 'axios';
 import {
   fetchSwadhaarUserCourseProgress,
   type SwadhaarUserCourseProgress,
-  type SwadhaarGroupCourse,
 } from '@learner/utils/API/SwadhaarService';
 import {
   SWADHAAR_BASE_URL,
@@ -802,32 +801,4 @@ export const getAlerts = async (userId: string, tenantId: string, token: string)
     console.error('Error fetching alerts:', error);
     return [];
   }
-};
-
-
-/**
- * Courses the trainers a CFL/ARM oversees are on, so the CFL's own Learn list matches their group's.
- * Empty for any other role.
- */
-export const getCFLGroupCourses = async (): Promise<SwadhaarGroupCourse[]> => {
-  if (typeof window === 'undefined') return [];
-  const roleCode = localStorage.getItem('roleCode')?.trim().toLowerCase();
-  const role = localStorage.getItem('userRole')?.trim().toUpperCase();
-  const isOverseer = roleCode
-    ? ['cfl', 'arm'].includes(roleCode)
-    : role === 'CFL' || role === 'DI' || role === 'ARM';
-  if (!isOverseer) return [];
-
-  const trainers: any[] =
-    role === 'ARM'
-      ? await getDICohorts()
-      : await cfllearnerlist(undefined, undefined, undefined, undefined, true);
-
-  const seen = new Map<string, SwadhaarGroupCourse>();
-  (trainers || []).forEach((trainer: any) =>
-    (trainer.courses || []).forEach((c: any) => {
-      if (c?.id && !seen.has(c.id)) seen.set(c.id, { courseId: c.id, name: c.name, ordering: c.ordering });
-    })
-  );
-  return Array.from(seen.values());
 };
