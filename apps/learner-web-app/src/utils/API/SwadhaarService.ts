@@ -113,6 +113,7 @@ const toModuleStatus = (module: any) => {
 const fetchCourseWithTracking = async (courseId: string, userId: string) => {
   const courseUrl = `${SWADHAAR_BASE_URL}/lms-service/v1/courses/${courseId}`;
   let result: any;
+  let enrolled = true;
   try {
     const response = await axios.get(`${courseUrl}/hierarchy/tracking/${userId}`, {
       params: { includeModules: true },
@@ -123,6 +124,7 @@ const fetchCourseWithTracking = async (courseId: string, userId: string) => {
     // A CFL/ARM can see a course their trainers are on without being enrolled in it themselves; the
     // tracking call refuses ("User is not enrolled"), so read the plain course structure (no progress).
     if (err?.response?.status !== 400) throw err;
+    enrolled = false;
     const response = await axios.get(`${courseUrl}/hierarchy`, {
       params: { includeModules: true },
       headers: lmsHeaders(),
@@ -130,6 +132,33 @@ const fetchCourseWithTracking = async (courseId: string, userId: string) => {
     result = response?.data?.result;
   }
   const modules = [...(result?.modules || [])].sort(byOrdering);
+  // A module's own tracking.progress can lag behind its lessons (the lesson screen already shows them
+  // done), so derive module progress from the lessons' tracking, the same source the lesson screen uses.
+  const moduleStatuses = await Promise.all(
+    modules.map(async (module: any) => {
+      const own = toModuleStatus(module);
+      if (!enrolled) return own;
+      try {
+        const res = await axios.get(`${courseUrl}/hierarchy/tracking/${userId}`, {
+          params: { includeLessons: true, moduleId: module.moduleId },
+          headers: lmsHeaders(),
+        });
+        const lessons = res?.data?.result?.lessons || [];
+        if (lessons.length === 0) return own;
+        const percent = Math.round(
+          lessons.reduce((sum: number, l: any) => sum + (toLessonStatus(l).completionPercentage || 0), 0) / lessons.length
+        );
+        const fromLessons = Math.max(percent, own.completionPercentage);
+        return {
+          contentId: module.moduleId,
+          status: fromLessons >= 100 ? 2 : fromLessons > 0 ? 1 : 0,
+          completionPercentage: fromLessons,
+        };
+      } catch {
+        return own;
+      }
+    })
+  );
   return {
     name: result?.title as string,
     children: modules.map((module: any) => ({
@@ -139,7 +168,7 @@ const fetchCourseWithTracking = async (courseId: string, userId: string) => {
       totalLessons: module.tracking?.totalLessons ?? module.lessons?.length,
       children: [],
     })),
-    trackingStatus: modules.map(toModuleStatus),
+    trackingStatus: moduleStatuses,
   };
 };
 
