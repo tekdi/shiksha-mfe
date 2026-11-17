@@ -1,7 +1,11 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { startSwadhaarLessonAttempt, updateSwadhaarAttemptProgress } from '@learner/utils/API/SwadhaarService';
+import {
+  startSwadhaarLessonAttempt,
+  updateSwadhaarAttemptProgress,
+  SWADHAAR_DONE_PERCENT,
+} from '@learner/utils/API/SwadhaarService';
 import { telemetryFactory } from '@learner/utils/telemtery';
 
 interface TrackingParams {
@@ -75,8 +79,11 @@ export const useContentTracking = ({
       return;
     }
 
-    // The LMS lets an explicit status override its own completion check, so a 100% report must say "completed"
-    const isComplete = isFinal || percentage >= 100;
+    // The LMS counts a lesson as done only when the attempt's status is "completed", and an explicit status
+    // overrides its own completion check. The app treats a lesson as done at SWADHAAR_DONE_PERCENT (70%) —
+    // the same rule that ticks it in the lesson list — so report "completed" from there, or the LMS module
+    // and course progress lag behind what the learner sees (e.g. a video watched to 94% stays incomplete).
+    const isComplete = isFinal || percentage >= SWADHAAR_DONE_PERCENT;
 
     try {
       await updateSwadhaarAttemptProgress(currentAttemptId, {
