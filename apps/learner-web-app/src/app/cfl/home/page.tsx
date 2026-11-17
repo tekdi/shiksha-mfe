@@ -15,6 +15,7 @@ import SwadhaarBottomNav from '../../../components/Swadhaar/SwadhaarBottomNav';
 import SimpleModal from '@learner/components/SimpleModal/SimpleModal';
 import { cohortList } from "@learner/utils/API/services/CohortServices";
 import { getUserDetails } from '@learner/utils/API/services/ProfileService';
+import { getDisplayLocation } from '@learner/utils/swadhaarProfile';
 import { useTranslation } from '@shared-lib';
 
 const PRIMARY = '#E6873C';
@@ -48,12 +49,15 @@ export default function CFLHomePage() {
     }
     const role = localStorage.getItem('userRole')?.trim().toUpperCase() || '';
     const prefix = (role === 'ARM') ? 'ARM' : t('CFL_DASHBOARD.DISTRICT_INCHARGE');
-    setLocation(`${prefix}: ${localStorage.getItem('stateName') || 'Jharkhand'} - ${localStorage.getItem('districtName') || 'Torpa'}`);
+    // Placeholder until the profile loads; the real location comes from the user's custom fields below
+    setLocation(`${prefix}: ${localStorage.getItem('stateName') || ''}`.replace(/:\s*$/, ':'));
 
     const uid = localStorage.getItem('userId');
     if (uid) {
       getUserDetails(uid, true).then(profileResponse => {
         const profileData = profileResponse?.result?.userData;
+        const profileLocation = getDisplayLocation(profileData);
+        if (profileLocation) setLocation(`${prefix}: ${profileLocation}`);
         if (profileData?.name) {
           setProfileImageUrl(profileData.name);
         }

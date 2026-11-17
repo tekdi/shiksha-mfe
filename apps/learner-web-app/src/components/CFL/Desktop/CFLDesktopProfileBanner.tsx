@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { getLocationLabelKey } from '@learner/utils/swadhaarProfile';
 import { Box, Typography } from '@mui/material';
 import ProfileAvatar from '@learner/components/Profile/ProfileAvatar';
 import { useTranslation } from '@shared-lib';
@@ -62,7 +63,7 @@ const CFLDesktopProfileBanner: React.FC<CFLDesktopProfileBannerProps> = ({
           {t('LEARNER_APP.HOME.GREETING', { name: userName })}
         </Typography>
         <Typography sx={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.6)', mt: 0.5 }}>
-          {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {(userRole === 'ARM') ? 'ARM' : t('CFL_DASHBOARD.DISTRICT_INCHARGE')} - {t('LEARNER_APP.PROFILE.FIELD_CFL_LOCATION')}: {location.replace(/^(District Incharge|CFL|ARM):\s*/i, '').trim()}
+          {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {(userRole === 'ARM') ? 'ARM' : t('CFL_DASHBOARD.DISTRICT_INCHARGE')} - {t(getLocationLabelKey(userRole))}: {location.replace(/^(District Incharge|CFL|ARM):\s*/i, '').trim()}
         </Typography>
       </Box>
 

@@ -345,34 +345,17 @@ export const fetchSwadhaarUserCourseDetail = async (
   );
 };
 
-export interface SwadhaarGroupCourse {
-  courseId: string;
-  name: string;
-  ordering?: number;
-}
-
 /**
  * Courses a learner is enrolled in, from the Swadhaar LMS (enrollments/users-courses), shaped like the
  * course nodes the Swadhaar home screens already render. Each course carries its modules (`children`)
  * and the learner's module tracking (`trackingStatus`). Defaults to the signed-in user; the CFL/ARM
  * views pass a trainer's `userId`.
  */
-export const fetchSwadhaarEnrolledCourses = async (
-  forUserId?: string,
-  groupCourses: SwadhaarGroupCourse[] = []
-): Promise<any[]> => {
+export const fetchSwadhaarEnrolledCourses = async (forUserId?: string): Promise<any[]> => {
   const userId = forUserId || localStorage.getItem('userId');
   if (!userId) return [];
 
-  const enrolled = await fetchUserEnrollments(userId);
-  // Courses the user's group (e.g. the trainers they oversee) is on but the user is not enrolled in directly
-  const enrolledIds = new Set(enrolled.map((c) => c.courseId));
-  const extras = groupCourses
-    .filter((g) => g.courseId && !enrolledIds.has(g.courseId))
-    .map((g) => ({ courseId: g.courseId, title: g.name, ordering: g.ordering }));
-  const courses = [...enrolled, ...extras].sort(
-    (a, b) => (a.ordering ?? Number.MAX_SAFE_INTEGER) - (b.ordering ?? Number.MAX_SAFE_INTEGER)
-  );
+  const courses = await fetchUserEnrollments(userId);
 
   return Promise.all(
     courses.map(async (course) => {
@@ -620,11 +603,8 @@ export const fetchSwadhaarAttempt = async (attemptId: string): Promise<any> => {
   return response?.data?.result;
 };
 
-export const fetchSwadhaarLevelCourses = async (
-  languageOverride?: string,
-  groupCourses?: SwadhaarGroupCourse[]
-): Promise<any[]> => {
-  return fetchSwadhaarEnrolledCourses(undefined, groupCourses);
+export const fetchSwadhaarLevelCourses = async (languageOverride?: string): Promise<any[]> => {
+  return fetchSwadhaarEnrolledCourses();
 };
 
 export const fetchSwadhaarLevelCoursesFromSearch = async (languageOverride?: string): Promise<any[]> => {

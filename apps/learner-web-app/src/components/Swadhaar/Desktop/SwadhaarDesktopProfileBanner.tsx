@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { getLocationLabelKey } from '@learner/utils/swadhaarProfile';
 import { Box, Typography, LinearProgress } from '@mui/material';
 import LockRoundedIcon from '@mui/icons-material/LockRounded';
 import ProfileAvatar from '@learner/components/Profile/ProfileAvatar';
@@ -24,6 +25,8 @@ interface LevelChipData {
 interface SwadhaarDesktopProfileBannerProps {
   userName: string;
   designation: string;
+  /** The trainer's own location, from their profile */
+  location?: string;
   profileImageUrl: string | null;
   levels: LevelChipData[];
   onProfileClick: () => void;
@@ -77,7 +80,7 @@ const LevelRing: React.FC<{ percentage: number }> = ({ percentage }) => {
 
 /* ── Main component ── */
 const SwadhaarDesktopProfileBanner: React.FC<SwadhaarDesktopProfileBannerProps> = ({
-  userName, designation, profileImageUrl, levels, onProfileClick,
+  userName, designation, location, profileImageUrl, levels, onProfileClick,
 }) => {
   const { t } = useTranslation();
 
@@ -115,6 +118,7 @@ const SwadhaarDesktopProfileBanner: React.FC<SwadhaarDesktopProfileBannerProps> 
         </Typography>
         <Typography sx={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.6)', mt: 0.5 }}>
           {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {designation}
+          {location ? ` - ${t(getLocationLabelKey(designation))}: ${location}` : ''}
         </Typography>
       </Box>
 

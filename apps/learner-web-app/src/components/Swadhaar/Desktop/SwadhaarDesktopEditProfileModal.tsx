@@ -1,6 +1,6 @@
 'use client';
 
-import { getProfileLocation, getProfileRole, getProfilePhotoUrl } from '@learner/utils/swadhaarProfile';
+import { getProfileLocation, getProfileRole, getProfilePhotoUrl, getLocationLabelKey } from '@learner/utils/swadhaarProfile';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   Box, Typography, Button, CircularProgress,
@@ -342,7 +342,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
               )}
 
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')} value={getDisplayRole(getProfileRole(profileData))} />
-              <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_CFL_LOCATION')} value={cflLocation} />
+              <ProfileField label={t(getLocationLabelKey(getProfileRole(profileData)))} value={cflLocation} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_MOBILE')} value={profileData?.mobile || ''} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_EMAIL')} value={profileData?.email || ''} />
               <ProfileField label={t('LEARNER_APP.PROFILE.FIELD_JOINING_DATE')} value={joiningDate} />
