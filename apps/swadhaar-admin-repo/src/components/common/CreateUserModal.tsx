@@ -3,7 +3,15 @@ import { Box, Typography, Grid } from '@mui/material';
 import { useTranslation } from 'next-i18next';
 import MasterDataService, { LocationOption } from '@/services/MasterDataService';
 import { getSessionTenantId } from '@/utils/API/serviceHeaders';
-import { createUserAccount, updateUserAccount, getUserDetailsInfo, getTenantRoles, changeUserRole, TenantRole } from '@/services/UserService';
+import {
+  createUserAccount,
+  updateUserAccount,
+  getUserDetailsInfo,
+  getTenantRoles,
+  changeUserRole,
+  findOrganisationName,
+  TenantRole,
+} from '@/services/UserService';
 import { showToastMessage } from '@/components/Toastify';
 import { NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
@@ -31,6 +39,8 @@ interface FormState {
   username: string;
   password: string;
   employeeId: string;
+  organisationCode: string;
+  organisationName: string;
   email: string;
   phone: string;
   gender: string;
@@ -41,11 +51,20 @@ interface FormState {
   role: string;
 }
 
+type OrganisationKey = 'employeeId' | 'organisationCode' | 'organisationName';
+const ORGANISATION_KEYS: OrganisationKey[] = ['employeeId', 'organisationCode', 'organisationName'];
+
 /** Sentinel gender value meaning "not selected" (kept as-is for the submit logic). */
 const GENDER_NOT_SELECTED = 'Select';
 const STATE_FIELD_ID = SWADHAAR_FIELD_IDS.STATE;
 const PHONE_REGEX = /^\d{10}$/;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+/** Same rule as the user service (ORG_IDENTIFIER_PATTERN): letters, digits, "-" and "_" */
+const ORG_IDENTIFIER_REGEX = /^[A-Za-z0-9_-]+$/;
+const EMPLOYEE_ID_MAX = 50;
+const ORGANISATION_CODE_MAX = 30;
+const ORGANISATION_NAME_MAX = 150;
+const ORG_LOOKUP_DELAY_MS = 400;
 
 const GENDER_OPTIONS: { value: string; labelKey: string }[] = [
   { value: GENDER_NOT_SELECTED, labelKey: 'COMMON.SELECT' },
@@ -59,6 +78,8 @@ const initialFormState: FormState = {
   username: '',
   password: '',
   employeeId: '',
+  organisationCode: '',
+  organisationName: '',
   email: '',
   phone: '',
   gender: GENDER_NOT_SELECTED,
@@ -86,9 +107,6 @@ const cleanPlaceholder = (value: any, placeholder: string): string =>
 const phoneFromUsername = (username: string, fallback: string): string =>
   PHONE_REGEX.test(username) ? username : fallback;
 
-const employeeIdFromUsername = (username: string, fallback: string): string =>
-  !PHONE_REGEX.test(username) && username ? username : fallback;
-
 const findCustomFieldValue = (customFields: any[], matches: (cf: any) => boolean): string => {
   const field = customFields.find((cf) => matches(cf) && readFieldValue(cf));
   return field ? readFieldValue(field) : '';
@@ -112,7 +130,9 @@ const formStateFromInitialData = (initialData: any): FormState => {
     fullName: toStr(initialData.fullName || initialData.name),
     username: rawUsername,
     password: '',
-    employeeId: toStr(initialData.employeeId) || employeeIdFromUsername(rawUsername, ''),
+    employeeId: toStr(initialData.employeeId),
+    organisationCode: toStr(initialData.organisationCode),
+    organisationName: toStr(initialData.organisationName),
     email: cleanPlaceholder(toStr(initialData.email), '-'),
     phone: toStr(initialData.phone || initialData.mobile) || phoneFromUsername(rawUsername, ''),
     gender: formatGender(initialData.gender),
@@ -131,7 +151,6 @@ const mergeServerUserIntoForm = (prev: FormState, user: any): FormState => {
   const uEmail = toStr(user.email);
   const uUsername = toStr(user.username);
   const computedPhone = toStr(user.mobile || user.phone) || phoneFromUsername(uUsername, prev.phone);
-  const computedEmpId = toStr(user.employeeId) || employeeIdFromUsername(uUsername, prev.employeeId);
   const computedGender = formatGender(user.gender);
   const computedRole = toStr(user.role || user.tenantData?.[0]?.roleName) || prev.role;
   const customFields: any[] = user.customFields || user.customField || [];
@@ -153,7 +172,9 @@ const mergeServerUserIntoForm = (prev: FormState, user: any): FormState => {
     fullName: computedName || prev.fullName,
     username: uUsername || prev.username,
     password: prev.password,
-    employeeId: computedEmpId || prev.employeeId,
+    employeeId: toStr(user.employeeId) || prev.employeeId,
+    organisationCode: toStr(user.organisationCode) || prev.organisationCode,
+    organisationName: toStr(user.organisationName) || prev.organisationName,
     email: uEmail && uEmail !== '-' ? uEmail : prev.email,
     phone: computedPhone || prev.phone,
     gender: computedGender === GENDER_NOT_SELECTED ? prev.gender : computedGender,
@@ -201,6 +222,53 @@ const validatePhone = (phone: string, isEdit: boolean) => {
   return PHONE_REGEX.test(phone) ? undefined : 'USERS.FORM.ERROR_PHONE_INVALID';
 };
 
+const validateOrgIdentifier = (value: string, max: number) => {
+  if (!value) return undefined;
+  if (value.length > max) return 'USERS.FORM.ERROR_ORG_FIELD_TOO_LONG';
+  return ORG_IDENTIFIER_REGEX.test(value) ? undefined : 'USERS.FORM.ERROR_ORG_FIELD_INVALID';
+};
+
+/**
+ * Employee ID and Organization Code are optional, but an Employee ID needs a code (it is unique per
+ * code), and a code that is not stored yet needs a name. `codeIsKnown` is true once the code has
+ * been found, so its stored name is used.
+ */
+const validateOrganisationFields = (
+  form: Pick<FormState, OrganisationKey>,
+  codeIsKnown: boolean
+): Partial<Record<OrganisationKey, string>> => {
+  const employeeId = form.employeeId.trim();
+  const code = form.organisationCode.trim();
+  const name = form.organisationName.trim();
+  const result: Partial<Record<OrganisationKey, string>> = {
+    employeeId: validateOrgIdentifier(employeeId, EMPLOYEE_ID_MAX),
+    organisationCode:
+      validateOrgIdentifier(code, ORGANISATION_CODE_MAX) ||
+      (employeeId && !code ? 'USERS.FORM.ERROR_ORG_CODE_REQUIRED' : undefined),
+    organisationName:
+      name.length > ORGANISATION_NAME_MAX
+        ? 'USERS.FORM.ERROR_ORG_FIELD_TOO_LONG'
+        : code && !codeIsKnown && !name
+          ? 'USERS.FORM.ERROR_ORG_NAME_REQUIRED'
+          : undefined,
+  };
+  ORGANISATION_KEYS.forEach((key) => {
+    if (!result[key]) delete result[key];
+  });
+  return result;
+};
+
+/**
+ * Maps a user-service organisation error to the field it belongs to, or undefined for other errors.
+ * Matched on the error code, not the 409 status, because a duplicate username or email is also a 409.
+ */
+const organisationErrorField = (err: string, message: string): OrganisationKey | undefined => {
+  if (err === 'EMPLOYEE_ID_EXISTS') return 'employeeId';
+  if (/organisationName is required/i.test(message)) return 'organisationName';
+  if (/organisationCode is required/i.test(message)) return 'organisationCode';
+  return undefined;
+};
+
 const isSuccessfulUpdate = (response: any) =>
   response?.responseCode === 'OK' ||
   response?.responseCode === 200 ||
@@ -221,6 +289,12 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const originalEmailRef = useRef('');
   // Role (name or id) the user had when the dialog opened, to tell whether the admin changed it
   const originalRoleRef = useRef('');
+  // Employee ID / Organization values the user had when the dialog opened; unchanged ones are not sent on edit
+  const originalOrgRef = useRef<Record<OrganisationKey, string>>({ employeeId: '', organisationCode: '', organisationName: '' });
+  // Organization Code lookup: 'found' = the code exists, so its stored name is shown and locked
+  const [orgLookup, setOrgLookup] = useState<'idle' | 'loading' | 'found' | 'new'>('idle');
+  // The name the lookup filled in, so it can be cleared again when the admin switches to a new code
+  const autoFilledNameRef = useRef('');
   const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
   const [loading, setLoading] = useState<boolean>(false);
 
@@ -301,13 +375,21 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   useEffect(() => {
     if (!open) return;
     setErrors({});
+    setOrgLookup('idle');
+    autoFilledNameRef.current = '';
     if (!(initialData && isEdit)) {
+      originalOrgRef.current = { employeeId: '', organisationCode: '', organisationName: '' };
       setFormData(initialFormState);
       return;
     }
     const initialForm = formStateFromInitialData(initialData);
     originalEmailRef.current = initialForm.email;
     originalRoleRef.current = initialForm.role;
+    originalOrgRef.current = {
+      employeeId: initialForm.employeeId,
+      organisationCode: initialForm.organisationCode,
+      organisationName: initialForm.organisationName,
+    };
     setFormData(initialForm);
 
     // Call getUserDetailsInfo to fetch complete profile data from server
@@ -322,6 +404,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             // Only count the server's email as the original while the admin has not edited it
             if (prev.email === originalEmailRef.current) originalEmailRef.current = merged.email;
             if (prev.role === originalRoleRef.current) originalRoleRef.current = merged.role;
+            ORGANISATION_KEYS.forEach((key) => {
+              if (prev[key] === originalOrgRef.current[key]) originalOrgRef.current[key] = merged[key];
+            });
             return merged;
           });
         }
@@ -330,6 +415,46 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         console.warn('Could not fetch user details for prefill:', err);
       });
   }, [open, initialData, isEdit]);
+
+  // Organization Code lookup: an existing code fills in (and locks) its stored name; a new code needs a name
+  useEffect(() => {
+    if (!open) return;
+    const code = formData.organisationCode.trim().toUpperCase();
+    if (!code || !ORG_IDENTIFIER_REGEX.test(code)) {
+      setOrgLookup('idle');
+      return;
+    }
+    let cancelled = false;
+    setOrgLookup('loading');
+    const timer = setTimeout(() => {
+      findOrganisationName(code)
+        .then((name) => {
+          if (cancelled) return;
+          setFormData((prev) => {
+            if (name) {
+              autoFilledNameRef.current = name;
+              return { ...prev, organisationName: name };
+            }
+            // A name filled in for another code does not belong to this new code
+            if (autoFilledNameRef.current && prev.organisationName === autoFilledNameRef.current) {
+              autoFilledNameRef.current = '';
+              return { ...prev, organisationName: '' };
+            }
+            return prev;
+          });
+          setOrgLookup(name ? 'found' : 'new');
+        })
+        .catch((err) => {
+          console.warn('Organization Code lookup failed:', err);
+          // The server still checks the code on save, so let the admin type a name
+          if (!cancelled) setOrgLookup('new');
+        });
+    }, ORG_LOOKUP_DELAY_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [open, formData.organisationCode]);
 
   // Match state label or value with states list once loaded
   useEffect(() => {
@@ -390,6 +515,11 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       const linked = prev.username === prev.phone;
       if (!isEdit && linked && field === 'phone') next.username = toStr(value);
       if (!isEdit && linked && field === 'username') next.phone = toStr(value).slice(0, 10);
+      // The name belongs to the code, so clearing the code clears it (the server does the same)
+      if (field === 'organisationCode' && !toStr(value).trim()) {
+        next.organisationName = '';
+        autoFilledNameRef.current = '';
+      }
       // Cascade clear child location fields
       if (field === 'state') {
         next.district = '';
@@ -403,7 +533,15 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
+    // A different code can make a duplicate Employee ID or a missing name error stale
+    if (field === 'organisationCode' && (errors.employeeId || errors.organisationName)) {
+      setErrors((prev) => ({ ...prev, employeeId: undefined, organisationName: undefined }));
+    }
   };
+
+  const orgCodeIsKnown = orgLookup === 'found';
+  const orgFieldErrors = validateOrganisationFields(formData, orgCodeIsKnown);
+  const orgLookupPending = Boolean(formData.organisationCode.trim()) && orgLookup === 'loading';
 
   // Create and edit need every mandatory field filled and valid before the button enables
   // (the username is fixed when editing, so it is not checked there)
@@ -414,7 +552,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     !validatePhone(toStr(formData.phone).trim(), isEdit) &&
     formData.gender !== GENDER_NOT_SELECTED &&
     Boolean(formData.role) &&
-    !(formData.password && formData.password.length < 8);
+    !(formData.password && formData.password.length < 8) &&
+    Object.keys(orgFieldErrors).length === 0 &&
+    !orgLookupPending;
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
@@ -438,6 +578,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         !isEdit && password && password.length < 8
           ? 'USERS.FORM.ERROR_PASSWORD_MIN'
           : undefined,
+      ...orgFieldErrors,
     };
     (Object.keys(fieldErrors) as (keyof FormState)[]).forEach((key) => {
       const message = fieldErrors[key];
@@ -446,6 +587,43 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  /**
+   * Employee ID / Organization fields for the request. Create sends what is filled in. Edit sends only
+   * changed fields (undefined keeps the stored value, '' clears it), and always sends the name with a
+   * changed code because a new code needs one.
+   */
+  const organisationInput = (): Pick<UserInputFields, OrganisationKey> => {
+    if (!isEdit) {
+      return {
+        employeeId: formData.employeeId,
+        organisationCode: formData.organisationCode,
+        organisationName: formData.organisationName,
+      };
+    }
+    const changed = (key: OrganisationKey) =>
+      formData[key].trim().toLowerCase() !== originalOrgRef.current[key].trim().toLowerCase();
+    const codeChanged = changed('organisationCode');
+    return {
+      employeeId: changed('employeeId') ? formData.employeeId : undefined,
+      organisationCode: codeChanged ? formData.organisationCode : undefined,
+      organisationName: codeChanged || changed('organisationName') ? formData.organisationName : undefined,
+    };
+  };
+
+  /** Shows an Employee ID / Organization error from the server under its field; false for other errors */
+  const showOrganisationError = (body: any): boolean => {
+    const field = organisationErrorField(toStr(body?.params?.err), toStr(body?.params?.errmsg || body?.message));
+    if (!field) return false;
+    const key = {
+      employeeId: 'USERS.FORM.ERROR_EMPLOYEE_ID_EXISTS',
+      organisationCode: 'USERS.FORM.ERROR_ORG_CODE_REQUIRED',
+      organisationName: 'USERS.FORM.ERROR_ORG_NAME_REQUIRED',
+    }[field];
+    setErrors((prev) => ({ ...prev, [field]: key }));
+    showToastMessage(t(key), 'error');
+    return true;
   };
 
   const submitEdit = async (inputFields: UserInputFields) => {
@@ -474,7 +652,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       showToastMessage(response?.params?.successmessage || t('USERS.FORM.UPDATE_SUCCESS'), 'success');
       onSuccess?.();
       onClose();
-    } else {
+    } else if (!showOrganisationError(response)) {
       showToastMessage(
         response?.params?.errmsg || response?.message || t('USERS.FORM.UPDATE_FAILED'),
         'error'
@@ -493,7 +671,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         fullName: formData.fullName,
         email: formData.email,
         phone: formData.phone,
-        employeeId: formData.employeeId,
+        ...organisationInput(),
         username: formData.username,
         password: formData.password,
         gender: formData.gender === GENDER_NOT_SELECTED ? undefined : formData.gender,
@@ -523,7 +701,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         onSuccess?.();
         onClose();
         setFormData(initialFormState);
-      } else {
+      } else if (!showOrganisationError(response)) {
         const errorMsg =
           response?.params?.errmsg ||
           response?.message ||
@@ -532,6 +710,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       }
     } catch (err: any) {
       console.error(isEdit ? 'Update user error:' : 'Create user error:', err);
+      if (showOrganisationError(err?.response?.data)) return;
       const errMsg =
         err?.response?.data?.params?.errmsg ||
         err?.response?.data?.message ||
@@ -608,17 +787,53 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
               />
             </Grid>
 
-            {/* Employee ID (optional) */}
-            {/* {isEdit && (
-              <Grid item xs={12} sm={6}>
-                <CommonTextField
-                  label={t('USERS.FORM.EMPLOYEE_ID')}
-                  value={formData.employeeId}
-                  onChange={(e) => handleChange('employeeId', e.target.value)}
-                  hint={t('USERS.FORM.EMPLOYEE_ID_HINT')}
-                />
-              </Grid>
-            )} */}
+            {/* Employee ID (optional; unique within its Organization Code) */}
+            <Grid item xs={12} sm={6}>
+              <CommonTextField
+                label={t('USERS.FORM.EMPLOYEE_ID')}
+                value={formData.employeeId}
+                onChange={(e) => handleChange('employeeId', e.target.value.slice(0, EMPLOYEE_ID_MAX))}
+                error={Boolean(errors.employeeId)}
+                helperText={errorText('employeeId')}
+                hint={t('USERS.FORM.EMPLOYEE_ID_HINT')}
+              />
+            </Grid>
+
+            {/* Organization Code (needed when an Employee ID is given) */}
+            <Grid item xs={12} sm={6}>
+              <CommonTextField
+                label={t('USERS.FORM.ORGANISATION_CODE')}
+                required={Boolean(formData.employeeId.trim())}
+                value={formData.organisationCode}
+                onChange={(e) =>
+                  handleChange('organisationCode', e.target.value.toUpperCase().slice(0, ORGANISATION_CODE_MAX))
+                }
+                error={Boolean(errors.organisationCode)}
+                helperText={errorText('organisationCode')}
+                hint={t('USERS.FORM.ORGANISATION_CODE_HINT')}
+              />
+            </Grid>
+
+            {/* Organization Name: filled in and locked for a known code, typed for a new one */}
+            <Grid item xs={12} sm={6}>
+              <CommonTextField
+                label={t('USERS.FORM.ORGANISATION_NAME')}
+                required={Boolean(formData.organisationCode.trim()) && !orgCodeIsKnown}
+                value={formData.organisationName}
+                onChange={(e) => handleChange('organisationName', e.target.value.slice(0, ORGANISATION_NAME_MAX))}
+                disabled={orgCodeIsKnown || orgLookupPending || !formData.organisationCode.trim()}
+                error={Boolean(errors.organisationName)}
+                helperText={errorText('organisationName')}
+                hint={
+                  {
+                    idle: t('USERS.FORM.ORGANISATION_NAME_HINT'),
+                    loading: t('USERS.FORM.ORGANISATION_NAME_CHECKING'),
+                    found: t('USERS.FORM.ORGANISATION_NAME_FOUND'),
+                    new: t('USERS.FORM.ORGANISATION_NAME_NEW'),
+                  }[orgLookup]
+                }
+              />
+            </Grid>
 
             {/* Email address */}
             <Grid item xs={12} sm={6}>
