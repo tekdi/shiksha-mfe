@@ -33,6 +33,28 @@ export const getUserList = async (
   }
 };
 
+/**
+ * Returns the stored Organization Name for a code, or '' when no user in the tenant has that code yet.
+ * The user service has no organisation lookup API, so this reads one user with the code from
+ * /user/v1/list (filter organisationCode). Every user with a code stores that code's name, so the first one is enough.
+ */
+export const findOrganisationName = async (organisationCode: string): Promise<string> => {
+  const code = organisationCode.trim().toUpperCase();
+  if (!code) return '';
+  try {
+    const response = await getUserList({
+      limit: 1,
+      offset: 0,
+      filters: { organisationCode: code, role: 'all', status: ['active', 'inactive'] },
+    });
+    const user = response?.result?.getUserDetails?.[0];
+    return typeof user?.organisationName === 'string' ? user.organisationName : '';
+  } catch (error: any) {
+    if (error?.response?.status === 404) return ''; // no user has this code yet
+    throw error;
+  }
+};
+
 export const getCohortMemberList = async (payload: any): Promise<any> => {
   try {
     const apiUrl = API_ENDPOINTS.cohortMemberList;
@@ -55,6 +77,11 @@ export interface CreateUserPayload {
   mobile: string;
   /** User type the user service lists the account under, e.g. 'Student' or 'Admin' */
   type?: string;
+  /** Unique per Organization Code within the tenant (409 EMPLOYEE_ID_EXISTS otherwise) */
+  employeeId?: string;
+  organisationCode?: string;
+  /** Needed only when organisationCode is new; an existing code keeps its stored name */
+  organisationName?: string;
   tenantCohortRoleMapping: Array<{
     tenantId: string;
     roleId: string;
@@ -111,7 +138,10 @@ export interface UpdateUserPayload {
     gender?: string;
     mobile?: string;
     email?: string;
-    employeeId?: string;
+    /** null clears the stored value */
+    employeeId?: string | null;
+    organisationCode?: string | null;
+    organisationName?: string | null;
     username?: string;
     status?: string;
     [key: string]: any;

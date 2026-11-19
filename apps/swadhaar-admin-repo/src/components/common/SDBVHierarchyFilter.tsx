@@ -23,6 +23,8 @@ export interface SDBVFilterValues {
   search?: string;
   status?: string;
   role?: string;
+  /** Organization Code typed by the admin (exact match, sent upper-cased to /user/v1/list) */
+  organisationCode?: string;
 }
 
 export interface OptionItem {
@@ -43,6 +45,8 @@ export interface SDBVHierarchyFilterProps {
   showRole?: boolean;
   roleOptions?: (string | OptionItem)[];
    showLocation?: boolean;
+  /** Shows an Organization Code text filter in the second row (two-row search layout only) */
+  showOrganisationCode?: boolean;
   onClear?: () => void;
 }
 
@@ -66,6 +70,7 @@ const hasAnyActiveFilter = (values: SDBVFilterValues): boolean => {
     values.village,
     values.program,
     values.search,
+    values.organisationCode,
   ];
   return textFilters.some(Boolean) || hasSelection(values.status) || hasSelection(values.role);
 };
@@ -83,6 +88,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
   showRole = false,
   roleOptions = [],
   showLocation = true,
+  showOrganisationCode = false,
   onClear,
 }) => {
   const [states, setStates] = useState<LocationOption[]>([]);
@@ -178,6 +184,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
       search: '',
       status: 'all',
       role: 'all',
+      organisationCode: '',
     });
     if (onClear) onClear();
   };
@@ -363,6 +370,23 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
             </Select>
           </Grid>
           </>
+          )}
+
+          {showOrganisationCode && (
+            <Grid item xs={12} sm={6} md={3}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
+                Organization Code
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. SWD01"
+                value={values.organisationCode || ''}
+                onChange={(e) => onChange({ ...values, organisationCode: e.target.value.toUpperCase() })}
+                inputProps={{ maxLength: 30 }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' } }}
+              />
+            </Grid>
           )}
         </Grid>
       </Box>

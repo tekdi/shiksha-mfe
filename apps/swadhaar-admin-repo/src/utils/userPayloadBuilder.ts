@@ -57,7 +57,13 @@ export interface UserInputFields {
   fullName: string;
   email?: string;
   phone?: string;
+  /**
+   * Employee ID, Organization Code and Organization Name (Task 27). On update, leave a field
+   * undefined to keep the stored value; an empty string clears it.
+   */
   employeeId?: string;
+  organisationCode?: string;
+  organisationName?: string;
   username?: string;
   password?: string;
   gender?: string;
@@ -71,6 +77,26 @@ export interface UserInputFields {
 }
 
 type CustomFieldValue = { fieldId: string; value: string[] };
+
+type OrganisationFields = Pick<UserInputFields, 'employeeId' | 'organisationCode' | 'organisationName'>;
+const ORGANISATION_KEYS = ['employeeId', 'organisationCode', 'organisationName'] as const;
+
+/**
+ * The organisation fields to send. Create sends only filled values. Update also sends a cleared
+ * value as null so the server removes it, and skips undefined so the stored value stays.
+ */
+const buildOrganisationFields = (input: UserInputFields, sendCleared: boolean): Record<string, string | null> => {
+  const out: Record<string, string | null> = {};
+  ORGANISATION_KEYS.forEach((key) => {
+    const raw = (input as OrganisationFields)[key];
+    if (raw === undefined) return;
+    const trimmed = String(raw).trim();
+    const value = key === 'organisationCode' ? trimmed.toUpperCase() : trimmed;
+    if (value) out[key] = value;
+    else if (sendCleared) out[key] = null;
+  });
+  return out;
+};
 
 const splitFullName = (fullName: string) => {
   const nameTrimmed = (fullName || '').trim();
@@ -110,7 +136,6 @@ export const buildCreateUserPayload = (
   const { nameTrimmed, firstName, lastName } = splitFullName(input.fullName);
   const mobile = (input.phone || '').trim();
   const email = (input.email || '').trim();
-  const employeeId = (input.employeeId || '').trim();
   // The create dialog passes the chosen roleId; bulk upload may name a role per row; otherwise the default role applies.
   const roleId = input.role ? resolveRoleId(input.role) : DEFAULT_ROLE_ID_MAP.student;
   const gender = sanitizeGender(input.gender);
@@ -126,9 +151,10 @@ export const buildCreateUserPayload = (
   const password = isAdmin
     ? providedPassword || (input.password || '').trim() || generateSecureTemporaryPassword()
     : learnerPassword;
+  // Employee ID is its own field now (unique per Organization Code), never the login username
   const username = isAdmin
-    ? (input.username || '').trim() || employeeId || mobile || email
-    : mobile || (input.username || '').trim() || employeeId || email;
+    ? (input.username || '').trim() || mobile || email
+    : mobile || (input.username || '').trim() || email;
   const customFields = buildLocationCustomFields(input);
 
   const payload: CreateUserPayload = {
@@ -152,6 +178,8 @@ export const buildCreateUserPayload = (
     payload.gender = gender;
   }
 
+  Object.assign(payload, buildOrganisationFields(input, false));
+
   if (customFields.length > 0) {
     payload.customFields = customFields;
   }
@@ -163,7 +191,6 @@ export const buildUpdateUserPayload = (input: UserInputFields): UpdateUserPayloa
   const { firstName, middleName, lastName } = splitFullName(input.fullName);
   const mobile = (input.phone || '').trim();
   const email = (input.email || '').trim();
-  const employeeId = (input.employeeId || '').trim();
   const gender = sanitizeGender(input.gender);
 
   const userData: Record<string, any> = {
@@ -171,14 +198,11 @@ export const buildUpdateUserPayload = (input: UserInputFields): UpdateUserPayloa
     lastName,
     middleName,
     mobile,
+    ...buildOrganisationFields(input, true),
   };
 
   if (email && email !== '-') {
     userData.email = email;
-  }
-
-  if (employeeId) {
-    userData.employeeId = employeeId;
   }
 
   if (gender) {

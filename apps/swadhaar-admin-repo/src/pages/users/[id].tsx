@@ -49,6 +49,8 @@ const EMPTY_PARSED_USER = {
   email: '-',
   phone: '-',
   empId: '-',
+  organisationCode: '-',
+  organisationName: '-',
   gender: '-',
   state: '-',
   district: '-',
@@ -57,7 +59,7 @@ const EMPTY_PARSED_USER = {
   districtValue: '',
   blockValue: '',
   program: '-',
-  role: 'Student',
+  role: '-',
   status: 'active',
 };
 
@@ -122,9 +124,8 @@ const parseUserDetails = (userData: any) => {
   const mn = trimmedOrEmpty(userData.middleName);
   const ln = trimmedOrEmpty(userData.lastName);
   const fullName = [fn, mn, ln].filter(Boolean).join(' ') || userData.name || userData.username || '-';
-  const role = userData.role || userData.tenantData?.[0]?.roleName || 'Student';
+  const role = userData.role || userData.tenantData?.[0]?.roleName || '-';
   const gender = userData.gender ? userData.gender.charAt(0).toUpperCase() + userData.gender.slice(1) : '-';
-  const isPhoneUsername = /^\d{10}$/.test(userData.username);
 
   const location = fillLocationFromCustomFields(
     {
@@ -146,7 +147,10 @@ const parseUserDetails = (userData: any) => {
     initials: getInitials(fn, ln, userData.username),
     email: userData.email || userData.username || '-',
     phone: userData.mobile || userData.phone || '-',
-    empId: userData.employeeId || (isPhoneUsername ? '-' : userData.username),
+    // Employee ID and Organization have their own columns; the username is never shown as the Employee ID
+    empId: trimmedOrEmpty(userData.employeeId) || '-',
+    organisationCode: trimmedOrEmpty(userData.organisationCode) || '-',
+    organisationName: trimmedOrEmpty(userData.organisationName) || '-',
     gender,
     state: stored.state || location.state || userData.currentCountry || userData.country || '-',
     district: stored.district || location.district || '-',
@@ -166,6 +170,8 @@ const toEditInitialData = (userId: string, parsedUser: typeof EMPTY_PARSED_USER)
   email: dashToEmpty(parsedUser.email),
   phone: dashToEmpty(parsedUser.phone),
   employeeId: dashToEmpty(parsedUser.empId),
+  organisationCode: dashToEmpty(parsedUser.organisationCode),
+  organisationName: dashToEmpty(parsedUser.organisationName),
   gender: dashToEmpty(parsedUser.gender),
   role: parsedUser.role,
   // The stored option values (ids), so the edit dialog can select them in its state, district and block lists
@@ -626,7 +632,10 @@ export default function UserDetailsPage() {
               </Box>
 
               <Typography variant="body2" sx={{ color: '#6B7280', fontSize: '13px' }}>
-                {parsedUser.email} · {parsedUser.empId} · {parsedUser.state}, {parsedUser.district} · {parsedUser.branch}
+                {[parsedUser.email, parsedUser.empId !== '-' ? parsedUser.empId : '', parsedUser.organisationCode !== '-' ? parsedUser.organisationCode : '']
+                  .filter(Boolean)
+                  .join(' · ')}{' '}
+                · {parsedUser.state}, {parsedUser.district} · {parsedUser.branch}
               </Typography>
             </Box>
           </Box>
@@ -771,12 +780,26 @@ export default function UserDetailsPage() {
                 </Typography>
               </Box>
 
-              {/* <Box sx={{ display: 'flex' }}>
-                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>Employee ID</Typography>
+              <Box sx={{ display: 'flex' }}>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.FORM.EMPLOYEE_ID')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
                   {parsedUser.empId}
                 </Typography>
-              </Box> */}
+              </Box>
+
+              <Box sx={{ display: 'flex' }}>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.FORM.ORGANISATION_CODE')}</Typography>
+                <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
+                  {parsedUser.organisationCode}
+                </Typography>
+              </Box>
+
+              <Box sx={{ display: 'flex' }}>
+                <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.FORM.ORGANISATION_NAME')}</Typography>
+                <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
+                  {parsedUser.organisationName}
+                </Typography>
+              </Box>
 
               <Box sx={{ display: 'flex' }}>
                 <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.GENDER')}</Typography>

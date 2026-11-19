@@ -35,6 +35,8 @@ export interface UserRowItem {
   mobile?: string;
   phone?: string;
   employeeId?: string;
+  organisationCode?: string;
+  organisationName?: string;
   gender?: string;
   state?: string;
   district?: string;
@@ -43,7 +45,8 @@ export interface UserRowItem {
 
 type UserDialogType = 'block' | 'unblock' | 'delete';
 
-const DEFAULT_ROLE = 'Student';
+// Shown when a user has no role (no Aspire "Student" fallback for Swadhaar)
+const NO_ROLE = '-';
 const STATUS_BLOCKED = 'blocked';
 // Blocking sets a user inactive, so both statuses count as blocked
 const BLOCKED_STATUSES = new Set([STATUS_BLOCKED, 'inactive']);
@@ -59,6 +62,7 @@ const DEFAULT_FILTERS: SDBVFilterValues = {
   district: 'all',
   branch: 'all',
   program: 'all',
+  organisationCode: '',
 };
 
 const MENU_ITEM_SX = { fontSize: '13px', py: 0.8, color: '#1F2937', fontWeight: 500 };
@@ -125,16 +129,17 @@ const mapUserRow = (u: any, idx: number): UserRowItem => {
   const uUsername = toStr(u.username);
   const name = toStr(u.name) || [fn, mn, ln].filter(Boolean).join(' ') || uUsername || '-';
   const email = u.email && u.email !== '-' ? toStr(u.email) : uUsername || '-';
-  const actualRole = toStr(u.role || u.tenantData?.[0]?.roleName) || DEFAULT_ROLE;
+  const actualRole = toStr(u.role || u.tenantData?.[0]?.roleName) || NO_ROLE;
 
   // Extract phone/mobile as clean string
   const rawMobile = toStr(u.mobile || u.phone);
   const usernameIsPhone = PHONE_REGEX.test(uUsername);
   const mobile = rawMobile || (usernameIsPhone ? uUsername : '');
 
-  // Extract employeeId as clean string
-  const rawEmpId = toStr(u.employeeId);
-  const employeeId = rawEmpId || (!usernameIsPhone && uUsername ? uUsername : '');
+  // Employee ID and Organization come from their own columns; the username is never an Employee ID
+  const employeeId = toStr(u.employeeId);
+  const organisationCode = toStr(u.organisationCode);
+  const organisationName = toStr(u.organisationName);
 
   // Extract location fields from customFields, direct properties, and country fields
   let userState = toStr(u.state);
@@ -169,6 +174,8 @@ const mapUserRow = (u: any, idx: number): UserRowItem => {
     mobile,
     phone: mobile,
     employeeId,
+    organisationCode,
+    organisationName,
     gender: u.gender || '',
     state: userState,
     district: userDistrict,
@@ -300,6 +307,16 @@ export default function UsersPage() {
     return () => clearTimeout(timer);
   }, [filters.search]);
 
+  // The Organization Code filter is typed, so it is debounced like the search
+  const [debouncedOrgCode, setDebouncedOrgCode] = useState('');
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedOrgCode(filters.organisationCode?.trim().toUpperCase() || '');
+      setPage(0);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [filters.organisationCode]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -319,6 +336,7 @@ export default function UsersPage() {
       if (debouncedSearch) applySearchFilters(payload.filters, debouncedSearch);
       // Location filters use the field option values: states, city (district) and block
       applyLocationFilters(payload.filters, filters);
+      if (debouncedOrgCode) payload.filters.organisationCode = debouncedOrgCode;
 
       // A chosen role filters by its title (one role at a time); otherwise role "all" lists every role
       const chosenRole = filters.role && filters.role !== 'all' ? filters.role : '';
@@ -349,7 +367,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [rowsPerPage, page, filters.role, filters.status, filters.state, filters.district, filters.block, filters.branch, debouncedSearch]);
+  }, [rowsPerPage, page, filters.role, filters.status, filters.state, filters.district, filters.block, filters.branch, debouncedOrgCode, debouncedSearch]);
 
   useEffect(() => {
     fetchUsers();
@@ -498,6 +516,35 @@ export default function UsersPage() {
         render: (row) => <Typography sx={CELL_TEXT_SX}>{row.phone || '-'}</Typography>,
       },
       {
+        id: 'employeeId',
+        label: t('USERS.LIST.COL_EMPLOYEE_ID'),
+        labelKey: 'USERS.LIST.COL_EMPLOYEE_ID',
+        render: (row) => <Typography sx={CELL_TEXT_SX}>{row.employeeId || '-'}</Typography>,
+      },
+      {
+        id: 'organisation',
+        label: t('USERS.LIST.COL_ORGANISATION'),
+        labelKey: 'USERS.LIST.COL_ORGANISATION',
+        minWidth: 140,
+        render: (row) =>
+          row.organisationCode ? (
+            <Tooltip title={row.organisationName || row.organisationCode} arrow placement="top">
+              <Box>
+                <Typography sx={{ ...CELL_TEXT_SX, color: '#1F2937', fontWeight: 500 }}>{row.organisationCode}</Typography>
+                {row.organisationName && (
+                  <Typography
+                    sx={{ fontSize: '12px', color: '#6B7280', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                  >
+                    {row.organisationName}
+                  </Typography>
+                )}
+              </Box>
+            </Tooltip>
+          ) : (
+            <Typography sx={CELL_TEXT_SX}>-</Typography>
+          ),
+      },
+      {
         id: 'email',
         label: t('USERS.LIST.COL_EMAIL'),
         labelKey: 'USERS.LIST.COL_EMAIL',
@@ -636,6 +683,7 @@ export default function UsersPage() {
         roleOptions={availableRoles}
         showBranch={true}
         showProgram={true}
+        showOrganisationCode={true}
         onClear={() => {
           setFilters(DEFAULT_FILTERS);
           setPage(0);
