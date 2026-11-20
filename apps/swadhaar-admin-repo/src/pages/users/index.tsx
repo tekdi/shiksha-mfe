@@ -14,7 +14,17 @@ import CommonButton from '@/components/common/CommonButton';
 import CommonDialog from '@/components/common/CommonDialog';
 import PageHeader from '@/components/common/PageHeader';
 import { NEUTRAL } from '@/styles/customTheme';
-import { blockUser, deleteUser, getTenantRoles, listUsersByRoles, unblockUser } from '@/services/UserService';
+import {
+  blockUser,
+  deleteUser,
+  getTenantRoles,
+  listUsersByRoles,
+  roleLabelFor,
+  RoleOption,
+  TenantRole,
+  toRoleOptions,
+  unblockUser,
+} from '@/services/UserService';
 import { apiErrorMessage } from '@/utils/concurrency';
 import { SWADHAAR_FIELD_IDS } from '@/utils/userPayloadBuilder';
 
@@ -266,13 +276,15 @@ export default function UsersPage() {
 
   // Dynamic status and role options extracted from API response
   const [availableStatuses, setAvailableStatuses] = useState<string[]>(['active', 'inactive']);
-  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
+  const availableRoles: RoleOption[] = useMemo(() => toRoleOptions(tenantRoles), [tenantRoles]);
 
-  // Role filter options: titles from the tenant roles API
+  // Role filter options (Task 8b): the roles a user can hold, shown by display name; the value stays the
+  // role title, which /user/v1/list filters on
   useEffect(() => {
     getTenantRoles()
-      .then((roles) => setAvailableRoles(roles.map((r) => r.name)))
-      .catch(() => setAvailableRoles([]));
+      .then(setTenantRoles)
+      .catch(() => setTenantRoles([]));
   }, []);
 
   // Action menu state for row actions
@@ -573,7 +585,7 @@ export default function UsersPage() {
         labelKey: 'USERS.LIST.COL_ROLE',
         render: (row) => (
           <Typography sx={{ fontSize: '13px', color: '#1F2937', fontWeight: 500, whiteSpace: 'nowrap' }}>
-            {row.role}
+            {roleLabelFor(tenantRoles, row.role) || row.role}
           </Typography>
         ),
       },
@@ -637,7 +649,7 @@ export default function UsersPage() {
         ),
       },
     ],
-    [t, router.locale, blockedUserIds]
+    [t, router.locale, blockedUserIds, tenantRoles]
   );
 
   const actionUserName = selectedUserForAction?.fullName || t('USERS.DIALOG.FULL_NAME_FALLBACK');
@@ -752,7 +764,6 @@ export default function UsersPage() {
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSuccess={fetchUsers}
-        availableRoles={availableRoles}
       />
 
       {/* 7. Edit User Modal */}
@@ -764,7 +775,6 @@ export default function UsersPage() {
             setActiveUser(null);
           }}
           onSuccess={fetchUsers}
-          availableRoles={availableRoles}
           initialData={activeUser}
           isEdit={true}
         />

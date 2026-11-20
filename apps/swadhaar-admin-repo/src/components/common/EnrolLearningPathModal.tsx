@@ -26,7 +26,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { useTranslation } from 'next-i18next';
 import { getCohortSearch, getCohortLearnerIds } from '@/services/CohortService';
-import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
+import { getTenantRoles, listUsersByRoles, roleLabelFor } from '@/services/UserService';
 import {
   assignPathwayToUser,
   addPathwayUsers,
@@ -229,9 +229,9 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
     setLoadingUsers(true);
     try {
       // /user/v1/list returns only Students (404 when there are none) unless a role is sent,
-      // so the learners to enrol are listed per non-admin role of the tenant
-      const roles = await getTenantRoles();
-      const learnerRoles = roles.map((r) => r.name).filter((name) => !/admin/i.test(name));
+      // so the learners to enrol are listed per organisation role of the tenant (Task 8b: role type, not the title)
+      const roles = await getTenantRoles(['organisation']);
+      const learnerRoles = roles.map((r) => r.name);
       const { users: rawUsers } = await listUsersByRoles({ limit: 50, offset: 0, filters: {} }, learnerRoles);
 
       if (rawUsers.length > 0) {
@@ -243,7 +243,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
             [fn, ln].filter(Boolean).join(' ') ||
             u.username ||
             t('ENROL_LEARNING_PATH.USER_FALLBACK_NAME', { index: idx + 1 });
-          const role = u.role || u.tenantData?.[0]?.roleName || 'Trainer';
+          const role = roleLabelFor(roles, u.role || u.tenantData?.[0]?.roleName) || '-';
           return {
             id: u.userId || u.id || `user-${idx}`,
             name,
