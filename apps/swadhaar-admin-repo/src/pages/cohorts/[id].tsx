@@ -316,6 +316,32 @@ export default function GroupDetailsPage() {
     }
   }, [cohortId, page, rowsPerPage, roleFilter, groupRoleFilter]);
 
+  // Reviewers card: every Reviewer in this group, not only the ones on the current table page
+  const [reviewerMembers, setReviewerMembers] = useState<MemberRowItem[]>([]);
+  const [reviewersLoading, setReviewersLoading] = useState(false);
+  const fetchReviewers = useCallback(async () => {
+    if (!cohortId) return;
+    setReviewersLoading(true);
+    try {
+      const res = await getCohortMemberListApplication({
+        limit: 200,
+        offset: 0,
+        filters: { cohortId: [cohortId], cohortRole: 'reviewer' },
+      });
+      setReviewerMembers(
+        getMemberRows(res)
+          .filter(isCurrentMember)
+          .map(mapMemberToRow)
+          .filter((m) => m.cohortRoleCode === 'reviewer')
+      );
+    } catch (err) {
+      console.error('Failed to load group reviewers:', err);
+      setReviewerMembers([]);
+    } finally {
+      setReviewersLoading(false);
+    }
+  }, [cohortId]);
+
   // Fetch cohort assigned contents/learning paths
   const fetchCohortContent = useCallback(async () => {
     if (!cohortId) return;
@@ -334,6 +360,10 @@ export default function GroupDetailsPage() {
       fetchCohortContent();
     }
   }, [cohortId, fetchCohortDetails, fetchMembers, fetchCohortContent]);
+
+  useEffect(() => {
+    fetchReviewers();
+  }, [fetchReviewers]);
 
   // Client-side quick filter over current page results
   const displayedMembers = useMemo(() => {
@@ -392,6 +422,7 @@ export default function GroupDetailsPage() {
       setSelectedIds([]);
       setIsRemoveConfirmOpen(false);
       fetchMembers();
+      fetchReviewers();
       fetchCohortDetails();
     } catch (err: any) {
       console.error('Failed to remove members:', err);
@@ -441,7 +472,10 @@ export default function GroupDetailsPage() {
         severity: 'error',
       });
     }
-    if (saved.length > 0) fetchMembers();
+    if (saved.length > 0) {
+      fetchMembers();
+      fetchReviewers();
+    }
     setActionLoading(false);
   };
 
@@ -456,6 +490,7 @@ export default function GroupDetailsPage() {
       setFeedback({ open: true, message: firstError || 'The group role could not be changed.', severity: 'error' });
     } else {
       setFeedback({ open: true, message: `${row.fullName} is now ${COHORT_ROLE_LABELS[code]} in this group.`, severity: 'success' });
+      fetchReviewers();
     }
     setSavingRoleIds((prev) => {
       const next = new Set(prev);
@@ -493,11 +528,6 @@ export default function GroupDetailsPage() {
 
   const groupName = cohort?.name || 'Group Details';
   const groupStatus = toGroupStatus(cohort?.status);
-
-  // Reviewers extracted from member list
-  const reviewerMembers = useMemo(() => {
-    return members.filter((m) => m.cohortRoleCode === 'reviewer');
-  }, [members]);
 
   const renderMembersBody = () => {
     if (loading) {
@@ -1127,8 +1157,8 @@ export default function GroupDetailsPage() {
 
         {/* Right Column: Reviewers & Learning Paths Cards */}
         <Grid item xs={12} lg={3.5}>
-          {/* Reviewers Card */}
-          {/* <Card
+          {/* Reviewers Card: members whose group role is Reviewer (Task 16a / 18) */}
+          <Card
             sx={{
               borderRadius: '12px',
               border: '1px solid #E5E7EB',
@@ -1142,9 +1172,11 @@ export default function GroupDetailsPage() {
               Reviewers ({reviewerMembers.length})
             </Typography>
 
-            {reviewerMembers.length === 0 ? (
+            {reviewersLoading && reviewerMembers.length === 0 ? (
+              <CircularProgress size={18} sx={{ color: 'primary.main' }} />
+            ) : reviewerMembers.length === 0 ? (
               <Typography sx={{ fontSize: '12.5px', color: '#6B7280', py: 1 }}>
-                No reviewers currently assigned to this group.
+                No reviewers in this group yet. Set a member&apos;s Group Role to Reviewer in the table.
               </Typography>
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
@@ -1163,7 +1195,7 @@ export default function GroupDetailsPage() {
                       {rev.fullName}
                     </Typography>
                     <Typography sx={{ fontSize: '12px', color: '#6B7280' }}>
-                      {rev.email} · Reviewer
+                      {[rev.email, rev.role && rev.role !== '-' ? rev.role : null].filter(Boolean).join(' · ')}
                     </Typography>
                   </Box>
                 ))}
@@ -1180,9 +1212,9 @@ export default function GroupDetailsPage() {
                 lineHeight: 1.4,
               }}
             >
-              Members with the Reviewer role can inspect and verify beneficiary progress in this group.
+              Reviewers in this group review the work of its learners. Their own role does not change.
             </Typography>
-          </Card> */}
+          </Card>
 
           {/* Learning Paths Card */}
           <Card

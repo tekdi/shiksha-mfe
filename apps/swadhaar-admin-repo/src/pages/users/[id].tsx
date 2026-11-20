@@ -407,6 +407,8 @@ export default function UserDetailsPage() {
             cohortRoleCode: toCohortRoleCode(me.cohortRoleCode),
             membershipId: getMembershipId(me),
           });
+          // Reviewers of this user: only in groups where this user is a Learner
+          if (toCohortRoleCode(me.cohortRoleCode) !== 'learner') return;
           rows
             .filter((m: any) => toCohortRoleCode(m.cohortRoleCode) === 'reviewer' && (m.userId || m.id) !== userId)
             .forEach((m: any) => {
@@ -1020,8 +1022,10 @@ export default function UserDetailsPage() {
             </Box>
           </Card>
 
-          {/* Card 5: Reviews */}
-          {/* <Card
+          {/* Card 5: Reviewers. From the group roles (Task 16a / 18): the Reviewers of each group
+              where this user is a Learner. Person-to-person reviews ("Add individual user") are
+              deferred Task 16, so they are not shown here. */}
+          <Card
             sx={{
               borderRadius: '12px',
               border: '1px solid #E5E7EB',
@@ -1031,65 +1035,38 @@ export default function UserDetailsPage() {
               mb: 2.5,
             }}
           >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827' }}>
-                Reviews
-              </Typography>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => setAddReviewOpen(true)}
-                sx={{
-                  textTransform: 'none',
-                  fontSize: '12px',
-                  borderRadius: '6px',
-                  borderColor: '#D1D5DB',
-                  color: '#374151',
-                }}
-              >
-                Add individual user
-              </Button>
-            </Box>
+            <Typography sx={{ fontSize: '15px', fontWeight: 700, color: '#111827', mb: 2 }}>
+              {t('USERS.DETAIL.CARD_REVIEWERS')}
+            </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.8 }}>
-              {groupReviewers.length + individualReviews.length > 0 ? (
-                <>
-                  {groupReviewers.map((r) => (
-                    <Box key={`${r.group}-${r.id}`}>
-                      <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{r.name}</Typography>
-                      <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
-                        Reviewer · from the Reviewer role in {r.group}
-                      </Typography>
-                    </Box>
-                  ))}
-                  {individualReviews.map((u) => (
-                    <Box key={u.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Box>
-                        <Typography sx={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{u.name}</Typography>
-                        <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
-                          Individual user{u.role ? ` · ${u.role}` : ''}
-                        </Typography>
-                      </Box>
-                      <Tooltip title="Remove">
-                        <IconButton
-                          size="small"
-                          aria-label={`Remove ${u.name}`}
-                          onClick={() => setReviewToRemove(u)}
-                          sx={{ color: '#9CA3AF', p: 0.3 }}
-                        >
-                          <RemoveCircleOutlineOutlinedIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
-                  ))}
-                </>
+              {groupReviewers.length > 0 ? (
+                groupReviewers.map((r) => (
+                  <Box key={`${r.group}-${r.id}`}>
+                    <Typography
+                      sx={{
+                        fontSize: '13px',
+                        fontWeight: 600,
+                        color: 'primary.main',
+                        cursor: 'pointer',
+                        '&:hover': { textDecoration: 'underline' },
+                      }}
+                      onClick={() => router.push(`/users/${r.id}`)}
+                    >
+                      {r.name}
+                    </Typography>
+                    <Typography sx={{ fontSize: '11.5px', color: '#6B7280' }}>
+                      {t('USERS.DETAIL.REVIEWER_IN_GROUP', { group: r.group })}
+                    </Typography>
+                  </Box>
+                ))
               ) : (
                 <Typography sx={{ fontSize: '13px', color: '#6B7280', py: 0.5 }}>
-                  No reviewer assigned.
+                  {t('USERS.DETAIL.NO_GROUP_REVIEWERS')}
                 </Typography>
               )}
             </Box>
-          </Card> */}
+          </Card>
 
           {/* Card 6: Learning progress */}
           <Card
