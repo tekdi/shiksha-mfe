@@ -20,6 +20,8 @@ import {
   DialogActions,
   Snackbar,
   Alert,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import RemoveCircleOutlineOutlinedIcon from '@mui/icons-material/RemoveCircleOutlineOutlined';
@@ -35,6 +37,10 @@ import { readUserLocation, resolveLocationLabels, UserLocation } from '@/utils/u
 import { AddToGroupDialog, AddReviewUsersDialog, UserGroup, ReviewUser } from '@/components/common/UserGroupDialogs';
 import {
   bulkCreateCohortMembers,
+  setCohortMemberRole,
+  toCohortRoleCode,
+  COHORT_ROLE_LABELS,
+  CohortRoleCode,
   getMembershipId,
   isCurrentMember,
   removeUsersFromCohorts,
@@ -394,9 +400,15 @@ export default function UserDetailsPage() {
           const rows = getMemberRows(res).filter(isCurrentMember);
           const me = rows.find((m: any) => (m.userId || m.id) === userId);
           if (!me) return;
-          mine.push({ cohortId: g.cohortId, name: g.name, role: me.role, membershipId: getMembershipId(me) });
+          mine.push({
+            cohortId: g.cohortId,
+            name: g.name,
+            role: me.role,
+            cohortRoleCode: toCohortRoleCode(me.cohortRoleCode),
+            membershipId: getMembershipId(me),
+          });
           rows
-            .filter((m: any) => String(m.role || '').toLowerCase() === 'reviewer' && (m.userId || m.id) !== userId)
+            .filter((m: any) => toCohortRoleCode(m.cohortRoleCode) === 'reviewer' && (m.userId || m.id) !== userId)
             .forEach((m: any) => {
               const name = [m.firstName, m.lastName].filter(Boolean).join(' ') || m.name || m.username || '-';
               reviewers.push({ id: m.userId || m.id, name, group: g.name });
@@ -431,10 +443,28 @@ export default function UserDetailsPage() {
   }, [userId, loadGroups]);
 
   const handleAddToGroup = async (groups: UserGroup[]) => {
-    await bulkCreateCohortMembers({ userId: [userId], cohortId: groups.map((g) => g.cohortId), role: 'Student', status: 'active' });
+    // Joins as a Learner; the role in each group can then be changed on the Groups card
+    await bulkCreateCohortMembers({ userId: [userId], cohortId: groups.map((g) => g.cohortId), cohortRoleCode: 'learner', status: 'active' });
     setFeedback({ open: true, message: t('USERS.DETAIL.MSG_ADDED', { name: parsedUser.fullName, groups: groups.map((g) => g.name).join(', ') }), severity: 'success' });
     setAddGroupOpen(false);
     loadGroups();
+  };
+
+  // Task 18: changes the user's role in one group; their own role stays as it is
+  const [savingGroupRole, setSavingGroupRole] = useState<string | null>(null);
+  const handleGroupRoleChange = async (group: UserGroup, code: CohortRoleCode) => {
+    if (!group.membershipId || code === group.cohortRoleCode) return;
+    setSavingGroupRole(group.cohortId);
+    try {
+      await setCohortMemberRole(group.membershipId, code);
+      setUserGroups((prev) => prev.map((g) => (g.cohortId === group.cohortId ? { ...g, cohortRoleCode: code } : g)));
+      setFeedback({ open: true, message: t('USERS.DETAIL.MSG_GROUP_ROLE_CHANGED', { name: parsedUser.fullName, role: COHORT_ROLE_LABELS[code], group: group.name }), severity: 'success' });
+    } catch (e: any) {
+      console.error('Failed to change group role:', e);
+      setFeedback({ open: true, message: e?.response?.data?.params?.errmsg || e?.message || t('USERS.DETAIL.MSG_GROUP_ROLE_FAILED'), severity: 'error' });
+    } finally {
+      setSavingGroupRole(null);
+    }
   };
 
   const handleRemoveFromGroup = async (group: UserGroup) => {
@@ -954,11 +984,18 @@ export default function UserDetailsPage() {
                     </Typography>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Chip
-                        label={c.role || t('USERS.DETAIL.LEARNER')}
+                      {/* Role in this group (Learner / Reviewer); the user's own role is not changed */}
+                      <Select
                         size="small"
-                        sx={{ backgroundColor: '#F3F4F6', color: '#4B5563', fontSize: '11px', height: '22px' }}
-                      />
+                        value={c.cohortRoleCode || 'learner'}
+                        disabled={!c.membershipId || savingGroupRole === c.cohortId}
+                        onChange={(e) => handleGroupRoleChange(c, e.target.value as CohortRoleCode)}
+                        inputProps={{ 'aria-label': t('USERS.DETAIL.GROUP_ROLE_ARIA', { group: c.name || t('USERS.DETAIL.GROUP') }) }}
+                        sx={{ fontSize: '11.5px', minWidth: 100, '& .MuiSelect-select': { py: 0.4 } }}
+                      >
+                        <MenuItem value="learner" sx={{ fontSize: '12px' }}>{t('USERS.DETAIL.LEARNER')}</MenuItem>
+                        <MenuItem value="reviewer" sx={{ fontSize: '12px' }}>{t('USERS.DETAIL.REVIEWER')}</MenuItem>
+                      </Select>
                       <Tooltip title={t('USERS.DETAIL.REMOVE')}>
                         <IconButton
                           size="small"

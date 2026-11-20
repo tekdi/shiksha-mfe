@@ -39,7 +39,10 @@ import { readUserLocation, resolveLocationLabels, UserLocation } from '@/utils/u
 import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
 import {
   createCohort,
-  bulkCreateCohortMembers,
+  enrolCohortMembers,
+  BulkMembersResult,
+  COHORT_ROLE_LABELS,
+  CohortRoleCode,
   getCohortById,
   getCohortMemberListApplication,
   getMemberRows,
@@ -67,10 +70,13 @@ export interface SelectedMember {
   userId: string;
   name: string;
   email: string;
+  /** The user's own role (Admin, Trainer, DI, ARM ...); joining the group does not change it */
   role: string;
-  /** Role the member gets in the group */
-  roleInGroup: 'Learner' | 'Reviewer';
+  /** Role the member gets in this group only (Task 16a) */
+  roleInGroup: CohortRoleCode;
 }
+
+const COHORT_ROLE_OPTIONS: CohortRoleCode[] = ['learner', 'reviewer'];
 
 const DEFAULT_FILTERS: SDBVFilterValues = {
   search: '',
@@ -161,7 +167,7 @@ const mapUserToRow = (u: any, idx: number): UserRow => {
     userId: u.userId || u.id || `user-${idx}`,
     name: nameParts.filter(Boolean).join(' ') || u.name || u.username || '-',
     email: u.email && u.email !== '-' ? u.email : u.username || '-',
-    role: u.role || u.tenantData?.[0]?.roleName || 'Student',
+    role: u.role || u.tenantData?.[0]?.roleName || '-',
     stateDistrict: [location.state, location.district].filter(Boolean).join(' · ') || '-',
     branch: location.branchOther || location.block || '-',
     employeeId: trimmedOrEmpty(u.employeeId) || '-',
@@ -208,28 +214,12 @@ const createCohortFromForm = async (
   return cohortId;
 };
 
-/** Enrolls learners and reviewers into the cohort (one bulk call per role). */
-const enrollMembers = async (cohortId: string, members: SelectedMember[]) => {
-  const learners = members.filter((m) => m.roleInGroup === 'Learner').map((m) => m.userId);
-  const reviewers = members.filter((m) => m.roleInGroup === 'Reviewer').map((m) => m.userId);
-
-  if (learners.length > 0) {
-    await bulkCreateCohortMembers({
-      cohortId: [cohortId],
-      userId: learners,
-      role: 'Student',
-      status: 'active',
-    });
-  }
-  if (reviewers.length > 0) {
-    await bulkCreateCohortMembers({
-      cohortId: [cohortId],
-      userId: reviewers,
-      role: 'Reviewer',
-      status: 'active',
-    });
-  }
-};
+/** Enrols the selected members, each with their group role, in one request per 100 members (Task 33) */
+const enrollMembers = (cohortId: string, members: SelectedMember[]): Promise<BulkMembersResult> =>
+  enrolCohortMembers(
+    cohortId,
+    members.map((m) => ({ userId: m.userId, cohortRoleCode: m.roleInGroup }))
+  );
 
 const HEAD_CELL_SX = {
   fontSize: '11px',
@@ -288,7 +278,7 @@ export default function CreateCohortPage() {
   const [feedback, setFeedback] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'error' | 'info';
+    severity: 'success' | 'error' | 'info' | 'warning';
   }>({
     open: false,
     message: '',
@@ -416,7 +406,7 @@ export default function CreateCohortPage() {
           name: user.name,
           email: user.email,
           role: user.role,
-          roleInGroup: 'Learner',
+          roleInGroup: 'learner',
         });
       }
       return next;
@@ -435,7 +425,7 @@ export default function CreateCohortPage() {
               name: u.name,
               email: u.email,
               role: u.role,
-              roleInGroup: 'Learner',
+              roleInGroup: 'learner',
             });
           }
         });
@@ -466,13 +456,22 @@ export default function CreateCohortPage() {
   }, [selectableUsers, selectedMembers]);
 
   // Update member role in group
-  const handleChangeRole = (userId: string, newRole: 'Learner' | 'Reviewer') => {
+  const handleChangeRole = (userId: string, newRole: CohortRoleCode) => {
     setSelectedMembers((prev) => {
       const next = new Map(prev);
       const existing = next.get(userId);
       if (existing) {
         next.set(userId, { ...existing, roleInGroup: newRole });
       }
+      return next;
+    });
+  };
+
+  // Give every selected member the same group role
+  const handleSetAllRoles = (newRole: CohortRoleCode) => {
+    setSelectedMembers((prev) => {
+      const next = new Map<string, SelectedMember>();
+      prev.forEach((member, id) => next.set(id, { ...member, roleInGroup: newRole }));
       return next;
     });
   };
@@ -503,25 +502,30 @@ export default function CreateCohortPage() {
         ? targetCohortId
         : await createCohortFromForm(groupName, groupDescription, groupStatus, startDate, endDate);
 
-      // Step 2: Enroll selected members
+      // Step 2: Enroll selected members, each with their group role
       const membersArray = Array.from(selectedMembers.values());
-      if (finalCohortId) {
-        await enrollMembers(finalCohortId, membersArray);
-      }
+      const enrolled =
+        finalCohortId && membersArray.length > 0
+          ? await enrollMembers(finalCohortId, membersArray)
+          : { saved: 0, errors: [] };
 
-      setFeedback({
-        open: true,
-        message: isAddMembersMode
-          ? `Successfully added ${membersArray.length} member(s) to group.`
-          : 'Group created and members enrolled successfully!',
-        severity: 'success',
-      });
+      // The server skips members it cannot add (e.g. a removed user) and lists them
+      const failed = enrolled.errors.length;
+      let message: string;
+      if (failed > 0) {
+        message = `${membersArray.length - failed} of ${membersArray.length} member(s) added. Not added: ${enrolled.errors.slice(0, 2).join('; ')}${failed > 2 ? ` and ${failed - 2} more` : ''}`;
+      } else if (isAddMembersMode) {
+        message = `Successfully added ${membersArray.length} member(s) to group.`;
+      } else {
+        message = 'Group created and members enrolled successfully!';
+      }
+      setFeedback({ open: true, message, severity: failed > 0 ? 'warning' : 'success' });
       setSubmitted(true);
 
-      // Redirect to group detail
+      // Redirect to group detail (later when there is a warning to read)
       setTimeout(() => {
         router.push(finalCohortId ? `/cohorts/${finalCohortId}` : '/cohorts');
-      }, 800);
+      }, failed > 0 ? 4000 : 800);
     } catch (err: any) {
       console.error('Error creating group or enrolling members:', err);
       setFeedback({
@@ -538,6 +542,11 @@ export default function CreateCohortPage() {
   };
 
   const selectedCount = selectedMembers.size;
+  const reviewerCount = useMemo(
+    () => Array.from(selectedMembers.values()).filter((m) => m.roleInGroup === 'reviewer').length,
+    [selectedMembers]
+  );
+  const learnerCount = selectedCount - reviewerCount;
   const isSubmitDisabled =
     submitting || (isAddMembersMode ? selectedCount === 0 : !groupName.trim() || Boolean(dateError));
   const pageTitle = isAddMembersMode
@@ -1026,9 +1035,16 @@ export default function CreateCohortPage() {
                 mb: 2,
               }}
             >
-              <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
-                Selected Members ({selectedCount})
-              </Typography>
+              <Box>
+                <Typography sx={{ fontSize: '16px', fontWeight: 700, color: '#111827' }}>
+                  Selected Members ({selectedCount})
+                </Typography>
+                {selectedCount > 0 && (
+                  <Typography sx={{ fontSize: '12px', color: '#6B7280', mt: 0.3 }}>
+                    {learnerCount} learner(s) · {reviewerCount} reviewer(s)
+                  </Typography>
+                )}
+              </Box>
               {selectedCount > 0 && (
                 <Button
                   size="small"
@@ -1039,6 +1055,33 @@ export default function CreateCohortPage() {
                 </Button>
               )}
             </Box>
+
+            {selectedCount > 0 && (
+              <Box sx={{ mb: 1.5 }}>
+                <Typography sx={{ fontSize: '11.5px', color: '#6B7280', mb: 1 }}>
+                  Role in this group only. It does not change the user&apos;s own role (Admin, Trainer, DI, ARM).
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography sx={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>Set all as:</Typography>
+                  {COHORT_ROLE_OPTIONS.map((code) => (
+                    <Button
+                      key={code}
+                      size="small"
+                      variant="outlined"
+                      onClick={() => handleSetAllRoles(code)}
+                      sx={{ textTransform: 'none', fontSize: '12px', py: 0.2, borderRadius: '6px' }}
+                    >
+                      {COHORT_ROLE_LABELS[code]}
+                    </Button>
+                  ))}
+                </Box>
+                {reviewerCount === 0 && !isAddMembersMode && (
+                  <Alert severity="warning" sx={{ mt: 1.5, py: 0.2, fontSize: '12px', borderRadius: '8px' }}>
+                    No reviewer selected. Make at least one member a Reviewer so someone can follow the learners&apos; progress.
+                  </Alert>
+                )}
+              </Box>
+            )}
 
             {selectedCount === 0 ? (
               <Box
@@ -1111,17 +1154,34 @@ export default function CreateCohortPage() {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography
-                        sx={{
-                          fontSize: '11.5px',
-                          color: '#6B7280',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {member.role}
-                      </Typography>
+                      <Tooltip title="The user's own role, unchanged by this group">
+                        <Typography
+                          sx={{
+                            fontSize: '11.5px',
+                            color: '#6B7280',
+                            maxWidth: 80,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {member.role}
+                        </Typography>
+                      </Tooltip>
+                      <FormControl size="small">
+                        <Select
+                          value={member.roleInGroup}
+                          onChange={(e) => handleChangeRole(member.userId, e.target.value as CohortRoleCode)}
+                          inputProps={{ 'aria-label': `Role of ${member.name} in this group` }}
+                          sx={{ fontSize: '12px', backgroundColor: '#FFFFFF', minWidth: 104, '& .MuiSelect-select': { py: 0.6 } }}
+                        >
+                          {COHORT_ROLE_OPTIONS.map((code) => (
+                            <MenuItem key={code} value={code} sx={{ fontSize: '12.5px' }}>
+                              {COHORT_ROLE_LABELS[code]}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                       <Tooltip title="Remove">
                         <IconButton
                           size="small"

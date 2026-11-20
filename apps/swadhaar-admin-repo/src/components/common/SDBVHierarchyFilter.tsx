@@ -51,6 +51,10 @@ export interface SDBVHierarchyFilterProps {
   showOrganisationCode?: boolean;
   /** Shows an Employee ID text filter in the second row (two-row search layout only) */
   showEmployeeId?: boolean;
+  /** When given, Organization Code is a dropdown of these values instead of a text box */
+  organisationCodeOptions?: string[];
+  /** When given, Employee ID is a dropdown of these values instead of a text box */
+  employeeIdOptions?: string[];
   onClear?: () => void;
 }
 
@@ -64,6 +68,10 @@ const capitalizeLabel = (opt: string): string => opt.charAt(0).toUpperCase() + o
 
 const toOptionItems = (options: (string | OptionItem)[], toLabel: (opt: string) => string): OptionItem[] =>
   options.map((opt) => (typeof opt === 'string' ? { value: opt, label: toLabel(opt) } : opt));
+
+/** Keeps the chosen value in the list even if it is not among the loaded options */
+const withSelected = (options: string[], selected?: string): string[] =>
+  selected && !options.includes(selected) ? [selected, ...options] : options;
 
 const hasAnyActiveFilter = (values: SDBVFilterValues): boolean => {
   const textFilters = [
@@ -95,6 +103,8 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
   showLocation = true,
   showOrganisationCode = false,
   showEmployeeId = false,
+  organisationCodeOptions,
+  employeeIdOptions,
   onClear,
 }) => {
   const [states, setStates] = useState<LocationOption[]>([]);
@@ -384,6 +394,23 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
               <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
                 Organization Code
               </Typography>
+              {organisationCodeOptions ? (
+                <Select
+                  fullWidth
+                  size="small"
+                  value={values.organisationCode || 'all'}
+                  onChange={(e) => onChange({ ...values, organisationCode: e.target.value === 'all' ? '' : e.target.value })}
+                  MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+                  sx={{ borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' }}
+                >
+                  <MenuItem value="all">All organization codes</MenuItem>
+                  {withSelected(organisationCodeOptions, values.organisationCode).map((c) => (
+                    <MenuItem key={c} value={c}>
+                      {c}
+                    </MenuItem>
+                  ))}
+                </Select>
+              ) : (
               <TextField
                 fullWidth
                 size="small"
@@ -393,6 +420,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
                 inputProps={{ maxLength: 30 }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' } }}
               />
+              )}
             </Grid>
           )}
 
@@ -401,6 +429,23 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
               <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
                 Employee ID
               </Typography>
+              {employeeIdOptions ? (
+                <Select
+                  fullWidth
+                  size="small"
+                  value={values.employeeId || 'all'}
+                  onChange={(e) => onChange({ ...values, employeeId: e.target.value === 'all' ? '' : e.target.value })}
+                  MenuProps={{ PaperProps: { sx: { maxHeight: 300 } } }}
+                  sx={{ borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' }}
+                >
+                  <MenuItem value="all">All employee IDs</MenuItem>
+                  {withSelected(employeeIdOptions, values.employeeId).map((id) => (
+                    <MenuItem key={id} value={id}>
+                      {id}
+                    </MenuItem>
+                  ))}
+                </Select>
+              ) : (
               <TextField
                 fullWidth
                 size="small"
@@ -410,6 +455,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
                 inputProps={{ maxLength: 50 }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' } }}
               />
+              )}
             </Grid>
           )}
         </Grid>

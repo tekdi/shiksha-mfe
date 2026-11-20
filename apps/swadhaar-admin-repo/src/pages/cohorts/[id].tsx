@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { getTenantRoles, TenantRole, changeUserRole } from '@/services/UserService';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { getTenantRoles } from '@/services/UserService';
 import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { useRouter } from 'next/router';
 import {
@@ -50,14 +50,23 @@ import {
   isCurrentMember,
   removeUsersFromCohorts,
   deleteCohort,
+  setCohortMemberRole,
+  toCohortRoleCode,
+  COHORT_ROLE_LABELS,
+  CohortRoleCode,
 } from '@/services/CohortService';
+
+const COHORT_ROLE_OPTIONS: CohortRoleCode[] = ['learner', 'reviewer'];
 
 export interface MemberRowItem {
   id: string;
   userId: string;
   fullName: string;
   email: string;
+  /** The user's own role (Admin, Trainer, DI, ARM ...); group roles never change it */
   role: string;
+  /** Role in this group only (Task 16a): learner or reviewer */
+  cohortRoleCode: CohortRoleCode;
   membershipId: string;
   stateDistrict: string;
   branch: string;
@@ -186,7 +195,8 @@ const mapMemberToRow = (user: any, index: number): MemberRowItem => {
     userId,
     fullName,
     email,
-    role: user.role || user.membershipRole || 'Student',
+    role: user.role || user.membershipRole || '-',
+    cohortRoleCode: toCohortRoleCode(user.cohortRoleCode),
     membershipId: getMembershipId(user),
     stateDistrict: displayLocation,
     branch: location.branch || location.district || country || '-',
@@ -219,15 +229,13 @@ export default function GroupDetailsPage() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   // Role filter options: titles from the tenant roles API, as on the Users page
   const [roleOptions, setRoleOptions] = useState<string[]>([]);
-  // Roles just changed on this page, shown until the page is left (the member list may still return the old one)
-  const updatedRolesRef = useRef(new Map<string, string>());
-  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
+  // Group role filter (Task 18): learner / reviewer in this group
+  const [groupRoleFilter, setGroupRoleFilter] = useState<'all' | CohortRoleCode>('all');
+  // Members whose group role is being saved from the table
+  const [savingRoleIds, setSavingRoleIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     getTenantRoles()
-      .then((roles) => {
-        setTenantRoles(roles);
-        setRoleOptions(roles.map((r) => r.name));
-      })
+      .then((roles) => setRoleOptions(roles.map((r) => r.name)))
       .catch(() => setRoleOptions([]));
   }, []);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -244,14 +252,14 @@ export default function GroupDetailsPage() {
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState<boolean>(false);
   const [isChangeRoleOpen, setIsChangeRoleOpen] = useState<boolean>(false);
-  const [newRoleId, setNewRoleId] = useState<string>('');
+  const [newGroupRole, setNewGroupRole] = useState<CohortRoleCode>('reviewer');
   const [actionLoading, setActionLoading] = useState<boolean>(false);
 
   // Feedback Snackbar
   const [feedback, setFeedback] = useState<{
     open: boolean;
     message: string;
-    severity: 'success' | 'info' | 'error';
+    severity: 'success' | 'info' | 'error' | 'warning';
   }>({
     open: false,
     message: '',
@@ -283,6 +291,9 @@ export default function GroupDetailsPage() {
       if (roleFilter && roleFilter !== 'all') {
         filtersObj.role = roleFilter;
       }
+      if (groupRoleFilter !== 'all') {
+        filtersObj.cohortRole = groupRoleFilter;
+      }
 
       const payload: any = {
         limit: rowsPerPage,
@@ -295,12 +306,7 @@ export default function GroupDetailsPage() {
       const userDetails = allRows.filter(isCurrentMember);
       setTotalCount(Math.max(getMemberTotal(res, allRows) - (allRows.length - userDetails.length), userDetails.length));
 
-      const mapped = userDetails.map((u: any, idx: number) => {
-        const row = mapMemberToRow(u, idx);
-        const updatedRole = updatedRolesRef.current.get(row.userId);
-        return updatedRole ? { ...row, role: updatedRole } : row;
-      });
-      setMembers(mapped);
+      setMembers(userDetails.map(mapMemberToRow));
     } catch (err) {
       console.error('Failed to load cohort members:', err);
       setMembers([]);
@@ -308,7 +314,7 @@ export default function GroupDetailsPage() {
     } finally {
       setLoading(false);
     }
-  }, [cohortId, page, rowsPerPage, roleFilter]);
+  }, [cohortId, page, rowsPerPage, roleFilter, groupRoleFilter]);
 
   // Fetch cohort assigned contents/learning paths
   const fetchCohortContent = useCallback(async () => {
@@ -343,6 +349,7 @@ export default function GroupDetailsPage() {
         m.organisationCode.toLowerCase().includes(q) ||
         m.organisationName.toLowerCase().includes(q) ||
         m.role.toLowerCase().includes(q) ||
+        COHORT_ROLE_LABELS[m.cohortRoleCode].toLowerCase().includes(q) ||
         m.status.toLowerCase().includes(q)
     );
   }, [members, searchQuery]);
@@ -398,47 +405,63 @@ export default function GroupDetailsPage() {
     }
   };
 
-  // Action: set the chosen tenant role on every selected member (remove the old role, then assign the new one)
-  const handleConfirmChangeRole = async () => {
-    const role = tenantRoles.find((r) => r.id === newRoleId);
-    if (selectedIds.length === 0 || !role) return;
-    setActionLoading(true);
-    let failed = 0;
+  // Saves group roles one membership at a time; returns the members saved and the first error
+  const saveGroupRoles = async (rows: MemberRowItem[], code: CohortRoleCode) => {
+    const saved: string[] = [];
     let firstError = '';
-    const succeeded: string[] = [];
-    // Each member's current role is removed, then the new one assigned (a member who already has it is left as is)
-    await runWithConcurrency(selectedIds, 5, async (userId) => {
+    await runWithConcurrency(rows, 5, async (row) => {
       try {
-        const currentName = (members.find((m) => m.userId === userId)?.role || '').trim().toLowerCase();
-        const oldRole = tenantRoles.find((r) => r.id === currentName || r.name.toLowerCase() === currentName);
-        if (!oldRole) throw new Error('Could not find the current role of this member.');
-        if (oldRole.id !== role.id) await changeUserRole(userId, oldRole.id, role.id);
-        succeeded.push(userId);
+        if (!row.membershipId) throw new Error('This membership has no id.');
+        await setCohortMemberRole(row.membershipId, code);
+        saved.push(row.userId);
       } catch (err: any) {
-        failed += 1;
         firstError = firstError || apiErrorMessage(err);
       }
     });
-    const updated = selectedIds.length - failed;
+    return { saved, firstError };
+  };
+
+  // Action (Task 18): set Learner or Reviewer in this group on every selected member.
+  // Only the group membership changes; the user's own role (Admin, Trainer, DI, ARM) stays as it is.
+  const handleConfirmChangeRole = async () => {
+    const rows = members.filter((m) => selectedIds.includes(m.id) && m.cohortRoleCode !== newGroupRole);
+    if (selectedIds.length === 0) return;
+    setActionLoading(true);
+    const { saved, firstError } = await saveGroupRoles(rows, newGroupRole);
+    const failed = rows.length - saved.length;
+    const label = COHORT_ROLE_LABELS[newGroupRole];
     if (failed === 0) {
-      setFeedback({ open: true, message: `Role changed to ${role.name} for ${updated} member(s).`, severity: 'success' });
+      setFeedback({ open: true, message: `${selectedIds.length} member(s) are now ${label} in this group.`, severity: 'success' });
       setSelectedIds([]);
       setIsChangeRoleOpen(false);
     } else {
-      const reason = firstError ? `: ${firstError}` : '.';
       setFeedback({
         open: true,
-        message: `${failed} of ${selectedIds.length} member(s) could not be updated${reason}`,
+        message: `${failed} of ${rows.length} member(s) could not be updated${firstError ? `: ${firstError}` : '.'}`,
         severity: 'error',
       });
     }
-    if (updated > 0) {
-      // Show the new role right away, and keep it when the list is loaded again
-      succeeded.forEach((userId) => updatedRolesRef.current.set(userId, role.name));
-      setMembers((prev) => prev.map((m) => (succeeded.includes(m.userId) ? { ...m, role: role.name } : m)));
-      fetchMembers();
-    }
+    if (saved.length > 0) fetchMembers();
     setActionLoading(false);
+  };
+
+  // Inline change of one member's group role from the table
+  const handleRowGroupRoleChange = async (row: MemberRowItem, code: CohortRoleCode) => {
+    if (code === row.cohortRoleCode) return;
+    setSavingRoleIds((prev) => new Set(prev).add(row.id));
+    setMembers((prev) => prev.map((m) => (m.id === row.id ? { ...m, cohortRoleCode: code } : m)));
+    const { saved, firstError } = await saveGroupRoles([row], code);
+    if (saved.length === 0) {
+      setMembers((prev) => prev.map((m) => (m.id === row.id ? { ...m, cohortRoleCode: row.cohortRoleCode } : m)));
+      setFeedback({ open: true, message: firstError || 'The group role could not be changed.', severity: 'error' });
+    } else {
+      setFeedback({ open: true, message: `${row.fullName} is now ${COHORT_ROLE_LABELS[code]} in this group.`, severity: 'success' });
+    }
+    setSavingRoleIds((prev) => {
+      const next = new Set(prev);
+      next.delete(row.id);
+      return next;
+    });
   };
 
   // Action: Delete cohort
@@ -473,14 +496,14 @@ export default function GroupDetailsPage() {
 
   // Reviewers extracted from member list
   const reviewerMembers = useMemo(() => {
-    return members.filter((m) => m.role.toLowerCase() === 'reviewer');
+    return members.filter((m) => m.cohortRoleCode === 'reviewer');
   }, [members]);
 
   const renderMembersBody = () => {
     if (loading) {
       return (
         <TableRow>
-          <TableCell colSpan={10} sx={{ textAlign: 'center', py: 6 }}>
+          <TableCell colSpan={11} sx={{ textAlign: 'center', py: 6 }}>
             <CircularProgress size={30} sx={{ color: 'primary.main', mb: 1 }} />
             <Typography sx={{ fontSize: '13px', color: '#6B7280' }}>
               Loading cohort members...
@@ -492,7 +515,7 @@ export default function GroupDetailsPage() {
     if (displayedMembers.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={10} sx={{ textAlign: 'center', py: 6 }}>
+          <TableCell colSpan={11} sx={{ textAlign: 'center', py: 6 }}>
             <Typography sx={{ fontSize: '14px', color: '#6B7280' }}>
               {members.length === 0
                 ? 'No members found for this group.'
@@ -594,11 +617,30 @@ export default function GroupDetailsPage() {
             </Tooltip>
           </TableCell>
 
-          {/* 3. Role */}
+          {/* 3. Own role (Admin, Trainer, DI, ARM ...): never changed from this page */}
           <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.3 }}>
             <Typography sx={{ fontSize: '12.5px', color: '#4B5563' }}>
               {row.role}
             </Typography>
+          </TableCell>
+
+          {/* Group role: Learner / Reviewer in this group only */}
+          <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.3 }}>
+            <FormControl size="small">
+              <Select
+                value={row.cohortRoleCode}
+                disabled={savingRoleIds.has(row.id)}
+                onChange={(e) => handleRowGroupRoleChange(row, e.target.value as CohortRoleCode)}
+                inputProps={{ 'aria-label': `Role of ${row.fullName} in this group` }}
+                sx={{ fontSize: '12px', minWidth: 104, backgroundColor: '#FFFFFF', '& .MuiSelect-select': { py: 0.5 } }}
+              >
+                {COHORT_ROLE_OPTIONS.map((code) => (
+                  <MenuItem key={code} value={code} sx={{ fontSize: '12.5px' }}>
+                    {COHORT_ROLE_LABELS[code]}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </TableCell>
 
           {/* 4. State · District / Location */}
@@ -818,10 +860,7 @@ export default function GroupDetailsPage() {
                   variant="outlined"
                   size="small"
                   disabled={selectedIds.length === 0}
-                  onClick={() => {
-                    setNewRoleId((prev) => prev || tenantRoles[0]?.id || '');
-                    setIsChangeRoleOpen(true);
-                  }}
+                  onClick={() => setIsChangeRoleOpen(true)}
                   sx={{
                     textTransform: 'none',
                     borderRadius: '6px',
@@ -831,7 +870,7 @@ export default function GroupDetailsPage() {
                     borderColor: '#D1D5DB',
                   }}
                 >
-                  Change role
+                  Change group role
                 </Button>
 
                 <Button
@@ -892,7 +931,29 @@ export default function GroupDetailsPage() {
               />
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                {/* Role Filter */}
+                {/* Group role filter (Learner / Reviewer in this group) */}
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <Select
+                    value={groupRoleFilter}
+                    onChange={(e) => {
+                      setGroupRoleFilter(e.target.value as 'all' | CohortRoleCode);
+                      setPage(0);
+                    }}
+                    inputProps={{ 'aria-label': 'Filter by group role' }}
+                    sx={{ borderRadius: '8px', fontSize: '12.5px', height: '32px', backgroundColor: '#FFFFFF' }}
+                  >
+                    <MenuItem value="all" sx={{ fontSize: '12.5px' }}>
+                      All group roles
+                    </MenuItem>
+                    {COHORT_ROLE_OPTIONS.map((code) => (
+                      <MenuItem key={code} value={code} sx={{ fontSize: '12.5px' }}>
+                        {COHORT_ROLE_LABELS[code]}s
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* Own role filter */}
                 <FormControl size="small" sx={{ minWidth: 120 }}>
                   <Select
                     value={roleFilter}
@@ -908,7 +969,7 @@ export default function GroupDetailsPage() {
                     }}
                   >
                     <MenuItem value="all" sx={{ fontSize: '12.5px' }}>
-                      All Roles
+                      All own roles
                     </MenuItem>
                     {roleOptions.map((roleName) => (
                       <MenuItem key={roleName} value={roleName} sx={{ fontSize: '12.5px' }}>
@@ -979,8 +1040,9 @@ export default function GroupDetailsPage() {
                         py: 1.2,
                       }}
                     >
-                      ROLE
+                      OWN ROLE
                     </TableCell>
+                    <TableCell sx={MEMBER_HEAD_CELL_SX}>GROUP ROLE</TableCell>
                     <TableCell
                       sx={{
                         fontSize: '11px',
@@ -1282,29 +1344,31 @@ export default function GroupDetailsPage() {
       <CommonDialog
         open={isChangeRoleOpen}
         onClose={() => setIsChangeRoleOpen(false)}
-        title="Change Role"
-        subtitle={`Select the new role for ${selectedIds.length} member(s)`}
-        confirmLabel={actionLoading ? 'Updating...' : 'Update Role'}
+        title="Change group role"
+        subtitle={`Role in this group for ${selectedIds.length} member(s)`}
+        confirmLabel={actionLoading ? 'Updating...' : 'Update group role'}
         confirmVariant="primary"
-        confirmDisabled={actionLoading || !newRoleId}
+        confirmDisabled={actionLoading}
         loading={actionLoading}
         onConfirm={handleConfirmChangeRole}
       >
         <Box sx={{ pt: 1 }}>
           <FormControl fullWidth size="small">
             <Select
-              value={newRoleId}
-              onChange={(e) => setNewRoleId(e.target.value)}
-              displayEmpty
+              value={newGroupRole}
+              onChange={(e) => setNewGroupRole(e.target.value as CohortRoleCode)}
               sx={{ fontSize: '13.5px' }}
             >
-              {tenantRoles.map((role) => (
-                <MenuItem key={role.id} value={role.id}>
-                  {role.name}
+              {COHORT_ROLE_OPTIONS.map((code) => (
+                <MenuItem key={code} value={code}>
+                  {COHORT_ROLE_LABELS[code]}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
+          <Typography sx={{ fontSize: '12px', color: '#6B7280', mt: 1.5 }}>
+            Applies to this group only. Their own role (Admin, Trainer, DI, ARM) does not change.
+          </Typography>
         </Box>
       </CommonDialog>
 
