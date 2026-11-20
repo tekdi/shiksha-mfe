@@ -54,15 +54,6 @@ export const MasterDataService = {
       { value: 'digital_saksharta', label: 'Digital Saksharta' },
     ];
   },
-
-  getRoles: (): LocationOption[] => {
-    return [
-      { value: 'ARM', label: 'Area Relationship Manager (ARM)' },
-      { value: 'DI', label: 'Development Inspector (DI)' },
-      { value: 'Trainer', label: 'Field Trainer' },
-      { value: 'State_Lead', label: 'State Operations Lead' },
-    ];
-  },
 };
 
 export default MasterDataService;

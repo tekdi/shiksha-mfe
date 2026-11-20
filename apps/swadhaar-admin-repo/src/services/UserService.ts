@@ -205,30 +205,77 @@ export const deleteUser = async (email: string, reason = 'GDPR erasure request')
   }
 };
 
+/**
+ * Task 8: what a role is for (Roles.roleType in the user service).
+ * admin = platform admin, organisation = a user's own job role (Trainer, District Incharge, ARM),
+ * cohort = a role inside one group (Learner, Reviewer).
+ */
+export type RoleType = 'admin' | 'organisation' | 'cohort';
+
 export interface TenantRole {
   id: string;
+  /** Role title as stored; the user list filters (`filters.role`) and listUsersByRoles match on it */
   name: string;
+  /** Fixed key (admin, trainer, cfl, arm, learner, reviewer) */
+  code: string;
+  /** What the admin sees: displayName from the API, the title when it has none */
+  label: string;
+  roleType: RoleType;
+}
+
+/** Option shape of the filter components: value = role title (what the list APIs filter on), label = display name */
+export interface RoleOption {
+  value: string;
+  label: string;
 }
 
 /**
- * Roles for the Swadhaar tenant from POST /user/v1/rbac/roles/list/roles. `title` is shown in the dropdown and
+ * Task 8b: roles of the Swadhaar tenant from POST /user/v1/rbac/roles/list/roles.
+ * Without `roleTypes` the API returns every type except cohort, i.e. the roles a user can hold
+ * (Admin + organisation roles). Pass ['organisation'] for learners only, ['cohort'] for group roles.
  * `roleId` is sent in tenantCohortRoleMapping when a user is created.
  */
-export const getTenantRoles = async (): Promise<TenantRole[]> => {
+export const getTenantRoles = async (roleTypes?: RoleType[]): Promise<TenantRole[]> => {
   try {
+    const filters: Record<string, unknown> = { tenantId: SWADHAAR_TENANT_ID };
+    if (roleTypes?.length) filters.roleType = roleTypes;
     const response = await post(
       API_ENDPOINTS.userRolesList,
-      { limit: '100', page: 1, filters: { tenantId: SWADHAAR_TENANT_ID } },
+      { limit: '100', page: 1, filters },
       getServiceHeaders()
     );
     const roles: any[] = response?.data?.result || [];
     return roles
       .filter((role) => role?.roleId && role?.title)
-      .map((role) => ({ id: role.roleId, name: role.title }));
+      .map((role) => ({
+        id: role.roleId,
+        name: role.title,
+        code: role.code || '',
+        label: role.displayName || role.title,
+        roleType: (role.roleType || 'organisation') as RoleType,
+      }));
   } catch (error) {
     console.error('Error in getTenantRoles:', error);
     return [];
   }
+};
+
+/** Filter options: value = role title (what `filters.role` matches), label = display name */
+export const toRoleOptions = (roles: TenantRole[]): RoleOption[] =>
+  roles.map((r) => ({ value: r.name, label: r.label }));
+
+/**
+ * Display name for a role as a user record or member row carries it (title, code or id).
+ * Falls back to the given text, so an unknown role still shows something.
+ */
+export const roleLabelFor = (roles: TenantRole[], role?: string | null): string => {
+  const key = (role || '').trim();
+  if (!key) return '';
+  const lower = key.toLowerCase();
+  const match = roles.find(
+    (r) => r.id === key || r.name.toLowerCase() === lower || r.code.toLowerCase() === lower
+  );
+  return match?.label || key;
 };
 
 /**

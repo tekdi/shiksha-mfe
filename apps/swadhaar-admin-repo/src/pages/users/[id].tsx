@@ -29,7 +29,16 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { getUserCourseProgress, UserCourseProgress } from '@/services/CourseService';
-import { getUserDetailsInfo, blockUser, unblockUser, deleteUser } from '@/services/UserService';
+import {
+  getUserDetailsInfo,
+  blockUser,
+  unblockUser,
+  deleteUser,
+  getTenantRoles,
+  roleLabelFor,
+  TenantRole,
+} from '@/services/UserService';
+import { useGroupRoleLabels } from '@/hooks/useGroupRoleLabels';
 import CreateUserModal from '@/components/common/CreateUserModal';
 import SendNotificationDialog from '@/components/common/SendNotificationDialog';
 import { sendInAppNotification } from '@/services/NotificationService';
@@ -39,7 +48,6 @@ import {
   bulkCreateCohortMembers,
   setCohortMemberRole,
   toCohortRoleCode,
-  COHORT_ROLE_LABELS,
   CohortRoleCode,
   getMembershipId,
   isCurrentMember,
@@ -369,6 +377,15 @@ export default function UserDetailsPage() {
 
   // Groups the user belongs to: from the cohort member list, falling back to what the user record carries
   const [userGroups, setUserGroups] = useState<UserGroup[]>([]);
+  // Task 8b: display names of the user's own role and of the group roles, from the role API
+  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
+  useEffect(() => {
+    getTenantRoles()
+      .then(setTenantRoles)
+      .catch(() => setTenantRoles([]));
+  }, []);
+  const roleLabel = roleLabelFor(tenantRoles, parsedUser.role) || parsedUser.role;
+  const groupRoleLabels = useGroupRoleLabels();
   const [groupReviewers, setGroupReviewers] = useState<Array<{ id: string; name: string; group: string }>>([]);
   const [individualReviews, setIndividualReviews] = useState<ReviewUser[]>([]);
   const [addGroupOpen, setAddGroupOpen] = useState(false);
@@ -460,7 +477,7 @@ export default function UserDetailsPage() {
     try {
       await setCohortMemberRole(group.membershipId, code);
       setUserGroups((prev) => prev.map((g) => (g.cohortId === group.cohortId ? { ...g, cohortRoleCode: code } : g)));
-      setFeedback({ open: true, message: t('USERS.DETAIL.MSG_GROUP_ROLE_CHANGED', { name: parsedUser.fullName, role: COHORT_ROLE_LABELS[code], group: group.name }), severity: 'success' });
+      setFeedback({ open: true, message: t('USERS.DETAIL.MSG_GROUP_ROLE_CHANGED', { name: parsedUser.fullName, role: groupRoleLabels[code], group: group.name }), severity: 'success' });
     } catch (e: any) {
       console.error('Failed to change group role:', e);
       setFeedback({ open: true, message: e?.response?.data?.params?.errmsg || e?.message || t('USERS.DETAIL.MSG_GROUP_ROLE_FAILED'), severity: 'error' });
@@ -655,7 +672,7 @@ export default function UserDetailsPage() {
                 />
 
                 <Chip
-                  label={parsedUser.role}
+                  label={roleLabel}
                   size="small"
                   sx={{
                     backgroundColor: '#F3F4F6',
@@ -917,7 +934,7 @@ export default function UserDetailsPage() {
               <Box sx={{ display: 'flex' }}>
                 <Typography sx={{ width: 140, fontSize: '13px', color: '#6B7280' }}>{t('USERS.DETAIL.ROLE')}</Typography>
                 <Typography sx={{ fontSize: '13px', color: '#111827', fontWeight: 500 }}>
-                  {parsedUser.role}
+                  {roleLabel}
                 </Typography>
               </Box>
 
@@ -1321,7 +1338,7 @@ export default function UserDetailsPage() {
       <SendNotificationDialog
         open={isNotifyOpen}
         userName={parsedUser.fullName}
-        role={parsedUser.role}
+        role={roleLabel}
         location={[parsedUser.state, parsedUser.district].filter((v) => v && v !== '-').join(' - ')}
         onClose={() => setIsNotifyOpen(false)}
         onSend={async (message) => {

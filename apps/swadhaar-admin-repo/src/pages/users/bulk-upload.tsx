@@ -31,7 +31,7 @@ import { bulkImportUsers, getTenantRoles, TenantRole } from '@/services/UserServ
 import { getCohortSearch } from '@/services/CohortService';
 import { apiErrorMessage } from '@/utils/concurrency';
 import { readXlsxRows } from '@/utils/readXlsx';
-import { DEFAULT_ROLE_ID_MAP } from '@/utils/userPayloadBuilder';
+import { DEFAULT_USER_ROLE_ID } from '@/utils/userPayloadBuilder';
 import { NEUTRAL } from '@/styles/customTheme';
 
 interface FailedRowItem {
@@ -198,7 +198,7 @@ export default function BulkUploadUsersPage() {
 
   // Without a chosen role the users are created as Trainers
   const defaultRoleId =
-    roles.find((r) => r.name.toLowerCase() === 'trainer')?.id || DEFAULT_ROLE_ID_MAP.trainer;
+    roles.find((r) => r.code === 'trainer')?.id || DEFAULT_USER_ROLE_ID;
 
   // Groups and roles to import into
   useEffect(() => {
@@ -481,7 +481,7 @@ export default function BulkUploadUsersPage() {
                   </MenuItem>
                   {roles.map((r) => (
                     <MenuItem key={r.id} value={r.id}>
-                      {r.name}
+                      {r.label}
                     </MenuItem>
                   ))}
                 </Select>

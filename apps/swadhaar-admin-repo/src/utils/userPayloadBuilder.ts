@@ -11,32 +11,35 @@ export const SWADHAAR_FIELD_IDS = {
   BRANCH_OTHER: '7ff04020-7805-4be0-b49f-f88281a92448',
 } as const;
 
-// Swadhaar tenant roles (POST /user/v1/rbac/roles/list/roles returns Admin, Trainer and ARM). Used for bulk upload
-// rows that name a role and as the default; the create dialog sends the roleId picked from that API instead.
+// Fallback only: the create dialog and bulk upload send the roleId picked from POST /user/v1/rbac/roles/list/roles.
+// Used when no roleId is given (default = Trainer) or a value names a Swadhaar role by code or title.
+// Keys are role codes and titles in lower case. Learner / Reviewer are group roles (Task 8a), never a user's own role.
+const TRAINER_ROLE_ID = '8225a8de-c3c2-45d6-afca-fdf73c07afdd';
+const DISTRICT_INCHARGE_ROLE_ID = '724d6e43-b13d-4a0f-bb88-c175b2f89f9e';
 export const DEFAULT_ROLE_ID_MAP: Record<string, string> = {
   admin: 'a0262d32-6200-4ba1-adbb-bb2883ba27a2',
-  'super admin': 'a0262d32-6200-4ba1-adbb-bb2883ba27a2',
-  trainer: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
-  'field trainer': '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
-  // The server titles 8225a8de… "Trainer"; it stays the default role for learners and "student" rows
-  student: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
-  learner: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
+  trainer: TRAINER_ROLE_ID,
+  'trainer/cfl incharge': TRAINER_ROLE_ID,
+  cfl: DISTRICT_INCHARGE_ROLE_ID,
+  di: DISTRICT_INCHARGE_ROLE_ID,
+  'district incharge': DISTRICT_INCHARGE_ROLE_ID,
   arm: 'caae81d6-5c3c-44ac-9953-ac3770d704aa',
-  di: '8225a8de-c3c2-45d6-afca-fdf73c07afdd',
 };
+/** Own role given when none is chosen */
+export const DEFAULT_USER_ROLE_ID = TRAINER_ROLE_ID;
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const resolveRoleId = (roleNameOrId?: string): string => {
   if (!roleNameOrId) {
-    return DEFAULT_ROLE_ID_MAP.student;
+    return DEFAULT_USER_ROLE_ID;
   }
   const trimmed = roleNameOrId.trim();
   if (UUID_REGEX.test(trimmed)) {
     return trimmed;
   }
   const key = trimmed.toLowerCase();
-  return DEFAULT_ROLE_ID_MAP[key] || DEFAULT_ROLE_ID_MAP.student;
+  return DEFAULT_ROLE_ID_MAP[key] || DEFAULT_USER_ROLE_ID;
 };
 
 export const sanitizeGender = (gender?: string): string | undefined => {
@@ -154,7 +157,7 @@ export const buildCreateUserPayload = (
   const mobile = (input.phone || '').trim();
   const email = (input.email || '').trim();
   // The create dialog passes the chosen roleId; bulk upload may name a role per row; otherwise the default role applies.
-  const roleId = input.role ? resolveRoleId(input.role) : DEFAULT_ROLE_ID_MAP.student;
+  const roleId = input.role ? resolveRoleId(input.role) : DEFAULT_USER_ROLE_ID;
   const gender = sanitizeGender(input.gender);
   const isAdmin = /admin/i.test(input.roleName || input.role || '') || input.role === DEFAULT_ROLE_ID_MAP.admin;
   // Learners sign in to the learner app with mobile OTP, which then logs in with the shared learner password

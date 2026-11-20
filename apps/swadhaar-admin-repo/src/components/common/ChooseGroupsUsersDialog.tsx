@@ -18,7 +18,7 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import { getCohortSearch } from '@/services/CohortService';
-import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
+import { getTenantRoles, listUsersByRoles, roleLabelFor } from '@/services/UserService';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 
 export interface AssignTarget {
@@ -83,19 +83,20 @@ export const ChooseGroupsUsersDialog: React.FC<ChooseGroupsUsersDialogProps> = (
         console.error('Failed to load groups:', err);
         setGroupOptions([]);
       });
-    const loadUsers = getTenantRoles()
+    // Learners = users holding an organisation role (Task 8b: by role type, not by the title)
+    const loadUsers = getTenantRoles(['organisation'])
       .then((roles) =>
         listUsersByRoles(
           { limit: 100, offset: 0, filters: {} },
-          roles.map((r) => r.name).filter((name) => !/admin/i.test(name))
-        )
+          roles.map((r) => r.name)
+        ).then((result) => ({ ...result, roles }))
       )
-      .then(({ users: raw }) =>
+      .then(({ users: raw, roles }) =>
         setUserOptions(
           raw.map((u: any) => ({
             id: u.userId || u.id,
             name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || u.username || 'User',
-            detail: [u.role || u.tenantData?.[0]?.roleName, u.email && u.email !== '-' ? u.email : u.username]
+            detail: [roleLabelFor(roles, u.role || u.tenantData?.[0]?.roleName), u.email && u.email !== '-' ? u.email : u.username]
               .filter(Boolean)
               .join(' · '),
           }))

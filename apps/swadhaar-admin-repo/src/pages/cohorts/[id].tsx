@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { getTenantRoles } from '@/services/UserService';
+import { getTenantRoles, roleLabelFor, TenantRole, toRoleOptions } from '@/services/UserService';
+import { useGroupRoleLabels } from '@/hooks/useGroupRoleLabels';
 import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
 import { useRouter } from 'next/router';
 import {
@@ -52,7 +53,6 @@ import {
   deleteCohort,
   setCohortMemberRole,
   toCohortRoleCode,
-  COHORT_ROLE_LABELS,
   CohortRoleCode,
 } from '@/services/CohortService';
 
@@ -227,16 +227,20 @@ export default function GroupDetailsPage() {
 
   // Filter States
   const [roleFilter, setRoleFilter] = useState<string>('all');
-  // Role filter options: titles from the tenant roles API, as on the Users page
-  const [roleOptions, setRoleOptions] = useState<string[]>([]);
+  // Own-role filter options (Task 8b): the roles a user can hold, shown by display name, as on the Users page.
+  // The value stays the role title, which the member list filters on.
+  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
+  const roleOptions = useMemo(() => toRoleOptions(tenantRoles), [tenantRoles]);
+  // Group role names (Learner / Reviewer) from the role API
+  const groupRoleLabels = useGroupRoleLabels();
   // Group role filter (Task 18): learner / reviewer in this group
   const [groupRoleFilter, setGroupRoleFilter] = useState<'all' | CohortRoleCode>('all');
   // Members whose group role is being saved from the table
   const [savingRoleIds, setSavingRoleIds] = useState<Set<string>>(new Set());
   useEffect(() => {
     getTenantRoles()
-      .then((roles) => setRoleOptions(roles.map((r) => r.name)))
-      .catch(() => setRoleOptions([]));
+      .then(setTenantRoles)
+      .catch(() => setTenantRoles([]));
   }, []);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -379,10 +383,11 @@ export default function GroupDetailsPage() {
         m.organisationCode.toLowerCase().includes(q) ||
         m.organisationName.toLowerCase().includes(q) ||
         m.role.toLowerCase().includes(q) ||
-        COHORT_ROLE_LABELS[m.cohortRoleCode].toLowerCase().includes(q) ||
+        roleLabelFor(tenantRoles, m.role).toLowerCase().includes(q) ||
+        groupRoleLabels[m.cohortRoleCode].toLowerCase().includes(q) ||
         m.status.toLowerCase().includes(q)
     );
-  }, [members, searchQuery]);
+  }, [members, searchQuery, tenantRoles, groupRoleLabels]);
 
   // Selection handlers
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -460,7 +465,7 @@ export default function GroupDetailsPage() {
     setActionLoading(true);
     const { saved, firstError } = await saveGroupRoles(rows, newGroupRole);
     const failed = rows.length - saved.length;
-    const label = COHORT_ROLE_LABELS[newGroupRole];
+    const label = groupRoleLabels[newGroupRole];
     if (failed === 0) {
       setFeedback({ open: true, message: `${selectedIds.length} member(s) are now ${label} in this group.`, severity: 'success' });
       setSelectedIds([]);
@@ -489,7 +494,7 @@ export default function GroupDetailsPage() {
       setMembers((prev) => prev.map((m) => (m.id === row.id ? { ...m, cohortRoleCode: row.cohortRoleCode } : m)));
       setFeedback({ open: true, message: firstError || 'The group role could not be changed.', severity: 'error' });
     } else {
-      setFeedback({ open: true, message: `${row.fullName} is now ${COHORT_ROLE_LABELS[code]} in this group.`, severity: 'success' });
+      setFeedback({ open: true, message: `${row.fullName} is now ${groupRoleLabels[code]} in this group.`, severity: 'success' });
       fetchReviewers();
     }
     setSavingRoleIds((prev) => {
@@ -650,7 +655,7 @@ export default function GroupDetailsPage() {
           {/* 3. Own role (Admin, Trainer, DI, ARM ...): never changed from this page */}
           <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.3 }}>
             <Typography sx={{ fontSize: '12.5px', color: '#4B5563' }}>
-              {row.role}
+              {roleLabelFor(tenantRoles, row.role) || row.role}
             </Typography>
           </TableCell>
 
@@ -666,7 +671,7 @@ export default function GroupDetailsPage() {
               >
                 {COHORT_ROLE_OPTIONS.map((code) => (
                   <MenuItem key={code} value={code} sx={{ fontSize: '12.5px' }}>
-                    {COHORT_ROLE_LABELS[code]}
+                    {groupRoleLabels[code]}
                   </MenuItem>
                 ))}
               </Select>
@@ -977,7 +982,7 @@ export default function GroupDetailsPage() {
                     </MenuItem>
                     {COHORT_ROLE_OPTIONS.map((code) => (
                       <MenuItem key={code} value={code} sx={{ fontSize: '12.5px' }}>
-                        {COHORT_ROLE_LABELS[code]}s
+                        {groupRoleLabels[code]}s
                       </MenuItem>
                     ))}
                   </Select>
@@ -999,11 +1004,11 @@ export default function GroupDetailsPage() {
                     }}
                   >
                     <MenuItem value="all" sx={{ fontSize: '12.5px' }}>
-                      All own roles
+                      All organization roles
                     </MenuItem>
-                    {roleOptions.map((roleName) => (
-                      <MenuItem key={roleName} value={roleName} sx={{ fontSize: '12.5px' }}>
-                        {roleName}
+                    {roleOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value} sx={{ fontSize: '12.5px' }}>
+                        {option.label}
                       </MenuItem>
                     ))}
                   </Select>
@@ -1070,7 +1075,7 @@ export default function GroupDetailsPage() {
                         py: 1.2,
                       }}
                     >
-                      OWN ROLE
+                      ORGANIZATION ROLE
                     </TableCell>
                     <TableCell sx={MEMBER_HEAD_CELL_SX}>GROUP ROLE</TableCell>
                     <TableCell
@@ -1195,7 +1200,7 @@ export default function GroupDetailsPage() {
                       {rev.fullName}
                     </Typography>
                     <Typography sx={{ fontSize: '12px', color: '#6B7280' }}>
-                      {[rev.email, rev.role && rev.role !== '-' ? rev.role : null].filter(Boolean).join(' · ')}
+                      {[rev.email, rev.role && rev.role !== '-' ? roleLabelFor(tenantRoles, rev.role) : null].filter(Boolean).join(' · ')}
                     </Typography>
                   </Box>
                 ))}
@@ -1393,7 +1398,7 @@ export default function GroupDetailsPage() {
             >
               {COHORT_ROLE_OPTIONS.map((code) => (
                 <MenuItem key={code} value={code}>
-                  {COHORT_ROLE_LABELS[code]}
+                  {groupRoleLabels[code]}
                 </MenuItem>
               ))}
             </Select>

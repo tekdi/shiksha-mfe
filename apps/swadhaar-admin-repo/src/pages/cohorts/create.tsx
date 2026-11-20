@@ -36,12 +36,12 @@ import SDBVHierarchyFilter, { SDBVFilterValues } from '@/components/common/SDBVH
 import CommonTextField from '@/components/common/CommonTextField';
 import CommonSelect from '@/components/common/CommonSelect';
 import { readUserLocation, resolveLocationLabels, UserLocation } from '@/utils/userLocation';
-import { getTenantRoles, listUsersByRoles } from '@/services/UserService';
+import { getTenantRoles, listUsersByRoles, roleLabelFor, TenantRole, toRoleOptions } from '@/services/UserService';
+import { useGroupRoleLabels } from '@/hooks/useGroupRoleLabels';
 import {
   createCohort,
   enrolCohortMembers,
   BulkMembersResult,
-  COHORT_ROLE_LABELS,
   CohortRoleCode,
   getCohortById,
   getCohortMemberListApplication,
@@ -266,8 +266,14 @@ export default function CreateCohortPage() {
   const [page, setPage] = useState<number>(0);
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [filters, setFilters] = useState<SDBVFilterValues>(ADD_MEMBERS_DEFAULT_FILTERS);
-  const [roleNames, setRoleNames] = useState<string[]>([]);
+  // Roles a member can hold as their own role (Task 8b): Admin + organisation roles, never a group role.
+  // Titles are what the user list filters on; display names are what the admin sees.
+  const [tenantRoles, setTenantRoles] = useState<TenantRole[]>([]);
+  const roleNames = useMemo(() => tenantRoles.map((r) => r.name), [tenantRoles]);
+  const roleOptions = useMemo(() => toRoleOptions(tenantRoles), [tenantRoles]);
   const [rolesLoaded, setRolesLoaded] = useState(false);
+  // Group role names (Learner / Reviewer) from the role API
+  const groupRoleLabels = useGroupRoleLabels();
 
   // Selected members state (userId -> SelectedMember)
   const [selectedMembers, setSelectedMembers] = useState<Map<string, SelectedMember>>(new Map());
@@ -339,11 +345,11 @@ export default function CreateCohortPage() {
     };
   }, [targetCohortId]);
 
-  // Role filter options: titles from the tenant roles API
+  // Role filter options: the tenant roles API (value = title, label = display name)
   useEffect(() => {
     getTenantRoles()
       .then((roles) => {
-        setRoleNames(roles.map((r) => r.name));
+        setTenantRoles(roles);
         setRolesLoaded(true);
       })
       .catch(() => setRolesLoaded(true));
@@ -663,7 +669,7 @@ export default function CreateCohortPage() {
 
           <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
             <Typography sx={{ fontSize: '12.5px', color: '#6B7280' }}>
-              {row.role}
+              {roleLabelFor(tenantRoles, row.role) || row.role}
             </Typography>
           </TableCell>
 
@@ -760,7 +766,7 @@ export default function CreateCohortPage() {
               showSearch={true}
               searchPlaceholder="Search by name"
               showRole={true}
-              roleOptions={roleNames}
+              roleOptions={roleOptions}
               showBranch={true}
               showProgram={true}
               showOrganisationCode={true}
@@ -849,7 +855,7 @@ export default function CreateCohortPage() {
                         borderBottom: '1px solid #E5E7EB',
                       }}
                     >
-                      ROLE
+                      ORGANIZATION ROLE
                     </TableCell>
                     <TableCell
                       sx={{
@@ -1071,7 +1077,7 @@ export default function CreateCohortPage() {
                       onClick={() => handleSetAllRoles(code)}
                       sx={{ textTransform: 'none', fontSize: '12px', py: 0.2, borderRadius: '6px' }}
                     >
-                      {COHORT_ROLE_LABELS[code]}
+                      {groupRoleLabels[code]}
                     </Button>
                   ))}
                 </Box>
@@ -1165,7 +1171,7 @@ export default function CreateCohortPage() {
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          {member.role}
+                          {roleLabelFor(tenantRoles, member.role) || member.role}
                         </Typography>
                       </Tooltip>
                       <FormControl size="small">
@@ -1177,7 +1183,7 @@ export default function CreateCohortPage() {
                         >
                           {COHORT_ROLE_OPTIONS.map((code) => (
                             <MenuItem key={code} value={code} sx={{ fontSize: '12.5px' }}>
-                              {COHORT_ROLE_LABELS[code]}
+                              {groupRoleLabels[code]}
                             </MenuItem>
                           ))}
                         </Select>

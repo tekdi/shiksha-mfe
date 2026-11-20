@@ -29,7 +29,6 @@ export interface CreateUserModalProps {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  availableRoles?: string[];
   initialData?: any;
   isEdit?: boolean;
 }
@@ -293,7 +292,6 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   open,
   onClose,
   onSuccess,
-  availableRoles = [],
   initialData,
   isEdit = false,
 }) => {
@@ -326,7 +324,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     setPrograms(MasterDataService.getPrograms());
   }, []);
 
-  // Roles for the dropdown: names are shown, the role id is the value sent on create
+  // Roles for the dropdown (Task 8b): the API's roles a user can hold (Admin + organisation roles, never a
+  // group role); the display name is shown, the role id is the value sent on create
   useEffect(() => {
     if (open) {
       getTenantRoles()
@@ -339,7 +338,10 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   useEffect(() => {
     if (!formData.role || tenantRoles.length === 0) return;
     if (tenantRoles.some((r) => r.id === formData.role)) return;
-    const match = tenantRoles.find((r) => r.name.toLowerCase() === formData.role.toLowerCase());
+    const current = formData.role.toLowerCase();
+    const match = tenantRoles.find(
+      (r) => r.name.toLowerCase() === current || r.code.toLowerCase() === current || r.label.toLowerCase() === current
+    );
     if (match) setFormData((prev) => ({ ...prev, role: match.id }));
   }, [tenantRoles, formData.role]);
 
@@ -518,7 +520,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   }, [branches, formData.branch]);
 
   const roleOptions = React.useMemo(() => {
-    const options = tenantRoles.map((r) => ({ value: r.id, label: r.name }));
+    const options = tenantRoles.map((r) => ({ value: r.id, label: r.label }));
     const currentName = (formData.role && formData.role !== '-' ? formData.role : '').trim();
     // Edit mode, before the role ids have loaded: keep the user's current role name visible
     if (currentName && !options.some((o) => o.value === currentName)) {
