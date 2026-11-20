@@ -209,10 +209,53 @@ export const deleteCohort = async (
   }
 };
 
+/** Task 16a: a member's role inside one group. Their own role (Admin, Trainer, ...) is never changed by it. */
+export type CohortRoleCode = 'learner' | 'reviewer';
+
+export const COHORT_ROLE_LABELS: Record<CohortRoleCode, string> = {
+  learner: 'Learner',
+  reviewer: 'Reviewer',
+};
+
+/** Largest `members` list POST cohortmember/bulkCreate accepts in one call */
+const BULK_MEMBERS_MAX = 100;
+
+export interface BulkMembersResult {
+  /** Members the server saved */
+  saved: number;
+  /** Messages for members the server could not save */
+  errors: string[];
+}
+
+/**
+ * Task 33: enrols users into a group, each with their group role (POST cohortmember/bulkCreate
+ * with `members`), in calls of at most 100 members. Members already in the group get the role sent.
+ */
+export const enrolCohortMembers = async (
+  cohortId: string,
+  members: Array<{ userId: string; cohortRoleCode: CohortRoleCode }>
+): Promise<BulkMembersResult> => {
+  const result: BulkMembersResult = { saved: 0, errors: [] };
+  for (let i = 0; i < members.length; i += BULK_MEMBERS_MAX) {
+    const chunk = members.slice(i, i + BULK_MEMBERS_MAX);
+    const response = await bulkCreateCohortMembers({ cohortId: [cohortId], members: chunk, status: 'active' });
+    // Partial success comes back as { results, errors }; full success as the saved rows
+    const body = response?.result;
+    const saved = Array.isArray(body) ? body : body?.results;
+    result.saved += Array.isArray(saved) ? saved.length : 0;
+    if (Array.isArray(body?.errors)) result.errors.push(...body.errors.map(String));
+  }
+  return result;
+};
+
 export const bulkCreateCohortMembers = async (
   payload: {
-    userId: string[];
+    userId?: string[];
     cohortId: string[];
+    /** Task 16a: members with their group role; used instead of `userId` */
+    members?: Array<{ userId: string; cohortRoleCode?: CohortRoleCode }>;
+    /** Task 16a: group role for every id in `userId` */
+    cohortRoleCode?: CohortRoleCode;
     role?: string;
     status?: string;
     [key: string]: any;
@@ -229,6 +272,21 @@ export const bulkCreateCohortMembers = async (
     throw error;
   }
 };
+
+/**
+ * Task 18: changes a member's role in one group (PUT cohortmember/update/:membershipId with cohortRoleCode).
+ * The user's own role (Admin, Trainer, DI, ARM) is not touched.
+ */
+export const setCohortMemberRole = async (membershipId: string, cohortRoleCode: CohortRoleCode): Promise<void> => {
+  const response = await updateCohortMember(membershipId, { cohortRoleCode });
+  if (response?.params?.status && response.params.status !== 'successful') {
+    throw new Error(response?.params?.errmsg || 'The group role could not be changed.');
+  }
+};
+
+/** The group role code of a member row from the member lists; old rows without one are learners */
+export const toCohortRoleCode = (value: unknown): CohortRoleCode =>
+  String(value || '').trim().toLowerCase() === 'reviewer' ? 'reviewer' : 'learner';
 
 export const updateCohortMember = async (
   membershipId: string | number,

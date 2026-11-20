@@ -23,6 +23,8 @@ export interface UserGroup {
   cohortId: string;
   name: string;
   role?: string;
+  /** Task 18: the user's role in this group only (learner / reviewer) */
+  cohortRoleCode?: 'learner' | 'reviewer';
   /** Membership of the user in the group, needed to remove them */
   membershipId?: string;
 }
