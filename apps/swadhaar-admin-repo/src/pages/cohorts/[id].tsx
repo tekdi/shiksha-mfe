@@ -62,6 +62,9 @@ export interface MemberRowItem {
   stateDistrict: string;
   branch: string;
   program: string;
+  employeeId: string;
+  organisationCode: string;
+  organisationName: string;
   status: string;
   completionPercentage?: string;
   country?: string;
@@ -76,6 +79,17 @@ const MEMBER_STATUS_STYLES: Record<string, { backgroundColor: string; color: str
   rejected: { backgroundColor: '#FEF2F2', color: '#B91C1C' },
 };
 const DEFAULT_MEMBER_STATUS_STYLE = { backgroundColor: '#F3F4F6', color: '#4B5563' };
+
+const MEMBER_HEAD_CELL_SX = {
+  fontSize: '11px',
+  fontWeight: 700,
+  color: '#6B7280',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  borderBottom: '1px solid #E5E7EB',
+  py: 1.2,
+  whiteSpace: 'nowrap',
+} as const;
 
 const getMemberStatusStyle = (status: string) => MEMBER_STATUS_STYLES[status] ?? DEFAULT_MEMBER_STATUS_STYLE;
 
@@ -177,6 +191,10 @@ const mapMemberToRow = (user: any, index: number): MemberRowItem => {
     stateDistrict: displayLocation,
     branch: location.branch || location.district || country || '-',
     program: location.program || user.form?.title || '-',
+    // Returned by cohortmember/list-application (user service, Task 32); '-' / '' when not set
+    employeeId: trimmedOrEmpty(user.employeeId) || '-',
+    organisationCode: trimmedOrEmpty(user.organisationCode),
+    organisationName: trimmedOrEmpty(user.organisationName),
     status: (user.status || 'applied').toLowerCase(),
     completionPercentage: formCompletion,
     country,
@@ -321,6 +339,9 @@ export default function GroupDetailsPage() {
         m.email.toLowerCase().includes(q) ||
         m.stateDistrict.toLowerCase().includes(q) ||
         m.branch.toLowerCase().includes(q) ||
+        m.employeeId.toLowerCase().includes(q) ||
+        m.organisationCode.toLowerCase().includes(q) ||
+        m.organisationName.toLowerCase().includes(q) ||
         m.role.toLowerCase().includes(q) ||
         m.status.toLowerCase().includes(q)
     );
@@ -459,7 +480,7 @@ export default function GroupDetailsPage() {
     if (loading) {
       return (
         <TableRow>
-          <TableCell colSpan={8} sx={{ textAlign: 'center', py: 6 }}>
+          <TableCell colSpan={10} sx={{ textAlign: 'center', py: 6 }}>
             <CircularProgress size={30} sx={{ color: 'primary.main', mb: 1 }} />
             <Typography sx={{ fontSize: '13px', color: '#6B7280' }}>
               Loading cohort members...
@@ -471,7 +492,7 @@ export default function GroupDetailsPage() {
     if (displayedMembers.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={8} sx={{ textAlign: 'center', py: 6 }}>
+          <TableCell colSpan={10} sx={{ textAlign: 'center', py: 6 }}>
             <Typography sx={{ fontSize: '14px', color: '#6B7280' }}>
               {members.length === 0
                 ? 'No members found for this group.'
@@ -526,6 +547,33 @@ export default function GroupDetailsPage() {
                 {row.fullName}
               </Typography>
             </Box>
+          </TableCell>
+
+          {/* Employee ID */}
+          <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.3 }}>
+            <Typography sx={{ fontSize: '12.5px', color: '#374151', whiteSpace: 'nowrap' }}>
+              {row.employeeId}
+            </Typography>
+          </TableCell>
+
+          {/* Organization: code, with the name below */}
+          <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.3 }}>
+            {row.organisationCode ? (
+              <Tooltip title={row.organisationName || row.organisationCode} placement="top">
+                <Box sx={{ maxWidth: 160 }}>
+                  <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
+                    {row.organisationCode}
+                  </Typography>
+                  {row.organisationName && (
+                    <Typography sx={{ fontSize: '11.5px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {row.organisationName}
+                    </Typography>
+                  )}
+                </Box>
+              </Tooltip>
+            ) : (
+              <Typography sx={{ fontSize: '12.5px', color: '#9CA3AF' }}>-</Typography>
+            )}
           </TableCell>
 
           {/* 2. Email (login ID) */}
@@ -822,7 +870,7 @@ export default function GroupDetailsPage() {
               {/* Search input */}
               <TextField
                 size="medium"
-                placeholder="Search member name, email, location..."
+                placeholder="Search name, email, Employee ID, Organization..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{
@@ -905,6 +953,8 @@ export default function GroupDetailsPage() {
                     >
                       FULL NAME
                     </TableCell>
+                    <TableCell sx={MEMBER_HEAD_CELL_SX}>EMPLOYEE ID</TableCell>
+                    <TableCell sx={MEMBER_HEAD_CELL_SX}>ORGANIZATION</TableCell>
                     <TableCell
                       sx={{
                         fontSize: '11px',

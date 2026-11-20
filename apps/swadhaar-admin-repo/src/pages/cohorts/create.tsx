@@ -55,6 +55,9 @@ export interface UserRow {
   role: string;
   stateDistrict: string;
   branch: string;
+  employeeId: string;
+  organisationCode: string;
+  organisationName: string;
   /** Stored state, district and block option ids */
   location?: UserLocation;
   rawUser?: any;
@@ -79,6 +82,8 @@ const DEFAULT_FILTERS: SDBVFilterValues = {
   village: 'all',
   program: 'all',
   role: 'all',
+  organisationCode: '',
+  employeeId: '',
 };
 
 const DESCRIPTION_MAX_LENGTH = 500;
@@ -87,6 +92,10 @@ const DESCRIPTION_MAX_LENGTH = 500;
 const ADD_MEMBERS_DEFAULT_FILTERS: SDBVFilterValues = { ...DEFAULT_FILTERS };
 
 const isActiveFilter = (value?: string): value is string => Boolean(value) && value !== 'all';
+
+/** Typed filters (name search, Organization Code, Employee ID) wait this long before the list reloads */
+const TEXT_FILTER_DELAY_MS = 400;
+type TextFilters = Pick<SDBVFilterValues, 'search' | 'organisationCode' | 'employeeId'>;
 
 const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPerPage: number) => {
   const filterObj: Record<string, string[]> = {
@@ -97,6 +106,11 @@ const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPer
   if (isActiveFilter(filters.state)) filterObj.states = filters.state as any;
   if (isActiveFilter(filters.district)) filterObj.city = filters.district as any;
   if (isActiveFilter(block)) filterObj.block = block as any;
+  // Organization Code is an exact match, Employee ID a partial one (user service, Task 21)
+  const organisationCode = filters.organisationCode?.trim().toUpperCase();
+  if (organisationCode) filterObj.organisationCode = organisationCode as any;
+  const employeeId = filters.employeeId?.trim();
+  if (employeeId) filterObj.employeeId = employeeId as any;
 
   const payload: Record<string, any> = {
     limit: rowsPerPage,
@@ -130,7 +144,7 @@ const resolveRowLocations = async (rows: UserRow[]): Promise<UserRow[]> => {
       return {
         ...row,
         stateDistrict: [names.state, names.district].filter(Boolean).join(' · ') || '-',
-        branch: names.block || '-',
+        branch: names.branchOther || names.block || '-',
       };
     })
   );
@@ -149,7 +163,10 @@ const mapUserToRow = (u: any, idx: number): UserRow => {
     email: u.email && u.email !== '-' ? u.email : u.username || '-',
     role: u.role || u.tenantData?.[0]?.roleName || 'Student',
     stateDistrict: [location.state, location.district].filter(Boolean).join(' · ') || '-',
-    branch: location.block || '-',
+    branch: location.branchOther || location.block || '-',
+    employeeId: trimmedOrEmpty(u.employeeId) || '-',
+    organisationCode: trimmedOrEmpty(u.organisationCode),
+    organisationName: trimmedOrEmpty(u.organisationName),
     location,
     rawUser: u,
   };
@@ -213,6 +230,16 @@ const enrollMembers = async (cohortId: string, members: SelectedMember[]) => {
     });
   }
 };
+
+const HEAD_CELL_SX = {
+  fontSize: '11px',
+  fontWeight: 700,
+  color: '#6B7280',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+  borderBottom: '1px solid #E5E7EB',
+  whiteSpace: 'nowrap',
+} as const;
 
 const getSubmitIcon = (submitting: boolean, isAddMembersMode: boolean) => {
   if (submitting) return <CircularProgress size={16} color="inherit" />;
@@ -333,10 +360,20 @@ export default function CreateCohortPage() {
   }, []);
 
   // Fetch users from API
+  // Typed filters are debounced so the list does not reload on every key press
+  const [textFilters, setTextFilters] = useState<TextFilters>({ search: '', organisationCode: '', employeeId: '' });
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setTextFilters({ search: filters.search, organisationCode: filters.organisationCode, employeeId: filters.employeeId }),
+      TEXT_FILTER_DELAY_MS
+    );
+    return () => clearTimeout(timer);
+  }, [filters.search, filters.organisationCode, filters.employeeId]);
+
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
-      const payload = buildUserSearchPayload(filters, page, rowsPerPage);
+      const payload = buildUserSearchPayload({ ...filters, ...textFilters }, page, rowsPerPage);
 
       // A chosen role is one list call; "All roles" lists every tenant role
       const roleTitles = isActiveFilter(filters.role) ? [filters.role] : roleNames;
@@ -358,7 +395,8 @@ export default function CreateCohortPage() {
     } finally {
       setLoadingUsers(false);
     }
-  }, [rowsPerPage, page, filters, roleNames]);
+    // The typed filters (search, Organization Code, Employee ID) come from textFilters, so filters.search etc. are not deps
+  }, [rowsPerPage, page, filters.status, filters.state, filters.district, filters.block, filters.branch, filters.role, textFilters, roleNames]);
 
   useEffect(() => {
     // Wait for the role titles: "All roles" is built from them
@@ -510,7 +548,7 @@ export default function CreateCohortPage() {
     if (loadingUsers) {
       return (
         <TableRow>
-          <TableCell colSpan={6} sx={{ textAlign: 'center', py: 6 }}>
+          <TableCell colSpan={8} sx={{ textAlign: 'center', py: 6 }}>
             <CircularProgress size={28} sx={{ color: 'primary.main', mb: 1 }} />
             <Typography sx={{ fontSize: '13px', color: '#6B7280' }}>
               Loading users directory...
@@ -522,7 +560,7 @@ export default function CreateCohortPage() {
     if (users.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={6} sx={{ textAlign: 'center', py: 6 }}>
+          <TableCell colSpan={8} sx={{ textAlign: 'center', py: 6 }}>
             <Typography sx={{ fontSize: '13.5px', color: '#6B7280' }}>
               No users found matching the filter criteria.
             </Typography>
@@ -572,6 +610,31 @@ export default function CreateCohortPage() {
             >
               {row.name}
             </Typography>
+          </TableCell>
+
+          <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+            <Typography sx={{ fontSize: '12.5px', color: '#4B5563', whiteSpace: 'nowrap' }}>
+              {row.employeeId}
+            </Typography>
+          </TableCell>
+
+          <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+            {row.organisationCode ? (
+              <Tooltip title={row.organisationName || row.organisationCode} placement="top">
+                <Box sx={{ maxWidth: 160 }}>
+                  <Typography sx={{ fontSize: '12.5px', fontWeight: 600, color: '#374151', whiteSpace: 'nowrap' }}>
+                    {row.organisationCode}
+                  </Typography>
+                  {row.organisationName && (
+                    <Typography sx={{ fontSize: '11.5px', color: '#6B7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {row.organisationName}
+                    </Typography>
+                  )}
+                </Box>
+              </Tooltip>
+            ) : (
+              <Typography sx={{ fontSize: '12.5px', color: '#6B7280' }}>-</Typography>
+            )}
           </TableCell>
 
           <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
@@ -691,6 +754,8 @@ export default function CreateCohortPage() {
               roleOptions={roleNames}
               showBranch={true}
               showProgram={true}
+              showOrganisationCode={true}
+              showEmployeeId={true}
               onClear={() => {
                 setFilters(ADD_MEMBERS_DEFAULT_FILTERS);
                 setPage(0);
@@ -751,6 +816,8 @@ export default function CreateCohortPage() {
                     >
                       FULL NAME
                     </TableCell>
+                    <TableCell sx={HEAD_CELL_SX}>EMPLOYEE ID</TableCell>
+                    <TableCell sx={HEAD_CELL_SX}>ORGANIZATION</TableCell>
                     <TableCell
                       sx={{
                         fontSize: '11px',

@@ -47,6 +47,8 @@ interface FormState {
   state: string;
   district: string;
   branch: string;
+  /** Branch typed in when BRANCH_OTHER is picked in the Branch dropdown */
+  branchOther: string;
   program: string;
   role: string;
 }
@@ -65,6 +67,9 @@ const EMPLOYEE_ID_MAX = 50;
 const ORGANISATION_CODE_MAX = 30;
 const ORGANISATION_NAME_MAX = 150;
 const ORG_LOOKUP_DELAY_MS = 400;
+/** Branch dropdown option that shows a text box for a branch that is not in the list (Task 29) */
+const BRANCH_OTHER = '__other__';
+const BRANCH_OTHER_MAX = 150;
 
 const GENDER_OPTIONS: { value: string; labelKey: string }[] = [
   { value: GENDER_NOT_SELECTED, labelKey: 'COMMON.SELECT' },
@@ -86,6 +91,7 @@ const initialFormState: FormState = {
   state: '',
   district: '',
   branch: '',
+  branchOther: '',
   program: '',
   role: '',
 };
@@ -126,6 +132,7 @@ const hasLabelOrName = (cf: any, names: string[]): boolean =>
 /** Builds the form state from a row of the users list (initial prefill). */
 const formStateFromInitialData = (initialData: any): FormState => {
   const rawUsername = toStr(initialData.username);
+  const branchOther = toStr(initialData.branchOther).trim();
   return {
     fullName: toStr(initialData.fullName || initialData.name),
     username: rawUsername,
@@ -138,7 +145,8 @@ const formStateFromInitialData = (initialData: any): FormState => {
     gender: formatGender(initialData.gender),
     state: toStr(initialData.state),
     district: toStr(initialData.district),
-    branch: cleanPlaceholder(initialData.branch, '[Branch]'),
+    branch: branchOther ? BRANCH_OTHER : cleanPlaceholder(initialData.branch, '[Branch]'),
+    branchOther,
     program: cleanPlaceholder(initialData.program, '[Program]'),
     role: cleanPlaceholder(initialData.role, '-'),
   };
@@ -167,6 +175,11 @@ const mergeServerUserIntoForm = (prev: FormState, user: any): FormState => {
     customFields,
     (cf) => cf.fieldId === SWADHAAR_FIELD_IDS.BRANCH || hasLabelOrName(cf, ['branch', 'block'])
   );
+  // A stored "Other" branch wins over a dropdown branch left from before
+  const branchOtherVal = findCustomFieldValue(
+    customFields,
+    (cf) => cf.fieldId === SWADHAAR_FIELD_IDS.BRANCH_OTHER || hasLabelOrName(cf, ['branch_other'])
+  );
 
   return {
     fullName: computedName || prev.fullName,
@@ -180,7 +193,8 @@ const mergeServerUserIntoForm = (prev: FormState, user: any): FormState => {
     gender: computedGender === GENDER_NOT_SELECTED ? prev.gender : computedGender,
     state: stateVal || prev.state,
     district: districtVal || prev.district,
-    branch: branchVal || prev.branch,
+    branch: branchOtherVal ? BRANCH_OTHER : branchVal || prev.branch,
+    branchOther: branchOtherVal || prev.branchOther,
     program: toStr(user.program) || prev.program,
     role: computedRole && computedRole !== '-' ? computedRole : prev.role,
   };
@@ -291,6 +305,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const originalRoleRef = useRef('');
   // Employee ID / Organization values the user had when the dialog opened; unchanged ones are not sent on edit
   const originalOrgRef = useRef<Record<OrganisationKey, string>>({ employeeId: '', organisationCode: '', organisationName: '' });
+  // "Other" branch stored when the dialog opened; switching away from it sends '' so the server drops it
+  const originalBranchOtherRef = useRef('');
   // Organization Code lookup: 'found' = the code exists, so its stored name is shown and locked
   const [orgLookup, setOrgLookup] = useState<'idle' | 'loading' | 'found' | 'new'>('idle');
   // The name the lookup filled in, so it can be cleared again when the admin switches to a new code
@@ -379,6 +395,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     autoFilledNameRef.current = '';
     if (!(initialData && isEdit)) {
       originalOrgRef.current = { employeeId: '', organisationCode: '', organisationName: '' };
+      originalBranchOtherRef.current = '';
       setFormData(initialFormState);
       return;
     }
@@ -390,6 +407,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       organisationCode: initialForm.organisationCode,
       organisationName: initialForm.organisationName,
     };
+    originalBranchOtherRef.current = initialForm.branchOther;
     setFormData(initialForm);
 
     // Call getUserDetailsInfo to fetch complete profile data from server
@@ -407,6 +425,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
             ORGANISATION_KEYS.forEach((key) => {
               if (prev[key] === originalOrgRef.current[key]) originalOrgRef.current[key] = merged[key];
             });
+            if (prev.branchOther === originalBranchOtherRef.current) originalBranchOtherRef.current = merged.branchOther;
             return merged;
           });
         }
@@ -486,7 +505,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
 
   // Match branch label or value with branches list once loaded
   useEffect(() => {
-    if (branches.length > 0 && formData.branch) {
+    if (branches.length > 0 && formData.branch && formData.branch !== BRANCH_OTHER) {
       const match = branches.find(
         (b) =>
           b.value === formData.branch ||
@@ -542,6 +561,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const orgCodeIsKnown = orgLookup === 'found';
   const orgFieldErrors = validateOrganisationFields(formData, orgCodeIsKnown);
   const orgLookupPending = Boolean(formData.organisationCode.trim()) && orgLookup === 'loading';
+  const branchOtherMissing = formData.branch === BRANCH_OTHER && !formData.branchOther.trim();
 
   // Create and edit need every mandatory field filled and valid before the button enables
   // (the username is fixed when editing, so it is not checked there)
@@ -554,7 +574,8 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     Boolean(formData.role) &&
     !(formData.password && formData.password.length < 8) &&
     Object.keys(orgFieldErrors).length === 0 &&
-    !orgLookupPending;
+    !orgLookupPending &&
+    !branchOtherMissing;
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
@@ -578,6 +599,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         !isEdit && password && password.length < 8
           ? 'USERS.FORM.ERROR_PASSWORD_MIN'
           : undefined,
+      branchOther: branchOtherMissing ? 'USERS.FORM.ERROR_BRANCH_OTHER_REQUIRED' : undefined,
       ...orgFieldErrors,
     };
     (Object.keys(fieldErrors) as (keyof FormState)[]).forEach((key) => {
@@ -610,6 +632,18 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       organisationCode: codeChanged ? formData.organisationCode : undefined,
       organisationName: codeChanged || changed('organisationName') ? formData.organisationName : undefined,
     };
+  };
+
+  /**
+   * Branch for the request: a picked branch goes in `branch`, an "Other" branch in `branchOther`. Edit sends
+   * branchOther '' when a stored "Other" branch is replaced, so the server clears it.
+   */
+  const branchInput = (): Pick<UserInputFields, 'branch' | 'branchOther'> => {
+    if (formData.branch === BRANCH_OTHER) {
+      return { branch: '', branchOther: formData.branchOther.trim() };
+    }
+    const clearOther = isEdit && Boolean(originalBranchOtherRef.current.trim());
+    return { branch: formData.branch, branchOther: clearOther ? '' : undefined };
   };
 
   /** Shows an Employee ID / Organization error from the server under its field; false for other errors */
@@ -679,7 +713,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         roleName: tenantRoles.find((r) => r.id === formData.role)?.name,
         state: formData.state,
         district: formData.district,
-        branch: formData.branch,
+        ...branchInput(),
         program: formData.program,
       };
 
@@ -931,9 +965,27 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 placeholder={branchPlaceholder}
                 disabled={!formData.district}
                 onChange={(value) => handleChange('branch', value)}
-                options={branches.map((b) => ({ value: b.value, label: b.label }))}
+                options={[
+                  ...branches.map((b) => ({ value: b.value, label: b.label })),
+                  { value: BRANCH_OTHER, label: t('USERS.FORM.BRANCH_OTHER_OPTION') },
+                ]}
               />
             </Grid>
+
+            {/* Branch name typed in when "Other" is picked */}
+            {formData.branch === BRANCH_OTHER && (
+              <Grid item xs={12} sm={6}>
+                <CommonTextField
+                  label={t('USERS.FORM.BRANCH_OTHER')}
+                  required
+                  value={formData.branchOther}
+                  placeholder={t('USERS.FORM.BRANCH_OTHER_PLACEHOLDER')}
+                  onChange={(e) => handleChange('branchOther', e.target.value.slice(0, BRANCH_OTHER_MAX))}
+                  error={Boolean(errors.branchOther)}
+                  helperText={errorText('branchOther')}
+                />
+              </Grid>
+            )}
           </Grid>
         </Box>
 
