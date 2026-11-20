@@ -7,6 +7,8 @@ export const SWADHAAR_FIELD_IDS = {
   STATE: 'b61edfc6-3787-4079-86d3-37262bf23a9e',
   DISTRICT: '4aab68ae-8382-43aa-a45a-e9b239319857',
   BRANCH: '87d95cea-942b-4f8a-87d1-ee346b06b53c',
+  // Free-text "Other" branch (sql/021_branch_other_field.up.sql in the user service); used instead of BRANCH
+  BRANCH_OTHER: '7ff04020-7805-4be0-b49f-f88281a92448',
 } as const;
 
 // Swadhaar tenant roles (POST /user/v1/rbac/roles/list/roles returns Admin, Trainer and ARM). Used for bulk upload
@@ -73,10 +75,16 @@ export interface UserInputFields {
   state?: string;
   district?: string;
   branch?: string;
+  /**
+   * Branch typed in when "Other" is picked (Task 28/29). Sent instead of `branch`. On update, leave it
+   * undefined to keep the stored value; an empty string clears it.
+   */
+  branchOther?: string;
   program?: string;
 }
 
-type CustomFieldValue = { fieldId: string; value: string[] };
+// A drop_down field takes an array of option values; a text field (branch_other) takes a string
+type CustomFieldValue = { fieldId: string; value: string[] | string };
 
 type OrganisationFields = Pick<UserInputFields, 'employeeId' | 'organisationCode' | 'organisationName'>;
 const ORGANISATION_KEYS = ['employeeId', 'organisationCode', 'organisationName'] as const;
@@ -116,15 +124,24 @@ const splitFullName = (fullName: string) => {
   return { nameTrimmed, firstName, middleName: '', lastName: firstName };
 };
 
-const buildLocationCustomFields = (input: UserInputFields): CustomFieldValue[] => {
+/**
+ * State, district and branch custom fields. An "Other" branch goes in the text field branch_other
+ * instead of the branch dropdown. Update also sends a cleared "Other" branch ('') so the stored one is removed.
+ */
+const buildLocationCustomFields = (input: UserInputFields, sendCleared = false): CustomFieldValue[] => {
+  const branchOther = input.branchOther?.trim() || '';
   const locationFields: Array<[string, string | undefined]> = [
     [SWADHAAR_FIELD_IDS.STATE, input.state],
     [SWADHAAR_FIELD_IDS.DISTRICT, input.district],
-    [SWADHAAR_FIELD_IDS.BRANCH, input.branch],
+    [SWADHAAR_FIELD_IDS.BRANCH, branchOther ? undefined : input.branch],
   ];
-  return locationFields
+  const fields: CustomFieldValue[] = locationFields
     .filter(([, value]) => value && value !== 'all')
     .map(([fieldId, value]) => ({ fieldId, value: [String(value)] }));
+  if (branchOther || (sendCleared && input.branchOther !== undefined)) {
+    fields.push({ fieldId: SWADHAAR_FIELD_IDS.BRANCH_OTHER, value: branchOther });
+  }
+  return fields;
 };
 
 export const buildCreateUserPayload = (
@@ -209,7 +226,7 @@ export const buildUpdateUserPayload = (input: UserInputFields): UpdateUserPayloa
     userData.gender = gender;
   }
 
-  const customFields = buildLocationCustomFields(input);
+  const customFields = buildLocationCustomFields(input, true);
 
   const updatePayload: UpdateUserPayload = {
     userData,

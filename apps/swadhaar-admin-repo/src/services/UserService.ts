@@ -86,9 +86,10 @@ export interface CreateUserPayload {
     tenantId: string;
     roleId: string;
   }>;
+  /** A drop_down field takes option values (string[]); a text field such as branch_other takes a string */
   customFields?: Array<{
     fieldId: string;
-    value: string[];
+    value: string[] | string;
   }>;
 }
 
@@ -146,9 +147,10 @@ export interface UpdateUserPayload {
     status?: string;
     [key: string]: any;
   };
+  /** A drop_down field takes option values (string[]); a text field such as branch_other takes a string */
   customFields?: Array<{
     fieldId: string;
-    value: string[];
+    value: string[] | string;
   }>;
 }
 

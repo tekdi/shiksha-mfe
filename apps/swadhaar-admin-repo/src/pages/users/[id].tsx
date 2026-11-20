@@ -58,6 +58,7 @@ const EMPTY_PARSED_USER = {
   stateValue: '',
   districtValue: '',
   blockValue: '',
+  branchOther: '',
   program: '-',
   role: '-',
   status: 'active',
@@ -143,6 +144,7 @@ const parseUserDetails = (userData: any) => {
     stateValue: stored.state,
     districtValue: stored.district,
     blockValue: stored.block,
+    branchOther: stored.branchOther || '',
     fullName,
     initials: getInitials(fn, ln, userData.username),
     email: userData.email || userData.username || '-',
@@ -154,7 +156,8 @@ const parseUserDetails = (userData: any) => {
     gender,
     state: stored.state || location.state || userData.currentCountry || userData.country || '-',
     district: stored.district || location.district || '-',
-    branch: stored.block || location.branch || '-',
+    // An "Other" branch is typed text, so it is shown as is and wins over a dropdown branch left from before
+    branch: stored.branchOther || stored.block || location.branch || '-',
     program: location.program || role,
     role,
     status: (userData.status || 'active').toLowerCase(),
@@ -178,6 +181,7 @@ const toEditInitialData = (userId: string, parsedUser: typeof EMPTY_PARSED_USER)
   state: parsedUser.stateValue || dashToEmpty(parsedUser.state),
   district: parsedUser.districtValue || dashToEmpty(parsedUser.district),
   branch: parsedUser.blockValue || dashToEmpty(parsedUser.branch),
+  branchOther: parsedUser.branchOther,
   program: dashToEmpty(parsedUser.program),
   status: parsedUser.status,
 });
@@ -334,10 +338,11 @@ export default function UserDetailsPage() {
   const [locationNames, setLocationNames] = useState<UserLocation | null>(null);
   useEffect(() => {
     setLocationNames(null);
-    const { stateValue, districtValue, blockValue } = baseParsedUser;
+    const { stateValue, districtValue, blockValue, branchOther } = baseParsedUser;
     if (!stateValue) return;
     let cancelled = false;
-    resolveLocationLabels({ state: stateValue, district: districtValue, block: blockValue })
+    // An "Other" branch needs no lookup; an empty block keeps it as the shown branch
+    resolveLocationLabels({ state: stateValue, district: districtValue, block: branchOther ? '' : blockValue })
       .then((names) => { if (!cancelled) setLocationNames(names); })
       .catch((e) => console.error('Failed to resolve location names:', e));
     return () => { cancelled = true; };

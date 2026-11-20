@@ -25,6 +25,8 @@ export interface SDBVFilterValues {
   role?: string;
   /** Organization Code typed by the admin (exact match, sent upper-cased to /user/v1/list) */
   organisationCode?: string;
+  /** Employee ID typed by the admin (partial, case-insensitive match in /user/v1/list) */
+  employeeId?: string;
 }
 
 export interface OptionItem {
@@ -47,6 +49,8 @@ export interface SDBVHierarchyFilterProps {
    showLocation?: boolean;
   /** Shows an Organization Code text filter in the second row (two-row search layout only) */
   showOrganisationCode?: boolean;
+  /** Shows an Employee ID text filter in the second row (two-row search layout only) */
+  showEmployeeId?: boolean;
   onClear?: () => void;
 }
 
@@ -71,6 +75,7 @@ const hasAnyActiveFilter = (values: SDBVFilterValues): boolean => {
     values.program,
     values.search,
     values.organisationCode,
+    values.employeeId,
   ];
   return textFilters.some(Boolean) || hasSelection(values.status) || hasSelection(values.role);
 };
@@ -89,6 +94,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
   roleOptions = [],
   showLocation = true,
   showOrganisationCode = false,
+  showEmployeeId = false,
   onClear,
 }) => {
   const [states, setStates] = useState<LocationOption[]>([]);
@@ -185,6 +191,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
       status: 'all',
       role: 'all',
       organisationCode: '',
+      employeeId: '',
     });
     if (onClear) onClear();
   };
@@ -384,6 +391,23 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
                 value={values.organisationCode || ''}
                 onChange={(e) => onChange({ ...values, organisationCode: e.target.value.toUpperCase() })}
                 inputProps={{ maxLength: 30 }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' } }}
+              />
+            </Grid>
+          )}
+
+          {showEmployeeId && (
+            <Grid item xs={12} sm={6} md={3}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: '#374151', mb: 0.6, display: 'block' }}>
+                Employee ID
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="e.g. EMP001"
+                value={values.employeeId || ''}
+                onChange={(e) => onChange({ ...values, employeeId: e.target.value })}
+                inputProps={{ maxLength: 50 }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: '6px', backgroundColor: '#FFFFFF', fontSize: '13px' } }}
               />
             </Grid>

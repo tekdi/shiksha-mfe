@@ -5,6 +5,8 @@ export interface UserLocation {
   state: string;
   district: string;
   block: string;
+  /** Branch typed in under "Other" (text field branch_other); shown instead of `block` when set */
+  branchOther?: string;
 }
 
 const lower = (v: unknown): string => (typeof v === 'string' || typeof v === 'number' ? String(v) : '').trim().toLowerCase();
@@ -35,6 +37,7 @@ export const readUserLocation = (userData: any): UserLocation => {
     state: pick(SWADHAAR_FIELD_IDS.STATE, ['state', 'states']) || String(userData?.state ?? ''),
     district: pick(SWADHAAR_FIELD_IDS.DISTRICT, ['city', 'district']) || String(userData?.district ?? userData?.city ?? ''),
     block: pick(SWADHAAR_FIELD_IDS.BRANCH, ['block', 'branch']) || String(userData?.block ?? userData?.branch ?? ''),
+    branchOther: pick(SWADHAAR_FIELD_IDS.BRANCH_OTHER, ['branch_other']),
   };
 };
 
