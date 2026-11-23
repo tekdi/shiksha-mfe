@@ -32,6 +32,9 @@ import {
   CourseSearchParams,
   CourseTabCounts,
   fetchCourseTabCounts,
+    COURSE_LANGUAGE_OPTIONS,
+  CourseLanguageCode,
+  courseLanguageLabelKey,
 } from '@/services/CourseService';
 
 type StatusTab = 'all' | 'published' | 'draft';
@@ -44,8 +47,7 @@ const STATUS_TABS: { value: StatusTab; labelKey: string }[] = [
 
 const LANGUAGE_FILTER_OPTIONS = [
   { value: 'all', labelKey: 'COURSES.LIST.ALL_LANGUAGES' },
-  { value: 'english', labelKey: 'COURSES.LANGUAGE_ENGLISH' },
-  { value: 'hindi', labelKey: 'COURSES.LANGUAGE_HINDI' },
+   ...COURSE_LANGUAGE_OPTIONS.map((o) => ({ value: o.code, labelKey: o.labelKey })),
 ];
 
 const COUNT_CHIP_SX = {
@@ -118,12 +120,12 @@ export default function CoursesPage() {
 
   // Fetch tab counts for All, Published, and Drafts
   useEffect(() => {
-    fetchCourseTabCounts(debouncedSearch)
+    fetchCourseTabCounts(debouncedSearch, languageFilter === 'all' ? undefined : [languageFilter as CourseLanguageCode])
       .then((counts) => {
         setTabCounts(counts);
       })
       .catch((err) => console.error('Failed to load course counts:', err));
-  }, [debouncedSearch]);
+  }, [debouncedSearch, languageFilter]);
 
   // Fetch courses from LMS search API
   const fetchCourses = useCallback(async () => {
@@ -143,17 +145,11 @@ export default function CoursesPage() {
         limit: rowsPerPage,
         offset: page * rowsPerPage,
         status: statusParam,
+        language: languageFilter === 'all' ? undefined : [languageFilter as CourseLanguageCode],
       };
 
       const response = await getCourseList(params);
-      let content = response.content || [];
-
-      // Filter by language client-side if selected
-      if (languageFilter !== 'all') {
-        content = content.filter(
-          (c) => c.detectedLanguage?.toLowerCase() === languageFilter.toLowerCase()
-        );
-      }
+     const content = response.content || [];
 
       setCourses(content);
       const activeCount = response.count ?? content.length;
@@ -267,20 +263,33 @@ export default function CoursesPage() {
         label: t('COMMON.LANGUAGE'),
         labelKey: 'COMMON.LANGUAGE',
         minWidth: 110,
-        render: (row) => (
-          <Chip
-            label={row.detectedLanguage || t('COURSES.LANGUAGE_ENGLISH')}
-            size="small"
-            sx={{
-              fontWeight: 500,
-              fontSize: '11px',
-              backgroundColor: '#F3F4F6',
-              color: '#374151',
-              borderRadius: '4px',
-              height: 22,
-            }}
-          />
-        ),
+          render: (row) => {
+          // Other languages this course has a version in (Task 35)
+          const others = (row.availableLanguages || []).filter((code) => code !== row.languageCode);
+          return (
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
+              <Chip
+                label={t(courseLanguageLabelKey(row.languageCode))}
+                size="small"
+                sx={{
+                  fontWeight: 500,
+                  fontSize: '11px',
+                  backgroundColor: '#F3F4F6',
+                  color: '#374151',
+                  borderRadius: '4px',
+                  height: 22,
+                }}
+              />
+              {others.length > 0 && (
+                <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
+                  {t('COURSES.LIST.ALSO_IN', {
+                    languages: others.map((code) => t(courseLanguageLabelKey(code))).join(', '),
+                  })}
+                </Typography>
+              )}
+            </Box>
+          );
+        },
       },
       {
         id: 'status',

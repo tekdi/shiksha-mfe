@@ -1038,7 +1038,8 @@
       "FOOTER_NOTE": "Showing courses and training tracks configured for Swadhaar.",
       "OPEN_STRUCTURE": "Open Structure",
       "EMPTY": "No courses found matching your criteria.",
-      "FETCH_ERROR": "Failed to load courses. Please try again."
+       "FETCH_ERROR": "Failed to load courses. Please try again.",
+      "ALSO_IN": "Also in {{languages}}"
     },
     "CREATE": {
       "TITLE": "Create Course",

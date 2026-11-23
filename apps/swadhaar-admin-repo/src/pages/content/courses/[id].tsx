@@ -37,7 +37,9 @@ import {
   deleteLmsLesson,
   updateModule,
   updateLmsLesson,
+  courseLanguageLabelKey,
 } from '@/services/CourseService';
+import CourseVersionsCard from '@/components/content/CourseVersionsCard';
 import { getCoursePathway } from '@/services/PathwayService';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
@@ -467,7 +469,7 @@ export default function CourseDetailsPage() {
     Array.isArray(course?.audience)
       ? course.audience.join(', ')
       : course?.audience || t('COURSES.DETAIL.DEFAULT_AUDIENCE');
-  const languageText = course?.detectedLanguage || (course?.language ? course.language[0] : t('COURSES.LANGUAGE_ENGLISH'));
+  const languageText = t(courseLanguageLabelKey(course?.languageCode));
   const totalLessons = sections.reduce((acc, s) => acc + (s.children?.length || 0), 0);
 
   const formatMinutes = (minutes?: number | null) =>
@@ -1027,6 +1029,17 @@ export default function CourseDetailsPage() {
               </Box>
             </Paper>
 
+            {/* Task 36: English / Hindi / Marathi versions of this course */}
+            {courseId && !courseId.startsWith('new') && (
+              <CourseVersionsCard
+                courseId={courseId}
+                courseTitle={course?.title || ''}
+                onMessage={(severity, message) => {
+                  setToastSeverity(severity);
+                  setToastMessage(message);
+                }}
+              />
+            )}
             {/* Used in learning paths Card */}
             <Paper elevation={0} sx={CARD_SX}>
               <Box sx={{ p: '14px 20px', borderBottom: `1px solid ${NEUTRAL.divider}` }}>
