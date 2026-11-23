@@ -1038,7 +1038,7 @@
       "FOOTER_NOTE": "Showing courses and training tracks configured for Swadhaar.",
       "OPEN_STRUCTURE": "Open Structure",
       "EMPTY": "No courses found matching your criteria.",
-       "FETCH_ERROR": "Failed to load courses. Please try again.",
+      "FETCH_ERROR": "Failed to load courses. Please try again.",
       "ALSO_IN": "Also in {{languages}}"
     },
     "CREATE": {
@@ -1123,7 +1123,15 @@
       "TOTAL_LESSONS": "Total Lessons",
       "TRANSITION": "Course Transition",
       "TRANSITION_INFO": "Next steps after completing this course",
-      "USED_IN_LEARNING_PATHS": "Used in Learning Paths"
+      "USED_IN_LEARNING_PATHS": "Used in Learning Paths",
+      "DELETE_LESSON_CONFIRM": "Delete the lesson \"{{name}}\"? This cannot be undone.",
+      "LESSON_DELETED": "Lesson deleted",
+      "MOVE_LESSON_DOWN": "Move lesson down",
+      "MOVE_LESSON_UP": "Move lesson up",
+      "ORDER_SAVED": "Order saved",
+      "ORDER_SAVE_ERROR": "Could not save the new order",
+      "SAVED": "Saved",
+      "SAVE_ERROR": "Could not save"
     },
     "EDITOR": {
       "BOLD": "Bold",
@@ -1131,6 +1139,31 @@
       "UNDERLINE": "Underline",
       "BULLETED_LIST": "Bulleted List",
       "INSERT_LINK": "Insert Link"
+    },
+    "VERSIONS": {
+      "TITLE": "Language versions",
+      "SUBTITLE": "The same course in other languages",
+      "THIS_COURSE": "This course",
+      "LOAD_FAILED": "Could not load the language versions.",
+      "UNLINK": "Unlink",
+      "UNLINK_TITLE": "Unlink version",
+      "UNLINK_BODY": "Unlink \"{{title}}\" from this course? The course is not deleted.",
+      "UNLINKED": "\"{{title}}\" was unlinked.",
+      "UNLINK_FAILED": "Could not unlink the version. {{reason}}",
+      "CREATE": "Create {{language}} version",
+      "CREATE_CONFIRM": "Create",
+      "CREATE_NOTE": "Creates a new {{language}} course that is linked to this one.",
+      "CREATED": "{{language}} version created.",
+      "CREATE_FAILED": "Could not create the version. {{reason}}",
+      "VERSION_TITLE": "Course title",
+      "LINK_EXISTING": "Link existing course",
+      "LINK_TITLE": "Link a {{language}} course",
+      "LINK_NOTE": "Pick an existing {{language}} course to link as a version of this course.",
+      "LINK_CONFIRM": "Link",
+      "LINKED": "{{language}} course linked.",
+      "LINK_FAILED": "Could not link the course. {{reason}}",
+      "NO_COURSES": "No courses found",
+      "PICK_COURSE": "Search for a course"
     }
   },
   "CONTENT": {
@@ -1267,7 +1300,8 @@
       "TRY_AGAIN": "Try Again",
       "SUBMIT_ASSESSMENT": "Submit Assessment",
       "FOOTER_NOTE": "In-app content viewer powered natively by Swadhaar Admin.",
-      "SUBTITLE_TEXT": "Text lesson preview"
+      "SUBTITLE_TEXT": "Text lesson preview",
+      "NO_QUESTIONS": "This assessment has no questions yet."
     }
   },
   "USERS": {
