@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { displayLastName } from '@/utils/userName';
 import { getTenantRoles, roleLabelFor, TenantRole, toRoleOptions } from '@/services/UserService';
 import { useGroupRoleLabels } from '@/hooks/useGroupRoleLabels';
 import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
@@ -168,7 +169,7 @@ const fillMemberLocation = (initial: MemberLocation, customFields: any[]): Membe
 const mapMemberToRow = (user: any, index: number): MemberRowItem => {
   const userId = user.userId || user.id || `member-${index}`;
   const uUsername = trimmedOrEmpty(user.username);
-  const nameParts = [user.firstName, user.middleName, user.lastName].map(trimmedOrEmpty);
+  const nameParts = [user.firstName, user.middleName, displayLastName(user.firstName, user.middleName, user.lastName)].map(trimmedOrEmpty);
   const fullName = nameParts.filter(Boolean).join(' ') || user.name || uUsername || '-';
   const email = user.email && user.email !== '-' ? String(user.email).trim() : uUsername || '-';
 

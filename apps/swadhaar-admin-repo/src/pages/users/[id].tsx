@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { displayLastName } from '@/utils/userName';
 import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import {
@@ -137,7 +138,7 @@ const parseUserDetails = (userData: any) => {
 
   const fn = trimmedOrEmpty(userData.firstName);
   const mn = trimmedOrEmpty(userData.middleName);
-  const ln = trimmedOrEmpty(userData.lastName);
+  const ln = displayLastName(fn, mn, trimmedOrEmpty(userData.lastName));
   const fullName = [fn, mn, ln].filter(Boolean).join(' ') || userData.name || userData.username || '-';
   const role = userData.role || userData.tenantData?.[0]?.roleName || '-';
   const gender = userData.gender ? userData.gender.charAt(0).toUpperCase() + userData.gender.slice(1) : '-';

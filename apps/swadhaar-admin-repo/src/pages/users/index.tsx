@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/router';
 import { Box, Typography, Chip, IconButton, Menu, MenuItem, Tooltip, Snackbar, Alert } from '@mui/material';
 import PersonAddAlt1Icon from '@mui/icons-material/PersonAddAlt1';
@@ -7,6 +7,8 @@ import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
 import { useTranslation } from 'next-i18next';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
+import { joinUserName } from '@/utils/userName';
+import { readUserLocation } from '@/utils/userLocation';
 import SDBVHierarchyFilter, { SDBVFilterValues } from '@/components/common/SDBVHierarchyFilter';
 import SwadhaarDataTable, { ColumnDef } from '@/components/common/SwadhaarDataTable';
 import CreateUserModal from '@/components/common/CreateUserModal';
@@ -137,7 +139,7 @@ const mapUserRow = (u: any, idx: number): UserRowItem => {
   const ln = toStr(u.lastName);
   const mn = toStr(u.middleName);
   const uUsername = toStr(u.username);
-  const name = toStr(u.name) || [fn, mn, ln].filter(Boolean).join(' ') || uUsername || '-';
+  const name = joinUserName(fn, mn, ln) || toStr(u.name) || uUsername || '-';
   const email = u.email && u.email !== '-' ? toStr(u.email) : uUsername || '-';
   const actualRole = toStr(u.role || u.tenantData?.[0]?.roleName) || NO_ROLE;
 
@@ -155,6 +157,7 @@ const mapUserRow = (u: any, idx: number): UserRowItem => {
   let userState = toStr(u.state);
   let userDistrict = toStr(u.district || u.city);
   let userBranch = toStr(u.branch || u.block);
+  const branchOther = readUserLocation(u).branchOther;
   let userProgram = toStr(u.program);
 
   if (Array.isArray(u.customFields)) {
@@ -189,7 +192,8 @@ const mapUserRow = (u: any, idx: number): UserRowItem => {
     gender: u.gender || '',
     state: userState,
     district: userDistrict,
-    branch: userBranch && userBranch !== '[Branch]' ? userBranch : '-',
+    // A branch typed in under "Other" is shown instead of the dropdown branch
+    branch: branchOther || (userBranch && userBranch !== '[Branch]' ? userBranch : '-'),
     program: userProgram && userProgram !== '[Program]' ? userProgram : '-',
     stateDistrict,
     status: u.status || 'Active',
@@ -338,7 +342,10 @@ export default function UsersPage() {
 
   const [orgCodeOptions, setOrgCodeOptions] = useState<string[]>([]);
 
+  const latestRequest = useRef(0);
   const fetchUsers = useCallback(async () => {
+    // Only the newest request may update the list, so a slower earlier response cannot overwrite it
+    const requestId = ++latestRequest.current;
     setLoading(true);
     try {
       const payload: any = {
@@ -363,6 +370,7 @@ export default function UsersPage() {
       const chosenRole = filters.role && filters.role !== 'all' ? filters.role : '';
       const roleTitles = chosenRole ? [chosenRole] : [];
       const { users: rawList, total: totalFromApi } = await listUsersByRoles(payload, roleTitles);
+      if (requestId !== latestRequest.current) return;
 
       if (rawList.length > 0 || totalFromApi > 0) {
         // Collect unique statuses directly from API response
@@ -382,13 +390,14 @@ export default function UsersPage() {
         setTotalCount(0);
       }
     } catch (err: any) {
+      if (requestId !== latestRequest.current) return;
       if (err?.response?.status !== 404) {
         console.error('API fetch failed:', err);
       }
       setUsers([]);
       setTotalCount(0);
     } finally {
-      setLoading(false);
+      if (requestId === latestRequest.current) setLoading(false);
     }
   }, [rowsPerPage, page, filters.role, filters.status, filters.state, filters.district, filters.block, filters.branch, debouncedOrgCode, debouncedSearch]);
 
@@ -783,7 +792,11 @@ export default function UsersPage() {
             setIsEditModalOpen(false);
             setActiveUser(null);
           }}
-          onSuccess={fetchUsers}
+          onSuccess={() => {
+            fetchUsers();
+            // The list can still hold the old values right after an edit, so it is loaded once more a moment later
+            setTimeout(fetchUsers, 1500);
+          }}
           initialData={activeUser}
           isEdit={true}
         />
