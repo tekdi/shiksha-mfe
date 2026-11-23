@@ -62,13 +62,32 @@ const PHONE_REGEX = /^\d{10}$/;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 /** Same rule as the user service (ORG_IDENTIFIER_PATTERN): letters, digits, "-" and "_" */
 const ORG_IDENTIFIER_REGEX = /^[A-Za-z0-9_-]+$/;
-const EMPLOYEE_ID_MAX = 50;
-const ORGANISATION_CODE_MAX = 30;
+/** Employee ID and Organization Code: letters and digits only, up to 10 characters */
+const ALPHANUMERIC_REGEX = /^[A-Za-z0-9]+$/;
+const EMPLOYEE_ID_MAX = 10;
+const ORGANISATION_CODE_MAX = 10;
+/** Drops every character that is not a letter or digit, then cuts to the limit (so other keys type nothing) */
+const toAlphanumeric = (value: string, max: number) => value.replace(/[^A-Za-z0-9]/g, '').slice(0, max);
 const ORGANISATION_NAME_MAX = 150;
 const ORG_LOOKUP_DELAY_MS = 400;
 /** Branch dropdown option that shows a text box for a branch that is not in the list (Task 29) */
 const BRANCH_OTHER = '__other__';
 const BRANCH_OTHER_MAX = 150;
+/** The typed branch name: letters (A-Z, a-z) and spaces between words */
+const LETTERS_ONLY_REGEX = /^[A-Za-z]+( [A-Za-z]+)*$/;
+const toLettersOnly = (value: string, max: number) =>
+  value.replace(/[^A-Za-z ]/g, '').replace(/^ +/, '').replace(/ {2,}/g, ' ').slice(0, max);
+/** Organization Name: letters, digits and spaces */
+const NAME_WITH_SPACES_REGEX = /^[A-Za-z0-9 ]+$/;
+const toAlphanumericWithSpaces = (value: string, max: number) =>
+  value.replace(/[^A-Za-z0-9 ]/g, '').replace(/^ +/, '').replace(/ {2,}/g, ' ').slice(0, max);
+
+const validateBranchOther = (value: string) => {
+  const v = value.trim();
+  if (!v) return 'USERS.FORM.ERROR_BRANCH_OTHER_REQUIRED';
+  if (v.length > BRANCH_OTHER_MAX) return 'USERS.FORM.ERROR_ORG_FIELD_TOO_LONG';
+  return LETTERS_ONLY_REGEX.test(v) ? undefined : 'USERS.FORM.ERROR_BRANCH_OTHER_INVALID';
+};
 
 const GENDER_OPTIONS: { value: string; labelKey: string }[] = [
   { value: GENDER_NOT_SELECTED, labelKey: 'COMMON.SELECT' },
@@ -235,10 +254,10 @@ const validatePhone = (phone: string, isEdit: boolean) => {
   return PHONE_REGEX.test(phone) ? undefined : 'USERS.FORM.ERROR_PHONE_INVALID';
 };
 
-const validateOrgIdentifier = (value: string, max: number) => {
+const validateOrgIdentifier = (value: string, max: number, pattern: RegExp = ORG_IDENTIFIER_REGEX) => {
   if (!value) return undefined;
   if (value.length > max) return 'USERS.FORM.ERROR_ORG_FIELD_TOO_LONG';
-  return ORG_IDENTIFIER_REGEX.test(value) ? undefined : 'USERS.FORM.ERROR_ORG_FIELD_INVALID';
+  return pattern.test(value) ? undefined : 'USERS.FORM.ERROR_ORG_FIELD_INVALID';
 };
 
 /**
@@ -254,14 +273,16 @@ const validateOrganisationFields = (
   const code = form.organisationCode.trim();
   const name = form.organisationName.trim();
   const result: Partial<Record<OrganisationKey, string>> = {
-    employeeId: validateOrgIdentifier(employeeId, EMPLOYEE_ID_MAX),
+    employeeId: validateOrgIdentifier(employeeId, EMPLOYEE_ID_MAX, ALPHANUMERIC_REGEX),
     organisationCode:
-      validateOrgIdentifier(code, ORGANISATION_CODE_MAX) ||
+      validateOrgIdentifier(code, ORGANISATION_CODE_MAX, ALPHANUMERIC_REGEX) ||
       (employeeId && !code ? 'USERS.FORM.ERROR_ORG_CODE_REQUIRED' : undefined),
     organisationName:
       name.length > ORGANISATION_NAME_MAX
         ? 'USERS.FORM.ERROR_ORG_FIELD_TOO_LONG'
-        : code && !codeIsKnown && !name
+        : name && !NAME_WITH_SPACES_REGEX.test(name)
+          ? 'USERS.FORM.ERROR_ORG_NAME_INVALID'
+          : code && !codeIsKnown && !name
           ? 'USERS.FORM.ERROR_ORG_NAME_REQUIRED'
           : undefined,
   };
@@ -441,7 +462,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   useEffect(() => {
     if (!open) return;
     const code = formData.organisationCode.trim().toUpperCase();
-    if (!code || !ORG_IDENTIFIER_REGEX.test(code)) {
+    if (!code || !ALPHANUMERIC_REGEX.test(code)) {
       setOrgLookup('idle');
       return;
     }
@@ -529,6 +550,33 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     return options;
   }, [tenantRoles, formData.role]);
 
+  /** Error for one field as its value is typed (undefined when valid or when the field has no live rule) */
+  const liveFieldError = (field: keyof FormState, value: string): string | undefined => {
+    const v = value.trim();
+    switch (field) {
+      case 'fullName':
+        return validateFullName(v, isEdit);
+      case 'email':
+        return validateEmail(v, isEdit);
+      case 'phone':
+        return validatePhone(v, isEdit);
+      case 'username':
+        return validateUsername(v, isEdit);
+      case 'employeeId':
+        return validateOrgIdentifier(v, EMPLOYEE_ID_MAX, ALPHANUMERIC_REGEX);
+      case 'organisationCode':
+        return validateOrgIdentifier(v, ORGANISATION_CODE_MAX, ALPHANUMERIC_REGEX);
+      case 'organisationName':
+        return validateOrganisationFields({ ...formData, organisationName: value }, orgCodeIsKnown).organisationName;
+      case 'branchOther':
+        return validateBranchOther(value);
+      case 'password':
+        return !isEdit && value && value.length < 8 ? 'USERS.FORM.ERROR_PASSWORD_MIN' : undefined;
+      default:
+        return undefined;
+    }
+  };
+
   const handleChange = (field: keyof FormState, value: string) => {
     setFormData((prev) => {
       const next = { ...prev, [field]: toStr(value) };
@@ -551,9 +599,9 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
       return next;
     });
 
-    if (errors[field]) {
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
+    // Validate while typing, so the message under the field is always current
+    const live = liveFieldError(field, toStr(value));
+    setErrors((prev) => ({ ...prev, [field]: live }));
     // A different code can make a duplicate Employee ID or a missing name error stale
     if (field === 'organisationCode' && (errors.employeeId || errors.organisationName)) {
       setErrors((prev) => ({ ...prev, employeeId: undefined, organisationName: undefined }));
@@ -563,7 +611,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   const orgCodeIsKnown = orgLookup === 'found';
   const orgFieldErrors = validateOrganisationFields(formData, orgCodeIsKnown);
   const orgLookupPending = Boolean(formData.organisationCode.trim()) && orgLookup === 'loading';
-  const branchOtherMissing = formData.branch === BRANCH_OTHER && !formData.branchOther.trim();
+  const branchOtherError = formData.branch === BRANCH_OTHER ? validateBranchOther(formData.branchOther) : undefined;
 
   // Create and edit need every mandatory field filled and valid before the button enables
   // (the username is fixed when editing, so it is not checked there)
@@ -577,7 +625,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
     !(formData.password && formData.password.length < 8) &&
     Object.keys(orgFieldErrors).length === 0 &&
     !orgLookupPending &&
-    !branchOtherMissing;
+    !branchOtherError;
 
   const validate = (): boolean => {
     const newErrors: Partial<Record<keyof FormState, string>> = {};
@@ -601,7 +649,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
         !isEdit && password && password.length < 8
           ? 'USERS.FORM.ERROR_PASSWORD_MIN'
           : undefined,
-      branchOther: branchOtherMissing ? 'USERS.FORM.ERROR_BRANCH_OTHER_REQUIRED' : undefined,
+      branchOther: branchOtherError,
       ...orgFieldErrors,
     };
     (Object.keys(fieldErrors) as (keyof FormState)[]).forEach((key) => {
@@ -828,7 +876,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
               <CommonTextField
                 label={t('USERS.FORM.EMPLOYEE_ID')}
                 value={formData.employeeId}
-                onChange={(e) => handleChange('employeeId', e.target.value.slice(0, EMPLOYEE_ID_MAX))}
+                onChange={(e) => handleChange('employeeId', toAlphanumeric(e.target.value, EMPLOYEE_ID_MAX))}
                 error={Boolean(errors.employeeId)}
                 helperText={errorText('employeeId')}
                 hint={t('USERS.FORM.EMPLOYEE_ID_HINT')}
@@ -842,7 +890,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 required={Boolean(formData.employeeId.trim())}
                 value={formData.organisationCode}
                 onChange={(e) =>
-                  handleChange('organisationCode', e.target.value.toUpperCase().slice(0, ORGANISATION_CODE_MAX))
+                  handleChange('organisationCode', toAlphanumeric(e.target.value, ORGANISATION_CODE_MAX).toUpperCase())
                 }
                 error={Boolean(errors.organisationCode)}
                 helperText={errorText('organisationCode')}
@@ -856,7 +904,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                 label={t('USERS.FORM.ORGANISATION_NAME')}
                 required={Boolean(formData.organisationCode.trim()) && !orgCodeIsKnown}
                 value={formData.organisationName}
-                onChange={(e) => handleChange('organisationName', e.target.value.slice(0, ORGANISATION_NAME_MAX))}
+                onChange={(e) => handleChange('organisationName', toAlphanumericWithSpaces(e.target.value, ORGANISATION_NAME_MAX))}
                 disabled={orgCodeIsKnown || orgLookupPending || !formData.organisationCode.trim()}
                 error={Boolean(errors.organisationName)}
                 helperText={errorText('organisationName')}
@@ -982,7 +1030,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
                   required
                   value={formData.branchOther}
                   placeholder={t('USERS.FORM.BRANCH_OTHER_PLACEHOLDER')}
-                  onChange={(e) => handleChange('branchOther', e.target.value.slice(0, BRANCH_OTHER_MAX))}
+                  onChange={(e) => handleChange('branchOther', toLettersOnly(e.target.value, BRANCH_OTHER_MAX))}
                   error={Boolean(errors.branchOther)}
                   helperText={errorText('branchOther')}
                 />
