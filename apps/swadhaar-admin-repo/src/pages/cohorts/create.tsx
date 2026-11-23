@@ -103,6 +103,15 @@ const isActiveFilter = (value?: string): value is string => Boolean(value) && va
 const TEXT_FILTER_DELAY_MS = 400;
 type TextFilters = Pick<SDBVFilterValues, 'search' | 'organisationCode' | 'employeeId'>;
 
+/** Adds the new non-empty values to the list, without duplicates, sorted */
+const mergeSorted = (prev: string[], next: string[]): string[] => {
+  const merged = new Set(prev);
+  next.forEach((v) => {
+    if (v && v !== '-') merged.add(v);
+  });
+  return merged.size === prev.length ? prev : Array.from(merged).sort((a, b) => a.localeCompare(b));
+};
+
 const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPerPage: number) => {
   const filterObj: Record<string, string[]> = {
     status: isActiveFilter(filters.status) ? [filters.status.toLowerCase()] : ['active'],
@@ -360,6 +369,9 @@ export default function CreateCohortPage() {
     return () => clearTimeout(timer);
   }, [filters.search, filters.organisationCode, filters.employeeId]);
 
+  const [orgCodeOptions, setOrgCodeOptions] = useState<string[]>([]);
+  const [employeeIdOptions, setEmployeeIdOptions] = useState<string[]>([]);
+
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
@@ -374,6 +386,9 @@ export default function CreateCohortPage() {
       const mapped: UserRow[] = rawList.map(mapUserToRow);
 
       setUsers(mapped);
+      // Dropdown values are collected from the users loaded so far, so they stay available after a filter is picked
+      setOrgCodeOptions((prev) => mergeSorted(prev, mapped.map((r) => r.organisationCode)));
+      setEmployeeIdOptions((prev) => mergeSorted(prev, mapped.map((r) => r.employeeId)));
       // Names replace the ids a moment later, so the list itself is not held back
       resolveRowLocations(mapped)
         .then(setUsers)
@@ -765,6 +780,8 @@ export default function CreateCohortPage() {
               showProgram={true}
               showOrganisationCode={true}
               showEmployeeId={true}
+              organisationCodeOptions={orgCodeOptions}
+              employeeIdOptions={employeeIdOptions}
               onClear={() => {
                 setFilters(ADD_MEMBERS_DEFAULT_FILTERS);
                 setPage(0);
