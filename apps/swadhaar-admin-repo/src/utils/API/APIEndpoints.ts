@@ -137,6 +137,9 @@ export const API_ENDPOINTS = {
     const query = userId ? `?userId=${userId}` : '';
     return `${lmsBase}/media/${mediaId}/associate/${lessonId}${query}`;
   },
+  // Task 35: language versions of a course
+  lmsCourseTranslations: (courseId: string) => `${lmsBase}/courses/${courseId}/translations`,
+  lmsCourseTranslationGroup: (courseId: string) => `${lmsBase}/courses/${courseId}/translation-group`,
   lmsCourseHierarchy: (courseId: string) =>
     `${lmsBase}/courses/${courseId}/hierarchy?includeModules=true&includeLessons=true`,
   // Learning paths (pathways)

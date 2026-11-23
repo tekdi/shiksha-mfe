@@ -24,6 +24,9 @@ export interface CourseItem {
   courseCode?: string;
   cleanTitle?: string;
   detectedLanguage?: string;
+   languageCode?: CourseLanguageCode;
+  /** Languages of this course's live versions, e.g. ['en', 'hi'] (Task 35) */
+  availableLanguages?: CourseLanguageCode[];
   formattedDuration?: string;
   pricing?: { amount?: number; currency?: string } | null;
   params?: Record<string, any>;
@@ -39,6 +42,8 @@ export interface CourseSearchParams {
   orderBy?: 'ASC' | 'DESC';
   /** Only the courses linked to this group through params.cohortId */
   cohortId?: string;
+  /** Content language codes (server filter, Task 35) */
+  language?: CourseLanguageCode[];
   filters?: {
     status?: string[] | string;
     primaryCategory?: string[];
@@ -96,6 +101,7 @@ export interface CourseHierarchy {
   courseCode?: string;
   cleanTitle?: string;
   detectedLanguage?: string;
+   languageCode?: CourseLanguageCode;
   modules?: any[];
   children?: CourseHierarchyChild[];
   pricing?: { amount?: number; currency?: string } | null;
@@ -136,13 +142,53 @@ export const parseCourseName = (fullName: string): { code: string; title: string
 export const detectLanguage = (text: string, fallbackLanguages?: string[]): string => {
   if (!text) return 'English';
   // Check for Devanagari Unicode block (\u0900 - \u097F)
-  if (/[\u0900-\u097F]/.test(text)) {
+  if (/[ऀ-ॿ]/.test(text)) {
     return 'Hindi';
   }
   if (fallbackLanguages && fallbackLanguages.length > 0) {
     return fallbackLanguages[0];
   }
   return 'English';
+};
+
+/** Content languages of a course (LMS courses.language, Task 34) */
+export type CourseLanguageCode = 'en' | 'hi' | 'mr';
+
+export const COURSE_LANGUAGE_OPTIONS: Array<{ code: CourseLanguageCode; name: string; labelKey: string }> = [
+  { code: 'en', name: 'English', labelKey: 'COURSES.LANGUAGE_ENGLISH' },
+  { code: 'hi', name: 'Hindi', labelKey: 'COURSES.LANGUAGE_HINDI' },
+  { code: 'mr', name: 'Marathi', labelKey: 'COURSES.LANGUAGE_MARATHI' },
+];
+
+/** Code for a code or language name ('hi', 'Hindi', 'hindi'); undefined when unknown */
+export const toCourseLanguageCode = (value: unknown): CourseLanguageCode | undefined => {
+  const key = String(value ?? '').trim().toLowerCase();
+  const option = COURSE_LANGUAGE_OPTIONS.find((o) => o.code === key || o.name.toLowerCase() === key);
+  return option?.code;
+};
+
+/** i18n key of a language code, for chips and labels */
+export const courseLanguageLabelKey = (code?: string): string =>
+  COURSE_LANGUAGE_OPTIONS.find((o) => o.code === code)?.labelKey || 'COURSES.LANGUAGE_ENGLISH';
+
+/**
+ * The course's content language: the stored `language` (Task 34), else params.language (older courses).
+ * Only a course from an LMS without the language column falls back to the title: Devanagari → Hindi.
+ */
+export const resolveCourseLanguage = (course: any): CourseLanguageCode =>
+  toCourseLanguageCode(course?.language) ||
+  toCourseLanguageCode(course?.params?.language) ||
+  (/[\u0900-\u097F]/.test(String(course?.title || course?.name || '')) ? 'hi' : 'en');
+
+const courseLanguageName = (code: CourseLanguageCode): string =>
+  COURSE_LANGUAGE_OPTIONS.find((o) => o.code === code)?.name || 'English';
+
+/** Valid codes of availableLanguages, the course's own language when the LMS sends none */
+const resolveAvailableLanguages = (course: any, own: CourseLanguageCode): CourseLanguageCode[] => {
+  const codes = (Array.isArray(course?.availableLanguages) ? course.availableLanguages : [])
+    .map(toCourseLanguageCode)
+    .filter(Boolean) as CourseLanguageCode[];
+  return codes.length > 0 ? codes : [own];
 };
 
 /**
@@ -216,6 +262,10 @@ export const getCourseList = async (
       queryParams.set('cohortId', params.cohortId);
     }
 
+    if (params?.language?.length) {
+      queryParams.set('language', params.language.join(','));
+    }
+
     // Status Filter (published | unpublished | archived)
     const statusParam = resolveCourseStatusParam(params);
     if (statusParam) {
@@ -234,6 +284,7 @@ export const getCourseList = async (
       const title = c.title || c.name || 'Untitled Course';
       const parsed = parseCourseName(title);
       const courseId = c.courseId || c.identifier || '';
+       const languageCode = resolveCourseLanguage(c);
       return {
         ...c,
         courseId,
@@ -242,7 +293,9 @@ export const getCourseList = async (
         name: title, // for compatibility
         courseCode: parsed.code,
         cleanTitle: parsed.title,
-        detectedLanguage: detectLanguage(title),
+         languageCode,
+        detectedLanguage: courseLanguageName(languageCode),
+        availableLanguages: resolveAvailableLanguages(c, languageCode),
         formattedDuration: parseCourseDuration(c),
         lastUpdatedOn: c.updatedAt || c.createdAt,
         createdOn: c.createdAt,
@@ -268,22 +321,25 @@ export interface CourseTabCounts {
 /**
  * Fetch course tab counts for All (175), Published (144), and Draft/Unpublished (31)
  */
-export const fetchCourseTabCounts = async (query = ''): Promise<CourseTabCounts> => {
+export const fetchCourseTabCounts = async (query = '', language?: CourseLanguageCode[]): Promise<CourseTabCounts> => {
   try {
     const [allRes, pubRes, draftRes] = await Promise.all([
       getCourseList({
         query,
+        language,
         limit: 1,
         offset: 0,
       }),
       getCourseList({
         query,
+         language,
         limit: 1,
         offset: 0,
         status: 'published',
       }),
       getCourseList({
         query,
+         language,
         limit: 1,
         offset: 0,
         status: 'unpublished',
@@ -412,7 +468,8 @@ export const getCourseHierarchy = async (courseId: string): Promise<CourseHierar
       name: title,
       courseCode: parsed.code,
       cleanTitle: parsed.title,
-      detectedLanguage: detectLanguage(title),
+       languageCode: resolveCourseLanguage(result),
+      detectedLanguage: courseLanguageName(resolveCourseLanguage(result)),
       modules: rawModules,
       children: mappedChildren,
       moduleCount: rawModules.length,
@@ -430,6 +487,7 @@ export const getCourseHierarchy = async (courseId: string): Promise<CourseHierar
       name: fallbackTitle,
       courseCode: 'SWAD-101',
       cleanTitle: fallbackTitle,
+       languageCode: 'en',
       detectedLanguage: 'English',
       modules: [],
       children: [],
@@ -1059,4 +1117,50 @@ export const getUserCourseProgress = async (userId: string): Promise<UserCourseP
       };
     })
   );
+};
+/** One language version of a course (LMS GET courses/:courseId/translations) */
+export interface CourseTranslation {
+  courseId: string;
+  title: string;
+  language: CourseLanguageCode;
+  status: string;
+  sourceCourseId: string | null;
+  translationGroupId: string;
+}
+
+/** The live language versions of a course, itself included */
+export const getCourseTranslations = async (courseId: string): Promise<CourseTranslation[]> => {
+  const response = await get(API_ENDPOINTS.lmsCourseTranslations(courseId), getServiceHeaders());
+  return response?.data?.result || [];
+};
+
+/**
+ * Copies the course (sections, lessons, media) as an unpublished version in another language.
+ * 409 when the course already has that language. Returns the new course.
+ */
+export const createCourseTranslation = async (
+  courseId: string,
+  language: CourseLanguageCode,
+  title?: string
+): Promise<any> => {
+  const body: Record<string, string> = { language };
+  if (title?.trim()) body.title = title.trim();
+  const response = await post(API_ENDPOINTS.lmsCourseTranslations(courseId), body, getServiceHeaders());
+  return response?.data?.result;
+};
+
+/**
+ * Makes `courseId` a language version of `versionOfCourseId`, or with null takes it out of its group.
+ * 409 when that course already has a version in this course's language. Returns the group's versions.
+ */
+export const linkCourseTranslation = async (
+  courseId: string,
+  versionOfCourseId: string | null
+): Promise<CourseTranslation[]> => {
+  const response = await patch(
+    API_ENDPOINTS.lmsCourseTranslationGroup(courseId),
+    { versionOfCourseId },
+    getServiceHeaders()
+  );
+  return response?.data?.result || [];
 };

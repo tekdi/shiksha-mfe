@@ -1,6 +1,6 @@
 import { isValidMinutes, sanitizeMinutes, MINUTES_ERROR, MINUTES_MAX_DIGITS } from '@/utils/minutesInput';
 import RichTextField from '@/components/content/RichTextField';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/router';
 import Link from 'next/link';
 import {
@@ -12,6 +12,8 @@ import {
   Tooltip,
   Alert,
   CircularProgress,
+  Autocomplete,
+  TextField
 } from '@mui/material';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
@@ -25,7 +27,17 @@ import CommonTextField from '@/components/common/CommonTextField';
 import CommonRadioGroup from '@/components/common/CommonRadioGroup';
 import FieldLabel from '@/components/common/FieldLabel';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
-import { createCourse, CreateCoursePayload } from '@/services/CourseService';
+import {
+  createCourse,
+  CreateCoursePayload,
+  COURSE_LANGUAGE_OPTIONS,
+  CourseItem,
+  CourseLanguageCode,
+  courseLanguageLabelKey,
+  getCourseList,
+  linkCourseTranslation,
+} from '@/services/CourseService';
+
 
 interface ObjectiveItem {
   id: string;
@@ -37,10 +49,7 @@ const DEFAULT_COHORT_ID = '8f6156bc-e298-41e7-a3f1-f4d4d23e51a7';
 const DEFAULT_IMAGE_URL =
   'https://aspire-leaders-assets-qa.s3.us-east-1.amazonaws.com/lms/modules/file_1793263413927_c5ac1a.png';
 
-const LANGUAGE_OPTIONS = [
-  { value: 'hindi', labelKey: 'COURSES.LANGUAGE_HINDI' },
-  { value: 'english', labelKey: 'COURSES.LANGUAGE_ENGLISH' },
-];
+const LANGUAGE_OPTIONS = COURSE_LANGUAGE_OPTIONS.map((o) => ({ value: o.code, labelKey: o.labelKey }));
 
 const CARD_SX = {
   border: `1px solid ${NEUTRAL.border}`,
@@ -105,7 +114,31 @@ export default function CreateCoursePage() {
   ]);
 
   // Language state (single select)
-  const [language, setLanguage] = useState<string>('');
+  // Language state (single select): LMS code en / hi / mr
+  const [language, setLanguage] = useState<CourseLanguageCode | ''>('');
+
+  // Task 36: optional "version of" course. The new course joins that course's language versions.
+  const [versionOf, setVersionOf] = useState<CourseItem | null>(null);
+  const [versionCourses, setVersionCourses] = useState<CourseItem[]>([]);
+  const [versionCoursesLoading, setVersionCoursesLoading] = useState<boolean>(false);
+  useEffect(() => {
+    let active = true;
+    setVersionCoursesLoading(true);
+    getCourseList({ limit: 100, offset: 0, sortBy: 'title', orderBy: 'ASC' })
+      .then((res) => active && setVersionCourses(res.content || []))
+      .finally(() => active && setVersionCoursesLoading(false));
+    return () => {
+      active = false;
+    };
+  }, []);
+  // Languages the picked course already has a version in cannot be chosen again
+  const takenLanguages = useMemo(
+    () => new Set<string>(versionOf?.availableLanguages || (versionOf?.languageCode ? [versionOf.languageCode] : [])),
+    [versionOf]
+  );
+  useEffect(() => {
+    if (language && takenLanguages.has(language)) setLanguage('');
+  }, [takenLanguages, language]);
 
   // Course Image & Cohort Association
 
@@ -191,14 +224,29 @@ export default function CreateCoursePage() {
           deliveryMode: deliveryMode.trim(),
           howItWorks: howItWorks.trim(),
           objectives: objectives.map((o) => o.text.trim()).filter(Boolean),
-          language: language,
         },
+         // Content language (LMS courses.language); the LMS also keeps params.language in step
+        language,
         featured: false,
       };
 
       const res = await createCourse(payload);
       const createdCourseId = res?.result?.courseId || (res?.result as any)?.id;
 
+      // Task 36: join the picked course's language versions. The course is saved either way;
+      // a failed link can be redone from the Versions card on the course page.
+      if (createdCourseId && versionOf?.courseId) {
+        try {
+          await linkCourseTranslation(createdCourseId, versionOf.courseId);
+        } catch (linkErr: any) {
+          console.error('Failed to link the course as a language version:', linkErr);
+          setError(
+            t('COURSES.CREATE.VERSION_LINK_FAILED', {
+              reason: linkErr?.response?.data?.params?.errmsg || linkErr?.response?.data?.message || linkErr?.message || '',
+            })
+          );
+        }
+      }
       const successText =
         statusToSave === 'unpublished'
           ? (t('COURSES.CREATE.SAVED_AS_DRAFT', { name: courseName }) || `Course "${courseName}" saved as draft`)
@@ -548,16 +596,50 @@ export default function CreateCoursePage() {
                   name="course-language"
                   row={false}
                   value={language}
-                  onChange={setLanguage}
+                  onChange={(value) => setLanguage(value as CourseLanguageCode)}
                   options={LANGUAGE_OPTIONS.map((option) => ({
                     value: option.value,
-                    label: t(option.labelKey),
+                     label: takenLanguages.has(option.value)
+                      ? t('COURSES.CREATE.LANGUAGE_TAKEN', { language: t(option.labelKey) })
+                      : t(option.labelKey),
+                    disabled: takenLanguages.has(option.value),
                   }))}
                 />
 
                 <Typography variant="caption" sx={{ color: NEUTRAL.muted, fontSize: '12px', display: 'block', mt: 1.5 }}>
                   {t('COURSES.CREATE.ONE_LANGUAGE_HINT') || 'Choose the primary language for this course content.'}
                 </Typography>
+                   {/* Task 36: this course is a language version of an existing course (optional) */}
+                <Box sx={{ mt: 2.5 }}>
+                  <FieldLabel label={t('COURSES.CREATE.VERSION_OF')} />
+                  <Autocomplete
+                    size="small"
+                    options={versionCourses}
+                    loading={versionCoursesLoading}
+                    value={versionOf}
+                    onChange={(_, value) => setVersionOf(value)}
+                    getOptionLabel={(option) => option.title || ''}
+                    isOptionEqualToValue={(option, value) => option.courseId === value.courseId}
+                    renderOption={(props, option) => (
+                      <li {...props} key={option.courseId}>
+                        <Box>
+                          <Typography sx={{ fontSize: '14px' }}>{option.title}</Typography>
+                          <Typography sx={{ fontSize: '12px', color: NEUTRAL.muted }}>
+                            {(option.availableLanguages || [option.languageCode])
+                              .map((code) => t(courseLanguageLabelKey(code)))
+                              .join(', ')}
+                          </Typography>
+                        </Box>
+                      </li>
+                    )}
+                    renderInput={(params) => (
+                      <TextField {...params} placeholder={t('COURSES.CREATE.VERSION_OF_PLACEHOLDER')} />
+                    )}
+                  />
+                  <Typography variant="caption" sx={{ color: NEUTRAL.muted, fontSize: '12px', display: 'block', mt: 1 }}>
+                    {t('COURSES.CREATE.VERSION_OF_HINT')}
+                  </Typography>
+                </Box>
               </Box>
             </Paper>
 
