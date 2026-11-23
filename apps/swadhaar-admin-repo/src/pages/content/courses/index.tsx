@@ -33,9 +33,9 @@ import {
   CourseTabCounts,
   fetchCourseTabCounts,
     COURSE_LANGUAGE_OPTIONS,
-  CourseLanguageCode,
-  courseLanguageLabelKey,
+  CourseLanguageCode
 } from '@/services/CourseService';
+import CourseLanguageTags from '@/components/content/CourseLanguageTags';
 
 type StatusTab = 'all' | 'published' | 'draft';
 
@@ -263,33 +263,9 @@ export default function CoursesPage() {
         label: t('COMMON.LANGUAGE'),
         labelKey: 'COMMON.LANGUAGE',
         minWidth: 110,
-          render: (row) => {
-          // Other languages this course has a version in (Task 35)
-          const others = (row.availableLanguages || []).filter((code) => code !== row.languageCode);
-          return (
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 0.5 }}>
-              <Chip
-                label={t(courseLanguageLabelKey(row.languageCode))}
-                size="small"
-                sx={{
-                  fontWeight: 500,
-                  fontSize: '11px',
-                  backgroundColor: '#F3F4F6',
-                  color: '#374151',
-                  borderRadius: '4px',
-                  height: 22,
-                }}
-              />
-              {others.length > 0 && (
-                <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
-                  {t('COURSES.LIST.ALSO_IN', {
-                    languages: others.map((code) => t(courseLanguageLabelKey(code))).join(', '),
-                  })}
-                </Typography>
-              )}
-            </Box>
-          );
-        },
+          render: (row) => (
+          <CourseLanguageTags languageCode={row.languageCode} availableLanguages={row.availableLanguages} />
+        ),
       },
       {
         id: 'status',
