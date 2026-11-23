@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, IconButton, Badge } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
+import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 import { useRouter, usePathname } from 'next/navigation';
 import { fetchAndSyncAlerts, getUnreadCount } from '@learner/utils/alertsStore';
 import { useTranslation } from '@shared-lib';
@@ -9,9 +10,11 @@ import { useTranslation } from '@shared-lib';
 interface CFLHeaderProps {
   title: string;
   showBack?: boolean;
+  /** Task 77: set for a Reviewer who also has their own learning; links back to the learner home */
+  onMyLearningClick?: () => void;
 }
 
-const CFLHeader: React.FC<CFLHeaderProps> = ({ title, showBack }) => {
+const CFLHeader: React.FC<CFLHeaderProps> = ({ title, showBack, onMyLearningClick }) => {
   const router = useRouter();
   const { t } = useTranslation();
   const pathname = usePathname();
@@ -54,6 +57,19 @@ const CFLHeader: React.FC<CFLHeaderProps> = ({ title, showBack }) => {
           {title}
         </Typography>
       </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+      {onMyLearningClick && (
+        <Box
+          id="cfl-header-my-learning-btn"
+          onClick={onMyLearningClick}
+          sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <SchoolOutlinedIcon sx={{ fontSize: 26, color: '#E6873C' }} />
+          <Typography sx={{ color: '#E6873C', fontSize: '10px', fontWeight: 700, fontFamily: 'Open Sans', mt: 0.5 }}>
+            {t('LEARNER_APP.HOME.MY_LEARNING')}
+          </Typography>
+        </Box>
+      )}
       {showAlerts && (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <IconButton onClick={() => router.push('/cfl/alerts')} sx={{ p: 0, mb: 0.5 }}>
@@ -98,6 +114,7 @@ const CFLHeader: React.FC<CFLHeaderProps> = ({ title, showBack }) => {
           </Typography>
         </Box>
       )}
+      </Box>
     </Box>
   );
 };

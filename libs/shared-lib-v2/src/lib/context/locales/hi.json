@@ -299,6 +299,8 @@
     "HOME": {
       "GREETING": "नमस्ते, {{name}}!",
       "TITLE": "मुखपृष्ठ",
+        "MY_TEAM": "मेरी टीम",
+      "MY_LEARNING": "मेरी पढ़ाई",
       "PROGRESS_TEXT": "प्रगति: {{percent}}% पूर्ण",
       "LEARNING_PROGRESS": "सीखने की प्रगति",
       "BACK_TO_HOME": "मुखपृष्ठ पर वापस जाएँ",
