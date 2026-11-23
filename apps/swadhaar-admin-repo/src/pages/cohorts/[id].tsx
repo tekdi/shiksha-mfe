@@ -72,6 +72,8 @@ export interface MemberRowItem {
   branch: string;
   program: string;
   employeeId: string;
+  /** Used only by the member search (part of the number matches) */
+  mobile: string;
   organisationCode: string;
   organisationName: string;
   status: string;
@@ -203,6 +205,7 @@ const mapMemberToRow = (user: any, index: number): MemberRowItem => {
     program: location.program || user.form?.title || '-',
     // Returned by cohortmember/list-application (user service, Task 32); '-' / '' when not set
     employeeId: trimmedOrEmpty(user.employeeId) || '-',
+    mobile: trimmedOrEmpty(user.mobile),
     organisationCode: trimmedOrEmpty(user.organisationCode),
     organisationName: trimmedOrEmpty(user.organisationName),
     status: (user.status || 'applied').toLowerCase(),
@@ -380,6 +383,7 @@ export default function GroupDetailsPage() {
         m.stateDistrict.toLowerCase().includes(q) ||
         m.branch.toLowerCase().includes(q) ||
         m.employeeId.toLowerCase().includes(q) ||
+        m.mobile.includes(q) ||
         m.organisationCode.toLowerCase().includes(q) ||
         m.organisationName.toLowerCase().includes(q) ||
         m.role.toLowerCase().includes(q) ||
@@ -944,7 +948,7 @@ export default function GroupDetailsPage() {
               {/* Search input */}
               <TextField
                 size="medium"
-                placeholder="Search name, email, Employee ID, Organization..."
+                placeholder="Search name, mobile, email, Employee ID, Organization..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 InputProps={{

@@ -126,14 +126,8 @@ const buildUserSearchPayload = (filters: SDBVFilterValues, page: number, rowsPer
   };
   const search = filters.search?.trim();
   if (search) {
-    // /user/v1/list has no free-text search: 10 digits match the mobile, anything else the first/last name
-    if (/^\d{10}$/.test(search)) {
-      filterObj.mobile = search as any;
-    } else {
-      const [first, ...rest] = search.split(/\s+/);
-      filterObj.firstName = first as any;
-      if (rest.length) filterObj.lastName = rest.join(' ') as any;
-    }
+    // searchtext matches part of the name, email, mobile number or Employee ID (user service)
+    filterObj.searchtext = search as any;
   }
   return payload;
 };
@@ -764,7 +758,7 @@ export default function CreateCohortPage() {
                 setPage(0);
               }}
               showSearch={true}
-              searchPlaceholder="Search by name"
+              searchPlaceholder="Search by name, mobile, email or Employee ID"
               showRole={true}
               roleOptions={roleOptions}
               showBranch={true}
