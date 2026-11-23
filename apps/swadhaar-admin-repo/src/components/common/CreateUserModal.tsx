@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { joinUserName } from '@/utils/userName';
 import { Box, Typography, Grid } from '@mui/material';
 import { useTranslation } from 'next-i18next';
 import MasterDataService, { LocationOption } from '@/services/MasterDataService';
@@ -172,8 +173,8 @@ const formStateFromInitialData = (initialData: any): FormState => {
 
 /** Overlays the full server profile on top of the current form state. */
 const mergeServerUserIntoForm = (prev: FormState, user: any): FormState => {
-  const nameFromParts = [user.firstName, user.middleName, user.lastName].map(toStr).filter(Boolean).join(' ');
-  const computedName = toStr(user.name) || nameFromParts || prev.fullName;
+  const nameFromParts = joinUserName(user.firstName, user.middleName, user.lastName);
+  const computedName = nameFromParts || toStr(user.name) || prev.fullName;
   const uEmail = toStr(user.email);
   const uUsername = toStr(user.username);
   const computedPhone = toStr(user.mobile || user.phone) || phoneFromUsername(uUsername, prev.phone);

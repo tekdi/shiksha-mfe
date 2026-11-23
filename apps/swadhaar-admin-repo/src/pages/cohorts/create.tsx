@@ -32,6 +32,7 @@ import GroupAddOutlinedIcon from '@mui/icons-material/GroupAddOutlined';
 import PersonAddOutlinedIcon from '@mui/icons-material/PersonAddOutlined';
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
+import { displayLastName } from '@/utils/userName';
 import SDBVHierarchyFilter, { SDBVFilterValues } from '@/components/common/SDBVHierarchyFilter';
 import CommonTextField from '@/components/common/CommonTextField';
 import CommonSelect from '@/components/common/CommonSelect';
@@ -162,7 +163,7 @@ const resolveRowLocations = async (rows: UserRow[]): Promise<UserRow[]> => {
 const trimmedOrEmpty = (value?: string | number | null): string => (value ? String(value).trim() : '');
 
 const mapUserToRow = (u: any, idx: number): UserRow => {
-  const nameParts = [u.firstName, u.middleName, u.lastName].map(trimmedOrEmpty);
+  const nameParts = [u.firstName, u.middleName, displayLastName(u.firstName, u.middleName, u.lastName)].map(trimmedOrEmpty);
   // The stored option ids; their names are filled in after the list loads (see resolveRowLocations)
   const location = readUserLocation(u);
 
@@ -370,7 +371,6 @@ export default function CreateCohortPage() {
   }, [filters.search, filters.organisationCode, filters.employeeId]);
 
   const [orgCodeOptions, setOrgCodeOptions] = useState<string[]>([]);
-  const [employeeIdOptions, setEmployeeIdOptions] = useState<string[]>([]);
 
   const fetchUsers = useCallback(async () => {
     setLoadingUsers(true);
@@ -388,7 +388,6 @@ export default function CreateCohortPage() {
       setUsers(mapped);
       // Dropdown values are collected from the users loaded so far, so they stay available after a filter is picked
       setOrgCodeOptions((prev) => mergeSorted(prev, mapped.map((r) => r.organisationCode)));
-      setEmployeeIdOptions((prev) => mergeSorted(prev, mapped.map((r) => r.employeeId)));
       // Names replace the ids a moment later, so the list itself is not held back
       resolveRowLocations(mapped)
         .then(setUsers)
@@ -682,7 +681,7 @@ export default function CreateCohortPage() {
             </Typography>
           </TableCell>
 
-          <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
+          {/* <TableCell sx={{ borderBottom: '1px solid #F3F4F6', py: 1.2 }}>
             <Typography
               sx={{
                 fontSize: '12px',
@@ -701,7 +700,7 @@ export default function CreateCohortPage() {
             <Typography sx={{ fontSize: '12px', color: '#6B7280', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {row.branch}
             </Typography>
-          </TableCell>
+          </TableCell> */}
         </TableRow>
       );
     })
@@ -779,9 +778,7 @@ export default function CreateCohortPage() {
               showBranch={true}
               showProgram={true}
               showOrganisationCode={true}
-              showEmployeeId={true}
               organisationCodeOptions={orgCodeOptions}
-              employeeIdOptions={employeeIdOptions}
               onClear={() => {
                 setFilters(ADD_MEMBERS_DEFAULT_FILTERS);
                 setPage(0);
@@ -868,7 +865,7 @@ export default function CreateCohortPage() {
                     >
                       ORGANIZATION ROLE
                     </TableCell>
-                    <TableCell
+                    {/* <TableCell
                       sx={{
                         fontSize: '11px',
                         fontWeight: 700,
@@ -891,7 +888,7 @@ export default function CreateCohortPage() {
                       }}
                     >
                       BRANCH
-                    </TableCell>
+                    </TableCell> */}
                   </TableRow>
                 </TableHead>
 
