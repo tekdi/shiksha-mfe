@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Box, Typography, Badge, Avatar, Select, MenuItem, FormControl, SelectChangeEvent } from '@mui/material';
 import Image from 'next/image';
 import CircleNotificationsRoundedIcon from '@mui/icons-material/CircleNotificationsRounded';
+import SchoolOutlinedIcon from '@mui/icons-material/SchoolOutlined';
 
 import { useTranslation } from '@shared-lib';
 import { LANGUAGE_OPTIONS } from '@learner/utils/constants/language';
@@ -17,6 +18,8 @@ interface CFLDesktopHeaderProps {
   onAlertsClick?: () => void;
   onEditProfile?: () => void;
   onLogout: () => void;
+  /** Task 77: set for a Reviewer who also has their own learning; links back to the learner home */
+  onMyLearningClick?: () => void;
 }
 
 const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
@@ -25,6 +28,7 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
   onAlertsClick,
   onEditProfile,
   onLogout,
+  onMyLearningClick,
 }) => {
   const { t, language, setLanguage } = useTranslation();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -103,7 +107,29 @@ const CFLDesktopHeader: React.FC<CFLDesktopHeaderProps> = ({
 
       {/* Right actions */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-        
+        {onMyLearningClick && (
+          <Box
+            id="cfl-header-my-learning-btn"
+            role="button"
+            onClick={onMyLearningClick}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 0.75,
+              cursor: 'pointer',
+              px: 1.5,
+              py: 0.5,
+              borderRadius: '8px',
+              '&:hover': { bgcolor: 'rgba(28,43,74,0.07)' },
+            }}
+          >
+            <SchoolOutlinedIcon sx={{ fontSize: 22, color: PRIMARY }} />
+            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, color: '#1F2937' }}>
+              {t('LEARNER_APP.HOME.MY_LEARNING')}
+            </Typography>
+          </Box>
+        )}
+
         {/* ── Language ── */}
         <FormControl size="small" sx={{ minWidth: 100 }}>
           <Select

@@ -303,6 +303,8 @@
     },
     "HOME": {
       "GREETING": "Namaste, {{name}}!",
+       "MY_TEAM": "My Team",
+      "MY_LEARNING": "My Learning",
       "TITLE": "Home",
       "PROGRESS_TEXT": "Progress: {{percent}}% Completed",
       "LEARNING_PROGRESS": "Learning Progress",

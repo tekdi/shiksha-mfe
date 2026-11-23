@@ -17,6 +17,7 @@ import { cohortList } from "@learner/utils/API/services/CohortServices";
 import { getUserDetails } from '@learner/utils/API/services/ProfileService';
 import { getDisplayLocation } from '@learner/utils/swadhaarProfile';
 import { useTranslation } from '@shared-lib';
+import { canOpenTeamDashboard, hasOwnLearning, isReviewerSession, refreshReviewerFlag } from '@learner/utils/swadhaarReviewer';
 
 const PRIMARY = '#E6873C';
 
@@ -31,6 +32,8 @@ export default function CFLHomePage() {
   const [desktopEditProfileOpen, setDesktopEditProfileOpen] = useState(false);
   const [userRole, setUserRole] = useState('CFL');
   const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
+  const [showMyLearning, setShowMyLearning] = useState(false);
+  const openMyLearning = useCallback(() => router.push('/swadhaar-home'), [router]);
 
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
@@ -71,10 +74,18 @@ export default function CFLHomePage() {
       const role = rawRole.trim().toUpperCase();
       setUserRole(role);
       const userId = localStorage.getItem('userId');
-      if (role !== 'CFL' && role !== 'DI' && role !== 'DISTRICT INCHARGE' && role !== 'ARM' && userId !== '7f60190c-16eb-4583-bbef-c5fc7bc484e7') {
+      // Task 77: cfl / arm, or a Reviewer in at least one group (any organisation role)
+      if (!canOpenTeamDashboard() && userId !== '7f60190c-16eb-4583-bbef-c5fc7bc484e7') {
         window.location.href = '/swadhaar-home';
         return;
       }
+      // A Reviewer who also has their own learning (trainer) can go back to it
+      setShowMyLearning(isReviewerSession() && hasOwnLearning());
+      // Group roles change after sign-in: re-check, and leave if no longer a Reviewer
+      refreshReviewerFlag().then((reviewer) => {
+        if (!canOpenTeamDashboard(reviewer)) window.location.href = '/swadhaar-home';
+        else setShowMyLearning(reviewer && hasOwnLearning());
+      });
       if (role === "DI" || role === "CFL" || role === "DISTRICT INCHARGE" || role === "ARM") {
         const fetchCohortData = async () => {
           try {
@@ -153,6 +164,7 @@ export default function CFLHomePage() {
           onReload={refreshProfileData}
           externalEditProfileOpen={desktopEditProfileOpen}
           onExternalEditProfileClose={() => setDesktopEditProfileOpen(false)}
+          onMyLearningClick={showMyLearning ? openMyLearning : undefined}
         />
         <Modal open={showUpdateProfilePrompt} onClose={() => setShowUpdateProfilePrompt(false)}>
           <Box sx={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: 400, bgcolor: 'background.paper', borderRadius: 4, overflow: 'hidden', boxShadow: 24, outline: 'none' }}>
@@ -176,7 +188,10 @@ export default function CFLHomePage() {
 
   return (
     <Box sx={{ pb: 10, bgcolor: '#fbfbfb', minHeight: '100vh' }}>
-      <CFLHeader title={(userRole === 'ARM') ? 'ARM' : t('CFL_DASHBOARD.DISTRICT_INCHARGE')} />
+      <CFLHeader
+        title={(userRole === 'ARM') ? 'ARM' : t('CFL_DASHBOARD.DISTRICT_INCHARGE')}
+        onMyLearningClick={showMyLearning ? openMyLearning : undefined}
+      />
 
       <Box sx={{ p: 2 }}>
         <ProfileCard username={username} location={location} avatarUrl={profileImageUrl || undefined} />

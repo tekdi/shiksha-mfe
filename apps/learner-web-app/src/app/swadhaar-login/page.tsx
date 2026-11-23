@@ -10,6 +10,7 @@ import { profileComplitionCheck, getUserDetails, setLocalStorageFromCustomFields
 import { useTenant } from '@learner/context/TenantContext';
 import { useTranslation } from '@shared-lib';
 import { SwadhaarDesktopLogin } from '@learner/components/Swadhaar/Desktop';
+import { getMyReviewerGroups, REVIEWER_FLAG_KEY } from '@learner/utils/swadhaarReviewer';
 
 const SWADHAAR_TENANT_ID = '35529b5d-526f-4da5-bc6e-64f740023d26';
 const PRIMARY = '#E6873C';
@@ -148,7 +149,13 @@ console.log("USER data---",userData)
       // Matched on roleCode so renaming a role's label does not lock users out.
       const ALLOWED_ROLE_CODES = ['trainer', 'cfl', 'arm'];
       const roleCode = String(userData?.tenantData?.[0]?.roleCode || '').toLowerCase();
-      if (roleCode && !ALLOWED_ROLE_CODES.includes(roleCode)) {
+      // Task 77: a Reviewer in at least one group may sign in whatever their organisation role
+      // (they get the team dashboard). null = could not ask; then only the role decides.
+      const reviewerGroups = await getMyReviewerGroups(token, userData?.tenantData?.[0]?.tenantId);
+      const isReviewer = (reviewerGroups?.length ?? 0) > 0;
+      localStorage.setItem(REVIEWER_FLAG_KEY, String(isReviewer));
+      if (roleCode && !ALLOWED_ROLE_CODES.includes(roleCode) && !isReviewer) {
+        localStorage.removeItem(REVIEWER_FLAG_KEY);
         localStorage.removeItem('token');
         localStorage.removeItem('refreshToken');
         showToastMessage('This account is not allowed to use the learner app.', 'error');
