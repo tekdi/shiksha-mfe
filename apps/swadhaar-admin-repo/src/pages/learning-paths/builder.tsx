@@ -47,6 +47,7 @@ import {
   getPathwayEnrolled,
 } from '@/services/PathwayService';
 import EnrolLearningPathModal from '@/components/common/EnrolLearningPathModal';
+import CourseLanguageTags from '@/components/content/CourseLanguageTags';
 import useUnsavedChangesGuard from '@/hooks/useUnsavedChangesGuard';
 
 interface SequenceItem {
@@ -61,6 +62,17 @@ interface SequenceItem {
 }
 
 const ASSESSMENT_PREFIX = 'assessment:';
+/** Language chip under a course step, with "Also in …" when the course has other language versions */
+const StepLanguageTags: React.FC<{ course?: CourseItem }> = ({ course }) =>
+  course ? (
+    <Box sx={{ mt: 0.5 }}>
+      <CourseLanguageTags
+        languageCode={course.languageCode}
+        availableLanguages={course.availableLanguages}
+        direction="row"
+      />
+    </Box>
+  ) : null;
 
 const BUILDER_CARD_SX = {
   backgroundColor: '#FFFFFF',
@@ -163,6 +175,9 @@ export default function LearningPathBuilderPage() {
     isDirty && !saveSuccess,
     'You have unsaved changes in the Learning Path Builder. Are you sure you want to leave this page?'
   );
+
+  /** The course behind a path step, for its language chips */
+  const stepCourse = (courseId: string) => coursesList.find((c) => c.identifier === courseId);
 
   // Courses that can be added to the path, then (when editing) the pathway and its steps
   const fetchCourses = useCallback(async () => {
@@ -683,6 +698,7 @@ export default function LearningPathBuilderPage() {
                         <Typography sx={{ fontSize: '14px', fontWeight: 600, color: '#1F1E1C' }}>
                           {item.title}
                         </Typography>
+                        {item.courseId && <StepLanguageTags course={stepCourse(item.courseId)} />}
                       </Box>
                     </Box>
 
@@ -939,9 +955,17 @@ export default function LearningPathBuilderPage() {
                 ? coursesList.map((c) => {
                   const added = sequence.some((item) => item.courseId === c.identifier);
                   return (
-                    <MenuItem key={c.identifier} value={c.identifier} disabled={added}>
-                      <Checkbox size="small" checked={added} disabled sx={{ p: 0, mr: 1 }} />
-                      {c.cleanTitle || c.name}
+                   <MenuItem key={c.identifier} value={c.identifier} disabled={added} sx={{ gap: 1 }}>
+                      <Checkbox size="small" checked={added} disabled sx={{ p: 0 }} />
+                      <Box component="span" sx={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {c.cleanTitle || c.name}
+                      </Box>
+                      {/* Language versions (Task 36): an English course shows "Also in Hindi, Marathi" */}
+                      <CourseLanguageTags
+                        languageCode={c.languageCode}
+                        availableLanguages={c.availableLanguages}
+                        direction="row"
+                      />
                     </MenuItem>
                   );
                 })
