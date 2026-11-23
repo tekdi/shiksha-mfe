@@ -462,7 +462,7 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   useEffect(() => {
     if (!open) return;
     const code = formData.organisationCode.trim().toUpperCase();
-    if (!code || !ALPHANUMERIC_REGEX.test(code)) {
+    if (!code || !ORG_IDENTIFIER_REGEX.test(code)) {
       setOrgLookup('idle');
       return;
     }
@@ -609,7 +609,15 @@ const CreateUserModal: React.FC<CreateUserModalProps> = ({
   };
 
   const orgCodeIsKnown = orgLookup === 'found';
-  const orgFieldErrors = validateOrganisationFields(formData, orgCodeIsKnown);
+  // On edit, a stored value that was not changed is never flagged (older records can hold "-" or longer values)
+  const orgFieldErrors = (() => {
+    const all = validateOrganisationFields(formData, orgCodeIsKnown);
+    if (!isEdit) return all;
+    ORGANISATION_KEYS.forEach((key) => {
+      if (formData[key].trim() === originalOrgRef.current[key].trim()) delete all[key];
+    });
+    return all;
+  })();
   const orgLookupPending = Boolean(formData.organisationCode.trim()) && orgLookup === 'loading';
   const branchOtherError = formData.branch === BRANCH_OTHER ? validateBranchOther(formData.branchOther) : undefined;
 

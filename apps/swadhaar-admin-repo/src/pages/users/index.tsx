@@ -250,6 +250,15 @@ const applySearchFilters = (filters: Record<string, any>, search: string) => {
   if (trimmed) filters.searchtext = trimmed;
 };
 
+/** Adds the new non-empty values to the list, without duplicates, sorted */
+const mergeSorted = (prev: string[], next: string[]): string[] => {
+  const merged = new Set(prev);
+  next.forEach((v) => {
+    if (v && v !== '-') merged.add(v);
+  });
+  return merged.size === prev.length ? prev : Array.from(merged).sort((a, b) => a.localeCompare(b));
+};
+
 const hasFilterValue = (v?: string): v is string => Boolean(v) && v !== 'all';
 
 /** Location filters use the field option values: states, city (district) and block */
@@ -327,6 +336,8 @@ export default function UsersPage() {
     return () => clearTimeout(timer);
   }, [filters.organisationCode]);
 
+  const [orgCodeOptions, setOrgCodeOptions] = useState<string[]>([]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -363,6 +374,8 @@ export default function UsersPage() {
         const mappedUsers: UserRowItem[] = rawList.map(mapUserRow);
 
         setUsers(mappedUsers);
+        // Dropdown values are collected from the users loaded so far, so they stay available after a filter is picked
+        setOrgCodeOptions((prev) => mergeSorted(prev, mappedUsers.map((u) => u.organisationCode || '')));
         setTotalCount(totalFromApi || mappedUsers.length);
       } else {
         setUsers([]);
@@ -532,27 +545,24 @@ export default function UsersPage() {
         render: (row) => <Typography sx={CELL_TEXT_SX}>{row.employeeId || '-'}</Typography>,
       },
       {
+        id: 'organisationCode',
+        label: t('USERS.LIST.COL_ORGANISATION_CODE'),
+        labelKey: 'USERS.LIST.COL_ORGANISATION_CODE',
+        render: (row) => <Typography sx={CELL_TEXT_SX}>{row.organisationCode || '-'}</Typography>,
+      },
+      {
         id: 'organisation',
         label: t('USERS.LIST.COL_ORGANISATION'),
         labelKey: 'USERS.LIST.COL_ORGANISATION',
         minWidth: 140,
-        render: (row) =>
-          row.organisationCode ? (
-            <Tooltip title={row.organisationName || row.organisationCode} arrow placement="top">
-              <Box>
-                <Typography sx={{ ...CELL_TEXT_SX, color: '#1F2937', fontWeight: 500 }}>{row.organisationCode}</Typography>
-                {row.organisationName && (
-                  <Typography
-                    sx={{ fontSize: '12px', color: '#6B7280', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  >
-                    {row.organisationName}
-                  </Typography>
-                )}
-              </Box>
-            </Tooltip>
-          ) : (
-            <Typography sx={CELL_TEXT_SX}>-</Typography>
-          ),
+        render: (row) => (
+          <Typography
+            sx={{ ...CELL_TEXT_SX, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}
+            title={row.organisationName || undefined}
+          >
+            {row.organisationName || '-'}
+          </Typography>
+        ),
       },
       {
         id: 'email',
@@ -694,6 +704,7 @@ export default function UsersPage() {
         showBranch={true}
         showProgram={true}
         showOrganisationCode={true}
+        organisationCodeOptions={orgCodeOptions}
         onClear={() => {
           setFilters(DEFAULT_FILTERS);
           setPage(0);
