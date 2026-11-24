@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { getLocationLabelKey } from '@learner/utils/swadhaarProfile';
+import { isGroupReviewerOnly } from '@learner/utils/swadhaarReviewer';
 import { Box, Typography } from '@mui/material';
 import ProfileAvatar from '@learner/components/Profile/ProfileAvatar';
 import { useTranslation } from '@shared-lib';
@@ -24,7 +25,14 @@ const CFLDesktopProfileBanner: React.FC<CFLDesktopProfileBannerProps> = ({
   userName, location, totalTrainers, completedTrainers, profileImageUrl, onProfileClick, userRole, trainers = [],
 }) => {
   const { t } = useTranslation();
-
+ // A Reviewer (group role) is shown as Reviewer, not by the cfl / arm dashboard designation
+  const designation = isGroupReviewerOnly()
+    ? t('LEARNER_APP.HOME.REVIEWER')
+    : userRole === 'ARM'
+      ? 'ARM'
+      : t('CFL_DASHBOARD.DISTRICT_INCHARGE');
+  // The page sends "<designation>: <place>"; only the place is shown here
+  const placeName = location.replace(/^[^:]*:\s*/, '').trim();
   const getInitials = (name: string) => {
     if (!name) return 'U';
     return name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
@@ -63,7 +71,8 @@ const CFLDesktopProfileBanner: React.FC<CFLDesktopProfileBannerProps> = ({
           {t('LEARNER_APP.HOME.GREETING', { name: userName })}
         </Typography>
         <Typography sx={{ fontFamily: 'Inter', fontSize: 11, fontWeight: 400, color: 'rgba(255,255,255,0.6)', mt: 0.5 }}>
-          {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {(userRole === 'ARM') ? 'ARM' : t('CFL_DASHBOARD.DISTRICT_INCHARGE')} - {t(getLocationLabelKey(userRole))}: {location.replace(/^(District Incharge|CFL|ARM):\s*/i, '').trim()}
+         {t('LEARNER_APP.PROFILE.FIELD_DESIGNATION')}: {designation}
+          {placeName ? ` - ${t(getLocationLabelKey(userRole))}: ${placeName}` : ''}
         </Typography>
       </Box>
 

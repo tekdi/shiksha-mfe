@@ -14,6 +14,9 @@ import {
 } from '@learner/utils/API/SwadhaarService';
 import { useParams, useRouter } from 'next/navigation';
 import { useTranslation } from '@shared-lib';
+import { getUserDetails } from '@learner/utils/API/services/ProfileService';
+import { getDisplayLocation } from '@learner/utils/swadhaarProfile';
+import { joinUserName } from '@learner/utils/userName';
 
 const PRIMARY = '#E6873C';
 
@@ -28,7 +31,8 @@ export default function TrainerDetailPage() {
   const [userRole, setUserRole] = useState('');
   const [trainerName, setTrainerName] = useState('Trainer/CFL Incharge');
   const [trainerAvatar, setTrainerAvatar] = useState<string | undefined>(undefined);
-  const [cflName, setCflName] = useState('District Incharge');
+ // Under the learner's name: their own designation and location (from their profile)
+  const [cflName, setCflName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [levels, setLevels] = useState<SwadhaarLevel[]>([]);
   const [statusData, setStatusData] = useState<any[]>([]);
@@ -44,7 +48,19 @@ export default function TrainerDetailPage() {
       const avatarParam = searchParams.get('avatarUrl');
       if (nameParam) setTrainerName(nameParam);
       if (avatarParam) setTrainerAvatar(avatarParam);
-      setCflName(`District Incharge: ${localStorage.getItem('stateName') || 'Jharkhand'} - ${localStorage.getItem('districtName') || 'Torpa'}`);
+     if (id) {
+        getUserDetails(id as string, true)
+          .then((res) => {
+            const profile = res?.result?.userData;
+            if (!profile) return;
+            const name = joinUserName(profile.firstName, profile.middleName, profile.lastName);
+            if (name) setTrainerName(name);
+            const designation = profile.tenantData?.[0]?.roleName || profile.role || '';
+            const place = getDisplayLocation(profile);
+            setCflName([designation, place].filter(Boolean).join(': '));
+          })
+          .catch((err) => console.warn('Could not load the learner profile:', err));
+      }
     }
   }, [id]);
 

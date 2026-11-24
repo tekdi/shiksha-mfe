@@ -29,7 +29,7 @@ import { LANGUAGE_OPTIONS, LanguageCode } from "../../utils/constants/language";
 import SwadhaarBottomNav from "../../components/Swadhaar/SwadhaarBottomNav";
 import { getUnreadCount } from "../../utils/alertsStore";
 import { telemetryFactory } from "../../utils/telemtery";
-
+import { joinUserName, splitFullName } from "@learner/utils/userName";
 const ProfilePage = () => {
   const router = useRouter();
   const { t, language, setLanguage } = useTranslation();
@@ -91,19 +91,15 @@ const ProfilePage = () => {
     try {
       const userId = localStorage.getItem("userId");
       if (userId) {
-        const trimmedName = newName.trim();
-        const nameParts = trimmedName.split(/\s+/);
-        const firstName = capitalize(nameParts[0] || "");
-        const lastName = nameParts.length > 1 ? capitalize(nameParts.slice(1).join(" ")) : "";
-
+          // One word is allowed: it is saved as first and last name and shown once (joinUserName)
+        const split = splitFullName(newName);
+        const firstName = capitalize(split.firstName);
+        const lastName = capitalize(split.lastName);
         if (!firstName) {
           showToastMessage('First name is required', 'error');
           throw new Error('validation_failed');
         }
-        if (!lastName) {
-          showToastMessage('Last name is required', 'error');
-          throw new Error('validation_failed');
-        }
+       
 
         await editEditUser(userId, { firstName, lastName });
         showToastMessage(t("LEARNER_APP.PROFILE.NAME_UPDATED_SUCCESS"), "success");
@@ -207,7 +203,7 @@ const ProfilePage = () => {
     );
   }
 
-  const fullName = capitalize(`${profileData?.firstName || ""} ${profileData?.lastName || ""}`.trim());
+ const fullName = capitalize(joinUserName(profileData?.firstName, profileData?.middleName, profileData?.lastName));
 
   const getCustomFieldValue = (fieldId: string) => {
     const field = profileData?.customFields?.find((f: any) => f.fieldId === fieldId);
