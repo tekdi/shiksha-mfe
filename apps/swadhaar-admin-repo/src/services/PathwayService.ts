@@ -149,14 +149,27 @@ const statusOf = (current: any): { status?: string } => {
 /** Groups and individual users already enrolled in a path (recorded on its courses' params) */
 export const getPathwayEnrolled = async (pathwayId: string): Promise<{ groupIds: string[]; userIds: string[] }> => {
   const { content } = await getCourseList({ limit: 100 });
+  const headers = getServiceHeaders();
+  // The search results can lag behind a removal done from a group's page, so each course of the path is read again
+  // and its saved params are used
+  const params = await Promise.all(
+    content
+      .filter((course) => course.params?.pathwayId === pathwayId)
+      .map(async (course) => {
+        try {
+          const current = await get(`${API_ENDPOINTS.lmsCourses}/${course.identifier}`, headers);
+          return current?.data?.result?.params || course.params || {};
+        } catch {
+          return course.params || {};
+        }
+      })
+  );
   const groupIds = new Set<string>();
   const userIds = new Set<string>();
-  content
-    .filter((course) => course.params?.pathwayId === pathwayId)
-    .forEach((course) => {
-      (course.params?.enrolledCohortIds || []).forEach((id: string) => groupIds.add(id));
-      (course.params?.enrolledUserIds || []).forEach((id: string) => userIds.add(id));
-    });
+  params.forEach((p: Record<string, any>) => {
+    [p.cohortId, ...(p.enrolledCohortIds || [])].forEach((id) => id && groupIds.add(id));
+    (p.enrolledUserIds || []).forEach((id: string) => userIds.add(id));
+  });
   return { groupIds: Array.from(groupIds), userIds: Array.from(userIds) };
 };
 
