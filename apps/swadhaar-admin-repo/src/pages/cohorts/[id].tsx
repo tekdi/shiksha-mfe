@@ -30,6 +30,7 @@ import {
   FormControl,
   TextField,
   InputAdornment,
+  IconButton
 } from '@mui/material';
 import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -40,7 +41,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations';
 import nextI18NextConfig from '../../../next-i18next.config.js';
 import CommonDialog from '@/components/common/CommonDialog';
 import EditCohortModal from '@/components/common/EditCohortModal';
-import { getCohortLearningPaths } from '@/services/PathwayService';
+import { getCohortLearningPaths, removePathFromCohort } from '@/services/PathwayService';
 import AssignPathwayToGroupModal from '@/components/common/AssignPathwayToGroupModal';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import {
@@ -258,6 +259,9 @@ export default function GroupDetailsPage() {
   // Modals & Action States
   const [isEditModalOpen, setIsEditModalOpen] = useState<boolean>(false);
   const [isAssignPathOpen, setIsAssignPathOpen] = useState<boolean>(false);
+   // Learning path (or single course) the admin is taking away from this group
+  const [pathToRemove, setPathToRemove] = useState<{ id: string; name: string } | null>(null);
+  const [removingPath, setRemovingPath] = useState<boolean>(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState<boolean>(false);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState<boolean>(false);
   const [isChangeRoleOpen, setIsChangeRoleOpen] = useState<boolean>(false);
@@ -514,6 +518,29 @@ export default function GroupDetailsPage() {
     });
   };
 
+  // Action: take a learning path away from this group (its learners are withdrawn; progress is kept)
+  const handleConfirmRemovePath = async () => {
+    if (!cohortId || !pathToRemove) return;
+    setRemovingPath(true);
+    try {
+      const withdrawn = await removePathFromCohort(pathToRemove.id, cohortId as string);
+      setFeedback({
+        open: true,
+        message: `Removed "${pathToRemove.name}" from the group; ${withdrawn} learner(s) no longer have its courses.`,
+        severity: 'success',
+      });
+      setPathToRemove(null);
+      fetchCohortContent();
+    } catch (err) {
+      setFeedback({
+        open: true,
+        message: apiErrorMessage(err) || 'The learning path could not be removed from the group.',
+        severity: 'error',
+      });
+    } finally {
+      setRemovingPath(false);
+    }
+  };
   // Action: Delete cohort
   const handleConfirmDeleteCohort = async () => {
     if (!cohortId) return;
@@ -1314,9 +1341,21 @@ export default function GroupDetailsPage() {
                     >
                       {cc.name || 'Learning path'}
                     </Typography>
+                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Typography sx={{ fontSize: '11px', color: '#6B7280' }}>
                       Enrolled
                     </Typography>
+                     <Tooltip title="Remove from this group">
+                        <IconButton
+                          size="small"
+                          aria-label={`Remove ${cc.name || 'learning path'} from this group`}
+                          onClick={() => setPathToRemove({ id: cc.id, name: cc.name || 'Learning path' })}
+                          sx={{ color: '#9CA3AF', '&:hover': { color: '#DC2626' } }}
+                        >
+                          <DeleteOutlineIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
                   </Box>
                 ))}
               </Box>
@@ -1353,6 +1392,24 @@ export default function GroupDetailsPage() {
         />
       )}
 
+      {/* Remove Learning Path From Group Dialog */}
+      <CommonDialog
+        open={Boolean(pathToRemove)}
+        onClose={() => !removingPath && setPathToRemove(null)}
+        title="Remove learning path"
+        subtitle={`Remove "${pathToRemove?.name}" from ${groupName}?`}
+        confirmLabel={removingPath ? 'Removing...' : 'Remove'}
+        confirmVariant="danger"
+        confirmDisabled={removingPath}
+        loading={removingPath}
+        onConfirm={handleConfirmRemovePath}
+      >
+        <Typography sx={{ fontSize: '13.5px', color: '#4B5563' }}>
+          The group&apos;s learners lose access to its courses, and new members will no longer get them. Learners who
+          also have it on their own or through another group keep it. Their progress is kept and comes back if the
+          path is assigned again.
+        </Typography>
+      </CommonDialog>
       {/* Delete Confirmation Dialog */}
       <CommonDialog
         open={isDeleteConfirmOpen}

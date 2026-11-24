@@ -255,13 +255,12 @@ const applySearchFilters = (filters: Record<string, any>, search: string) => {
 };
 
 /** Adds the new non-empty values to the list, without duplicates, sorted */
-const mergeSorted = (prev: string[], next: string[]): string[] => {
-  const merged = new Set(prev);
-  next.forEach((v) => {
-    if (v && v !== '-') merged.add(v);
-  });
-  return merged.size === prev.length ? prev : Array.from(merged).sort((a, b) => a.localeCompare(b));
-};
+/** The distinct non-empty values, sorted */
+const distinctSorted = (values: string[]): string[] =>
+  Array.from(new Set(values.filter((v) => v && v !== '-'))).sort((a, b) => a.localeCompare(b));
+
+/** Enough to cover every user of the tenant when the organisation codes in use are collected */
+const ORG_CODE_SCAN_LIMIT = 5000;
 
 const hasFilterValue = (v?: string): v is string => Boolean(v) && v !== 'all';
 
@@ -340,7 +339,35 @@ export default function UsersPage() {
     return () => clearTimeout(timer);
   }, [filters.organisationCode]);
 
-  const [orgCodeOptions, setOrgCodeOptions] = useState<string[]>([]);
+    // The Organization Code options are the codes held by users now. They are rebuilt from the server (not added to
+  // from each page) so a code nobody holds any more after an edit drops out without a page refresh.
+  const [orgCodesInUse, setOrgCodesInUse] = useState<string[]>([]);
+  const loadOrgCodeOptions = useCallback(async () => {
+    try {
+      const { users: all } = await listUsersByRoles(
+        {
+          limit: ORG_CODE_SCAN_LIMIT,
+          offset: 0,
+          filters: { status: ['active', 'inactive'], role: 'all' },
+          sort: ['createdAt', 'desc'],
+        },
+        []
+      );
+      setOrgCodesInUse(distinctSorted(all.map((u: any, i: number) => mapUserRow(u, i).organisationCode || '')));
+    } catch (err: any) {
+      if (err?.response?.status === 404) setOrgCodesInUse([]);
+      else console.error('Could not load organisation codes:', err);
+    }
+  }, []);
+  useEffect(() => {
+    loadOrgCodeOptions();
+  }, [loadOrgCodeOptions]);
+  // A chosen code stays in the list even when no user holds it any more, so the dropdown can still show it
+  const orgCodeOptions = useMemo(() => {
+    const chosen = filters.organisationCode?.trim().toUpperCase();
+    return chosen && !orgCodesInUse.includes(chosen) ? distinctSorted([...orgCodesInUse, chosen]) : orgCodesInUse;
+  }, [orgCodesInUse, filters.organisationCode]);
+
 
   const latestRequest = useRef(0);
   const fetchUsers = useCallback(async () => {
@@ -382,8 +409,7 @@ export default function UsersPage() {
         const mappedUsers: UserRowItem[] = rawList.map(mapUserRow);
 
         setUsers(mappedUsers);
-        // Dropdown values are collected from the users loaded so far, so they stay available after a filter is picked
-        setOrgCodeOptions((prev) => mergeSorted(prev, mappedUsers.map((u) => u.organisationCode || '')));
+    
         setTotalCount(totalFromApi || mappedUsers.length);
       } else {
         setUsers([]);
@@ -781,7 +807,10 @@ export default function UsersPage() {
       <CreateUserModal
         open={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        onSuccess={fetchUsers}
+        onSuccess={() => {
+          fetchUsers();
+          loadOrgCodeOptions();
+        }}
       />
 
       {/* 7. Edit User Modal */}
@@ -794,8 +823,12 @@ export default function UsersPage() {
           }}
           onSuccess={() => {
             fetchUsers();
+             loadOrgCodeOptions();
             // The list can still hold the old values right after an edit, so it is loaded once more a moment later
-            setTimeout(fetchUsers, 1500);
+               setTimeout(() => {
+              fetchUsers();
+              loadOrgCodeOptions();
+            }, 1500);
           }}
           initialData={activeUser}
           isEdit={true}

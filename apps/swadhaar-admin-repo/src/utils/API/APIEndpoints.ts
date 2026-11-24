@@ -159,6 +159,7 @@ export const API_ENDPOINTS = {
     `${baseurl}/lms-service/v1/enrollments/cohort${adminId ? `?userId=${encodeURIComponent(adminId)}` : ''}`,
   lmsEnrollmentCreate: `${baseurl}/lms-service/v1/enrollments`,
   lmsEnrollments: (userId: string) => `${baseurl}/lms-service/v1/enrollments?userId=${userId}`,
+  lmsEnrollmentWithdraw: `${baseurl}/lms-service/v1/enrollments/withdraw`,
   lmsLessonAttempt: (lessonId: string, userId: string) => `${baseurl}/tracking/lesson/attempt/${lessonId}?userId=${userId}`,
   lmsConfig: `${baseurl}/config`,
 

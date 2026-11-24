@@ -160,6 +160,18 @@ export default function LearningPathBuilderPage() {
     groups: 'No groups enrolled yet',
     users: 'No individual users enrolled yet',
   });
+  // After an enrol or a removal: shows the total enrolled now, not only the latest change
+  const refreshEnrolledSummary = () => {
+    if (!pathwayId) return;
+    getPathwayEnrolled(pathwayId)
+      .then(({ groupIds, userIds }) =>
+        setEnrolledSummary({
+          groups: groupIds.length ? `${groupIds.length} groups enrolled` : 'No groups enrolled yet',
+          users: userIds.length ? `${userIds.length} individual users enrolled` : 'No individual users enrolled yet',
+        })
+      )
+      .catch((err) => console.error('Could not refresh enrolled summary:', err));
+  };
 
   // Modals
   const [isEnrolModalOpen, setIsEnrolModalOpen] = useState(false);
@@ -892,20 +904,8 @@ export default function LearningPathBuilderPage() {
         learningPathTitle={pathTitle}
         pathwayId={pathwayId}
         courseIds={sequence.map((item) => item.courseId).filter(Boolean) as string[]}
-        onEnrolSuccess={() => {
-          // Show the total enrolled (earlier plus new), not only the latest selection
-          if (!pathwayId) return;
-          getPathwayEnrolled(pathwayId)
-            .then(({ groupIds, userIds }) =>
-              setEnrolledSummary({
-                groups: groupIds.length ? `${groupIds.length} groups enrolled` : 'No groups enrolled yet',
-                users: userIds.length
-                  ? `${userIds.length} individual users enrolled`
-                  : 'No individual users enrolled yet',
-              })
-            )
-            .catch((err) => console.error('Could not refresh enrolled summary:', err));
-        }}
+        onEnrolSuccess={refreshEnrolledSummary}
+        onRemoved={refreshEnrolledSummary}
       />
 
       {/* Add Course to Sequence Dialog */}

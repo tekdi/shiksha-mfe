@@ -1759,7 +1759,18 @@
     "SUCCESS_GROUP": "Successfully enrolled 1 group in {{title}}",
     "SUCCESS_GROUPS": "Successfully enrolled {{count}} groups in {{title}}",
     "SUCCESS_USER": "Successfully enrolled 1 user in {{title}}",
-    "SUCCESS_USERS": "Successfully enrolled {{count}} users in {{title}}"
+     "SUCCESS_USERS": "Successfully enrolled {{count}} users in {{title}}",
+    "REMOVE": "Remove",
+    "REMOVE_GROUP_TITLE": "Remove {{name}} from this learning path?",
+    "REMOVE_USER_TITLE": "Remove {{name}} from this learning path?",
+    "REMOVE_GROUP_BODY": "The group's learners lose access to the path's courses, and new members will no longer get them. Learners who also have the path on their own or through another group keep it. Progress is kept and comes back if the path is assigned again.",
+    "REMOVE_USER_BODY": "The user loses access to the path's courses unless a group they belong to still has the path. Progress is kept and comes back if the path is assigned again.",
+    "REMOVED_GROUP": "Removed {{name}}; {{count}} learner(s) no longer have this path.",
+    "REMOVED_USER": "Removed {{name}} from this learning path.",
+    "KEPT_THROUGH_GROUP": "Removed {{name}} as an individual user. They keep the courses through a group that has this path.",
+    "REMOVE_FAILED": "Could not remove it from the learning path.",
+    "REMOVING": "Removing…"
+    
   },
   "LIFECYCLE": {
     "ACTIVE": "Active",
