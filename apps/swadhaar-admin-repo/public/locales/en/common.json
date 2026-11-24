@@ -1164,6 +1164,18 @@
       "LINK_FAILED": "Could not link the course. {{reason}}",
       "NO_COURSES": "No courses found",
       "PICK_COURSE": "Search for a course"
+    },
+    "PREVIEW": {
+      "HEADING": "Course preview",
+      "COUNTS": "{{sections}} sections · {{lessons}} lessons",
+      "OUTLINE": "Course outline",
+      "OVERVIEW": "About this course",
+      "START": "Start course preview",
+      "OPEN_LESSON": "Open lesson",
+      "LESSON_OF": "Lesson {{current}} of {{total}}",
+      "UNPUBLISHED": "Unpublished",
+      "SELECT_LESSON": "Choose a lesson in the outline to see it here, or start from the first lesson.",
+      "NO_DESCRIPTION": "No description for this lesson."
     }
   },
   "CONTENT": {

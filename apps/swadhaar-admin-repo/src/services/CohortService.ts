@@ -350,6 +350,29 @@ export const getMemberTotal = (res: any, rows: any[]): number => {
   return rowTotal ? Number(rowTotal) : rows.length;
 };
 
+/**
+ * Current member count of a group. The group's own `youthCount` still includes members that were removed,
+ * so count the member rows that are not ended; falls back to null if the member list cannot be read.
+ */
+export const getCurrentMemberCount = async (cohortId: string): Promise<number | null> => {
+  try {
+    let count = 0;
+    for (let offset = 0; ; offset += COHORT_MEMBER_PAGE_SIZE) {
+      const res = await getCohortMemberListApplication({
+        limit: COHORT_MEMBER_PAGE_SIZE,
+        offset,
+        filters: { cohortId: [cohortId] },
+      });
+      const rows = getMemberRows(res);
+      count += rows.filter(isCurrentMember).length;
+      if (rows.length < COHORT_MEMBER_PAGE_SIZE) return count;
+    }
+  } catch (error) {
+    console.error('Error in getCurrentMemberCount:', error);
+    return null;
+  }
+};
+
 export const getCohortLearnerIds = async (cohortId: string): Promise<string[]> => {
   const ids: string[] = [];
   for (let offset = 0; ; offset += COHORT_MEMBER_PAGE_SIZE) {

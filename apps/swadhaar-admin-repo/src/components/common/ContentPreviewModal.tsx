@@ -68,6 +68,8 @@ interface ContentPreviewModalProps {
   open: boolean;
   onClose: () => void;
   content: PreviewContentData | null;
+   /** Shown at the left of the footer instead of the note, e.g. the course preview's Previous / Next (Task 36a) */
+  footerStart?: React.ReactNode;
 }
 
 type AssessmentMode = 'review' | 'interactive';
@@ -202,7 +204,7 @@ const isPlaceholder = (value?: string | number | null) =>
 /** "15 min" -> "15" (the label adds the unit) */
 const withoutMinutesUnit = (value: string) => (value.toLowerCase().endsWith('min') ? value.slice(0, -3).trim() : value);
 
-export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, onClose, content }) => {
+export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, onClose, content, footerStart }) => {
   const { t } = useTranslation();
   const [assessmentMode, setAssessmentMode] = useState<AssessmentMode>('review');
   const [userAnswers, setUserAnswers] = useState<Record<string, string>>({});
@@ -672,7 +674,9 @@ export const ContentPreviewModal: React.FC<ContentPreviewModalProps> = ({ open, 
           justifyContent: 'space-between',
         }}
       >
-        <Typography sx={{ fontSize: '12px', color: NEUTRAL.muted }}>{t('CONTENT.PREVIEW.FOOTER_NOTE')}</Typography>
+          {footerStart ?? (
+          <Typography sx={{ fontSize: '12px', color: NEUTRAL.muted }}>{t('CONTENT.PREVIEW.FOOTER_NOTE')}</Typography>
+        )}
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           {isPdf && rawUrl && (
             <CommonButton

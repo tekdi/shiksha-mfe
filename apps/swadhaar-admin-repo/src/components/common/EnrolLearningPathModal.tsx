@@ -25,7 +25,7 @@ import CloseIcon from '@mui/icons-material/Close';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { useTranslation } from 'next-i18next';
-import { getCohortSearch, getCohortLearnerIds } from '@/services/CohortService';
+import { getCohortSearch, getCohortLearnerIds, getCurrentMemberCount } from '@/services/CohortService';
 import { getTenantRoles, listUsersByRoles, roleLabelFor } from '@/services/UserService';
 import {
   assignPathwayToUser,
@@ -206,10 +206,11 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
 
       // If API returns groups, map them
       if (rawList.length > 0) {
+        const counts = await Promise.all(rawList.map((g: any) => getCurrentMemberCount(g.cohortId)));
         const enriched: GroupRow[] = rawList.map((g: any, idx: number) => ({
           id: g.cohortId || `group-${idx}`,
           name: g.name || `Group ${idx + 1}`,
-          members: String(g.youthCount ?? 0),
+          members: String(counts[idx] ?? g.youthCount ?? 0),
           alreadyEnrolled: NOT_ENROLLED,
         }));
         setGroups(enriched);
