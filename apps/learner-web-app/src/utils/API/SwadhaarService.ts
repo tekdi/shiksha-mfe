@@ -1,6 +1,6 @@
 import { API_ENDPOINTS } from "./EndUrls";
 import { post, get, put } from "./RestClient";
-import { filterCoursesByLanguage, extractCourseLanguages } from "@learner/utils/courseLanguageUtils";
+import { filterCoursesByLanguage, extractCourseLanguages, normalizeLanguageName } from "@learner/utils/courseLanguageUtils";
 import { normalizeCourseHierarchy } from "@learner/utils/courseHierarchyNormalizer";
 import axios from "axios";
 import {
@@ -235,6 +235,31 @@ const fetchUserEnrollments = async (userId: string): Promise<any[]> => {
   );
 };
 
+/** Language name of an LMS course (courses.language, else params.language); legacy courses without one are English. */
+const courseLanguageOf = (course: any): string =>
+  normalizeLanguageName(course?.language || course?.params?.language || '') || 'English';
+
+/** The language the signed-in user picked for courses (English when none is saved). */
+export const getSavedCourseLanguage = (): string => {
+  if (typeof window === 'undefined') return 'English';
+  return normalizeLanguageName(
+    localStorage.getItem('swadhaarLanguage') || localStorage.getItem('contentLanguage') || 'English'
+  ) || 'English';
+};
+
+/**
+ * Languages of the courses the signed-in user is enrolled in (one enrollments call), English first.
+ * The language picker offers only these.
+ */
+export const fetchSwadhaarEnrolledLanguages = async (): Promise<string[]> => {
+  const userId = localStorage.getItem('userId');
+  if (!userId) return ['English'];
+  const courses = await fetchUserEnrollments(userId);
+  const languages = Array.from(new Set(courses.map(courseLanguageOf)));
+  languages.sort((a, b) => (a === 'English' ? -1 : b === 'English' ? 1 : a.localeCompare(b)));
+  return languages.length > 0 ? languages : ['English'];
+};
+
 /** A course or module counts as done at 70%, the same rule that unlocks the next level on the learner home. */
 export const SWADHAAR_DONE_PERCENT = 70;
 
@@ -380,11 +405,16 @@ export const fetchSwadhaarUserCourseDetail = async (
  * and the learner's module tracking (`trackingStatus`). Defaults to the signed-in user; the CFL/ARM
  * views pass a trainer's `userId`.
  */
-export const fetchSwadhaarEnrolledCourses = async (forUserId?: string): Promise<any[]> => {
+export const fetchSwadhaarEnrolledCourses = async (forUserId?: string, languageOverride?: string): Promise<any[]> => {
   const userId = forUserId || localStorage.getItem('userId');
   if (!userId) return [];
 
-  const courses = await fetchUserEnrollments(userId);
+  let courses = await fetchUserEnrollments(userId);
+  // Only the courses in the viewer's preferred language (English when none is saved)
+  if (languageOverride) {
+    const wanted = normalizeLanguageName(languageOverride);
+    courses = courses.filter((course) => courseLanguageOf(course) === wanted);
+  }
 
   return Promise.all(
     courses.map(async (course) => {
@@ -397,7 +427,7 @@ export const fetchSwadhaarEnrolledCourses = async (forUserId?: string): Promise<
         name: course.title,
         description: course.shortDescription || stripHtml(course.description),
         posterImage: course.image,
-        language: course.params?.language,
+        language: courseLanguageOf(course),
         pathwayId: course.params?.pathwayId,
         children: hierarchy.children,
         trackingStatus: hierarchy.trackingStatus,
@@ -632,8 +662,12 @@ export const fetchSwadhaarAttempt = async (attemptId: string): Promise<any> => {
   return response?.data?.result;
 };
 
+/**
+ * Enrolled courses; when a language is given only the courses in that language are returned
+ * (English, Hindi or Marathi shows just that language's courses).
+ */
 export const fetchSwadhaarLevelCourses = async (languageOverride?: string): Promise<any[]> => {
-  return fetchSwadhaarEnrolledCourses();
+  return fetchSwadhaarEnrolledCourses(undefined, languageOverride);
 };
 
 export const fetchSwadhaarLevelCoursesFromSearch = async (languageOverride?: string): Promise<any[]> => {

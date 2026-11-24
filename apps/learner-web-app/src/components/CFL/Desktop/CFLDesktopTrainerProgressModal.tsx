@@ -9,6 +9,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import {
   fetchSwadhaarLevelCourses,
+  getSavedCourseLanguage,
   getContentCourseStatus,
 } from '@learner/utils/API/SwadhaarService';
 
@@ -279,7 +280,7 @@ const CFLDesktopTrainerProgressModal: React.FC<CFLDesktopTrainerProgressModalPro
       const storedTenantId = localStorage.getItem('tenantId') || '';
 
       // 1. Fetch all courses
-      const levelCourses = await fetchSwadhaarLevelCourses();
+      const levelCourses = await fetchSwadhaarLevelCourses(getSavedCourseLanguage());
       if (!levelCourses || levelCourses.length === 0) {
         setIsLoading(false);
         return;

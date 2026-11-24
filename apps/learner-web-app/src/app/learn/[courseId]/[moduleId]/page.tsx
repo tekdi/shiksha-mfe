@@ -22,6 +22,7 @@ import {
   fetchSwadhaarModuleLessons,
   trackCourseClick,
   fetchSwadhaarLevelCourses,
+  getSavedCourseLanguage,
   getCourseCertificateTemplateId,
 } from '@learner/utils/API/SwadhaarService';
 import { SwadhaarCertificateModal } from '@learner/components/Swadhaar/SwadhaarCertificateModal';
@@ -175,7 +176,7 @@ export default function SubtopicDetailsPage() {
 
       // The next-course button is hidden in the CFL/ARM view, and the viewer's own courses are not the trainer's
       if (!next && !trainerId) {
-        const allLevelCourses: any[] = await fetchSwadhaarLevelCourses();
+        const allLevelCourses: any[] = await fetchSwadhaarLevelCourses(getSavedCourseLanguage());
         const currentLevelIdx = allLevelCourses.findIndex((l: any) => l.identifier === courseId);
         const nextLev = currentLevelIdx >= 0 && currentLevelIdx < allLevelCourses.length - 1 ? allLevelCourses[currentLevelIdx + 1] : null;
         if (nextLev) {

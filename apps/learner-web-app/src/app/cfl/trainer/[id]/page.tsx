@@ -9,6 +9,7 @@ import SwadhaarLevelAccordion from '../../../../components/Swadhaar/SwadhaarLeve
 import {
   buildSwadhaarLevels,
   fetchSwadhaarEnrolledCourses,
+  getSavedCourseLanguage,
   SWADHAAR_DONE_PERCENT,
   type SwadhaarLevel,
 } from '@learner/utils/API/SwadhaarService';
@@ -71,7 +72,7 @@ export default function TrainerDetailPage() {
 
       // The trainer's own enrolled courses and module progress, from the Swadhaar LMS
       // (enrollments/users-courses?userId= and courses/:id/hierarchy/tracking/:trainerId)
-      const trainerCourses = await fetchSwadhaarEnrolledCourses(trainerId);
+      const trainerCourses = await fetchSwadhaarEnrolledCourses(trainerId, getSavedCourseLanguage());
       const status = trainerCourses.flatMap((course: any) => course.trackingStatus || []);
       const levelDataList = buildSwadhaarLevels(trainerCourses, status);
 
