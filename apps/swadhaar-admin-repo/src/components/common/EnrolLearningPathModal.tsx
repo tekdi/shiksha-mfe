@@ -34,7 +34,10 @@ import {
   getPathwayCourseIds,
   addPathwayCohorts,
   getPathwayEnrolled,
+  removePathFromCohort,
+  removePathFromUser,
 } from '@/services/PathwayService';
+import CommonDialog from './CommonDialog';
 import { BRAND, NEUTRAL } from '@/styles/customTheme';
 import CommonButton from './CommonButton';
 import { apiErrorMessage, runWithConcurrency } from '@/utils/concurrency';
@@ -51,6 +54,8 @@ interface EnrolLearningPathModalProps {
   /** Course ids of the path's steps, used to enrol groups; read from the pathway when not given */
   courseIds?: string[];
   onEnrolSuccess?: (count: number, type: EnrolTab) => void;
+   /** Called after a group or user is removed from the path, so the page can refresh its enrolled counts */
+  onRemoved?: (type: EnrolTab) => void;
 }
 
 interface GroupRow {
@@ -162,6 +167,7 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
   pathwayId,
   courseIds,
   onEnrolSuccess,
+  onRemoved,
 }) => {
   const { t } = useTranslation();
   const pathTitle = learningPathTitle ?? t('ENROL_LEARNING_PATH.DEFAULT_TITLE');
@@ -188,6 +194,56 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [enrolling, setEnrolling] = useState(false);
 
+  // An enrolled group or user the admin is removing from the path (confirmed in a dialog first)
+  const [toRemove, setToRemove] = useState<{ type: EnrolTab; id: string; name: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
+
+  const handleConfirmRemove = async () => {
+    if (!toRemove || !pathwayId) return;
+    const { type, id, name } = toRemove;
+    setRemoving(true);
+    setErrorMessage(null);
+    setFeedbackMessage(null);
+    try {
+      if (type === 'groups') {
+        const count = await removePathFromCohort(pathwayId, id);
+        setEnrolledGroupIds((prev) => prev.filter((g) => g !== id));
+        setFeedbackMessage(t('ENROL_LEARNING_PATH.REMOVED_GROUP', { name, count }));
+      } else {
+        const withdrawn = await removePathFromUser(pathwayId, id);
+        setEnrolledUserIds((prev) => prev.filter((u) => u !== id));
+        setFeedbackMessage(
+          t(withdrawn ? 'ENROL_LEARNING_PATH.REMOVED_USER' : 'ENROL_LEARNING_PATH.KEPT_THROUGH_GROUP', { name })
+        );
+      }
+      onRemoved?.(type);
+      setToRemove(null);
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err) || t('ENROL_LEARNING_PATH.REMOVE_FAILED'));
+      setToRemove(null);
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  /** "Enrolled" plus a Remove link, for a group or user already in the path */
+  const renderEnrolledCell = (type: EnrolTab, id: string, name: string) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <span>{t('ENROL_LEARNING_PATH.ENROLLED')}</span>
+      <CommonButton
+        variant="text"
+        size="small"
+        disabled={removing || enrolling}
+        onClick={(e) => {
+          e.stopPropagation();
+          setToRemove({ type, id, name });
+        }}
+        sx={{ minWidth: 0, px: 0.75, py: 0, fontSize: '12px', color: '#DC2626' }}
+      >
+        {t('ENROL_LEARNING_PATH.REMOVE')}
+      </CommonButton>
+    </Box>
+  );
   // Fetch Groups from CohortService
   const fetchGroups = useCallback(async () => {
     setLoadingGroups(true);
@@ -435,7 +491,9 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
               </TableCell>
               <TableCell sx={{ fontWeight: 600, fontSize: '13px', color: NEUTRAL.ink }}>{g.name}</TableCell>
               <TableCell sx={MUTED_CELL_SX}>{g.members}</TableCell>
-              <TableCell sx={MUTED_CELL_SX}>{formatEnrolled(enrolledGroupIds.includes(g.id) ? ENROLLED_MARKER : g.alreadyEnrolled)}</TableCell>
+               <TableCell sx={MUTED_CELL_SX}>
+                {isEnrolled ? renderEnrolledCell('groups', g.id, g.name) : formatEnrolled(g.alreadyEnrolled)}
+              </TableCell>
             </TableRow>
           );
         })}
@@ -508,7 +566,9 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
                   }}
                 />
               </TableCell>
-              <TableCell sx={MUTED_CELL_SX}>{formatEnrolled(enrolledUserIds.includes(u.id) ? ENROLLED_MARKER : u.alreadyEnrolled)}</TableCell>
+              <TableCell sx={MUTED_CELL_SX}>
+                {isEnrolled ? renderEnrolledCell('users', u.id, u.name) : formatEnrolled(u.alreadyEnrolled)}
+              </TableCell>
             </TableRow>
           );
         })}
@@ -676,6 +736,26 @@ export const EnrolLearningPathModal: React.FC<EnrolLearningPathModalProps> = ({
           })}
         </CommonButton>
       </DialogActions>
+
+      <CommonDialog
+        open={Boolean(toRemove)}
+        onClose={() => !removing && setToRemove(null)}
+        title={t(
+          toRemove?.type === 'groups' ? 'ENROL_LEARNING_PATH.REMOVE_GROUP_TITLE' : 'ENROL_LEARNING_PATH.REMOVE_USER_TITLE',
+          { name: toRemove?.name }
+        )}
+        confirmLabel={removing ? t('ENROL_LEARNING_PATH.REMOVING') : t('ENROL_LEARNING_PATH.REMOVE')}
+        confirmVariant="danger"
+        confirmDisabled={removing}
+        loading={removing}
+        onConfirm={handleConfirmRemove}
+      >
+        <Typography sx={{ fontSize: '13.5px', color: NEUTRAL.muted }}>
+          {t(
+            toRemove?.type === 'groups' ? 'ENROL_LEARNING_PATH.REMOVE_GROUP_BODY' : 'ENROL_LEARNING_PATH.REMOVE_USER_BODY'
+          )}
+        </Typography>
+      </CommonDialog>
     </Dialog>
   );
 };
