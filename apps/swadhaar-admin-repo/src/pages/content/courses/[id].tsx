@@ -34,6 +34,7 @@ import {
   CourseHierarchyChild,
   parseCourseName,
   updateCourseStatus,
+  updateCourseDetails,
   deleteLmsLesson,
   updateModule,
   updateLmsLesson,
@@ -373,15 +374,28 @@ export default function CourseDetailsPage() {
     setExpandedSection((prev) => (prev === sectionId ? null : sectionId));
   };
 
-  const handleSaveEditCourse = () => {
-    if (course) {
+  const handleSaveEditCourse = async () => {
+    const title = editTitle.trim();
+    if (!course || !title) return;
+    const isNew = !courseId || courseId.startsWith('new');
+    try {
+      if (!isNew && title !== (course.title || course.name)) {
+        await updateCourseDetails(courseId, { title });
+      }
       setCourse({
         ...course,
-        name: editTitle,
+        title,
+        name: title,
         audience: editAudience,
       });
+      setIsEditModalOpen(false);
+      setToastSeverity('success');
+      setToastMessage(t('COURSES.DETAIL.SAVED', 'Saved'));
+    } catch (err: any) {
+      console.error('Failed to update course details:', err);
+      setToastSeverity('error');
+      setToastMessage(err?.response?.data?.params?.errmsg || err?.message || 'Failed to update course details.');
     }
-    setIsEditModalOpen(false);
   };
 
   const handleUpdateCourseStatus = async (status: 'draft' | 'published') => {
