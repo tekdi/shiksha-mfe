@@ -633,6 +633,25 @@ export const updateCourseStatus = async (
   }
 };
 
+/**
+ * Update course details (e.g. title) in Aspire LMS service
+ * PATCH /lms-service/v1/courses/{courseId}
+ */
+export const updateCourseDetails = async (
+  courseId: string,
+  payload: { title?: string; [key: string]: any },
+  customHeaders?: Record<string, string>
+): Promise<any> => {
+  try {
+    const url = `${API_ENDPOINTS.lmsCourses}/${courseId}`;
+    const response = await patch(url, payload, getServiceHeaders(customHeaders));
+    return response?.data;
+  } catch (error) {
+    console.error('Error in CourseService.updateCourseDetails:', error);
+    throw error;
+  }
+};
+
 export interface CreateModulePayload {
   title: string;
   alias?: string;
