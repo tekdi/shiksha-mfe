@@ -48,6 +48,7 @@ import {
   getCohortMemberListApplication,
   getMemberRows,
   getMemberTotal,
+  getCurrentMemberCount,
   getMembershipId,
   isCurrentMember,
   removeUsersFromCohorts,
@@ -312,7 +313,11 @@ export default function GroupDetailsPage() {
       const res = await getCohortMemberListApplication(payload);
       const allRows = getMemberRows(res);
       const userDetails = allRows.filter(isCurrentMember);
-      setTotalCount(Math.max(getMemberTotal(res, allRows) - (allRows.length - userDetails.length), userDetails.length));
+      // The server total still counts removed memberships, so count the members actually returned
+      const serverTotal = getMemberTotal(res, allRows) - (allRows.length - userDetails.length);
+      const noFilters = roleFilter === 'all' && groupRoleFilter === 'all';
+      const realTotal = noFilters ? await getCurrentMemberCount(cohortId as string) : null;
+      setTotalCount(realTotal ?? Math.max(serverTotal, userDetails.length));
 
       setMembers(userDetails.map(mapMemberToRow));
     } catch (err) {

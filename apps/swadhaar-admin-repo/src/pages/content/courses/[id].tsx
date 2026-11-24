@@ -44,6 +44,7 @@ import { getCoursePathway } from '@/services/PathwayService';
 import LifecycleChip from '@/components/common/LifecycleChip';
 import ContentPreviewModal, { PreviewContentData } from '@/components/common/ContentPreviewModal';
 import CommonButton from '@/components/common/CommonButton';
+import { toLessonPreview } from '@/components/content/CoursePreviewDialog';
 import CourseLevelItemDialog, {
   CourseLevelItem,
   CourseLevelValues,
@@ -228,7 +229,6 @@ export default function CourseDetailsPage() {
 
   // Native In-App Preview Modal State (No external player/workspace MFE)
   const [previewItem, setPreviewItem] = useState<PreviewContentData | null>(null);
-
   // Lesson awaiting delete confirmation
   const [lessonToDelete, setLessonToDelete] = useState<{ id: string; name: string } | null>(null);
   const [deletingLesson, setDeletingLesson] = useState(false);
@@ -425,15 +425,7 @@ export default function CourseDetailsPage() {
 
   // Assessment lessons carry the test id (media.source); the preview modal loads the questions itself
   const openLessonPreview = (unit: any, courseTitle: string) => {
-    setPreviewItem({
-      name: unit.name,
-      type: unit.format || unit.subFormat || 'video',
-      description: unit.description || `${courseTitle} · ${t('COURSES.DETAIL.LESSON')}`,
-      duration: formatMinutes(unit.idealTime),
-      totalMarks: unit.totalMarks,
-      passingMarks: unit.passingMarks,
-      testId: unit.format === 'test' ? unit.media?.source : undefined,
-    });
+ setPreviewItem(toLessonPreview(unit, `${courseTitle} · ${t('COURSES.DETAIL.LESSON')}`, formatMinutes(unit.idealTime)));
   };
 
   const handleConfirmDeleteLesson = async () => {
@@ -476,23 +468,8 @@ export default function CourseDetailsPage() {
     minutes ? t('COURSES.DURATION_MIN', { count: minutes }) : undefined;
 
   const handlePreviewCourse = () => {
-    // Preview first available lesson or course overview
-    const firstSection = sections[0];
-    const firstLesson = firstSection?.children?.[0];
-    if (firstLesson) {
-      setPreviewItem({
-        name: firstLesson.name,
-        type: firstLesson.format || firstLesson.subFormat || 'video',
-        description: firstLesson.description || `${cleanTitle} · ${firstSection.name}`,
-        duration: formatMinutes(firstLesson.idealTime),
-      });
-    } else {
-      setPreviewItem({
-        name: cleanTitle,
-        type: 'video',
-        description: course?.description || t('COURSES.DETAIL.COURSE_OVERVIEW_PREVIEW'),
-      });
-    }
+    const basePath = router.asPath.startsWith('/courses') ? '/courses' : '/content/courses';
+    router.push(`${basePath}/${courseId}/preview`);
   };
 
   const handleAddSection = () => {
@@ -1127,7 +1104,6 @@ export default function CourseDetailsPage() {
         onClose={() => setPreviewItem(null)}
         content={previewItem}
       />
-
       <CourseLevelItemDialog
         item={editingItem}
         values={courseLevelValues}

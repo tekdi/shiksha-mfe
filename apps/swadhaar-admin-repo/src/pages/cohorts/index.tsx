@@ -26,6 +26,7 @@ import EditCohortModal from '@/components/common/EditCohortModal';
 import {
   getCohortSearch,
   deleteCohort,
+  getCurrentMemberCount,
 } from '@/services/CohortService';
 import { useTranslation } from 'next-i18next';
 
@@ -209,6 +210,16 @@ export default function CohortsPage() {
         console.error('Failed to load learning paths for groups:', err);
       }
 
+      // youthCount still includes removed members, so count the current ones
+      const memberCounts = new Map<string, number | null>(
+        await Promise.all(
+          rawCohortDetails.map(async (c: any): Promise<[string, number | null]> => [
+            c.cohortId,
+            await getCurrentMemberCount(c.cohortId),
+          ])
+        )
+      );
+
       const enrichedCohorts: CohortItem[] = rawCohortDetails.map((cohort: any) => {
         const cid = cohort.cohortId;
         const loc = extractLocation(cohort.customFields);
@@ -226,7 +237,7 @@ export default function CohortsPage() {
           district: loc.district,
           block: loc.block,
           village: loc.village,
-          membersCount: cohort.youthCount ?? 0,
+          membersCount: memberCounts.get(cid) ?? cohort.youthCount ?? 0,
           pathsCount: pathsByCohort.get(cid)?.size || 0,
           trainer: '-',
           status: displayStatus,

@@ -46,8 +46,7 @@ interface ObjectiveItem {
 
 const COURSES_LIST_PATH = '/content/courses';
 const DEFAULT_COHORT_ID = '8f6156bc-e298-41e7-a3f1-f4d4d23e51a7';
-const DEFAULT_IMAGE_URL =
-  'https://aspire-leaders-assets-qa.s3.us-east-1.amazonaws.com/lms/modules/file_1793263413927_c5ac1a.png';
+
 
 const LANGUAGE_OPTIONS = COURSE_LANGUAGE_OPTIONS.map((o) => ({ value: o.code, labelKey: o.labelKey }));
 
@@ -214,7 +213,6 @@ export default function CreateCoursePage() {
         shortDescription: shortDescription.trim() || targetAudience.trim() || 'Description',
         description: formattedDescription,
         status: statusToSave,
-        image: DEFAULT_IMAGE_URL,
         prerequisites: [],
         params: {
           cohortId: DEFAULT_COHORT_ID,
