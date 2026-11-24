@@ -6,6 +6,7 @@ import {
   Box,
   Typography,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import TranslateRoundedIcon from '@mui/icons-material/TranslateRounded';
@@ -60,23 +61,27 @@ const LanguagePreferenceModal: React.FC<LanguagePreferenceModalProps> = ({
   course,
 }) => {
   const [fetchedLanguages, setFetchedLanguages] = React.useState<string[]>([]);
+  const [languagesLoaded, setLanguagesLoaded] = React.useState(false);
+  const needsFetch = !(availableLanguages && availableLanguages.length > 0) && !course;
 
   React.useEffect(() => {
-    if (open && (!availableLanguages || availableLanguages.length === 0) && !course) {
-      const loadSearchLanguages = async () => {
-        try {
-          const { fetchAvailableCourseLanguagesFromSearch } = await import('@learner/utils/API/SwadhaarService');
-          const langs = await fetchAvailableCourseLanguagesFromSearch();
-          if (langs && langs.length > 0) {
-            setFetchedLanguages(langs);
-          }
-        } catch (e) {
-          console.error('Error fetching dynamic course languages for modal:', e);
-        }
-      };
-      loadSearchLanguages();
-    }
-  }, [open, availableLanguages, course]);
+    if (!open || !needsFetch) return;
+    let cancelled = false;
+    // Only the languages of the courses the learner is enrolled in are offered
+    setLanguagesLoaded(false);
+    import('@learner/utils/API/SwadhaarService')
+      .then(({ fetchSwadhaarEnrolledLanguages }) => fetchSwadhaarEnrolledLanguages())
+      .then((langs) => {
+        if (!cancelled && langs?.length) setFetchedLanguages(langs);
+      })
+      .catch((e) => console.error('Error fetching course languages for modal:', e))
+      .finally(() => {
+        if (!cancelled) setLanguagesLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, needsFetch]);
 
   const handleSelect = (lang: string) => {
     onSelect(lang);
@@ -98,6 +103,9 @@ const LanguagePreferenceModal: React.FC<LanguagePreferenceModalProps> = ({
 
     return DEFAULT_LANGUAGE_OPTIONS;
   }, [availableLanguages, course, fetchedLanguages]);
+
+  // Until the languages are known, show a loader instead of every language
+  const showLoader = needsFetch && !languagesLoaded;
 
   return (
     <Modal
@@ -231,7 +239,12 @@ const LanguagePreferenceModal: React.FC<LanguagePreferenceModalProps> = ({
 
         {/* ── Language options ── */}
         <Box sx={{ px: 3, py: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {optionsToRender.map((opt) => {
+          {showLoader && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress size={28} sx={{ color: PRIMARY }} />
+            </Box>
+          )}
+          {!showLoader && optionsToRender.map((opt) => {
             const isSelected = selectedLanguage === opt.code;
             return (
               <Box

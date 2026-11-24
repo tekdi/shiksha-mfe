@@ -16,6 +16,7 @@ import { useTranslation } from '@shared-lib';
 import {
   buildSwadhaarLevels,
   fetchSwadhaarLevelCourses,
+  getSavedCourseLanguage,
   fetchSwadhaarModuleLessons,
   SWADHAAR_DONE_PERCENT,
   trackCourseClick,
@@ -106,7 +107,7 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
       setCflLevelsLoading(true);
 
       // The District Incharge's own enrolled courses, with module progress, from the Swadhaar LMS
-      const levelCourses = await fetchSwadhaarLevelCourses();
+      const levelCourses = await fetchSwadhaarLevelCourses(getSavedCourseLanguage());
       if (!levelCourses || levelCourses.length === 0) {
         setCflLevelsLoading(false);
         return;
