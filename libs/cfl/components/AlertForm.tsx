@@ -15,9 +15,11 @@ interface AlertFormProps {
   onSubmit: (data: { actionType: string; message: string }) => void;
   isCflIncharge?: boolean;
   hasARM?: boolean;
+  /** Task 76: a group Reviewer writes to one of their Learners */
+  reviewerMode?: boolean;
 }
 
-const AlertForm: React.FC<AlertFormProps> = ({ onSubmit, isCflIncharge, hasARM = true }) => {
+const AlertForm: React.FC<AlertFormProps> = ({ onSubmit, isCflIncharge, hasARM = true, reviewerMode = false }) => {
   const { t } = useTranslation();
   const [actionType, setActionType] = useState('feedback');
   const [message, setMessage] = useState('');
@@ -45,7 +47,9 @@ const AlertForm: React.FC<AlertFormProps> = ({ onSubmit, isCflIncharge, hasARM =
           sx={{ borderRadius: '8px', bgcolor: '#fff', fontFamily: 'Open Sans', fontSize: '14px', fontWeight: 400, color: '#1A1A1A' }}
         >
           <MenuItem value="feedback" sx={{ fontFamily: 'Open Sans', fontSize: '14px', fontWeight: 400, color: '#1A1A1A' }}>
-            {isARM
+            {reviewerMode
+              ? t('CFL_DASHBOARD.SHARE_FEEDBACK_TO_LEARNER')
+              : isARM
               ? 'Share feedback to District Incharge'
               : isDistrictIncharge
               ? 'Share feedback to Trainer/CFL Incharge'

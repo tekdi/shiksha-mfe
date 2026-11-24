@@ -5,7 +5,8 @@ import {
   Box, Typography, Modal, Avatar, Button,
   MenuItem, Select, TextField, FormControl, CircularProgress, Snackbar, Alert
 } from '@mui/material';
-import { getDIForCFL } from '../../../../../../libs/cfl/services/cflService';
+import { getDIForCFL, isInMyReviewerScope } from '../../../../../../libs/cfl/services/cflService';
+import { isGroupReviewerOnly } from '@learner/utils/swadhaarReviewer';
 import { useTranslation } from '@shared-lib';
 import { joinUserName } from '@learner/utils/userName';
 const PRIMARY = '#E6873C';
@@ -34,16 +35,23 @@ const CFLDesktopSendAlertDialog: React.FC<CFLDesktopSendAlertDialogProps> = ({ o
   const { t } = useTranslation();
 
   const [isDI, setIsDI] = useState(false);
+  // Task 76: a group Reviewer sends feedback to their own Learners only; there is no ARM above them
+  const [groupReviewer, setGroupReviewer] = useState(false);
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const role = localStorage.getItem('userRole') || 'CFL';
       setIsDI(role === 'DI' || role === 'DISTRICT INCHARGE' || role === 'ARM');
+      setGroupReviewer(isGroupReviewerOnly());
     }
   }, []);
 
   React.useEffect(() => {
     if (open) {
+      if (isGroupReviewerOnly()) {
+        setActionType('Feedback');
+        return;
+      }
       const fetchDI = async () => {
         const di = await getDIForCFL();
         if (di) {
@@ -67,6 +75,11 @@ const CFLDesktopSendAlertDialog: React.FC<CFLDesktopSendAlertDialogProps> = ({ o
   const handleSendAlert = async () => {
     setLoading(true);
     try {
+      const reviewerOnly = isGroupReviewerOnly();
+      // Task 76: a Reviewer may only write to a Learner of the groups they review
+      if (reviewerOnly && !(await isInMyReviewerScope(trainer.id))) {
+        throw new Error('This learner is not in your groups');
+      }
       // If Raise to ARM, send notification to the DI's userId; otherwise to the trainer's userId
       const targetUserId = actionType === 'Raise to ARM' ? diId : trainer.id;
       const cflName = typeof window !== 'undefined'
@@ -81,8 +94,8 @@ const CFLDesktopSendAlertDialog: React.FC<CFLDesktopSendAlertDialogProps> = ({ o
         const stateName = typeof window !== 'undefined' ? localStorage.getItem('stateName') || '' : '';
       const districtName = typeof window !== 'undefined' ? localStorage.getItem('districtName') || '' : '';
       const isDI = userRole === 'ARM';
-      const senderDesignation = isDI ? 'ARM' : 'District Incharge';
-        // No placeholder place: only the parts of the sender's location that are set
+      const senderDesignation = reviewerOnly ? t('LEARNER_APP.HOME.REVIEWER') : isDI ? 'ARM' : 'District Incharge';
+      // No placeholder place: only the parts of the sender's location that are set
       const senderPlace = [stateName, districtName].filter(Boolean).join(' - ');
       const senderLocation = senderPlace ? `${senderDesignation}: ${senderPlace}` : senderDesignation;
 
@@ -221,9 +234,9 @@ const CFLDesktopSendAlertDialog: React.FC<CFLDesktopSendAlertDialogProps> = ({ o
                   sx={{ borderRadius: '8px', bgcolor: '#F9FAFB', fontFamily: 'Open Sans', fontWeight: 400, fontSize: 14, color: '#1A1A1A' }}
                 >
                   <MenuItem value="Feedback" sx={{ fontFamily: 'Open Sans', fontWeight: 400, fontSize: 14, color: '#1A1A1A' }}>
-                    {isDI ? 'Share feedback to District Incharge' : 'Share feedback to trainer'}
+                    {groupReviewer ? t('CFL_DASHBOARD.SHARE_FEEDBACK_TO_LEARNER') : isDI ? 'Share feedback to District Incharge' : 'Share feedback to trainer'}
                   </MenuItem>
-                  {!isDI && (
+                  {!isDI && !groupReviewer && (
                     <MenuItem value="Raise to ARM" sx={{ fontFamily: 'Open Sans', fontWeight: 400, fontSize: 14, color: '#1A1A1A' }}>Raise to ARM</MenuItem>
                   )}
                 </Select>

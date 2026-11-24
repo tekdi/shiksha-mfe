@@ -186,6 +186,90 @@ export const cfllearnerlist = async (
       });
     }
 
+    return await buildTrainerCards(userDetails, finalToken, finalTenantId, finalAcademicYearId);
+  } catch (error) {
+    console.error('Error fetching CFL learner list:', error);
+    throw error;
+  }
+};
+
+/** Reviewer scope from the user service (Task 17): the groups the caller reviews and their Learners */
+export interface ReviewerScope {
+  all: boolean;
+  groups: { cohortId: string; name: string; depth: number; learnerUserIds: string[] }[];
+  userIds: string[];
+}
+
+/** GET user/v1/hierarchy/my-scope; the user is taken from the token */
+export const getMyReviewerScope = async (): Promise<ReviewerScope> => {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '';
+  const tenantId = resolveTenantId(typeof window !== 'undefined' ? localStorage.getItem('tenantId') || undefined : undefined);
+  const response = await axios.get(`${USER_SERVICE_URL}/hierarchy/my-scope`, {
+    headers: { tenantid: tenantId, Authorization: `Bearer ${token}` },
+  });
+  const result = response?.data?.result;
+  return {
+    all: !!result?.all,
+    groups: Array.isArray(result?.groups) ? result.groups : [],
+    userIds: Array.isArray(result?.userIds) ? result.userIds : [],
+  };
+};
+
+/**
+ * Task 76: the team of a Reviewer = the Learners of the groups they review (my-scope), as the same
+ * cards the CFL dashboard shows (LMS course progress, profile photo). Nobody outside the scope.
+ */
+export const reviewerLearnerList = async (knownScope?: ReviewerScope) => {
+  const scope = knownScope || (await getMyReviewerScope());
+  const groupIds = scope.groups.map((g) => g.cohortId);
+  if (groupIds.length === 0 || scope.userIds.length === 0) return [];
+
+  const token = localStorage.getItem('token') || '';
+  const tenantId = resolveTenantId(localStorage.getItem('tenantId') || undefined);
+  const academicYearId = resolveAcademicYearId(localStorage.getItem('academicYearId') || undefined);
+  const headers: Record<string, string> = {
+    academicyearid: academicYearId,
+    tenantid: tenantId,
+    organisationid: SWADHAAR_ORGANISATION_ID,
+    accept: 'application/json, text/plain, */*',
+    authorization: `Bearer ${token}`,
+  };
+  const response = await post(
+    `${USER_SERVICE_URL}/cohortmember/list`,
+    { limit: 0, offset: 0, filters: { cohortId: groupIds, status: ['active'] } },
+    headers
+  );
+  const data = response?.data?.data || response?.data;
+  const members: any[] = data?.result?.userDetails || [];
+
+  // Only Learners in scope, each once (a Learner can be in two of the reviewer's groups)
+  const inScope = new Set(scope.userIds);
+  const seen = new Set<string>();
+  const learners = members.filter((u: any) => {
+    if (!inScope.has(u.userId) || seen.has(u.userId)) return false;
+    seen.add(u.userId);
+    return true;
+  });
+
+  return buildTrainerCards(learners, token, tenantId, academicYearId);
+};
+
+/** True when the signed-in Reviewer may see this member (in their my-scope); admins see everyone */
+export const isInMyReviewerScope = async (userId: string): Promise<boolean> => {
+  const scope = await getMyReviewerScope();
+  return scope.all || scope.userIds.includes(userId);
+};
+
+/**
+ * Team member cards for the CFL dashboard: each member's LMS course progress and profile photo.
+ * Shared by the CFL list (cohort members) and the Reviewer list (my-scope).
+ */
+const buildTrainerCards = async (
+  userDetails: any[],
+  finalToken: string,
+  finalTenantId: string,
+  finalAcademicYearId: string
+) => {
     // ── Course progress of each trainer, from the Swadhaar LMS ──
     // The courses a trainer is enrolled in (enrollments/users-courses?userId=) and their module
     // tracking (courses/:courseId/hierarchy/tracking/:userId) — the same data the trainer's own
@@ -277,10 +361,6 @@ export const cfllearnerlist = async (
     }
 
     return trainers;
-  } catch (error) {
-    console.error('Error fetching CFL learner list:', error);
-    throw error;
-  }
 };
 
 export const getDICohorts = async () => {

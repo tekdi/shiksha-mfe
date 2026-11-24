@@ -5,7 +5,6 @@ import { Box, Typography, Badge, Tooltip, Select, MenuItem, FormControl, SelectC
 import Image from 'next/image';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
 import PersonOutlineRoundedIcon from '@mui/icons-material/PersonOutlineRounded';
-import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
 import ProfileAvatar from '@learner/components/Profile/ProfileAvatar';
 import { useTranslation } from '@shared-lib';
 import { LANGUAGE_OPTIONS } from '@learner/utils/constants/language';
@@ -21,8 +20,6 @@ interface SwadhaarDesktopHeaderProps {
   onLogout: () => void;
   profileImageUrl?: string | null;
   userName?: string;
-  /** Task 77: set for Reviewers; shows "My Team" (the team dashboard) */
-  onMyTeamClick?: () => void;
 }
 
 const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
@@ -33,7 +30,6 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
   onLogout,
   profileImageUrl,
   userName,
-  onMyTeamClick,
 }) => {
   const { t, language, setLanguage } = useTranslation();
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -129,30 +125,6 @@ const SwadhaarDesktopHeader: React.FC<SwadhaarDesktopHeaderProps> = ({
             ))}
           </Select>
         </FormControl>
-
-        {onMyTeamClick && (
-          <Box
-            id="swadhaar-header-my-team-btn"
-            role="button"
-            onClick={onMyTeamClick}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 0.75,
-              cursor: 'pointer',
-              px: 1.5,
-              py: 0.5,
-              borderRadius: '8px',
-              transition: 'background 0.15s',
-              '&:hover': { bgcolor: 'rgba(28,43,74,0.07)' },
-            }}
-          >
-            <GroupsOutlinedIcon sx={{ fontSize: 22, color: PRIMARY }} />
-            <Typography sx={{ fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: 600, color: '#1F2937' }}>
-              {t('LEARNER_APP.HOME.MY_TEAM')}
-            </Typography>
-          </Box>
-        )}
 
         {/* Alerts — not available yet: shown with a "Coming soon" tooltip and no action */}
         {/* <Tooltip title={t('COMMON.COMING_SOON', { defaultValue: 'Coming soon' })} arrow> */}

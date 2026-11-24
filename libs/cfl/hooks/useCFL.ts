@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Trainer, CourseProgress } from '../types';
-import { getTrainerList, getTrainerProgress,cfllearnerlist, getDICohorts } from '../services/cflService';
+import { getTrainerList, getTrainerProgress,cfllearnerlist, getDICohorts, reviewerLearnerList, getMyReviewerScope } from '../services/cflService';
+import { isReviewerSession, REVIEWER_FLAG_KEY } from '@learner/utils/swadhaarReviewer';
 
 export const useCFLTrainers = (tenantId: string) => {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -14,8 +15,20 @@ export const useCFLTrainers = (tenantId: string) => {
     setLoading(true);
     try {
       const role = localStorage.getItem('userRole');
+      // Task 76: ask the server who this user reviews every time, rather than trusting the flag
+      // saved at login (it can be stale, and the old CFL path then lists the wrong group).
+      // null = the scope could not be loaded; then the saved flag decides.
+      const scope = await getMyReviewerScope().catch((e) => {
+        console.warn('Could not load reviewer scope', e);
+        return null;
+      });
+      const reviewsGroups = scope ? scope.groups.length > 0 : isReviewerSession();
+      if (scope) localStorage.setItem(REVIEWER_FLAG_KEY, String(reviewsGroups));
       let data;
-      if (role === 'ARM') {
+      if (reviewsGroups) {
+        // A Reviewer's team = the Learners of the groups they review (server scope)
+        data = await reviewerLearnerList(scope || undefined);
+      } else if (role === 'ARM') {
         data = await getDICohorts();
       } else {
         data = await cfllearnerlist(undefined, undefined, undefined, undefined, true);

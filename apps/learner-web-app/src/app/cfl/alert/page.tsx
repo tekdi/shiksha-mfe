@@ -7,7 +7,8 @@ import { getDisplayLocation } from '@learner/utils/swadhaarProfile';
 import { Box, Typography, Card, CardContent, Avatar, Modal } from '@mui/material';
 import CFLHeader from '../../../../../../libs/cfl/components/CFLHeader';
 import AlertForm from '../../../../../../libs/cfl/components/AlertForm';
-import { sendAlert, getDIForCFL } from '../../../../../../libs/cfl/services/cflService';
+import { sendAlert, getDIForCFL, isInMyReviewerScope } from '../../../../../../libs/cfl/services/cflService';
+import { isGroupReviewerOnly } from '@learner/utils/swadhaarReviewer';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useTranslation } from '@shared-lib';
 
@@ -30,7 +31,13 @@ function AlertContent() {
   const [diName, setDiName] = useState('');
   const [diId, setDiId] = useState('');
 
+  // Task 76: a group Reviewer sends feedback to their own Learners only; there is no ARM above them
+  const [groupReviewer, setGroupReviewer] = useState(false);
+
   useEffect(() => {
+    const reviewerOnly = isGroupReviewerOnly();
+    setGroupReviewer(reviewerOnly);
+    if (reviewerOnly) return;
     const fetchDI = async () => {
       const di = await getDIForCFL();
       if (di) {
@@ -61,6 +68,13 @@ function AlertContent() {
   const handleSubmit = async (data: any) => {
     setSubmittedActionType(data.actionType);
 
+    // Task 76: a Reviewer may only write to a Learner of the groups they review
+    if (groupReviewer && (data.actionType !== 'feedback' || !(await isInMyReviewerScope(trainerId)))) {
+      setModalType('error');
+      setModalOpen(true);
+      return;
+    }
+
     // For "Raise to ARM", the notification goes to the DI's userId
     // For "feedback", it goes to the trainer's userId
     const targetUserId = data.actionType === 'raiseToDI' ? diId : trainerId;
@@ -72,8 +86,8 @@ function AlertContent() {
      const stateName = typeof window !== 'undefined' ? localStorage.getItem('stateName') || '' : '';
     const districtName = typeof window !== 'undefined' ? localStorage.getItem('districtName') || '' : '';
     const isDI = userRole === 'ARM';
-    const senderDesignation = isDI ? 'ARM' : 'District Incharge';
-       const senderPlace = [stateName, districtName].filter(Boolean).join(' - ');
+    const senderDesignation = groupReviewer ? t('LEARNER_APP.HOME.REVIEWER') : isDI ? 'ARM' : 'District Incharge';
+    const senderPlace = [stateName, districtName].filter(Boolean).join(' - ');
     const senderLocation = senderPlace ? `${senderDesignation}: ${senderPlace}` : senderDesignation;
 
     const payload = {
@@ -132,7 +146,7 @@ function AlertContent() {
           <Avatar src={avatarUrlParam || '/images/default.png'} sx={{ width: 48, height: 48 }} />
         </Box>
 
-        <AlertForm isCflIncharge={isCflIncharge} onSubmit={handleSubmit} />
+        <AlertForm isCflIncharge={isCflIncharge} onSubmit={handleSubmit} hasARM={!groupReviewer} reviewerMode={groupReviewer} />
       </Box>
 
       <Modal

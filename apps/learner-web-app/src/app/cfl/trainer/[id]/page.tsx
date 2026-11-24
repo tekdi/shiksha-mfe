@@ -18,6 +18,8 @@ import { useTranslation } from '@shared-lib';
 import { getUserDetails } from '@learner/utils/API/services/ProfileService';
 import { getDisplayLocation } from '@learner/utils/swadhaarProfile';
 import { joinUserName } from '@learner/utils/userName';
+import { isGroupReviewerOnly } from '@learner/utils/swadhaarReviewer';
+import { isInMyReviewerScope } from '../../../../../../../libs/cfl/services/cflService';
 
 const PRIMARY = '#E6873C';
 
@@ -49,7 +51,7 @@ export default function TrainerDetailPage() {
       const avatarParam = searchParams.get('avatarUrl');
       if (nameParam) setTrainerName(nameParam);
       if (avatarParam) setTrainerAvatar(avatarParam);
-     if (id) {
+      if (id) {
         getUserDetails(id as string, true)
           .then((res) => {
             const profile = res?.result?.userData;
@@ -69,6 +71,12 @@ export default function TrainerDetailPage() {
     try {
       setIsLoading(true);
       const trainerId = id as string;
+
+      // Task 76: a Reviewer sees only the Learners of the groups they review
+      if (isGroupReviewerOnly() && !(await isInMyReviewerScope(trainerId))) {
+        router.replace('/cfl/home');
+        return;
+      }
 
       // The trainer's own enrolled courses and module progress, from the Swadhaar LMS
       // (enrollments/users-courses?userId= and courses/:id/hierarchy/tracking/:trainerId)
