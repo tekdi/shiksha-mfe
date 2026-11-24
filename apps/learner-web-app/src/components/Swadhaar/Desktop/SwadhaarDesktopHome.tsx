@@ -50,8 +50,6 @@ interface SwadhaarDesktopHomeProps {
   onBeforeNavigate?: (navigate: () => void) => void;
   selectedLanguage?: string;
   onLanguageClick?: () => void;
-  /** Task 77: set for Reviewers; shows "My Team" in the header */
-  onMyTeamClick?: () => void;
 }
 
 /* ─── Helper: find current lesson ──────────────────────── */
@@ -90,7 +88,7 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
   userName, designation, location, profileImageUrl,
   isLoading, error, onAlertClick, onReload,
   externalEditProfileOpen = false, onExternalEditProfileClose,
-  onBeforeNavigate, selectedLanguage, onLanguageClick, onMyTeamClick,
+  onBeforeNavigate, selectedLanguage, onLanguageClick,
 }) => {
   const router = useRouter();
   const { t } = useTranslation();
@@ -265,7 +263,6 @@ const SwadhaarDesktopHome: React.FC<SwadhaarDesktopHomeProps> = ({
         onLogout={() => setLogoutConfirmOpen(true)}
         profileImageUrl={profileImageUrl}
         userName={userName}
-        onMyTeamClick={onMyTeamClick}
       />
 
       {/* ── Body: flex row — main content + optional alerts sidebar ── */}

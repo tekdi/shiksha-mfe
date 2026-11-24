@@ -48,11 +48,9 @@ interface CFLDesktopHomeProps {
   onReload?: () => void;
   externalEditProfileOpen?: boolean;
   onExternalEditProfileClose?: () => void;
-  /** Task 77: set for a Reviewer who also has their own learning */
-  onMyLearningClick?: () => void;
 }
 
-const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, error, username, location, userRole, onReload, externalEditProfileOpen = false, onExternalEditProfileClose, onMyLearningClick }) => {
+const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, error, username, location, userRole, onReload, externalEditProfileOpen = false, onExternalEditProfileClose }) => {
   const router = useRouter();
   const { t } = useTranslation();
   const [alertsPanelOpen, setAlertsPanelOpen] = useState(false);
@@ -307,7 +305,6 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
         }}
         onEditProfile={() => setInternalEditProfileOpen(true)}
         onLogout={() => setLogoutConfirmOpen(true)}
-        onMyLearningClick={onMyLearningClick}
       />
 
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', transition: 'all 0.3s ease' }}>

@@ -6,8 +6,7 @@ import {
   Box, Typography, CircularProgress, Badge, Collapse, Button, useMediaQuery, useTheme, Modal, LinearProgress
 } from '@mui/material';
 import NotificationsNoneOutlinedIcon from '@mui/icons-material/NotificationsNoneOutlined';
-import GroupsOutlinedIcon from '@mui/icons-material/GroupsOutlined';
-import { isReviewerSession, refreshReviewerFlag, startsOnTeamDashboard } from '@learner/utils/swadhaarReviewer';
+import { refreshReviewerFlag, startsOnTeamDashboard } from '@learner/utils/swadhaarReviewer';
 import { SwadhaarDesktopHome } from '@learner/components/Swadhaar/Desktop';
 import WorkspacePremiumOutlinedIcon from '@mui/icons-material/WorkspacePremiumOutlined';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
@@ -141,7 +140,7 @@ export default function SwadhaarHomePage() {
       if (!checkAuth()) {
         window.location.replace('/swadhaar-login');
       } else {
-        // cfl / arm, and Reviewers with no learning of their own, start on the team dashboard
+        // cfl / arm, and every Reviewer (any organisation role), start on the team dashboard
         // (Task 77; roles from swadhaarReviewer: roleCode, else the legacy label).
         if (startsOnTeamDashboard()) {
           window.location.replace('/cfl/home');
@@ -150,16 +149,13 @@ export default function SwadhaarHomePage() {
     }
   }, [router]);
 
-  // Task 77: group roles change after sign-in, so ask the server again on every visit
-  const [isReviewer, setIsReviewer] = useState(false);
+  // Task 77: group roles change after sign-in, so ask the server again on every visit; a Reviewer
+  // (any organisation role) goes to the team dashboard
   useEffect(() => {
-    setIsReviewer(isReviewerSession());
     refreshReviewerFlag().then((reviewer) => {
-      setIsReviewer(reviewer);
       if (startsOnTeamDashboard(reviewer)) window.location.replace('/cfl/home');
     });
   }, []);
-  const openMyTeam = useCallback(() => router.push('/cfl/home'), [router]);
 
   // ── Language helpers ──
   const handleCourseCardClick = useCallback((navigate: () => void) => {
@@ -520,7 +516,6 @@ export default function SwadhaarHomePage() {
           onBeforeNavigate={handleCourseCardClick}
           selectedLanguage={selectedLanguage}
           onLanguageClick={() => setLanguageModalOpen(true)}
-          onMyTeamClick={isReviewer ? openMyTeam : undefined}
         />
 
         {/* ── Language Preference Modal (desktop) ── */}
@@ -638,14 +633,6 @@ export default function SwadhaarHomePage() {
       {/* Header */}
       <Box sx={{ bgcolor: '#fff', px: 2, py: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100, borderBottom: '1px solid #F3F4F6' }}>
         <Typography sx={{ fontWeight: 800, fontSize: 18, color: 'text.primary', fontFamily: 'Inter, sans-serif' }}>{t('LEARNER_APP.HOME.TITLE')}</Typography>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
-        {/* Task 77: Reviewers open their team (the CFL screens) from here */}
-        {isReviewer && (
-          <Box id="swadhaar-home-my-team-btn" onClick={openMyTeam} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
-            <GroupsOutlinedIcon sx={{ fontSize: 26, color: PRIMARY }} />
-            <Typography sx={{ fontSize: 10, fontWeight: 700, color: PRIMARY, mt: 0.5, fontFamily: 'Open Sans' }}>{t('LEARNER_APP.HOME.MY_TEAM')}</Typography>
-          </Box>
-        )}
         <Box onClick={() => router.push('/alerts')} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}>
           <Badge
             variant="dot"
@@ -673,7 +660,6 @@ export default function SwadhaarHomePage() {
             </Box>
           </Badge>
           <Typography sx={{ fontSize: 10, fontWeight: 700, color: PRIMARY, mt: 0.5, fontFamily: 'Open Sans' }}>{t('LEARNER_APP.ALERTS.TITLE')}</Typography>
-        </Box>
         </Box>
       </Box>
 

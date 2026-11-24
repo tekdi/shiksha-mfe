@@ -304,7 +304,8 @@
     "HOME": {
       "GREETING": "Namaste, {{name}}!",
        "MY_TEAM": "My Team",
-      "MY_LEARNING": "My Learning",
+      "REVIEWER": "Reviewer",
+      "NOT_YET_IN_LANGUAGE": "Not yet available in {{language}}",
       "TITLE": "Home",
       "PROGRESS_TEXT": "Progress: {{percent}}% Completed",
       "LEARNING_PROGRESS": "Learning Progress",
@@ -852,6 +853,7 @@
     "ACTION_TYPE": "Action Type",
     "MESSAGE": "Message",
     "CREATE_ALERT": "Send Alert",
+    "SHARE_FEEDBACK_TO_LEARNER": "Share feedback to learner",
     "TRAINERS_TABLE_HEADER": "Trainer/CFL Incharges",
     "TRAINER_AND_CFL_INCHARGE": "District Incharge Progress",
     "ACTIONS": "Actions",

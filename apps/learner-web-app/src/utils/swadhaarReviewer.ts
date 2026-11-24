@@ -81,8 +81,12 @@ export const canOpenTeamDashboard = (isReviewer: boolean = isReviewerSession()):
   hasDashboardRole() || isReviewer;
 
 /**
- * Lands on the team dashboard instead of the learner home: cfl / arm always; a Reviewer only when
- * they have no learning of their own (a trainer who is also a Reviewer keeps the home + "My Team").
+ * Lands on the team dashboard (the CFL screens) instead of the learner home: cfl / arm, and every
+ * Reviewer, whatever their organisation role (23 Nov: no My Team / My Learning switch).
  */
 export const startsOnTeamDashboard = (isReviewer: boolean = isReviewerSession()): boolean =>
-  hasDashboardRole() || (isReviewer && !hasOwnLearning());
+  hasDashboardRole() || isReviewer;
+
+/** A Reviewer without a dashboard role (cfl / arm): the CFL screens show their group team */
+export const isGroupReviewerOnly = (isReviewer: boolean = isReviewerSession()): boolean =>
+  isReviewer && !hasDashboardRole();
