@@ -1,6 +1,9 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import { joinUserName } from '@learner/utils/userName';
+import { getUserDetails } from '@learner/utils/API/services/ProfileService';
+import { getDisplayLocation } from '@learner/utils/swadhaarProfile';
 import { Box, Typography, Card, CardContent, Avatar, Modal } from '@mui/material';
 import CFLHeader from '../../../../../../libs/cfl/components/CFLHeader';
 import AlertForm from '../../../../../../libs/cfl/components/AlertForm';
@@ -18,8 +21,8 @@ function AlertContent() {
   const avatarUrlParam = searchParams.get('avatarUrl');
   const isCflIncharge = targetRole === 'cfl_incharge';
 
-  const [trainerName, setTrainerName] = useState('Jaya K.');
-  const [trainerSub, setTrainerSub] = useState('CFL Jharkhand - Torpa');
+ const [trainerName, setTrainerName] = useState('');
+  const [trainerSub, setTrainerSub] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<'success' | 'error'>('success');
@@ -41,7 +44,17 @@ function AlertContent() {
   useEffect(() => {
     if (trainerId) {
       if (nameParam) setTrainerName(nameParam);
-      setTrainerSub(`CFL Jharkhand - Torpa`);
+        // Under the learner's name: their own designation and location
+      getUserDetails(trainerId, true)
+        .then((res) => {
+          const profile = res?.result?.userData;
+          if (!profile) return;
+          const name = joinUserName(profile.firstName, profile.middleName, profile.lastName);
+          if (name) setTrainerName(name);
+          const designation = profile.tenantData?.[0]?.roleName || profile.role || '';
+          setTrainerSub([designation, getDisplayLocation(profile)].filter(Boolean).join(': '));
+        })
+        .catch((err) => console.warn('Could not load the learner profile:', err));
     }
   }, [trainerId, nameParam]);
 
@@ -52,15 +65,16 @@ function AlertContent() {
     // For "feedback", it goes to the trainer's userId
     const targetUserId = data.actionType === 'raiseToDI' ? diId : trainerId;
     const cflName = typeof window !== 'undefined'
-      ? (`${localStorage.getItem('firstName') || ''} ${localStorage.getItem('lastName') || ''}`.trim() || localStorage.getItem('name') || 'District Incharge')
+    ? (joinUserName(localStorage.getItem('firstName'), '', localStorage.getItem('lastName')) || localStorage.getItem('name') || 'District Incharge')
       : 'District Incharge';
 
     const userRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : 'CFL';
-    const stateName = typeof window !== 'undefined' ? localStorage.getItem('stateName') || 'Jharkhand' : 'Jharkhand';
-    const districtName = typeof window !== 'undefined' ? localStorage.getItem('districtName') || 'Torpa' : 'Torpa';
+     const stateName = typeof window !== 'undefined' ? localStorage.getItem('stateName') || '' : '';
+    const districtName = typeof window !== 'undefined' ? localStorage.getItem('districtName') || '' : '';
     const isDI = userRole === 'ARM';
     const senderDesignation = isDI ? 'ARM' : 'District Incharge';
-    const senderLocation = isDI ? `ARM: CFL ${stateName} - ${districtName}` : `District Incharge: CFL ${stateName} - ${districtName}`;
+       const senderPlace = [stateName, districtName].filter(Boolean).join(' - ');
+    const senderLocation = senderPlace ? `${senderDesignation}: ${senderPlace}` : senderDesignation;
 
     const payload = {
       userId: targetUserId,

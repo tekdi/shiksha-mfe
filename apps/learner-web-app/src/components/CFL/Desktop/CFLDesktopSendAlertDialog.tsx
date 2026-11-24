@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import { getDIForCFL } from '../../../../../../libs/cfl/services/cflService';
 import { useTranslation } from '@shared-lib';
-
+import { joinUserName } from '@learner/utils/userName';
 const PRIMARY = '#E6873C';
 const DARK_NAV = '#1C2B4A';
 
@@ -70,7 +70,7 @@ const CFLDesktopSendAlertDialog: React.FC<CFLDesktopSendAlertDialogProps> = ({ o
       // If Raise to ARM, send notification to the DI's userId; otherwise to the trainer's userId
       const targetUserId = actionType === 'Raise to ARM' ? diId : trainer.id;
       const cflName = typeof window !== 'undefined'
-        ? (`${localStorage.getItem('firstName') || ''} ${localStorage.getItem('lastName') || ''}`.trim() || localStorage.getItem('name') || 'District Incharge')
+        ? (joinUserName(localStorage.getItem('firstName'), '', localStorage.getItem('lastName')) || localStorage.getItem('name') || 'District Incharge')
         : 'District Incharge';
 
       const notifUrl = process.env.NEXT_PUBLIC_NOTIFICATION_URL
@@ -78,11 +78,13 @@ const CFLDesktopSendAlertDialog: React.FC<CFLDesktopSendAlertDialogProps> = ({ o
         : 'https://notification.tekdinext.com/notification/inApp';
 
       const userRole = typeof window !== 'undefined' ? localStorage.getItem('userRole') : 'CFL';
-      const stateName = typeof window !== 'undefined' ? localStorage.getItem('stateName') || 'Jharkhand' : 'Jharkhand';
-      const districtName = typeof window !== 'undefined' ? localStorage.getItem('districtName') || 'Torpa' : 'Torpa';
+        const stateName = typeof window !== 'undefined' ? localStorage.getItem('stateName') || '' : '';
+      const districtName = typeof window !== 'undefined' ? localStorage.getItem('districtName') || '' : '';
       const isDI = userRole === 'ARM';
       const senderDesignation = isDI ? 'ARM' : 'District Incharge';
-      const senderLocation = isDI ? `ARM: CFL ${stateName} - ${districtName}` : `District Incharge: CFL ${stateName} - ${districtName}`;
+        // No placeholder place: only the parts of the sender's location that are set
+      const senderPlace = [stateName, districtName].filter(Boolean).join(' - ');
+      const senderLocation = senderPlace ? `${senderDesignation}: ${senderPlace}` : senderDesignation;
 
       const response = await fetch(notifUrl, {
         method: 'POST',
@@ -198,7 +200,7 @@ const CFLDesktopSendAlertDialog: React.FC<CFLDesktopSendAlertDialogProps> = ({ o
                     {trainer.name}
                   </Typography>
                   <Typography sx={{ color: '#FFFFFFBB', fontSize: 11, fontFamily: 'Inter' }}>
-                    {trainer.location || 'CFL Jharkhand - Torpa'}
+                   {trainer.location || ''}
                   </Typography>
                 </Box>
                 <Avatar

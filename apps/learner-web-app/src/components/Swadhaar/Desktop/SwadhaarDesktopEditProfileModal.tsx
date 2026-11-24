@@ -15,7 +15,7 @@ import { getUserDetails, editEditUser, uploadProfilePhoto } from '@learner/utils
 import { showToastMessage } from '@learner/components/ToastComponent/Toastify';
 import { useTranslation } from '@shared-lib';
 import { LANGUAGE_OPTIONS, LanguageCode } from '@learner/utils/constants/language';
-
+import { joinUserName, splitFullName } from '@learner/utils/userName';
 const PRIMARY = '#E6873C';
 const DARK_NAV = '#1C2B4A';
 
@@ -74,7 +74,7 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
   };
 
   const fullName = capitalize(
-    `${profileData?.firstName || ''} ${profileData?.lastName || ''}`.trim()
+     joinUserName(profileData?.firstName, profileData?.middleName, profileData?.lastName)
   );
 
   const getCustomFieldValue = (fieldId: string) => {
@@ -100,20 +100,16 @@ const SwadhaarDesktopEditProfileModal: React.FC<SwadhaarDesktopEditProfileModalP
     try {
       const userId = localStorage.getItem('userId');
       if (userId) {
-        const trimmed = newName.trim();
-        const parts = trimmed.split(/\s+/);
-        const firstName = capitalize(parts[0] || '');
-        const lastName = parts.length > 1 ? capitalize(parts.slice(1).join(' ')) : '';
+       // One word is allowed: it is saved as first and last name and shown once (joinUserName)
+        const split = splitFullName(newName);
+        const firstName = capitalize(split.firstName);
+        const lastName = capitalize(split.lastName);
 
         if (!firstName) {
           showToastMessage('First name is required', 'error');
           throw new Error('validation_failed');
         }
-        if (!lastName) {
-          showToastMessage('Last name is required', 'error');
-          throw new Error('validation_failed');
-        }
-
+      
         await editEditUser(userId, { firstName, lastName });
         showToastMessage(t('LEARNER_APP.PROFILE.NAME_UPDATED_SUCCESS'), 'success');
         setIsEditingName(false);

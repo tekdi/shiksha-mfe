@@ -1,4 +1,5 @@
 import { post, get } from '@shared-lib';
+import { joinUserName } from '@learner/utils/userName';
 import { Trainer, CourseProgress, AlertFeedback } from '../types';
 import axios from 'axios';
 import {
@@ -223,7 +224,7 @@ export const cfllearnerlist = async (
 
       return {
         id: user.userId,
-        name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username,
+  name: joinUserName(user.firstName, user.middleName, user.lastName) || user.username,
         avatarUrl: user.avatar || user.profileImage || null,
         currentLevel: currentCourseName,
         location: `CFL: ${stateField} - ${districtField}`,
