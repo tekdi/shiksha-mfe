@@ -216,11 +216,59 @@ export const getMyReviewerScope = async (): Promise<ReviewerScope> => {
 };
 
 /**
+ * The given groups that still exist and are active (cohort/search). null when that cannot be told
+ * (the call failed or returned nothing), so the caller keeps every group.
+ */
+const getLiveCohortIds = async (cohortIds: string[]): Promise<Set<string> | null> => {
+  if (cohortIds.length === 0) return null;
+  try {
+    const token = localStorage.getItem('token') || '';
+    const tenantId = resolveTenantId(localStorage.getItem('tenantId') || undefined);
+    const headers: Record<string, string> = {
+      academicyearid: resolveAcademicYearId(localStorage.getItem('academicYearId') || undefined),
+      tenantid: tenantId,
+      organisationid: SWADHAAR_ORGANISATION_ID,
+      accept: 'application/json, text/plain, */*',
+      authorization: `Bearer ${token}`,
+    };
+    const response = await post(
+      `${USER_SERVICE_URL}/cohort/search`,
+      { limit: 0, offset: 0, filters: { tenantId, cohortId: cohortIds } },
+      headers
+    );
+    const data = response?.data?.data || response?.data || response;
+    const found: any[] =
+      data?.result?.results?.cohortDetails || data?.cohortDetails || data?.result?.cohortDetails || [];
+    if (found.length === 0) return null;
+    return new Set(
+      found
+        .filter((c: any) => !['archived', 'inactive', 'deleted'].includes(String(c.status || '').toLowerCase()))
+        .map((c: any) => c.cohortId || c.id)
+    );
+  } catch (e) {
+    console.warn('Could not check the reviewer groups:', e);
+    return null;
+  }
+};
+
+/**
  * Task 76: the team of a Reviewer = the Learners of the groups they review (my-scope), as the same
  * cards the CFL dashboard shows (LMS course progress, profile photo). Nobody outside the scope.
  */
 export const reviewerLearnerList = async (knownScope?: ReviewerScope) => {
-  const scope = knownScope || (await getMyReviewerScope());
+  const fullScope = knownScope || (await getMyReviewerScope());
+  // my-scope also lists groups further down the chain (depth 2+: groups reviewed by this Reviewer's own Learners).
+  // The team is the Learners of the groups the Reviewer reviews directly, the lowest depth.
+  const directDepth = Math.min(...fullScope.groups.map((g) => g.depth ?? 1));
+  const candidateGroups = fullScope.groups.filter((g) => (g.depth ?? 1) === directDepth);
+  // my-scope can still list a group that was deleted, so each group is checked before its Learners are shown
+  const liveIds = await getLiveCohortIds(candidateGroups.map((g) => g.cohortId));
+  const directGroups = liveIds ? candidateGroups.filter((g) => liveIds.has(g.cohortId)) : candidateGroups;
+  const scope: ReviewerScope = {
+    ...fullScope,
+    groups: directGroups,
+    userIds: Array.from(new Set(directGroups.flatMap((g) => g.learnerUserIds || []))),
+  };
   const groupIds = scope.groups.map((g) => g.cohortId);
   if (groupIds.length === 0 || scope.userIds.length === 0) return [];
 
@@ -242,11 +290,17 @@ export const reviewerLearnerList = async (knownScope?: ReviewerScope) => {
   const data = response?.data?.data || response?.data;
   const members: any[] = data?.result?.userDetails || [];
 
-  // Only Learners in scope, each once (a Learner can be in two of the reviewer's groups)
-  const inScope = new Set(scope.userIds);
+  // Only the Learners of the groups the Reviewer reviews, each once (a Learner can be in two of those groups).
+  // The scope's userIds can be wider than the groups, so the groups' own learner lists decide when the server
+  // sends them; a member row from another group (the list filter not applied) or the Reviewer themself is left out.
+  const groupLearnerIds = new Set(scope.groups.flatMap((g) => g.learnerUserIds || []));
+  const allowed = groupLearnerIds.size > 0 ? groupLearnerIds : new Set(scope.userIds);
+  const selfId = localStorage.getItem('userId');
+  const reviewedGroups = new Set(groupIds);
   const seen = new Set<string>();
   const learners = members.filter((u: any) => {
-    if (!inScope.has(u.userId) || seen.has(u.userId)) return false;
+    if (!allowed.has(u.userId) || u.userId === selfId || seen.has(u.userId)) return false;
+    if (u.cohortId && !reviewedGroups.has(u.cohortId)) return false;
     seen.add(u.userId);
     return true;
   });

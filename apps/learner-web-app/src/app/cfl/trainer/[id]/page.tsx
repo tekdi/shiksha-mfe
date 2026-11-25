@@ -5,6 +5,7 @@ import { Box, Typography, CircularProgress, useMediaQuery, useTheme } from '@mui
 import CFLHeader from '../../../../../../../libs/cfl/components/CFLHeader';
 import ProfileCard from '../../../../../../../libs/cfl/components/ProfileCard';
 import FABButton from '../../../../../../../libs/cfl/components/FABButton';
+import LanguagePreferenceModal from '@learner/components/LanguagePreferenceModal/LanguagePreferenceModal';
 import SwadhaarLevelAccordion from '../../../../components/Swadhaar/SwadhaarLevelAccordion';
 import {
   buildSwadhaarLevels,
@@ -38,6 +39,9 @@ export default function TrainerDetailPage() {
   const [cflName, setCflName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [levels, setLevels] = useState<SwadhaarLevel[]>([]);
+  // Same saved preference as the learner home; the courses shown follow it
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
+  const [languageModalOpen, setLanguageModalOpen] = useState(false);
   const [statusData, setStatusData] = useState<any[]>([]);
   const [expandedLevelId, setExpandedLevelId] = useState<string | null>(null);
 
@@ -80,6 +84,7 @@ export default function TrainerDetailPage() {
 
       // The trainer's own enrolled courses and module progress, from the Swadhaar LMS
       // (enrollments/users-courses?userId= and courses/:id/hierarchy/tracking/:trainerId)
+      setSelectedLanguage(getSavedCourseLanguage());
       const trainerCourses = await fetchSwadhaarEnrolledCourses(trainerId, getSavedCourseLanguage());
       const status = trainerCourses.flatMap((course: any) => course.trackingStatus || []);
       const levelDataList = buildSwadhaarLevels(trainerCourses, status);
@@ -99,6 +104,20 @@ export default function TrainerDetailPage() {
       setIsLoading(false);
     }
   }, [id]);
+
+  const handleLanguageSelect = async (lang: string) => {
+    setSelectedLanguage(lang);
+    localStorage.setItem('swadhaarLanguage', lang);
+    localStorage.setItem('contentLanguage', lang);
+    setLanguageModalOpen(false);
+    try {
+      const { updateContentLanguageInProfile } = await import('@learner/utils/API/userService');
+      await updateContentLanguageInProfile(lang);
+    } catch (error) {
+      console.error('Failed to update content language in profile', error);
+    }
+    loadData();
+  };
 
   useEffect(() => {
     loadData();
@@ -143,6 +162,8 @@ export default function TrainerDetailPage() {
                   router.push(`/learn/${level.id}/${mid}?trainerId=${id}&isCFL=true&name=${encodeURIComponent(trainerName)}&avatarUrl=${encodeURIComponent(trainerAvatar || '')}`);
                 }}
                 modules={level.rawChildren}
+                selectedLanguage={selectedLanguage}
+                onChangeLanguage={() => setLanguageModalOpen(true)}
               />
             ))}
           </Box>
@@ -152,6 +173,13 @@ export default function TrainerDetailPage() {
           </Typography>
         )}
       </Box>
+
+      <LanguagePreferenceModal
+        open={languageModalOpen}
+        onClose={() => setLanguageModalOpen(false)}
+        onSelect={handleLanguageSelect}
+        selectedLanguage={selectedLanguage}
+      />
 
       <FABButton trainerId={id as string} trainerName={trainerName} avatarUrl={trainerAvatar} />
     </Box>

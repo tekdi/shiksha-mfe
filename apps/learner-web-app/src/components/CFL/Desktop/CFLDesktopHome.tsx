@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import SwadhaarDesktopAlertsPanel from '../../Swadhaar/Desktop/SwadhaarDesktopAlertsPanel';
 import SwadhaarDesktopEditProfileModal from '../../Swadhaar/Desktop/SwadhaarDesktopEditProfileModal';
 import SwadhaarDesktopLevelAccordion from '../../Swadhaar/Desktop/SwadhaarDesktopLevelAccordion';
+import LanguagePreferenceModal from '../../LanguagePreferenceModal/LanguagePreferenceModal';
 import ConfirmationModal from '../../../components/ConfirmationModal/ConfirmationModal';
 import { getAlerts, getUnreadCount, fetchAndSyncAlerts } from '@learner/utils/alertsStore';
 import { getUserDetails } from '@learner/utils/API/services/ProfileService';
@@ -69,6 +70,9 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
   const [cflLevels, setCflLevels] = useState<any[]>([]);
   const [cflStatusData, setCflStatusData] = useState<any[]>([]);
   const [cflLevelsLoading, setCflLevelsLoading] = useState(true);
+  // The language the CFL's own courses are shown in (same preference as the learner home)
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('English');
+  const [languageModalOpen, setLanguageModalOpen] = useState(false);
   const [expandedLevels, setExpandedLevels] = useState<Record<string, boolean>>({});
 
   const userId = typeof window !== 'undefined' ? localStorage.getItem('userId') || '' : '';
@@ -146,8 +150,25 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
   }, []);
 
   useEffect(() => {
+    setSelectedLanguage(getSavedCourseLanguage());
     loadCFLLearningProgress();
   }, [loadCFLLearningProgress]);
+
+  const handleLanguageSelect = async (lang: string) => {
+    setSelectedLanguage(lang);
+    localStorage.setItem('swadhaarLanguage', lang);
+    localStorage.setItem('contentLanguage', lang);
+    setLanguageModalOpen(false);
+    try {
+      const { updateContentLanguageInProfile } = await import('@learner/utils/API/userService');
+      await updateContentLanguageInProfile(lang);
+    } catch (error) {
+      console.error('Failed to update content language in profile', error);
+    }
+    // The own courses and the trainer progress list follow the new language
+    await loadCFLLearningProgress();
+    onReload?.();
+  };
 
   const handleCloseAlertsPanel = () => {
     setAlertsPanelOpen(false);
@@ -372,6 +393,8 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
                       modules={level.rawChildren}
                       onModuleClick={(mid) => handleModuleClick(level.id, mid)}
                       showDescriptions={true}
+                      selectedLanguage={selectedLanguage}
+                      onChangeLanguage={() => setLanguageModalOpen(true)}
                     />
                   ))}
                 </Box>
@@ -379,6 +402,13 @@ const CFLDesktopHome: React.FC<CFLDesktopHomeProps> = ({ trainers, loading, erro
             </Box>
           </Box>
         </Box>
+
+        <LanguagePreferenceModal
+          open={languageModalOpen}
+          onClose={() => setLanguageModalOpen(false)}
+          onSelect={handleLanguageSelect}
+          selectedLanguage={selectedLanguage}
+        />
 
         {/* Alerts Sidebar */}
         {alertsPanelOpen && (
