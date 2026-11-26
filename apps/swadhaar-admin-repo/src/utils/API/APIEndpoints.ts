@@ -80,6 +80,16 @@ export const API_ENDPOINTS = {
     `${swadhaarMiddlewareUrl}/user/v1/read/${userId}?fieldvalue=${fieldValue}`,
   userAnonymize: `${baseurl}/user/v1/anonymize`,
   userUpdate: (userId: string) => `${baseurl}/user/v1/update/${userId}`,
+  // Org Management and Branch Management (user service src/masters; Admin role only)
+  organisationList: `${baseurl}/user/v1/masters/organisation/list`,
+  organisationCreate: `${baseurl}/user/v1/masters/organisation/create`,
+  organisationUpdate: (organisationId: string) =>
+    `${baseurl}/user/v1/masters/organisation/update/${encodeURIComponent(organisationId)}`,
+  stateList: `${baseurl}/user/v1/masters/state/list`,
+  districtList: `${baseurl}/user/v1/masters/district/list`,
+  branchList: `${baseurl}/user/v1/masters/branch/list`,
+  branchCreate: `${baseurl}/user/v1/masters/branch/create`,
+  branchUpdate: (value: string) => `${baseurl}/user/v1/masters/branch/update/${encodeURIComponent(value)}`,
 
   // Fields / Master Data
   fieldOptionsRead: `${baseurl}/user/v1/fields/options/read`,

@@ -22,6 +22,9 @@ import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import SecurityIcon from '@mui/icons-material/Security';
+import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
+import CorporateFareIcon from '@mui/icons-material/CorporateFare';
+import StorefrontIcon from '@mui/icons-material/Storefront';
 import ArrowDropDownIcon from '@mui/icons-material/ArrowDropDown';
 import ArrowRightIcon from '@mui/icons-material/ArrowRight';
 import Link from 'next/link';
@@ -34,7 +37,7 @@ interface SidebarProps {
   onSidebarClose: () => void;
 }
 
-type MenuGroup = 'people' | 'learning';
+type MenuGroup = 'people' | 'learning' | 'administration';
 
 /** External analytics dashboard, opened in a new tab. */
 const DASHBOARD_URL = 'https://bot-dev.tekdinext.com/dashboard/auth/login?redirect=%2F';
@@ -245,6 +248,9 @@ const LaterMenuItem: React.FC<LaterMenuItemProps> = ({ label, badge, icon }) => 
 
 const isLearningPath = (path: string) =>
   path.startsWith('/content') || path.startsWith('/course') || path.startsWith('/learning-paths');
+/** Administration: Org Management and Branch Management (the portal is admin-only). */
+const isAdministrationPath = (path: string) =>
+  path.startsWith('/org-management') || path.startsWith('/branch-management');
 
 const isPeoplePath = (path: string) =>
   path.startsWith('/user') ||
@@ -259,6 +265,8 @@ const getActiveStates = (path: string) => ({
   courses: path.startsWith('/content/courses') || path.startsWith('/course'),
   content: path === '/content' || path.startsWith('/content/library'),
   paths: path.startsWith('/learning-paths') || path.startsWith('/content/learning-paths'),
+    orgManagement: path.startsWith('/org-management'),
+  branchManagement: path.startsWith('/branch-management'),
 });
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -277,7 +285,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   // Keep expandedMenu in sync with current route
   useEffect(() => {
     const path = router.pathname;
-    if (isLearningPath(path)) {
+   if (isAdministrationPath(path)) {
+      setExpandedMenu('administration');
+    } else if (isLearningPath(path)) {
       setExpandedMenu('learning');
     } else if (isPeoplePath(path)) {
       setExpandedMenu('people');
@@ -372,7 +382,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </Collapse>
         </Box>
 
-        {/* ==================== 3. DASHBOARD (EXTERNAL LINK) ==================== */}
+    {/* ==================== 3. ADMINISTRATION (MAIN MENU) ==================== */}
+        <Box sx={{ mb: 1 }}>
+          <MainMenuButton
+            label={t('SIDEBAR.ADMINISTRATION')}
+            icon={<AdminPanelSettingsIcon fontSize="small" />}
+            expanded={expandedMenu === 'administration'}
+            onClick={() => openGroup('administration', '/org-management')}
+          />
+          <Collapse in={expandedMenu === 'administration'} timeout="auto" unmountOnExit>
+            <List disablePadding sx={{ pt: 0.3, pb: 0.5 }}>
+              <SubMenuLink
+                href="/org-management"
+                label={t('SIDEBAR.ORG_MANAGEMENT')}
+                icon={<CorporateFareIcon fontSize="small" />}
+                active={active.orgManagement}
+                onClick={onSidebarClose}
+              />
+              <SubMenuLink
+                href="/branch-management"
+                label={t('SIDEBAR.BRANCH_MANAGEMENT')}
+                icon={<StorefrontIcon fontSize="small" />}
+                active={active.branchManagement}
+                onClick={onSidebarClose}
+              />
+            </List>
+          </Collapse>
+        </Box>
+
+        {/* ==================== 4. DASHBOARD (EXTERNAL LINK) ==================== */}
         <Box sx={{ mb: 1 }}>
           <ExternalMenuLink
             href={DASHBOARD_URL}
@@ -382,7 +420,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           />
         </Box>
 
-        {/* ==================== 4. LATER ITEMS ==================== */}
+        {/* ==================== 5. LATER ITEMS ==================== */}
         {/* <LaterMenuItem
           label={t('SIDEBAR.NOTIFICATIONS')}
           badge={laterLabel}
