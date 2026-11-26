@@ -263,7 +263,7 @@ export const SDBVHierarchyFilter: React.FC<SDBVHierarchyFilterProps> = ({
                   borderColor: '#D1D5DB',
                 }}
               >
-                <MenuItem value="all">All statuses</MenuItem>
+                <MenuItem value="all">All status</MenuItem>
                 {formattedStatuses.map((st) => (
                   <MenuItem key={st.value} value={st.value}>
                     {st.label}
